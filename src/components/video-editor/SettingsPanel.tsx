@@ -537,6 +537,7 @@ export function SettingsPanel({
 		},
 		[cropRegion, videoWidth, videoHeight],
 	);
+	const [showCropDropdown, setShowCropDropdown] = useState(false);
 
 	const zoomEnabled = Boolean(selectedZoomDepth);
 	const trimEnabled = Boolean(selectedTrimId);
@@ -623,20 +624,6 @@ export function SettingsPanel({
 		if (selected === imageUrl) {
 			onWallpaperChange(WALLPAPER_PATHS[0]);
 		}
-	};
-
-	const handleCropToggle = () => {
-		if (!showCropModal && cropRegion) {
-			cropSnapshotRef.current = { ...cropRegion };
-		}
-		setShowCropModal(!showCropModal);
-	};
-
-	const handleCropCancel = () => {
-		if (cropSnapshotRef.current && onCropChange) {
-			onCropChange(cropSnapshotRef.current);
-		}
-		setShowCropModal(false);
 	};
 
 	// Find selected annotation
@@ -1745,11 +1732,11 @@ export function SettingsPanel({
 				</div>
 			</div>
 
-			{showCropModal && cropRegion && onCropChange && (
+			{showCropDropdown && cropRegion && onCropChange && (
 				<>
 					<div
 						className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 animate-in fade-in duration-200"
-						onClick={handleCropCancel}
+						onClick={() => setShowCropDropdown(false)}
 					/>
 					<div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] bg-[#09090b] rounded-2xl shadow-2xl border border-white/10 p-8 w-[90vw] max-w-5xl max-h-[90vh] overflow-auto animate-in zoom-in-95 duration-200">
 						<div className="flex items-center justify-between mb-6">
@@ -1760,7 +1747,7 @@ export function SettingsPanel({
 							<Button
 								variant="ghost"
 								size="icon"
-								onClick={handleCropCancel}
+								onClick={() => setShowCropDropdown(false)}
 								className="hover:bg-white/10 text-slate-400 hover:text-white"
 							>
 								<X className="w-5 h-5" />
@@ -1856,7 +1843,7 @@ export function SettingsPanel({
 
 							<div className="flex justify-end">
 								<Button
-									onClick={() => setShowCropModal(false)}
+									onClick={() => setShowCropDropdown(false)}
 									size="lg"
 									className="bg-[#34B27B] hover:bg-[#34B27B]/90 text-white"
 								>
