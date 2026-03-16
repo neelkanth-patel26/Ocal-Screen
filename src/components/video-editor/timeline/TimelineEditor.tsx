@@ -51,6 +51,7 @@ const SUGGESTION_SPACING_MS = 1800;
 
 interface TimelineEditorProps {
 	videoDuration: number;
+	hasVideoSource?: boolean;
 	currentTime: number;
 	onSeek?: (time: number) => void;
 	cursorTelemetry?: CursorTelemetryPoint[];
@@ -766,6 +767,7 @@ function Timeline({
 
 export default function TimelineEditor({
 	videoDuration,
+	hasVideoSource = false,
 	currentTime,
 	onSeek,
 	cursorTelemetry = [],
@@ -1439,8 +1441,14 @@ export default function TimelineEditor({
 					<Plus className="w-6 h-6 text-slate-600" />
 				</div>
 				<div className="text-center">
-					<p className="text-sm font-medium text-slate-300">{t("emptyState.noVideo")}</p>
-					<p className="text-xs text-slate-500 mt-1">{t("emptyState.dragAndDrop")}</p>
+					<p className="text-sm font-medium text-slate-300">
+						{hasVideoSource ? "Loading Timeline" : "No Video Loaded"}
+					</p>
+					<p className="text-xs text-slate-500 mt-1">
+						{hasVideoSource
+							? "Video opened, waiting for duration metadata"
+							: "Drag and drop a video to start editing"}
+					</p>
 				</div>
 			</div>
 		);

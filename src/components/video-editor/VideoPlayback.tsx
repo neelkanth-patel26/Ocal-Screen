@@ -28,6 +28,12 @@ import {
 import { classifyWallpaper, DEFAULT_WALLPAPER, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { getCssClipPath } from "@/lib/webcamMaskShapes";
 import {
+	getNativeCursorDisplayMetrics,
+	projectNativeCursorToStage,
+	resolveActiveNativeCursorFrame,
+} from "@/lib/cursor/nativeCursor";
+import type { CursorRecordingData } from "@/native/contracts";
+import {
 	type AspectRatio,
 	formatAspectRatioForCSS,
 	getNativeAspectRatioValue,
@@ -123,6 +129,7 @@ interface VideoPlaybackProps {
 	trimRegions?: TrimRegion[];
 	speedRegions?: SpeedRegion[];
 	aspectRatio: AspectRatio;
+	cursorRecordingData?: CursorRecordingData | null;
 	annotationRegions?: AnnotationRegion[];
 	selectedAnnotationId?: string | null;
 	onSelectAnnotation?: (id: string | null) => void;
@@ -153,6 +160,22 @@ export interface VideoPlaybackRef {
 	containerRef: React.RefObject<HTMLDivElement>;
 	play: () => Promise<void>;
 	pause: () => void;
+}
+
+function getResolvedVideoDuration(video: HTMLVideoElement): number | null {
+	if (Number.isFinite(video.duration) && video.duration > 0) {
+		return video.duration;
+	}
+
+	if (video.seekable.length > 0) {
+		const lastRangeIndex = video.seekable.length - 1;
+		const seekableEnd = video.seekable.end(lastRangeIndex);
+		if (Number.isFinite(seekableEnd) && seekableEnd > 0) {
+			return seekableEnd;
+		}
+	}
+
+	return null;
 }
 
 const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
@@ -188,6 +211,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			trimRegions = [],
 			speedRegions = [],
 			aspectRatio,
+			cursorRecordingData,
 			annotationRegions = [],
 			selectedAnnotationId,
 			onSelectAnnotation,
@@ -843,6 +867,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		useEffect(() => {
 			if (!videoPath) {
+				lastResolvedDurationRef.current = null;
+				isResolvingDurationRef.current = false;
 				setVideoReady(false);
 				return;
 			}
@@ -853,11 +879,18 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			video.currentTime = 0;
 			allowPlaybackRef.current = false;
 			lockedVideoDimensionsRef.current = null;
+			lastResolvedDurationRef.current = null;
+			isResolvingDurationRef.current = false;
+			if (durationResolutionTimeoutRef.current) {
+				clearTimeout(durationResolutionTimeoutRef.current);
+				durationResolutionTimeoutRef.current = null;
+			}
 			setVideoReady(false);
 			if (videoReadyRafRef.current) {
 				cancelAnimationFrame(videoReadyRafRef.current);
 				videoReadyRafRef.current = null;
 			}
+			video.load();
 		}, [videoPath]);
 
 		useEffect(() => {
@@ -1299,8 +1332,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
 			const video = e.currentTarget;
-			onDurationChange(video.duration);
-			video.currentTime = 0;
+			const hasResolvedDuration = syncResolvedDuration(video);
+			if (!hasResolvedDuration) {
+				forceResolveDuration(video);
+			} else {
+				video.currentTime = 0;
+			}
 			video.pause();
 			allowPlaybackRef.current = false;
 			currentTimeRef.current = 0;
@@ -1313,6 +1350,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			const waitForRenderableFrame = () => {
 				const hasDimensions = video.videoWidth > 0 && video.videoHeight > 0;
 				const hasData = video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+				if (!syncResolvedDuration(video)) {
+					forceResolveDuration(video);
+				}
 				if (hasDimensions && hasData) {
 					videoReadyRafRef.current = null;
 					setVideoReady(true);
@@ -1411,6 +1451,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				if (scrubEndTimerRef.current !== null) {
 					window.clearTimeout(scrubEndTimerRef.current);
 					scrubEndTimerRef.current = null;
+				}
+				if (durationResolutionTimeoutRef.current) {
+					clearTimeout(durationResolutionTimeoutRef.current);
+					durationResolutionTimeoutRef.current = null;
 				}
 			};
 		}, []);
@@ -1527,6 +1571,22 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								className="absolute rounded-md border border-[#34B27B]/80 bg-[#34B27B]/20 shadow-[0_0_0_1px_rgba(52,178,123,0.35)]"
 								style={{ display: "none", pointerEvents: "none" }}
 							/>
+							{activeNativeCursor && nativeCursorStyle ? (
+								<img
+									alt=""
+									aria-hidden="true"
+									src={activeNativeCursor.asset.imageDataUrl}
+									className="absolute select-none"
+									style={{
+										left: nativeCursorStyle.left,
+										top: nativeCursorStyle.top,
+										width: nativeCursorStyle.width,
+										height: nativeCursorStyle.height,
+										pointerEvents: "none",
+										userSelect: "none",
+									}}
+								/>
+							) : null}
 							{(() => {
 								const filteredAnnotations = (annotationRegions || []).filter((annotation) => {
 									if (
@@ -1672,11 +1732,24 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					ref={videoRef}
 					src={videoPath}
 					className="hidden"
-					preload="metadata"
+					preload="auto"
+					muted
 					playsInline
 					onLoadedMetadata={handleLoadedMetadata}
 					onDurationChange={(e) => {
-						onDurationChange(e.currentTarget.duration);
+						if (!syncResolvedDuration(e.currentTarget)) {
+							forceResolveDuration(e.currentTarget);
+						}
+					}}
+					onLoadedData={(e) => {
+						if (!syncResolvedDuration(e.currentTarget)) {
+							forceResolveDuration(e.currentTarget);
+						}
+					}}
+					onCanPlay={(e) => {
+						if (!syncResolvedDuration(e.currentTarget)) {
+							forceResolveDuration(e.currentTarget);
+						}
 					}}
 					onError={() => onError("Failed to load video")}
 				/>
