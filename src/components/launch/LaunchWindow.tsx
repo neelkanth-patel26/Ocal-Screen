@@ -259,6 +259,8 @@ export function LaunchWindow() {
 
 	const [selectedSource, setSelectedSource] = useState("Screen");
 	const [hasSelectedSource, setHasSelectedSource] = useState(false);
+	const [, setHudPointerDownCount] = useState(0);
+	const [, setRecordPointerDownCount] = useState(0);
 
 	useEffect(() => {
 		const checkSelectedSource = async () => {
@@ -541,6 +543,9 @@ export function LaunchWindow() {
 						onClick={toggleMicrophone}
 						disabled={recording}
 						title={microphoneEnabled ? t("audio.disableMicrophone") : t("audio.enableMicrophone")}
+						onPointerDown={() => {
+							setRecordPointerDownCount((count) => count + 1);
+						}}
 					>
 						{microphoneEnabled
 							? getIcon("micOn", "text-green-400")

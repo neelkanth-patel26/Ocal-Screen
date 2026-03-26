@@ -59,7 +59,7 @@ import {
 import {
 	getNativeCursorDisplayMetrics,
 	projectNativeCursorToStage,
-	resolveActiveNativeCursorFrame,
+	resolveInterpolatedNativeCursorFrame,
 } from "@/lib/cursor/nativeCursor";
 import { BackgroundLoadError, classifyWallpaper, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { drawCanvasClipPath } from "@/lib/webcamMaskShapes";
@@ -86,6 +86,7 @@ interface FrameRenderConfig {
 	padding?: number;
 	cropRegion: CropRegion;
 	cursorRecordingData?: CursorRecordingData | null;
+	cursorScale?: number;
 	videoWidth: number;
 	videoHeight: number;
 	webcamSize?: Size | null;
@@ -558,7 +559,11 @@ export class FrameRenderer {
 			return;
 		}
 
-		const activeNativeCursor = resolveActiveNativeCursorFrame(
+		if ((this.config.cursorScale ?? 1) <= 0) {
+			return;
+		}
+
+		const activeNativeCursor = resolveInterpolatedNativeCursorFrame(
 			this.config.cursorRecordingData,
 			timeMs,
 		);
@@ -582,13 +587,13 @@ export class FrameRenderer {
 
 		const image = await this.getCursorImage(activeNativeCursor.asset);
 		const metrics = getNativeCursorDisplayMetrics(activeNativeCursor.asset, 1);
-
+		const scale = Math.max(0, this.config.cursorScale ?? 1);
 		this.compositeCtx.drawImage(
 			image,
-			projectedPoint.x - metrics.hotspotX,
-			projectedPoint.y - metrics.hotspotY,
-			metrics.width,
-			metrics.height,
+			projectedPoint.x - metrics.hotspotX * scale,
+			projectedPoint.y - metrics.hotspotY * scale,
+			metrics.width * scale,
+			metrics.height * scale,
 		);
 	}
 
