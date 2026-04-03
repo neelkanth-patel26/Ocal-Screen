@@ -52,3 +52,22 @@ export function smoothCursorFocus(raw: ZoomFocus, prev: ZoomFocus, factor: numbe
 		cy: prev.cy + (raw.cy - prev.cy) * factor,
 	};
 }
+
+/**
+ * Compute an adaptive smoothing factor that scales with distance:
+ * far from target → faster (maxFactor), close → slower (minFactor).
+ * This replaces the hard deadzone with a natural deceleration curve.
+ */
+export function adaptiveSmoothFactor(
+	raw: ZoomFocus,
+	prev: ZoomFocus,
+	minFactor: number,
+	maxFactor: number,
+	rampDistance: number,
+): number {
+	const dx = raw.cx - prev.cx;
+	const dy = raw.cy - prev.cy;
+	const distance = Math.sqrt(dx * dx + dy * dy);
+	const t = Math.min(1, distance / rampDistance);
+	return minFactor + (maxFactor - minFactor) * t;
+}

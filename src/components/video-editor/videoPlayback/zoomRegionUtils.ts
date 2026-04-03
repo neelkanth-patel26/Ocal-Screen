@@ -12,6 +12,7 @@ const ZOOM_IN_OVERLAP_MS = 500;
 type DominantRegionOptions = {
 	connectZooms?: boolean;
 	cursorTelemetry?: CursorTelemetryPoint[];
+	viewportRatio?: ViewportRatio;
 };
 
 type ConnectedRegionPair = {
@@ -66,11 +67,17 @@ function getLinearFocus(start: ZoomFocus, end: ZoomFocus, amount: number): ZoomF
 	};
 }
 
+interface ViewportRatio {
+	widthRatio: number;
+	heightRatio: number;
+}
+
 function getResolvedFocus(
 	region: ZoomRegion,
 	zoomScale: number,
 	timeMs?: number,
 	cursorTelemetry?: CursorTelemetryPoint[],
+	viewportRatio?: ViewportRatio,
 ): ZoomFocus {
 	let focus = region.focus;
 
@@ -86,7 +93,7 @@ function getResolvedFocus(
 		}
 	}
 
-	return clampFocusToScale(focus, zoomScale);
+	return clampFocusToScale(focus, zoomScale, viewportRatio);
 }
 
 function getConnectedRegionPairs(regions: ZoomRegion[]) {
@@ -118,6 +125,7 @@ function getActiveRegion(
 	timeMs: number,
 	connectedPairs: ConnectedRegionPair[],
 	cursorTelemetry?: CursorTelemetryPoint[],
+	viewportRatio?: ViewportRatio,
 ) {
 	const activeRegions = regions
 		.map((region) => {
@@ -152,7 +160,7 @@ function getActiveRegion(
 	return {
 		region: {
 			...activeRegion,
-			focus: getResolvedFocus(activeRegion, activeScale, timeMs, cursorTelemetry),
+			focus: getResolvedFocus(activeRegion, activeScale, timeMs, cursorTelemetry, viewportRatio),
 		},
 		strength: activeRegions[0].strength,
 		blendedScale: null,
@@ -163,6 +171,7 @@ function getConnectedRegionHold(
 	timeMs: number,
 	connectedPairs: ConnectedRegionPair[],
 	cursorTelemetry?: CursorTelemetryPoint[],
+	viewportRatio?: ViewportRatio,
 ) {
 	for (const pair of connectedPairs) {
 		if (timeMs > pair.transitionEnd && timeMs < pair.nextRegion.startMs) {
@@ -170,7 +179,13 @@ function getConnectedRegionHold(
 			return {
 				region: {
 					...pair.nextRegion,
-					focus: getResolvedFocus(pair.nextRegion, nextScale, timeMs, cursorTelemetry),
+					focus: getResolvedFocus(
+						pair.nextRegion,
+						nextScale,
+						timeMs,
+						cursorTelemetry,
+						viewportRatio,
+					),
 				},
 				strength: 1,
 				blendedScale: null,
@@ -185,6 +200,7 @@ function getConnectedRegionTransition(
 	connectedPairs: ConnectedRegionPair[],
 	timeMs: number,
 	cursorTelemetry?: CursorTelemetryPoint[],
+	viewportRatio?: ViewportRatio,
 ) {
 	for (const pair of connectedPairs) {
 		const { currentRegion, nextRegion, transitionStart, transitionEnd } = pair;
@@ -209,10 +225,12 @@ function getConnectedRegionTransition(
 				? sharedCursorFocus
 				: currentRegion.focus,
 			currentScale,
+			viewportRatio,
 		);
 		const nextFocus = clampFocusToScale(
 			nextRegion.focusMode === "auto" && sharedCursorFocus ? sharedCursorFocus : nextRegion.focus,
 			nextScale,
+			viewportRatio,
 		);
 		const transitionFocus = getLinearFocus(currentFocus, nextFocus, transitionProgress);
 
@@ -248,20 +266,21 @@ export function findDominantRegion(
 } {
 	const connectedPairs = options.connectZooms ? getConnectedRegionPairs(regions) : [];
 	const telemetry = options.cursorTelemetry;
+	const vr = options.viewportRatio;
 
 	if (options.connectZooms) {
-		const connectedTransition = getConnectedRegionTransition(connectedPairs, timeMs, telemetry);
+		const connectedTransition = getConnectedRegionTransition(connectedPairs, timeMs, telemetry, vr);
 		if (connectedTransition) {
 			return connectedTransition;
 		}
 
-		const connectedHold = getConnectedRegionHold(timeMs, connectedPairs, telemetry);
+		const connectedHold = getConnectedRegionHold(timeMs, connectedPairs, telemetry, vr);
 		if (connectedHold) {
 			return { ...connectedHold, transition: null };
 		}
 	}
 
-	const activeRegion = getActiveRegion(regions, timeMs, connectedPairs, telemetry);
+	const activeRegion = getActiveRegion(regions, timeMs, connectedPairs, telemetry, vr);
 	return activeRegion
 		? { ...activeRegion, transition: null }
 		: { region: null, strength: 0, blendedScale: null, transition: null };

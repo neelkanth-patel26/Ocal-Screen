@@ -41,13 +41,14 @@ import {
 	type ZoomRegion,
 } from "./types";
 import {
-	AUTO_FOLLOW_DEADZONE,
+	AUTO_FOLLOW_RAMP_DISTANCE,
 	AUTO_FOLLOW_SMOOTHING_FACTOR,
+	AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
 	DEFAULT_FOCUS,
 	ZOOM_SCALE_DEADZONE,
 	ZOOM_TRANSLATION_DEADZONE_PX,
 } from "./videoPlayback/constants";
-import { smoothCursorFocus } from "./videoPlayback/cursorFollowUtils";
+import { adaptiveSmoothFactor, smoothCursorFocus } from "./videoPlayback/cursorFollowUtils";
 import { clampFocusToStage as clampFocusToStageUtil } from "./videoPlayback/focusUtils";
 import { layoutVideoContent as layoutVideoContentUtil } from "./videoPlayback/layoutUtils";
 import { clamp01 } from "./videoPlayback/mathUtils";
@@ -843,10 +844,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			};
 
 			const ticker = () => {
+				const bm = baseMaskRef.current;
+				const ss = stageSizeRef.current;
+				const viewportRatio =
+					bm.width > 0 && bm.height > 0
+						? { widthRatio: ss.width / bm.width, heightRatio: ss.height / bm.height }
+						: undefined;
 				const { region, strength, blendedScale, transition } = findDominantRegion(
 					zoomRegionsRef.current,
 					currentTimeRef.current,
-					{ connectZooms: true, cursorTelemetry: cursorTelemetryRef.current },
+					{ connectZooms: true, cursorTelemetry: cursorTelemetryRef.current, viewportRatio },
 				);
 
 				const defaultFocus = DEFAULT_FOCUS;
@@ -867,24 +874,24 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					targetFocus = regionFocus;
 					targetProgress = strength;
 
-					// Apply deadzone + smoothing for auto-follow mode
+					// Apply adaptive smoothing for auto-follow mode
 					if (region.focusMode === "auto" && !transition) {
 						const raw = targetFocus;
 						const isZoomingIn =
 							targetProgress < 0.999 && targetProgress >= prevTargetProgressRef.current;
 						if (targetProgress >= 0.999) {
-							// Full zoom: apply deadzone + smoothing for stable follow
+							// Full zoom: adaptive smoothing — moves faster when far, decelerates when close
 							const prev = smoothedAutoFocusRef.current ?? raw;
-							const dx = Math.abs(raw.cx - prev.cx);
-							const dy = Math.abs(raw.cy - prev.cy);
-							if (dx > AUTO_FOLLOW_DEADZONE || dy > AUTO_FOLLOW_DEADZONE) {
-								const smoothed = smoothCursorFocus(raw, prev, AUTO_FOLLOW_SMOOTHING_FACTOR);
-								smoothedAutoFocusRef.current = smoothed;
-								targetFocus = smoothed;
-							} else {
-								smoothedAutoFocusRef.current = prev;
-								targetFocus = prev;
-							}
+							const factor = adaptiveSmoothFactor(
+								raw,
+								prev,
+								AUTO_FOLLOW_SMOOTHING_FACTOR,
+								AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
+								AUTO_FOLLOW_RAMP_DISTANCE,
+							);
+							const smoothed = smoothCursorFocus(raw, prev, factor);
+							smoothedAutoFocusRef.current = smoothed;
+							targetFocus = smoothed;
 						} else if (isZoomingIn) {
 							// Zoom-in: track cursor directly so zoom always aims at current cursor
 							// position; keep ref in sync to avoid snap when full-zoom begins
@@ -892,7 +899,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						} else {
 							// Zoom-out: keep smoothing for continuity — avoids snap at zoom-out start
 							const prev = smoothedAutoFocusRef.current ?? raw;
-							const smoothed = smoothCursorFocus(raw, prev, AUTO_FOLLOW_SMOOTHING_FACTOR);
+							const factor = adaptiveSmoothFactor(
+								raw,
+								prev,
+								AUTO_FOLLOW_SMOOTHING_FACTOR,
+								AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
+								AUTO_FOLLOW_RAMP_DISTANCE,
+							);
+							const smoothed = smoothCursorFocus(raw, prev, factor);
 							smoothedAutoFocusRef.current = smoothed;
 							targetFocus = smoothed;
 						}
