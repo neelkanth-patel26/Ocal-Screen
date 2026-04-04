@@ -36,6 +36,7 @@ interface VideoExporterConfig extends ExportConfig {
 	annotationRegions?: AnnotationRegion[];
 	previewWidth?: number;
 	previewHeight?: number;
+	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
 	onProgress?: (progress: ExportProgress) => void;
 }
 
@@ -139,6 +140,7 @@ export class VideoExporter {
 				speedRegions: this.config.speedRegions,
 				previewWidth: this.config.previewWidth,
 				previewHeight: this.config.previewHeight,
+				cursorTelemetry: this.config.cursorTelemetry,
 			});
 			this.renderer = renderer;
 			await renderer.initialize();

@@ -1,6 +1,7 @@
 import type { WebcamLayoutPreset } from "@/lib/compositeLayout";
 
 export type ZoomDepth = 1 | 2 | 3 | 4 | 5 | 6;
+export type ZoomFocusMode = "manual" | "auto";
 export type { WebcamLayoutPreset };
 
 export const DEFAULT_WEBCAM_LAYOUT_PRESET: WebcamLayoutPreset = "picture-in-picture";
@@ -23,6 +24,7 @@ export interface ZoomRegion {
 	endMs: number;
 	depth: ZoomDepth;
 	focus: ZoomFocus;
+	focusMode?: ZoomFocusMode;
 }
 
 export interface CursorTelemetryPoint {

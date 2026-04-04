@@ -52,6 +52,7 @@ import type {
 	PlaybackSpeed,
 	WebcamLayoutPreset,
 	ZoomDepth,
+	ZoomFocusMode,
 } from "./types";
 import { SPEED_OPTIONS } from "./types";
 
@@ -92,6 +93,9 @@ interface SettingsPanelProps {
 	onWallpaperChange: (path: string) => void;
 	selectedZoomDepth?: ZoomDepth | null;
 	onZoomDepthChange?: (depth: ZoomDepth) => void;
+	selectedZoomFocusMode?: ZoomFocusMode | null;
+	onZoomFocusModeChange?: (mode: ZoomFocusMode) => void;
+	hasCursorTelemetry?: boolean;
 	selectedZoomId?: string | null;
 	onZoomDelete?: (id: string) => void;
 	selectedTrimId?: string | null;
@@ -161,6 +165,9 @@ export function SettingsPanel({
 	onWallpaperChange,
 	selectedZoomDepth,
 	onZoomDepthChange,
+	selectedZoomFocusMode,
+	onZoomFocusModeChange,
+	hasCursorTelemetry = false,
 	selectedZoomId,
 	onZoomDelete,
 	selectedTrimId,
@@ -499,6 +506,41 @@ export function SettingsPanel({
 					</div>
 					{!zoomEnabled && (
 						<p className="text-[10px] text-slate-500 mt-2 text-center">{t("zoom.selectRegion")}</p>
+					)}
+					{zoomEnabled && hasCursorTelemetry && (
+						<div className="mt-3">
+							<span className="text-sm font-medium text-slate-200 mb-2 block">
+								{t("zoom.focusMode.title")}
+							</span>
+							<div className="grid grid-cols-2 gap-1.5">
+								{(["manual", "auto"] as const).map((mode) => {
+									const isActive = selectedZoomFocusMode === mode;
+									return (
+										<Button
+											key={mode}
+											type="button"
+											onClick={() => onZoomFocusModeChange?.(mode)}
+											className={cn(
+												"h-auto w-full rounded-lg border px-2 py-2 text-center shadow-sm transition-all",
+												"duration-200 ease-out cursor-pointer",
+												isActive
+													? "border-[#34B27B] bg-[#34B27B] text-white shadow-[#34B27B]/20"
+													: "border-white/5 bg-white/5 text-slate-400 hover:bg-white/10 hover:border-white/10 hover:text-slate-200",
+											)}
+										>
+											<span className="text-xs font-semibold capitalize">
+												{t(`zoom.focusMode.${mode}`)}
+											</span>
+										</Button>
+									);
+								})}
+							</div>
+							{selectedZoomFocusMode === "auto" && (
+								<p className="text-[10px] text-slate-500 mt-1.5">
+									{t("zoom.focusMode.autoDescription")}
+								</p>
+							)}
+						</div>
 					)}
 					{zoomEnabled && (
 						<Button

@@ -189,6 +189,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 							cx: clamp(isFiniteNumber(region.focus?.cx) ? region.focus.cx : 0.5, 0, 1),
 							cy: clamp(isFiniteNumber(region.focus?.cy) ? region.focus.cy : 0.5, 0, 1),
 						},
+						focusMode: region.focusMode === "auto" ? "auto" : "manual",
 					};
 				})
 		: [];

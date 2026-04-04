@@ -2,7 +2,13 @@
 	"zoom": {
 		"level": "Zoom Level",
 		"selectRegion": "Select a zoom region to adjust",
-		"deleteZoom": "Delete Zoom"
+		"deleteZoom": "Delete Zoom",
+		"focusMode": {
+			"title": "Focus Mode",
+			"manual": "Manual",
+			"auto": "Auto",
+			"autoDescription": "Camera follows the recorded cursor position"
+		}
 	},
 	"speed": {
 		"playbackSpeed": "Playback Speed",

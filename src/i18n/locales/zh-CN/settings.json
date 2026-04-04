@@ -2,7 +2,13 @@
 	"zoom": {
 		"level": "缩放级别",
 		"selectRegion": "选择要调整的缩放区域",
-		"deleteZoom": "删除缩放"
+		"deleteZoom": "删除缩放",
+		"focusMode": {
+			"title": "对焦模式",
+			"manual": "手动",
+			"auto": "自动",
+			"autoDescription": "摄像头跟随录制时的光标位置"
+		}
 	},
 	"speed": {
 		"playbackSpeed": "播放速度",

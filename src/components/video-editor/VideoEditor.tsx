@@ -56,6 +56,7 @@ import {
 	type TrimRegion,
 	type ZoomDepth,
 	type ZoomFocus,
+	type ZoomFocusMode,
 	type ZoomRegion,
 } from "./types";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
@@ -688,6 +689,18 @@ export default function VideoEditor() {
 		[selectedZoomId, pushState],
 	);
 
+	const handleZoomFocusModeChange = useCallback(
+		(focusMode: ZoomFocusMode) => {
+			if (!selectedZoomId) return;
+			pushState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) =>
+					region.id === selectedZoomId ? { ...region, focusMode } : region,
+				),
+			}));
+		},
+		[selectedZoomId, pushState],
+	);
+
 	const handleZoomDelete = useCallback(
 		(id: string) => {
 			pushState((prev) => ({ zoomRegions: prev.zoomRegions.filter((r) => r.id !== id) }));
@@ -1093,6 +1106,7 @@ export default function VideoEditor() {
 						webcamPosition,
 						previewWidth,
 						previewHeight,
+						cursorTelemetry,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1224,6 +1238,7 @@ export default function VideoEditor() {
 						webcamPosition,
 						previewWidth,
 						previewHeight,
+						cursorTelemetry,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1292,6 +1307,7 @@ export default function VideoEditor() {
 			webcamPosition,
 			exportQuality,
 			handleExportSaved,
+			cursorTelemetry,
 		],
 	);
 
@@ -1502,6 +1518,7 @@ export default function VideoEditor() {
 											onSelectAnnotation={handleSelectAnnotation}
 											onAnnotationPositionChange={handleAnnotationPositionChange}
 											onAnnotationSizeChange={handleAnnotationSizeChange}
+											cursorTelemetry={cursorTelemetry}
 										/>
 									</div>
 								</div>
@@ -1584,6 +1601,13 @@ export default function VideoEditor() {
 							selectedZoomId ? zoomRegions.find((z) => z.id === selectedZoomId)?.depth : null
 						}
 						onZoomDepthChange={(depth) => selectedZoomId && handleZoomDepthChange(depth)}
+						selectedZoomFocusMode={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.focusMode ?? "manual")
+								: null
+						}
+						onZoomFocusModeChange={(mode) => selectedZoomId && handleZoomFocusModeChange(mode)}
+						hasCursorTelemetry={cursorTelemetry.length > 0}
 						selectedZoomId={selectedZoomId}
 						onZoomDelete={handleZoomDelete}
 						selectedTrimId={selectedTrimId}
