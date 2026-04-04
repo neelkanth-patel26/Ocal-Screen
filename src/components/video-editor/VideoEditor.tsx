@@ -31,6 +31,8 @@ import { ExportDialog } from "./ExportDialog";
 import PlaybackControls from "./PlaybackControls";
 import {
 	createProjectData,
+	createProjectSnapshot,
+	hasProjectUnsavedChanges,
 	deriveNextId,
 	fromFileUrl,
 	normalizeProjectEditor,
@@ -234,13 +236,11 @@ export default function VideoEditor() {
 				) + 1;
 
 			setLastSavedSnapshot(
-				JSON.stringify(
-					createProjectData(
-						webcamSourcePath
-							? { screenVideoPath: sourcePath, webcamVideoPath: webcamSourcePath }
-							: { screenVideoPath: sourcePath },
-						normalizedEditor,
-					),
+				createProjectSnapshot(
+					webcamSourcePath
+						? { screenVideoPath: sourcePath, webcamVideoPath: webcamSourcePath }
+						: { screenVideoPath: sourcePath },
+					normalizedEditor,
 				),
 			);
 			return true;
@@ -252,8 +252,7 @@ export default function VideoEditor() {
 		if (!currentProjectMedia) {
 			return null;
 		}
-		return JSON.stringify(
-			createProjectData(currentProjectMedia, {
+		return createProjectSnapshot(currentProjectMedia, {
 				wallpaper,
 				shadowIntensity,
 				showBlur,
@@ -274,8 +273,7 @@ export default function VideoEditor() {
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
-			}),
-		);
+		});
 	}, [
 		currentProjectMedia,
 		wallpaper,
@@ -300,11 +298,9 @@ export default function VideoEditor() {
 		gifSizePreset,
 	]);
 
-	const hasUnsavedChanges = Boolean(
-		currentProjectPath &&
-			currentProjectSnapshot &&
-			lastSavedSnapshot &&
-			currentProjectSnapshot !== lastSavedSnapshot,
+	const hasUnsavedChanges = hasProjectUnsavedChanges(
+		currentProjectSnapshot,
+		lastSavedSnapshot,
 	);
 
 	useEffect(() => {
@@ -333,7 +329,14 @@ export default function VideoEditor() {
 					setWebcamVideoSourcePath(webcamSourcePath);
 					setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
 					setCurrentProjectPath(null);
-					setLastSavedSnapshot(null);
+					setLastSavedSnapshot(
+						createProjectSnapshot(
+							webcamSourcePath
+								? { screenVideoPath: sourcePath, webcamVideoPath: webcamSourcePath }
+								: { screenVideoPath: sourcePath },
+							INITIAL_EDITOR_STATE,
+						),
+					);
 					return;
 				}
 
@@ -345,7 +348,9 @@ export default function VideoEditor() {
 					setWebcamVideoSourcePath(null);
 					setWebcamVideoPath(null);
 					setCurrentProjectPath(null);
-					setLastSavedSnapshot(null);
+					setLastSavedSnapshot(
+						createProjectSnapshot({ screenVideoPath: sourcePath }, INITIAL_EDITOR_STATE),
+					);
 				} else {
 					setError("No video to load. Please record or select a video.");
 				}
