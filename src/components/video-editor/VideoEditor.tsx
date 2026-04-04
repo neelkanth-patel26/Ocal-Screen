@@ -21,8 +21,8 @@ import {
 	VideoExporter,
 } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
-import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
 import { matchesShortcut } from "@/lib/shortcuts";
+import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
 import {
 	getAspectRatioValue,
 	getNativeAspectRatioValue,
@@ -359,6 +359,30 @@ export default function VideoEditor() {
 
 		loadInitialData();
 	}, [applyLoadedProject]);
+
+	// Track whether user preferences have been loaded to avoid
+	// overwriting saved prefs with defaults on the first render
+	const prefsLoadedRef = useRef(false);
+
+	// Load persisted user preferences on mount
+	useEffect(() => {
+		const prefs = loadUserPreferences();
+		updateState({
+			padding: prefs.padding,
+			aspectRatio: prefs.aspectRatio,
+		});
+		setExportQuality(prefs.exportQuality);
+		setExportFormat(prefs.exportFormat);
+		prefsLoadedRef.current = true;
+		// We intentionally only want this to run once on mount
+		// biome-ignore lint/correctness/useExhaustiveDependencies: mount-only effect
+	}, []);
+
+	// Auto-save user preferences when settings change
+	useEffect(() => {
+		if (!prefsLoadedRef.current) return;
+		saveUserPreferences({ padding, aspectRatio, exportQuality, exportFormat });
+	}, [padding, aspectRatio, exportQuality, exportFormat]);
 
 	const saveProject = useCallback(
 		async (forceSaveAs: boolean) => {
