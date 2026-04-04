@@ -204,7 +204,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				});
 
 				if (cancelled) {
-					stream.getTracks().forEach((track) => track.stop());
+					stream.getTracks().forEach((track) => {
+						track.onended = null;
+						track.stop();
+					});
 					return;
 				}
 
@@ -244,7 +247,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			cancelled = true;
 			webcamReady.current = false;
 			if (acquiredStream) {
-				acquiredStream.getTracks().forEach((track) => track.stop());
+				acquiredStream.getTracks().forEach((track) => {
+					track.onended = null;
+					track.stop();
+				});
 				webcamStream.current = null;
 			}
 		};
@@ -493,8 +499,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					});
 				}
 				if (!webcamStream.current) {
-					// The useEffect already showed the appropriate error toast
-					// (cameraNotFound or cameraBlocked), so just disable the state.
 					setWebcamEnabledState(false);
 				}
 			}
