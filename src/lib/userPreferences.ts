@@ -3,6 +3,17 @@ import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
 const PREFS_KEY = "openscreen_user_preferences";
 
+const VALID_ASPECT_RATIOS: readonly string[] = [
+	"16:9",
+	"9:16",
+	"1:1",
+	"4:3",
+	"4:5",
+	"16:10",
+	"10:16",
+	"native",
+];
+
 export interface UserPreferences {
 	/** Default padding % */
 	padding: number;
@@ -35,7 +46,12 @@ function safeJsonParse(text: string | null): Record<string, unknown> | null {
  * Returns defaults for any missing or invalid fields.
  */
 export function loadUserPreferences(): UserPreferences {
-	const raw = safeJsonParse(localStorage.getItem(PREFS_KEY));
+	let raw: Record<string, unknown> | null = null;
+	try {
+		raw = safeJsonParse(localStorage.getItem(PREFS_KEY));
+	} catch {
+		return { ...DEFAULT_PREFS };
+	}
 	if (!raw || typeof raw !== "object") return { ...DEFAULT_PREFS };
 
 	return {
@@ -44,13 +60,17 @@ export function loadUserPreferences(): UserPreferences {
 				? raw.padding
 				: DEFAULT_PREFS.padding,
 		aspectRatio:
-			typeof raw.aspectRatio === "string" ? (raw.aspectRatio as AspectRatio) : DEFAULT_PREFS.aspectRatio,
+			typeof raw.aspectRatio === "string" && VALID_ASPECT_RATIOS.includes(raw.aspectRatio)
+				? (raw.aspectRatio as AspectRatio)
+				: DEFAULT_PREFS.aspectRatio,
 		exportQuality:
-			raw.exportQuality === "medium" || raw.exportQuality === "source"
+			raw.exportQuality === "medium" || raw.exportQuality === "good" || raw.exportQuality === "source"
 				? (raw.exportQuality as ExportQuality)
 				: DEFAULT_PREFS.exportQuality,
 		exportFormat:
-			raw.exportFormat === "gif" ? (raw.exportFormat as ExportFormat) : DEFAULT_PREFS.exportFormat,
+			raw.exportFormat === "gif" || raw.exportFormat === "mp4"
+				? (raw.exportFormat as ExportFormat)
+				: DEFAULT_PREFS.exportFormat,
 	};
 }
 

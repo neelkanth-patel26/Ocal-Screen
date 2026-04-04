@@ -362,7 +362,7 @@ export default function VideoEditor() {
 
 	// Track whether user preferences have been loaded to avoid
 	// overwriting saved prefs with defaults on the first render
-	const prefsLoadedRef = useRef(false);
+	const [prefsHydrated, setPrefsHydrated] = useState(false);
 
 	// Load persisted user preferences on mount
 	useEffect(() => {
@@ -373,16 +373,16 @@ export default function VideoEditor() {
 		});
 		setExportQuality(prefs.exportQuality);
 		setExportFormat(prefs.exportFormat);
-		prefsLoadedRef.current = true;
+		setPrefsHydrated(true);
 		// We intentionally only want this to run once on mount
 		// biome-ignore lint/correctness/useExhaustiveDependencies: mount-only effect
 	}, []);
 
 	// Auto-save user preferences when settings change
 	useEffect(() => {
-		if (!prefsLoadedRef.current) return;
+		if (!prefsHydrated) return;
 		saveUserPreferences({ padding, aspectRatio, exportQuality, exportFormat });
-	}, [padding, aspectRatio, exportQuality, exportFormat]);
+	}, [prefsHydrated, padding, aspectRatio, exportQuality, exportFormat]);
 
 	const saveProject = useCallback(
 		async (forceSaveAs: boolean) => {
