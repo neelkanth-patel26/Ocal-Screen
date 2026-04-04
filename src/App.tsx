@@ -21,6 +21,22 @@ export default function App() {
 			document.getElementById("root")?.style.setProperty("background", "transparent");
 		}
 
+		// HUD window is a small fixed-size BrowserWindow (`electron/windows.ts`), not a full-screen
+		// surface. Pin the document shell to that viewport and hide overflow so the renderer cannot
+		// introduce scrollbars. Without this, `h-full` in `LaunchWindow` has no definite height chain
+		// from `html`/`body`, and stray overflow can still appear on some hosts (see issue #305).
+		if (type === "hud-overlay") {
+			document.documentElement.style.height = "100%";
+			document.documentElement.style.overflow = "hidden";
+			document.body.style.height = "100%";
+			document.body.style.margin = "0";
+			document.body.style.overflow = "hidden";
+			const root = document.getElementById("root");
+			root?.style.setProperty("height", "100%");
+			root?.style.setProperty("min-height", "0");
+			root?.style.setProperty("overflow", "hidden");
+		}
+
 		// Load custom fonts on app initialization
 		loadAllCustomFonts().catch((error) => {
 			console.error("Failed to load custom fonts:", error);
