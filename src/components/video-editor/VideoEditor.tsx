@@ -21,6 +21,7 @@ import {
 	VideoExporter,
 } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
+import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
 	getAspectRatioValue,
