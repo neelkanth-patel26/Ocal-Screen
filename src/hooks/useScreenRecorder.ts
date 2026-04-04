@@ -104,6 +104,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const discardRecordingId = useRef<number | null>(null);
 	const restarting = useRef(false);
 	const webcamReady = useRef(false);
+	const webcamAcquireId = useRef(0);
 
 	const selectMimeType = () => {
 		const preferred = [
@@ -183,6 +184,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		let cancelled = false;
 		let acquiredStream: MediaStream | null = null;
+		const thisAcquireId = ++webcamAcquireId.current;
 		webcamReady.current = false;
 
 		const acquire = async () => {
@@ -203,7 +205,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 							},
 				});
 
-				if (cancelled) {
+				if (cancelled || thisAcquireId !== webcamAcquireId.current) {
 					stream.getTracks().forEach((track) => {
 						track.onended = null;
 						track.stop();
@@ -499,6 +501,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					});
 				}
 				if (!webcamStream.current) {
+					webcamAcquireId.current++;
 					setWebcamEnabledState(false);
 				}
 			}
