@@ -408,9 +408,9 @@ export function createProjectData(
 
 export function createProjectSnapshot(
 	media: ProjectMedia,
-	editor: ProjectEditorState,
+	editor: Partial<ProjectEditorState>,
 ): string {
-	return JSON.stringify(createProjectData(media, editor));
+	return JSON.stringify(createProjectData(media, normalizeProjectEditor(editor)));
 }
 
 export function hasProjectUnsavedChanges(
@@ -418,8 +418,6 @@ export function hasProjectUnsavedChanges(
 	baselineSnapshot: string | null,
 ): boolean {
 	return Boolean(
-		currentSnapshot !== null &&
-		baselineSnapshot !== null &&
-		currentSnapshot !== baselineSnapshot,
+		currentSnapshot !== null && baselineSnapshot !== null && currentSnapshot !== baselineSnapshot,
 	);
 }

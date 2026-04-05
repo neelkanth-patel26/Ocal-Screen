@@ -33,9 +33,9 @@ import PlaybackControls from "./PlaybackControls";
 import {
 	createProjectData,
 	createProjectSnapshot,
-	hasProjectUnsavedChanges,
 	deriveNextId,
 	fromFileUrl,
+	hasProjectUnsavedChanges,
 	normalizeProjectEditor,
 	resolveProjectMedia,
 	toFileUrl,
@@ -258,26 +258,26 @@ export default function VideoEditor() {
 			return null;
 		}
 		return createProjectSnapshot(currentProjectMedia, {
-				wallpaper,
-				shadowIntensity,
-				showBlur,
-				motionBlurAmount,
-				borderRadius,
-				padding,
-				cropRegion,
-				zoomRegions,
-				trimRegions,
-				speedRegions,
-				annotationRegions,
-				aspectRatio,
-				webcamLayoutPreset,
-				webcamMaskShape,
-				webcamPosition,
-				exportQuality,
-				exportFormat,
-				gifFrameRate,
-				gifLoop,
-				gifSizePreset,
+			wallpaper,
+			shadowIntensity,
+			showBlur,
+			motionBlurAmount,
+			borderRadius,
+			padding,
+			cropRegion,
+			zoomRegions,
+			trimRegions,
+			speedRegions,
+			annotationRegions,
+			aspectRatio,
+			webcamLayoutPreset,
+			webcamMaskShape,
+			webcamPosition,
+			exportQuality,
+			exportFormat,
+			gifFrameRate,
+			gifLoop,
+			gifSizePreset,
 		});
 	}, [
 		currentProjectMedia,
@@ -303,10 +303,7 @@ export default function VideoEditor() {
 		gifSizePreset,
 	]);
 
-	const hasUnsavedChanges = hasProjectUnsavedChanges(
-		currentProjectSnapshot,
-		lastSavedSnapshot,
-	);
+	const hasUnsavedChanges = hasProjectUnsavedChanges(currentProjectSnapshot, lastSavedSnapshot);
 
 	useEffect(() => {
 		async function loadInitialData() {

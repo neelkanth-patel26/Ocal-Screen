@@ -68,7 +68,6 @@ describe("projectPersistence media compatibility", () => {
 	});
 });
 
-
 it("creates stable snapshots for identical project state", () => {
 	const media = {
 		screenVideoPath: "/tmp/screen.webm",
