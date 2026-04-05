@@ -73,6 +73,15 @@ describe("projectPersistence media compatibility", () => {
 			"dual-frame",
 		);
 	});
+
+	it("falls back from dual frame to picture in picture for portrait aspect ratios", () => {
+		expect(
+			normalizeProjectEditor({
+				aspectRatio: "9:16",
+				webcamLayoutPreset: "dual-frame",
+			}).webcamLayoutPreset,
+		).toBe("picture-in-picture");
+	});
 });
 
 it("creates stable snapshots for identical project state", () => {
