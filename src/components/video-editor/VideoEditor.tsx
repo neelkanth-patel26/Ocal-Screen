@@ -23,6 +23,7 @@ import {
 import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
+import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
 import {
 	getAspectRatioValue,
 	getNativeAspectRatioValue,
@@ -365,6 +366,28 @@ export default function VideoEditor() {
 
 		loadInitialData();
 	}, [applyLoadedProject]);
+
+	// Track whether user preferences have been loaded to avoid
+	// overwriting saved prefs with defaults on the first render
+	const [prefsHydrated, setPrefsHydrated] = useState(false);
+
+	// Load persisted user preferences on mount (intentionally runs once)
+	useEffect(() => {
+		const prefs = loadUserPreferences();
+		updateState({
+			padding: prefs.padding,
+			aspectRatio: prefs.aspectRatio,
+		});
+		setExportQuality(prefs.exportQuality);
+		setExportFormat(prefs.exportFormat);
+		setPrefsHydrated(true);
+	}, [updateState]);
+
+	// Auto-save user preferences when settings change
+	useEffect(() => {
+		if (!prefsHydrated) return;
+		saveUserPreferences({ padding, aspectRatio, exportQuality, exportFormat });
+	}, [prefsHydrated, padding, aspectRatio, exportQuality, exportFormat]);
 
 	const saveProject = useCallback(
 		async (forceSaveAs: boolean) => {
