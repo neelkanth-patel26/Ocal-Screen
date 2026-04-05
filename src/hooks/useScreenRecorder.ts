@@ -43,6 +43,7 @@ type UseScreenRecorderReturn = {
 	recording: boolean;
 	toggleRecording: () => void;
 	restartRecording: () => void;
+	cancelRecording: () => void;
 	microphoneEnabled: boolean;
 	setMicrophoneEnabled: (enabled: boolean) => void;
 	microphoneDeviceId: string | undefined;
@@ -601,10 +602,22 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		}
 	};
 
+	const cancelRecording = () => {
+		const activeScreenRecorder = screenRecorder.current;
+		if (!activeScreenRecorder || activeScreenRecorder.recorder.state !== "recording") return;
+
+		const activeRecordingId = recordingId.current;
+		discardRecordingId.current = activeRecordingId;
+		allowAutoFinalize.current = false;
+
+		stopRecording.current();
+	};
+
 	return {
 		recording,
 		toggleRecording,
 		restartRecording,
+		cancelRecording,
 		microphoneEnabled,
 		setMicrophoneEnabled,
 		microphoneDeviceId,
