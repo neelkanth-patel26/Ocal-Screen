@@ -46,6 +46,7 @@ type UseScreenRecorderReturn = {
 	toggleRecording: () => void;
 	togglePaused: () => void;
 	restartRecording: () => void;
+	cancelRecording: () => void;
 	microphoneEnabled: boolean;
 	setMicrophoneEnabled: (enabled: boolean) => void;
 	microphoneDeviceId: string | undefined;
@@ -706,6 +707,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		toggleRecording,
 		togglePaused,
 		restartRecording,
+		cancelRecording,
 		microphoneEnabled,
 		setMicrophoneEnabled,
 		microphoneDeviceId,

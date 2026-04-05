@@ -5,6 +5,7 @@ import { FaRegStopCircle } from "react-icons/fa";
 import { FaFolderOpen } from "react-icons/fa6";
 import { FiMinus, FiX } from "react-icons/fi";
 import {
+	MdCancel,
 	MdMic,
 	MdMicOff,
 	MdMonitor,
@@ -45,6 +46,7 @@ const ICON_CONFIG = {
 	resume: { icon: BsPlayCircle, size: ICON_SIZE },
 	stop: { icon: FaRegStopCircle, size: ICON_SIZE },
 	restart: { icon: MdRestartAlt, size: ICON_SIZE },
+	cancel: { icon: MdCancel, size: ICON_SIZE },
 	record: { icon: BsRecordCircle, size: ICON_SIZE },
 	videoFile: { icon: MdVideoFile, size: ICON_SIZE },
 	folder: { icon: FaFolderOpen, size: ICON_SIZE },
@@ -84,6 +86,7 @@ export function LaunchWindow() {
 		toggleRecording,
 		togglePaused,
 		restartRecording,
+		cancelRecording,
 		microphoneEnabled,
 		setMicrophoneEnabled,
 		microphoneDeviceId,
@@ -474,6 +477,18 @@ export function LaunchWindow() {
 							onClick={restartRecording}
 						>
 							{getIcon("restart", "text-white/60")}
+						</button>
+					</Tooltip>
+				)}
+
+				{/* Cancel recording */}
+				{recording && (
+					<Tooltip content={t("tooltips.cancelRecording")}>
+						<button
+							className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
+							onClick={cancelRecording}
+						>
+							{getIcon("cancel", "text-white/60")}
 						</button>
 					</Tooltip>
 				)}
