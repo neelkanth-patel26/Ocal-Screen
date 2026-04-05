@@ -25,8 +25,8 @@ Screen Studio is an awesome product and this is definitely not a 1:1 clone. Open
 OpenScreen is 100% free for personal and commercial use. Use it, modify it, distribute it. (Just be cool 😁 and give a shoutout if you feel like it !)
 
 <p align="center">
-	<img src="public/preview3.png" alt="OpenScreen App Preview 3" style="height: 320px; margin-right: 12px;" />
-	<img src="public/preview4.png" alt="OpenScreen App Preview 4" style="height: 320px; margin-right: 12px;" />
+	<img src="public/preview3.png" alt="OpenScreen App Preview 3" style="height: 0.2467; margin-right: 12px;" />
+	<img src="public/preview4.png" alt="OpenScreen App Preview 4" style="height: 0.1678; margin-right: 12px;" />
 </p>
 
 ## Core Features
