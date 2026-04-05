@@ -28,6 +28,7 @@ import {
 	type GifSizePreset,
 	VideoExporter,
 } from "@/lib/exporter";
+import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
@@ -108,6 +109,10 @@ export default function VideoEditor() {
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
 	const [duration, setDuration] = useState(0);
+	const currentTimeRef = useRef(currentTime);
+	currentTimeRef.current = currentTime;
+	const durationRef = useRef(duration);
+	durationRef.current = duration;
 	const [cursorTelemetry, setCursorTelemetry] = useState<CursorTelemetryPoint[]>([]);
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
@@ -962,6 +967,40 @@ export default function VideoEditor() {
 				e.preventDefault();
 				e.stopPropagation();
 				redo();
+				return;
+			}
+
+			// Frame-step navigation (arrow keys, no modifiers)
+			if (
+				(e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+				!e.ctrlKey &&
+				!e.metaKey &&
+				!e.shiftKey &&
+				!e.altKey
+			) {
+				const target = e.target;
+				if (
+					target instanceof HTMLInputElement ||
+					target instanceof HTMLTextAreaElement ||
+					target instanceof HTMLSelectElement ||
+					(target instanceof HTMLElement &&
+						(target.isContentEditable ||
+							target.closest('[role="separator"], [role="slider"], [role="spinbutton"]')))
+				) {
+					return;
+				}
+				e.preventDefault();
+				const video = videoPlaybackRef.current?.video;
+				if (!video) {
+					return;
+				}
+				const direction = e.key === "ArrowLeft" ? "backward" : "forward";
+				const newTime = computeFrameStepTime(
+					video.currentTime,
+					Number.isFinite(video.duration) ? video.duration : durationRef.current,
+					direction,
+				);
+				video.currentTime = newTime;
 				return;
 			}
 
