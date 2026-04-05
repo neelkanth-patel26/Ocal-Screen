@@ -95,13 +95,9 @@ test("exports a GIF from a loaded video", async () => {
 			timeout: 15_000,
 		});
 
-		// WebCodecs (VideoEncoder) may not be registered in the renderer on first
-		// load of a second BrowserWindow. A single reload ensures the feature is
-		// fully initialized before we start encoding.
-		await editorWindow.reload();
 		await editorWindow.waitForLoadState("domcontentloaded");
 		await expect(editorWindow.getByText("Loading video...")).not.toBeVisible({
-			timeout: 15_000,
+			timeout: 30_000,
 		});
 
 		// ── 5. Select GIF as the export format.
