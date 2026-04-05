@@ -11,7 +11,7 @@
 	"author": {
 		"name": "Sid",
 		"email": "svaddem@asu.edu"
-	}
+	},
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build && electron-builder",
