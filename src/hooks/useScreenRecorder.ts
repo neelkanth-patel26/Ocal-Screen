@@ -113,9 +113,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 	const getRecordingDurationMs = useCallback(() => {
 		const segmentDuration =
-			screenRecorder.current?.recorder.state === "recording" && segmentStartedAt.current
-				? Date.now() - segmentStartedAt.current
-				: 0;
+			segmentStartedAt.current === null ? 0 : Date.now() - segmentStartedAt.current;
 		return accumulatedDurationMs.current + segmentDuration;
 	}, []);
 
@@ -699,6 +697,17 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		return () => window.clearInterval(interval);
 	}, [getRecordingDurationMs, paused, recording]);
+
+	const cancelRecording = () => {
+		const activeScreenRecorder = screenRecorder.current;
+		if (!activeScreenRecorder || activeScreenRecorder.recorder.state !== "recording") return;
+
+		const activeRecordingId = recordingId.current;
+		discardRecordingId.current = activeRecordingId;
+		allowAutoFinalize.current = false;
+
+		stopRecording.current();
+	};
 
 	return {
 		recording,
