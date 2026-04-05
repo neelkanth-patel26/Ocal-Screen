@@ -16,6 +16,7 @@ export interface Size {
 }
 
 export type WebcamLayoutPreset = "picture-in-picture" | "vertical-stack";
+export type WebcamSizePreset = "small" | "medium" | "large";
 
 export interface WebcamLayoutShadow {
 	color: string;
@@ -57,7 +58,13 @@ export interface WebcamCompositeLayout {
 	screenCover?: boolean;
 }
 
-const MAX_STAGE_FRACTION = 0.18;
+// Webcam size fractions for different presets
+const WEBCAM_SIZE_FRACTIONS = {
+	small: 0.10,
+	medium: 0.18,
+	large: 0.30,
+} as const;
+
 const MARGIN_FRACTION = 0.02;
 const MAX_BORDER_RADIUS = 24;
 const WEBCAM_LAYOUT_PRESET_MAP: Record<WebcamLayoutPreset, WebcamLayoutPresetDefinition> = {
@@ -125,6 +132,7 @@ export function computeCompositeLayout(params: {
 	screenSize: Size;
 	webcamSize?: Size | null;
 	layoutPreset?: WebcamLayoutPreset;
+	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
 }): WebcamCompositeLayout | null {
@@ -134,6 +142,7 @@ export function computeCompositeLayout(params: {
 		screenSize,
 		webcamSize,
 		layoutPreset = "picture-in-picture",
+		webcamSizePreset = "medium",
 		webcamPosition,
 		webcamMaskShape = "rectangle",
 	} = params;
@@ -142,6 +151,9 @@ export function computeCompositeLayout(params: {
 	const webcamWidth = webcamSize?.width;
 	const webcamHeight = webcamSize?.height;
 	const preset = getWebcamLayoutPresetDefinition(layoutPreset);
+
+	// Get the max stage fraction based on size preset
+	const MAX_STAGE_FRACTION = WEBCAM_SIZE_FRACTIONS[webcamSizePreset];
 
 	if (canvasWidth <= 0 || canvasHeight <= 0 || screenWidth <= 0 || screenHeight <= 0) {
 		return null;

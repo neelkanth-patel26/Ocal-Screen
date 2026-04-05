@@ -36,10 +36,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useScopedT } from "@/contexts/I18nContext";
 import { getAssetPath } from "@/lib/assetPath";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
-import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
+import type {
+	ExportFormat,
+	ExportQuality,
+	GifFrameRate,
+	GifSizePreset,
+} from "@/lib/exporter";
 import { GIF_FRAME_RATES, GIF_SIZE_PRESETS } from "@/lib/exporter";
 import { cn } from "@/lib/utils";
-import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
+import {
+	type AspectRatio,
+	isPortraitAspectRatio,
+} from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { CropControl } from "./CropControl";
@@ -52,10 +60,11 @@ import type {
 	PlaybackSpeed,
 	WebcamLayoutPreset,
 	WebcamMaskShape,
+	WebcamSizePreset,
 	ZoomDepth,
 	ZoomFocusMode,
 } from "./types";
-import { SPEED_OPTIONS } from "./types";
+import { SPEED_OPTIONS, DEFAULT_WEBCAM_SIZE_PRESET } from "./types";
 
 const WALLPAPER_COUNT = 18;
 const WALLPAPER_RELATIVE = Array.from(
@@ -132,13 +141,20 @@ interface SettingsPanelProps {
 	onGifSizePresetChange?: (preset: GifSizePreset) => void;
 	gifOutputDimensions?: { width: number; height: number };
 	onExport?: () => void;
-	unsavedExport?: { arrayBuffer: ArrayBuffer; fileName: string; format: string } | null;
+	unsavedExport?: {
+		arrayBuffer: ArrayBuffer;
+		fileName: string;
+		format: string;
+	} | null;
 	onSaveUnsavedExport?: () => void;
 	selectedAnnotationId?: string | null;
 	annotationRegions?: AnnotationRegion[];
 	onAnnotationContentChange?: (id: string, content: string) => void;
 	onAnnotationTypeChange?: (id: string, type: AnnotationType) => void;
-	onAnnotationStyleChange?: (id: string, style: Partial<AnnotationRegion["style"]>) => void;
+	onAnnotationStyleChange?: (
+		id: string,
+		style: Partial<AnnotationRegion["style"]>,
+	) => void;
 	onAnnotationFigureDataChange?: (id: string, figureData: FigureData) => void;
 	onAnnotationDelete?: (id: string) => void;
 	selectedSpeedId?: string | null;
@@ -150,6 +166,8 @@ interface SettingsPanelProps {
 	onWebcamLayoutPresetChange?: (preset: WebcamLayoutPreset) => void;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
 	onWebcamMaskShapeChange?: (shape: import("./types").WebcamMaskShape) => void;
+	webcamSizePreset?: WebcamSizePreset;
+	onWebcamSizePresetChange?: (preset: WebcamSizePreset) => void;
 }
 
 export default SettingsPanel;
@@ -223,6 +241,8 @@ export function SettingsPanel({
 	onWebcamLayoutPresetChange,
 	webcamMaskShape = "rectangle",
 	onWebcamMaskShapeChange,
+	webcamSizePreset = DEFAULT_WEBCAM_SIZE_PRESET,
+	onWebcamSizePresetChange,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [wallpaperPaths, setWallpaperPaths] = useState<string[]>([]);
@@ -233,7 +253,9 @@ export function SettingsPanel({
 		let mounted = true;
 		(async () => {
 			try {
-				const resolved = await Promise.all(WALLPAPER_RELATIVE.map((p) => getAssetPath(p)));
+				const resolved = await Promise.all(
+					WALLPAPER_RELATIVE.map((p) => getAssetPath(p)),
+				);
 				if (mounted) setWallpaperPaths(resolved);
 			} catch (_err) {
 				if (mounted) setWallpaperPaths(WALLPAPER_RELATIVE.map((p) => `/${p}`));
@@ -279,13 +301,22 @@ export function SettingsPanel({
 			const next = { ...cropRegion };
 			switch (field) {
 				case "x":
-					next.x = Math.max(0, Math.min(pixelValue / videoWidth, 1 - next.width));
+					next.x = Math.max(
+						0,
+						Math.min(pixelValue / videoWidth, 1 - next.width),
+					);
 					break;
 				case "y":
-					next.y = Math.max(0, Math.min(pixelValue / videoHeight, 1 - next.height));
+					next.y = Math.max(
+						0,
+						Math.min(pixelValue / videoHeight, 1 - next.height),
+					);
 					break;
 				case "width": {
-					const newWidth = Math.max(0.05, Math.min(pixelValue / videoWidth, 1 - next.x));
+					const newWidth = Math.max(
+						0.05,
+						Math.min(pixelValue / videoWidth, 1 - next.x),
+					);
 					if (cropAspectLocked && next.width > 0 && next.height > 0) {
 						const ratio = next.width / next.height;
 						const newHeight = newWidth / ratio;
@@ -299,7 +330,10 @@ export function SettingsPanel({
 					break;
 				}
 				case "height": {
-					const newHeight = Math.max(0.05, Math.min(pixelValue / videoHeight, 1 - next.y));
+					const newHeight = Math.max(
+						0.05,
+						Math.min(pixelValue / videoHeight, 1 - next.y),
+					);
 					if (cropAspectLocked && next.width > 0 && next.height > 0) {
 						const ratio = next.width / next.height;
 						const newWidth = newHeight * ratio;
@@ -333,11 +367,13 @@ export function SettingsPanel({
 			const targetRatio = Number(wStr) / Number(hStr);
 			const next = { ...cropRegion };
 
-			const nextHeight = (next.width * videoWidth) / (targetRatio * videoHeight);
+			const nextHeight =
+				(next.width * videoWidth) / (targetRatio * videoHeight);
 			if (next.y + nextHeight <= 1 && nextHeight >= 0.05) {
 				next.height = nextHeight;
 			} else {
-				const nextWidth = (next.height * videoHeight * targetRatio) / videoWidth;
+				const nextWidth =
+					(next.height * videoHeight * targetRatio) / videoWidth;
 				if (next.x + nextWidth <= 1 && nextWidth >= 0.05) {
 					next.width = nextWidth;
 				}
@@ -419,7 +455,10 @@ export function SettingsPanel({
 		event.target.value = "";
 	};
 
-	const handleRemoveCustomImage = (imageUrl: string, event: React.MouseEvent) => {
+	const handleRemoveCustomImage = (
+		imageUrl: string,
+		event: React.MouseEvent,
+	) => {
 		event.stopPropagation();
 		setCustomImages((prev) => prev.filter((img) => img !== imageUrl));
 		// If the removed image was selected, clear selection
@@ -458,12 +497,19 @@ export function SettingsPanel({
 		return (
 			<AnnotationSettingsPanel
 				annotation={selectedAnnotation}
-				onContentChange={(content) => onAnnotationContentChange(selectedAnnotation.id, content)}
-				onTypeChange={(type) => onAnnotationTypeChange(selectedAnnotation.id, type)}
-				onStyleChange={(style) => onAnnotationStyleChange(selectedAnnotation.id, style)}
+				onContentChange={(content) =>
+					onAnnotationContentChange(selectedAnnotation.id, content)
+				}
+				onTypeChange={(type) =>
+					onAnnotationTypeChange(selectedAnnotation.id, type)
+				}
+				onStyleChange={(style) =>
+					onAnnotationStyleChange(selectedAnnotation.id, style)
+				}
 				onFigureDataChange={
 					onAnnotationFigureDataChange
-						? (figureData) => onAnnotationFigureDataChange(selectedAnnotation.id, figureData)
+						? (figureData) =>
+								onAnnotationFigureDataChange(selectedAnnotation.id, figureData)
 						: undefined
 				}
 				onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
@@ -476,11 +522,17 @@ export function SettingsPanel({
 			<div className="flex-1 overflow-y-auto custom-scrollbar p-4 pb-0">
 				<div className="mb-4">
 					<div className="flex items-center justify-between mb-3">
-						<span className="text-sm font-medium text-slate-200">{t("zoom.level")}</span>
+						<span className="text-sm font-medium text-slate-200">
+							{t("zoom.level")}
+						</span>
 						<div className="flex items-center gap-2">
 							{zoomEnabled && selectedZoomDepth && (
 								<span className="text-[10px] uppercase tracking-wider font-medium text-[#34B27B] bg-[#34B27B]/10 px-2 py-0.5 rounded-full">
-									{ZOOM_DEPTH_OPTIONS.find((o) => o.depth === selectedZoomDepth)?.label}
+									{
+										ZOOM_DEPTH_OPTIONS.find(
+											(o) => o.depth === selectedZoomDepth,
+										)?.label
+									}
 								</span>
 							)}
 							<KeyboardShortcutsHelp />
@@ -498,7 +550,9 @@ export function SettingsPanel({
 									className={cn(
 										"h-auto w-full rounded-lg border px-1 py-2 text-center shadow-sm transition-all",
 										"duration-200 ease-out",
-										zoomEnabled ? "opacity-100 cursor-pointer" : "opacity-40 cursor-not-allowed",
+										zoomEnabled
+											? "opacity-100 cursor-pointer"
+											: "opacity-40 cursor-not-allowed",
 										isActive
 											? "border-[#34B27B] bg-[#34B27B] text-white shadow-[#34B27B]/20"
 											: "border-white/5 bg-white/5 text-slate-400 hover:bg-white/10 hover:border-white/10 hover:text-slate-200",
@@ -510,7 +564,9 @@ export function SettingsPanel({
 						})}
 					</div>
 					{!zoomEnabled && (
-						<p className="text-[10px] text-slate-500 mt-2 text-center">{t("zoom.selectRegion")}</p>
+						<p className="text-[10px] text-slate-500 mt-2 text-center">
+							{t("zoom.selectRegion")}
+						</p>
 					)}
 					{zoomEnabled && hasCursorTelemetry && (
 						<div className="mt-3">
@@ -576,11 +632,13 @@ export function SettingsPanel({
 
 				<div className="mb-4">
 					<div className="flex items-center justify-between mb-3">
-						<span className="text-sm font-medium text-slate-200">{t("speed.playbackSpeed")}</span>
+						<span className="text-sm font-medium text-slate-200">
+							{t("speed.playbackSpeed")}
+						</span>
 						{selectedSpeedId && selectedSpeedValue && (
 							<span className="text-[10px] uppercase tracking-wider font-medium text-[#d97706] bg-[#d97706]/10 px-2 py-0.5 rounded-full">
-								{SPEED_OPTIONS.find((o) => o.speed === selectedSpeedValue)?.label ??
-									`${selectedSpeedValue}×`}
+								{SPEED_OPTIONS.find((o) => o.speed === selectedSpeedValue)
+									?.label ?? `${selectedSpeedValue}×`}
 							</span>
 						)}
 					</div>
@@ -610,11 +668,15 @@ export function SettingsPanel({
 						})}
 					</div>
 					{!selectedSpeedId && (
-						<p className="text-[10px] text-slate-500 mt-2 text-center">{t("speed.selectRegion")}</p>
+						<p className="text-[10px] text-slate-500 mt-2 text-center">
+							{t("speed.selectRegion")}
+						</p>
 					)}
 					{selectedSpeedId && (
 						<Button
-							onClick={() => selectedSpeedId && onSpeedDelete?.(selectedSpeedId)}
+							onClick={() =>
+								selectedSpeedId && onSpeedDelete?.(selectedSpeedId)
+							}
 							variant="destructive"
 							size="sm"
 							className="mt-2 w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all h-8 text-xs"
@@ -627,7 +689,11 @@ export function SettingsPanel({
 
 				<Accordion
 					type="multiple"
-					defaultValue={hasWebcam ? ["layout", "effects", "background"] : ["effects", "background"]}
+					defaultValue={
+						hasWebcam
+							? ["layout", "effects", "background"]
+							: ["effects", "background"]
+					}
 					className="space-y-1"
 				>
 					{hasWebcam && (
@@ -638,7 +704,9 @@ export function SettingsPanel({
 							<AccordionTrigger className="py-2.5 hover:no-underline">
 								<div className="flex items-center gap-2">
 									<Sparkles className="w-4 h-4 text-[#34B27B]" />
-									<span className="text-xs font-medium">{t("layout.title")}</span>
+									<span className="text-xs font-medium">
+										{t("layout.title")}
+									</span>
 								</div>
 							</AccordionTrigger>
 							<AccordionContent className="pb-3">
@@ -661,7 +729,11 @@ export function SettingsPanel({
 													preset.value === "picture-in-picture" ||
 													isPortraitAspectRatio(aspectRatio),
 											).map((preset) => (
-												<SelectItem key={preset.value} value={preset.value} className="text-xs">
+												<SelectItem
+													key={preset.value}
+													value={preset.value}
+													className="text-xs"
+												>
 													{preset.value === "picture-in-picture"
 														? t("layout.pictureInPicture")
 														: t("layout.verticalStack")}
@@ -745,7 +817,9 @@ export function SettingsPanel({
 															/>
 														)}
 													</svg>
-													<span className="text-[8px] leading-none">{shape.label}</span>
+													<span className="text-[8px] leading-none">
+														{shape.label}
+													</span>
 												</button>
 											))}
 										</div>
@@ -755,11 +829,16 @@ export function SettingsPanel({
 						</AccordionItem>
 					)}
 
-					<AccordionItem value="effects" className="border-white/5 rounded-xl bg-white/[0.02] px-3">
+					<AccordionItem
+						value="effects"
+						className="border-white/5 rounded-xl bg-white/[0.02] px-3"
+					>
 						<AccordionTrigger className="py-2.5 hover:no-underline">
 							<div className="flex items-center gap-2">
 								<Sparkles className="w-4 h-4 text-[#34B27B]" />
-								<span className="text-xs font-medium">{t("effects.title")}</span>
+								<span className="text-xs font-medium">
+									{t("effects.title")}
+								</span>
 							</div>
 						</AccordionTrigger>
 						<AccordionContent className="pb-3">
@@ -783,7 +862,9 @@ export function SettingsPanel({
 											{t("effects.motionBlur")}
 										</div>
 										<span className="text-[10px] text-slate-500 font-mono">
-											{motionBlurAmount === 0 ? t("effects.off") : motionBlurAmount.toFixed(2)}
+											{motionBlurAmount === 0
+												? t("effects.off")
+												: motionBlurAmount.toFixed(2)}
 										</span>
 									</div>
 									<Slider
@@ -820,11 +901,15 @@ export function SettingsPanel({
 										<div className="text-[10px] font-medium text-slate-300">
 											{t("effects.roundness")}
 										</div>
-										<span className="text-[10px] text-slate-500 font-mono">{borderRadius}px</span>
+										<span className="text-[10px] text-slate-500 font-mono">
+											{borderRadius}px
+										</span>
 									</div>
 									<Slider
 										value={[borderRadius]}
-										onValueChange={(values) => onBorderRadiusChange?.(values[0])}
+										onValueChange={(values) =>
+											onBorderRadiusChange?.(values[0])
+										}
 										onValueCommit={() => onBorderRadiusCommit?.()}
 										min={0}
 										max={16}
@@ -840,11 +925,15 @@ export function SettingsPanel({
 											{t("effects.padding")}
 										</div>
 										<span className="text-[10px] text-slate-500 font-mono">
-											{webcamLayoutPreset === "vertical-stack" ? "—" : `${padding}%`}
+											{webcamLayoutPreset === "vertical-stack"
+												? "—"
+												: `${padding}%`}
 										</span>
 									</div>
 									<Slider
-										value={[webcamLayoutPreset === "vertical-stack" ? 0 : padding]}
+										value={[
+											webcamLayoutPreset === "vertical-stack" ? 0 : padding,
+										]}
 										onValueChange={(values) => onPaddingChange?.(values[0])}
 										onValueCommit={() => onPaddingCommit?.()}
 										min={0}
@@ -874,7 +963,9 @@ export function SettingsPanel({
 						<AccordionTrigger className="py-2.5 hover:no-underline">
 							<div className="flex items-center gap-2">
 								<Palette className="w-4 h-4 text-[#34B27B]" />
-								<span className="text-xs font-medium">{t("background.title")}</span>
+								<span className="text-xs font-medium">
+									{t("background.title")}
+								</span>
 							</div>
 						</AccordionTrigger>
 						<AccordionContent className="pb-3">
@@ -939,7 +1030,9 @@ export function SettingsPanel({
 														role="button"
 													>
 														<button
-															onClick={(e) => handleRemoveCustomImage(imageUrl, e)}
+															onClick={(e) =>
+																handleRemoveCustomImage(imageUrl, e)
+															}
 															className="absolute top-0.5 right-0.5 w-3 h-3 bg-red-500/90 hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
 														>
 															<X className="w-2 h-2 text-white" />
@@ -958,8 +1051,10 @@ export function SettingsPanel({
 													try {
 														const clean = (s: string) =>
 															s.replace(/^file:\/\//, "").replace(/^\//, "");
-														if (clean(selected).endsWith(clean(path))) return true;
-														if (clean(path).endsWith(clean(selected))) return true;
+														if (clean(selected).endsWith(clean(path)))
+															return true;
+														if (clean(path).endsWith(clean(selected)))
+															return true;
 													} catch {
 														// Best-effort comparison; fallback to strict match.
 													}
@@ -1016,7 +1111,9 @@ export function SettingsPanel({
 															: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
 													)}
 													style={{ background: g }}
-													aria-label={t("background.gradientLabel", { index: idx + 1 })}
+													aria-label={t("background.gradientLabel", {
+														index: idx + 1,
+													})}
 													onClick={() => {
 														setGradient(g);
 														onWallpaperChange(g);
@@ -1042,8 +1139,12 @@ export function SettingsPanel({
 					<div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] bg-[#09090b] rounded-2xl shadow-2xl border border-white/10 p-8 w-[90vw] max-w-5xl max-h-[90vh] overflow-auto animate-in zoom-in-95 duration-200">
 						<div className="flex items-center justify-between mb-6">
 							<div>
-								<span className="text-xl font-bold text-slate-200">{t("crop.cropVideo")}</span>
-								<p className="text-sm text-slate-400 mt-2">{t("crop.dragInstruction")}</p>
+								<span className="text-xl font-bold text-slate-200">
+									{t("crop.cropVideo")}
+								</span>
+								<p className="text-sm text-slate-400 mt-2">
+									{t("crop.dragInstruction")}
+								</p>
 							</div>
 							<Button
 								variant="ghost"
@@ -1077,7 +1178,9 @@ export function SettingsPanel({
 											min={0}
 											max={max}
 											value={getCropPixelValue(field)}
-											onChange={(e) => handleCropNumericChange(field, Number(e.target.value))}
+											onChange={(e) =>
+												handleCropNumericChange(field, Number(e.target.value))
+											}
 											className="w-[90px] h-8 rounded-md border border-white/10 bg-white/5 px-2 text-xs text-slate-200 outline-none focus:border-[#34B27B]/50 focus:ring-1 focus:ring-[#34B27B]/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 										/>
 									</div>
@@ -1096,22 +1199,40 @@ export function SettingsPanel({
 											<option value="" className="bg-[#1a1a1f] text-slate-200">
 												{t("crop.free")}
 											</option>
-											<option value="16:9" className="bg-[#1a1a1f] text-slate-200">
+											<option
+												value="16:9"
+												className="bg-[#1a1a1f] text-slate-200"
+											>
 												16:9
 											</option>
-											<option value="9:16" className="bg-[#1a1a1f] text-slate-200">
+											<option
+												value="9:16"
+												className="bg-[#1a1a1f] text-slate-200"
+											>
 												9:16
 											</option>
-											<option value="4:3" className="bg-[#1a1a1f] text-slate-200">
+											<option
+												value="4:3"
+												className="bg-[#1a1a1f] text-slate-200"
+											>
 												4:3
 											</option>
-											<option value="3:4" className="bg-[#1a1a1f] text-slate-200">
+											<option
+												value="3:4"
+												className="bg-[#1a1a1f] text-slate-200"
+											>
 												3:4
 											</option>
-											<option value="1:1" className="bg-[#1a1a1f] text-slate-200">
+											<option
+												value="1:1"
+												className="bg-[#1a1a1f] text-slate-200"
+											>
 												1:1
 											</option>
-											<option value="21:9" className="bg-[#1a1a1f] text-slate-200">
+											<option
+												value="21:9"
+												className="bg-[#1a1a1f] text-slate-200"
+											>
 												21:9
 											</option>
 										</select>
@@ -1125,7 +1246,9 @@ export function SettingsPanel({
 													: "border-white/10 bg-white/5 text-slate-400 hover:text-slate-200",
 											)}
 											title={
-												cropAspectLocked ? t("crop.unlockAspectRatio") : t("crop.lockAspectRatio")
+												cropAspectLocked
+													? t("crop.unlockAspectRatio")
+													: t("crop.lockAspectRatio")
 											}
 										>
 											{cropAspectLocked ? (
@@ -1247,7 +1370,9 @@ export function SettingsPanel({
 									<button
 										key={key}
 										data-testid={getTestId(`gif-size-button-${key}`)}
-										onClick={() => onGifSizePresetChange?.(key as GifSizePreset)}
+										onClick={() =>
+											onGifSizePresetChange?.(key as GifSizePreset)
+										}
 										className={cn(
 											"rounded-md transition-all text-[10px] font-medium",
 											gifSizePreset === key
@@ -1255,7 +1380,9 @@ export function SettingsPanel({
 												: "text-slate-400 hover:text-slate-200",
 										)}
 									>
-										{key === "original" ? "Orig" : key.charAt(0).toUpperCase() + key.slice(1, 3)}
+										{key === "original"
+											? "Orig"
+											: key.charAt(0).toUpperCase() + key.slice(1, 3)}
 									</button>
 								))}
 							</div>
@@ -1265,7 +1392,9 @@ export function SettingsPanel({
 								{gifOutputDimensions.width} × {gifOutputDimensions.height}px
 							</span>
 							<div className="flex items-center gap-2">
-								<span className="text-[10px] text-slate-400">{t("gifSettings.loop")}</span>
+								<span className="text-[10px] text-slate-400">
+									{t("gifSettings.loop")}
+								</span>
 								<Switch
 									checked={gifLoop}
 									onCheckedChange={onGifLoopChange}
@@ -1295,7 +1424,9 @@ export function SettingsPanel({
 					className="w-full py-5 text-sm font-semibold flex items-center justify-center gap-2 bg-[#34B27B] text-white rounded-xl shadow-lg shadow-[#34B27B]/20 hover:bg-[#34B27B]/90 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
 				>
 					<Download className="w-4 h-4" />
-					{exportFormat === "gif" ? t("export.gifButton") : t("export.videoButton")}
+					{exportFormat === "gif"
+						? t("export.gifButton")
+						: t("export.videoButton")}
 				</Button>
 
 				<div className="flex gap-2 mt-3">
@@ -1314,7 +1445,9 @@ export function SettingsPanel({
 					<button
 						type="button"
 						onClick={() => {
-							window.electronAPI?.openExternalUrl("https://github.com/siddharthvaddem/openscreen");
+							window.electronAPI?.openExternalUrl(
+								"https://github.com/siddharthvaddem/openscreen",
+							);
 						}}
 						className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
 					>
