@@ -56,7 +56,10 @@ function hasAllowedImportVideoExtension(filePath: string): boolean {
 	return ALLOWED_IMPORT_VIDEO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
-async function approveReadableVideoPath(filePath?: string | null): Promise<string | null> {
+async function approveReadableVideoPath(
+	filePath?: string | null,
+	trustedDirs?: string[],
+): Promise<string | null> {
 	const normalizedPath = normalizeVideoSourcePath(filePath);
 	if (!normalizedPath) {
 		return null;
@@ -68,6 +71,17 @@ async function approveReadableVideoPath(filePath?: string | null): Promise<strin
 
 	if (!hasAllowedImportVideoExtension(normalizedPath)) {
 		return null;
+	}
+
+	// When called with trustedDirs (e.g. from project load), only auto-approve
+	// paths within those directories. This prevents malicious project files from
+	// approving reads to arbitrary filesystem locations.
+	if (trustedDirs) {
+		const resolved = path.resolve(normalizedPath);
+		const withinTrusted = trustedDirs.some((dir) => isPathWithinDir(resolved, dir));
+		if (!withinTrusted) {
+			return null;
+		}
 	}
 
 	try {
@@ -103,7 +117,10 @@ function resolveRecordingOutputPath(fileName: string): string {
 	return path.join(RECORDINGS_DIR, parsedPath.base);
 }
 
-async function getApprovedProjectSession(project: unknown): Promise<RecordingSession | null> {
+async function getApprovedProjectSession(
+	project: unknown,
+	projectFilePath?: string,
+): Promise<RecordingSession | null> {
 	if (!project || typeof project !== "object") {
 		return null;
 	}
@@ -121,13 +138,20 @@ async function getApprovedProjectSession(project: unknown): Promise<RecordingSes
 		return null;
 	}
 
-	const screenVideoPath = await approveReadableVideoPath(media.screenVideoPath);
+	// Only auto-approve media paths within the project's directory or RECORDINGS_DIR.
+	// This prevents crafted project files from approving reads to arbitrary locations.
+	const trustedDirs = [RECORDINGS_DIR];
+	if (projectFilePath) {
+		trustedDirs.push(path.dirname(path.resolve(projectFilePath)));
+	}
+
+	const screenVideoPath = await approveReadableVideoPath(media.screenVideoPath, trustedDirs);
 	if (!screenVideoPath) {
 		throw new Error("Project references an invalid or unsupported screen video path");
 	}
 
 	const webcamVideoPath = media.webcamVideoPath
-		? await approveReadableVideoPath(media.webcamVideoPath)
+		? await approveReadableVideoPath(media.webcamVideoPath, trustedDirs)
 		: undefined;
 	if (media.webcamVideoPath && !webcamVideoPath) {
 		throw new Error("Project references an invalid or unsupported webcam video path");
@@ -795,7 +819,7 @@ export function registerIpcHandlers(
 			const filePath = result.filePaths[0];
 			const content = await fs.readFile(filePath, "utf-8");
 			const project = JSON.parse(content);
-			const session = await getApprovedProjectSession(project);
+			const session = await getApprovedProjectSession(project, filePath);
 			currentProjectPath = filePath;
 			setCurrentRecordingSessionState(session);
 
@@ -822,7 +846,7 @@ export function registerIpcHandlers(
 
 			const content = await fs.readFile(currentProjectPath, "utf-8");
 			const project = JSON.parse(content);
-			const session = await getApprovedProjectSession(project);
+			const session = await getApprovedProjectSession(project, currentProjectPath);
 			setCurrentRecordingSessionState(session);
 			return {
 				success: true,
@@ -859,6 +883,11 @@ export function registerIpcHandlers(
 
 		const restoredSession = await loadRecordedSessionForVideoPath(normalizedPath);
 		if (restoredSession) {
+			// Approve all media paths from the restored session so they can be read later
+			approveFilePath(restoredSession.screenVideoPath);
+			if (restoredSession.webcamVideoPath) {
+				approveFilePath(restoredSession.webcamVideoPath);
+			}
 			setCurrentRecordingSessionState(restoredSession);
 		} else {
 			setCurrentRecordingSessionState({
