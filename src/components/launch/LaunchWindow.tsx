@@ -1,6 +1,6 @@
 import { ChevronDown, Languages } from "lucide-react";
 import { useEffect, useState } from "react";
-import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
+import { BsRecordCircle } from "react-icons/bs";
 import { FaRegStopCircle } from "react-icons/fa";
 import { FaFolderOpen } from "react-icons/fa6";
 import { FiMinus, FiX } from "react-icons/fi";
@@ -42,8 +42,6 @@ const ICON_CONFIG = {
 	micOff: { icon: MdMicOff, size: ICON_SIZE },
 	webcamOn: { icon: MdVideocam, size: ICON_SIZE },
 	webcamOff: { icon: MdVideocamOff, size: ICON_SIZE },
-	pause: { icon: BsPauseCircle, size: ICON_SIZE },
-	resume: { icon: BsPlayCircle, size: ICON_SIZE },
 	stop: { icon: FaRegStopCircle, size: ICON_SIZE },
 	restart: { icon: MdRestartAlt, size: ICON_SIZE },
 	cancel: { icon: MdCancel, size: ICON_SIZE },
@@ -81,10 +79,7 @@ export function LaunchWindow() {
 
 	const {
 		recording,
-		paused,
-		elapsedSeconds,
 		toggleRecording,
-		togglePaused,
 		restartRecording,
 		cancelRecording,
 		microphoneEnabled,
@@ -98,6 +93,8 @@ export function LaunchWindow() {
 		webcamDeviceId,
 		setWebcamDeviceId,
 	} = useScreenRecorder();
+	const [recordingStart, setRecordingStart] = useState<number | null>(null);
+	const [elapsed, setElapsed] = useState(0);
 
 	const showMicControls = microphoneEnabled && !recording;
 	const showWebcamControls = webcamEnabled && !recording;
@@ -151,6 +148,25 @@ export function LaunchWindow() {
 			setWebcamDeviceId(selectedCameraId);
 		}
 	}, [selectedCameraId, setWebcamDeviceId]);
+
+	useEffect(() => {
+		let timer: NodeJS.Timeout | null = null;
+		if (recording) {
+			if (!recordingStart) setRecordingStart(Date.now());
+			timer = setInterval(() => {
+				if (recordingStart) {
+					setElapsed(Math.floor((Date.now() - recordingStart) / 1000));
+				}
+			}, 1000);
+		} else {
+			setRecordingStart(null);
+			setElapsed(0);
+			if (timer) clearInterval(timer);
+		}
+		return () => {
+			if (timer) clearInterval(timer);
+		};
+	}, [recording, recordingStart]);
 
 	useEffect(() => {
 		if (!import.meta.env.DEV) {
@@ -434,11 +450,7 @@ export function LaunchWindow() {
 				{/* Record/Stop group */}
 				<button
 					className={`flex items-center gap-0.5 rounded-full p-2 transition-colors duration-150 ${styles.electronNoDrag} ${
-						recording
-							? paused
-								? "bg-amber-500/10 hover:bg-amber-500/15"
-								: "animate-record-pulse bg-red-500/10"
-							: "bg-white/5 hover:bg-white/[0.08]"
+						recording ? "animate-record-pulse bg-red-500/10" : "bg-white/5 hover:bg-white/[0.08]"
 					}`}
 					onClick={toggleRecording}
 					disabled={!hasSelectedSource && !recording}
@@ -446,28 +458,15 @@ export function LaunchWindow() {
 				>
 					{recording ? (
 						<>
-							{getIcon("stop", paused ? "text-amber-400" : "text-red-400")}
-							<span
-								className={`${paused ? "text-amber-400" : "text-red-400"} text-xs font-semibold tabular-nums`}
-							>
-								{formatTimePadded(elapsedSeconds)}
+							{getIcon("stop", "text-red-400")}
+							<span className="text-red-400 text-xs font-semibold tabular-nums">
+								{formatTimePadded(elapsed)}
 							</span>
 						</>
 					) : (
 						getIcon("record", hasSelectedSource ? "text-white/80" : "text-white/30")
 					)}
 				</button>
-
-				{recording && (
-					<Tooltip content={paused ? t("tooltips.resumeRecording") : t("tooltips.pauseRecording")}>
-						<button
-							className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
-							onClick={togglePaused}
-						>
-							{getIcon(paused ? "resume" : "pause", paused ? "text-amber-400" : "text-white/60")}
-						</button>
-					</Tooltip>
-				)}
 
 				{/* Restart recording */}
 				{recording && (

@@ -4,8 +4,6 @@
 		"closeApp": "Cerrar aplicación",
 		"restartRecording": "Reiniciar grabación",
 		"cancelRecording": "Cancelar grabación",
-		"pauseRecording": "Pausar grabación",
-		"resumeRecording": "Reanudar grabación",
 		"openVideoFile": "Abrir archivo de video",
 		"openProject": "Abrir proyecto"
 	},
