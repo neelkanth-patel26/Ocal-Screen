@@ -62,8 +62,7 @@ test("exports a GIF from a loaded video", async () => {
 		});
 
 		// Copy the test fixture into the app's recordings directory so it passes
-		// the path security check in set-current-video-path (which only allows
-		// paths inside RECORDINGS_DIR or explicitly user-approved paths).
+		// the path security check in set-current-video-path.
 		const userDataDir = await app.evaluate(({ app: electronApp }) => {
 			return electronApp.getPath("userData");
 		});
@@ -72,15 +71,14 @@ test("exports a GIF from a loaded video", async () => {
 		fs.mkdirSync(recordingsDir, { recursive: true });
 		fs.copyFileSync(TEST_VIDEO, testVideoInRecordings);
 
-		try {
-			await hudWindow.evaluate((videoPath: string) => {
-				window.electronAPI.setCurrentVideoPath(videoPath);
+		await hudWindow.evaluate((videoPath: string) => {
+			window.electronAPI.setCurrentVideoPath(videoPath);
+			try {
 				window.electronAPI.switchToEditor();
-			}, testVideoInRecordings);
-		} catch {
-			// Expected: switchToEditor() closes the HUD window, killing the
-			// Playwright page context before evaluate() can resolve.
-		}
+			} catch {
+				// Expected: HUD window closes during this call, killing the context.
+			}
+		}, testVideoInRecordings);
 
 		// ── 3. Switch to the editor window. This closes the HUD and opens
 		//       a new BrowserWindow with ?windowType=editor.
@@ -131,7 +129,7 @@ test("exports a GIF from a loaded video", async () => {
 		if (fs.existsSync(outputPath)) {
 			fs.unlinkSync(outputPath);
 		}
-		if (fs.existsSync(testVideoInRecordings)) {
+		if (testVideoInRecordings && fs.existsSync(testVideoInRecordings)) {
 			fs.unlinkSync(testVideoInRecordings);
 		}
 	}
