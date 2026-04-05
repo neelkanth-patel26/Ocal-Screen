@@ -62,10 +62,10 @@ test("exports a GIF from a loaded video", async () => {
 		// Copy the test fixture into the app's recordings directory so it passes
 		// the path security check in set-current-video-path (which only allows
 		// paths inside RECORDINGS_DIR or explicitly user-approved paths).
-		const recordingsDir = await app.evaluate(({ app: electronApp }) => {
-			const path = require("node:path");
-			return path.join(electronApp.getPath("userData"), "recordings");
+		const userDataDir = await app.evaluate(({ app: electronApp }) => {
+			return electronApp.getPath("userData");
 		});
+		const recordingsDir = path.join(userDataDir, "recordings");
 		testVideoInRecordings = path.join(recordingsDir, "test-sample.webm");
 		fs.mkdirSync(recordingsDir, { recursive: true });
 		fs.copyFileSync(TEST_VIDEO, testVideoInRecordings);
