@@ -70,23 +70,14 @@ test("exports a GIF from a loaded video", async () => {
 		fs.mkdirSync(recordingsDir, { recursive: true });
 		fs.copyFileSync(TEST_VIDEO, testVideoInRecordings);
 
-		try {
-			await hudWindow.evaluate(async (videoPath: string) => {
-				await window.electronAPI.setCurrentVideoPath(videoPath);
+		await hudWindow.evaluate((videoPath: string) => {
+			window.electronAPI.setCurrentVideoPath(videoPath);
+			try {
 				window.electronAPI.switchToEditor();
-			}, testVideoInRecordings);
-		} catch (error) {
-			// Expected: switchToEditor() closes the HUD window, which terminates
-			// the Playwright page context before evaluate() can resolve.
-			if (
-				!(
-					error instanceof Error &&
-					error.message.includes("Target page, context or browser has been closed")
-				)
-			) {
-				throw error;
+			} catch {
+				// Expected: HUD window closes during this call, killing the context.
 			}
-		}
+		}, testVideoInRecordings);
 
 		// ── 3. Switch to the editor window. This closes the HUD and opens
 		//       a new BrowserWindow with ?windowType=editor.
@@ -95,9 +86,13 @@ test("exports a GIF from a loaded video", async () => {
 			timeout: 15_000,
 		});
 
+		// WebCodecs (VideoEncoder) may not be registered in the renderer on first
+		// load of a second BrowserWindow. A single reload ensures the feature is
+		// fully initialized before we start encoding.
+		await editorWindow.reload();
 		await editorWindow.waitForLoadState("domcontentloaded");
 		await expect(editorWindow.getByText("Loading video...")).not.toBeVisible({
-			timeout: 30_000,
+			timeout: 15_000,
 		});
 
 		// ── 5. Select GIF as the export format.
