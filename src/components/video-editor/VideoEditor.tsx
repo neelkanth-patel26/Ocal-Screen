@@ -486,13 +486,12 @@ export default function VideoEditor() {
 	}, [saveProject]);
 
 	const handleNewRecordingConfirm = useCallback(async () => {
-		try {
-			await window.electronAPI.clearCurrentVideoPath();
-			await window.electronAPI.switchToHud();
+		const result = await window.electronAPI.startNewRecording();
+		if (result.success) {
 			setShowNewRecordingDialog(false);
-		} catch (err) {
-			console.error("Failed to start new recording:", err);
-			setError("Failed to start new recording: " + String(err));
+		} else {
+			console.error("Failed to start new recording:", result.error);
+			setError("Failed to start new recording: " + (result.error || "Unknown error"));
 		}
 	}, []);
 
@@ -1497,7 +1496,7 @@ export default function VideoEditor() {
 						<button
 							type="button"
 							onClick={handleNewRecordingConfirm}
-							className="px-4 py-2 rounded-md bg-red-500/80 text-white hover:bg-red-500 text-sm font-medium transition-colors"
+							className="px-4 py-2 rounded-md bg-[#34B27B] text-white hover:bg-[#34B27B]/90 text-sm font-medium transition-colors"
 						>
 							{t("newRecording.confirm")}
 						</button>

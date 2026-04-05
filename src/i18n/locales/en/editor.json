@@ -1,7 +1,7 @@
 {
 	"newRecording": {
-		"title": "New Recording",
-		"description": "Start a new recording? Your current recording will be discarded.",
+		"title": "Return to Recorder",
+		"description": "Your current session has been saved.",
 		"cancel": "Cancel",
 		"confirm": "Confirm"
 	},
