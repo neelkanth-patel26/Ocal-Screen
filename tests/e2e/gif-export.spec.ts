@@ -18,6 +18,8 @@ test("exports a GIF from a loaded video", async () => {
 			MAIN_JS,
 			// Required in CI sandbox environments (GitHub Actions, Docker, etc.)
 			"--no-sandbox",
+			// Force software WebGL in headless CI to avoid GPU framebuffer errors.
+			"--enable-unsafe-swiftshader",
 		],
 		env: {
 			...process.env,
