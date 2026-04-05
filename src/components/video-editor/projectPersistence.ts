@@ -405,3 +405,21 @@ export function createProjectData(
 		editor,
 	};
 }
+
+export function createProjectSnapshot(
+	media: ProjectMedia,
+	editor: ProjectEditorState,
+): string {
+	return JSON.stringify(createProjectData(media, editor));
+}
+
+export function hasProjectUnsavedChanges(
+	currentSnapshot: string | null,
+	baselineSnapshot: string | null,
+): boolean {
+	return Boolean(
+		currentSnapshot !== null &&
+		baselineSnapshot !== null &&
+		currentSnapshot !== baselineSnapshot,
+	);
+}
