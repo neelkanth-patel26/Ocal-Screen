@@ -8,6 +8,10 @@
 		"node": "22.22.1",
 		"npm": "10.9.4"
 	},
+	"author": {
+		"name": "Sid",
+		"email": "svaddem@asu.edu"
+	}
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build && electron-builder",
