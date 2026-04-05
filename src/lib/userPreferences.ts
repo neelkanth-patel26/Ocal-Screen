@@ -56,7 +56,10 @@ export function loadUserPreferences(): UserPreferences {
 
 	return {
 		padding:
-			typeof raw.padding === "number" && Number.isFinite(raw.padding) && raw.padding >= 0 && raw.padding <= 100
+			typeof raw.padding === "number" &&
+			Number.isFinite(raw.padding) &&
+			raw.padding >= 0 &&
+			raw.padding <= 100
 				? raw.padding
 				: DEFAULT_PREFS.padding,
 		aspectRatio:
@@ -64,7 +67,9 @@ export function loadUserPreferences(): UserPreferences {
 				? (raw.aspectRatio as AspectRatio)
 				: DEFAULT_PREFS.aspectRatio,
 		exportQuality:
-			raw.exportQuality === "medium" || raw.exportQuality === "good" || raw.exportQuality === "source"
+			raw.exportQuality === "medium" ||
+			raw.exportQuality === "good" ||
+			raw.exportQuality === "source"
 				? (raw.exportQuality as ExportQuality)
 				: DEFAULT_PREFS.exportQuality,
 		exportFormat:

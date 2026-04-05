@@ -364,7 +364,7 @@ export default function VideoEditor() {
 	// overwriting saved prefs with defaults on the first render
 	const [prefsHydrated, setPrefsHydrated] = useState(false);
 
-	// Load persisted user preferences on mount
+	// Load persisted user preferences on mount (intentionally runs once)
 	useEffect(() => {
 		const prefs = loadUserPreferences();
 		updateState({
@@ -374,9 +374,7 @@ export default function VideoEditor() {
 		setExportQuality(prefs.exportQuality);
 		setExportFormat(prefs.exportFormat);
 		setPrefsHydrated(true);
-		// We intentionally only want this to run once on mount
-		// biome-ignore lint/correctness/useExhaustiveDependencies: mount-only effect
-	}, []);
+	}, [updateState]);
 
 	// Auto-save user preferences when settings change
 	useEffect(() => {
