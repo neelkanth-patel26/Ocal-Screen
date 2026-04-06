@@ -22,7 +22,12 @@ interface I18nContextValue {
 	locale: Locale;
 	setLocale: (locale: Locale) => void;
 	t: (qualifiedKey: string, vars?: TranslateVars) => string;
+	systemLocaleSuggestion: Locale | null;
+	acceptSystemLocaleSuggestion: () => void;
+	dismissSystemLocaleSuggestion: () => void;
 }
+
+const SYSTEM_LANGUAGE_PROMPT_SEEN_KEY = "openscreen-system-language-prompt-seen";
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
@@ -44,6 +49,35 @@ function isSupportedLocale(value: string): value is Locale {
 	return (SUPPORTED_LOCALES as readonly string[]).includes(value);
 }
 
+function getSupportedSystemLocale(): Locale | null {
+	if (typeof navigator === "undefined") return null;
+
+	const candidates =
+		Array.isArray(navigator.languages) && navigator.languages.length > 0
+			? navigator.languages
+			: [navigator.language];
+
+	for (const candidate of candidates) {
+		if (!candidate) continue;
+		if (isSupportedLocale(candidate)) return candidate;
+
+		const exactMatch = SUPPORTED_LOCALES.find(
+			(locale) => locale.toLowerCase() === candidate.toLowerCase(),
+		);
+		if (exactMatch) return exactMatch;
+
+		const baseLanguage = candidate.split("-")[0]?.toLowerCase();
+		if (!baseLanguage) continue;
+
+		if (baseLanguage === "zh") return "zh-CN";
+
+		const baseMatch = SUPPORTED_LOCALES.find((locale) => locale.toLowerCase() === baseLanguage);
+		if (baseMatch) return baseMatch;
+	}
+
+	return null;
+}
+
 function getInitialLocale(): Locale {
 	try {
 		const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
@@ -56,6 +90,15 @@ function getInitialLocale(): Locale {
 
 export function I18nProvider({ children }: { children: ReactNode }) {
 	const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
+	const [systemLocaleSuggestion, setSystemLocaleSuggestion] = useState<Locale | null>(null);
+
+	const markPromptAsHandled = useCallback(() => {
+		try {
+			localStorage.setItem(SYSTEM_LANGUAGE_PROMPT_SEEN_KEY, "1");
+		} catch {
+			// localStorage may be unavailable
+		}
+	}, []);
 
 	const setLocale = useCallback((newLocale: Locale) => {
 		setLocaleState(newLocale);
@@ -73,6 +116,46 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 		document.documentElement.lang = locale;
 	}, [locale]);
 
+	useEffect(() => {
+		let hasStoredLocale = false;
+		let hasHandledSystemPrompt = false;
+		try {
+			const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+			hasStoredLocale = Boolean(stored && isSupportedLocale(stored));
+			hasHandledSystemPrompt = localStorage.getItem(SYSTEM_LANGUAGE_PROMPT_SEEN_KEY) === "1";
+		} catch {
+			// localStorage may be unavailable
+		}
+
+		if (hasStoredLocale || hasHandledSystemPrompt || systemLocaleSuggestion) return;
+
+		const detectedSystemLocale = getSupportedSystemLocale();
+		if (!detectedSystemLocale || detectedSystemLocale === DEFAULT_LOCALE) {
+			markPromptAsHandled();
+			return;
+		}
+
+		setSystemLocaleSuggestion(detectedSystemLocale);
+	}, [markPromptAsHandled, systemLocaleSuggestion]);
+
+	const acceptSystemLocaleSuggestion = useCallback(() => {
+		if (!systemLocaleSuggestion) return;
+		setLocale(systemLocaleSuggestion);
+		setSystemLocaleSuggestion(null);
+		markPromptAsHandled();
+	}, [markPromptAsHandled, setLocale, systemLocaleSuggestion]);
+
+	const dismissSystemLocaleSuggestion = useCallback(() => {
+		setSystemLocaleSuggestion(null);
+		try {
+			// Persisting default locale avoids showing this prompt again.
+			localStorage.setItem(LOCALE_STORAGE_KEY, DEFAULT_LOCALE);
+		} catch {
+			// localStorage may be unavailable
+		}
+		markPromptAsHandled();
+	}, [markPromptAsHandled]);
+
 	const t = useCallback(
 		(qualifiedKey: string, vars?: TranslateVars): string => {
 			const dotIndex = qualifiedKey.indexOf(".");
@@ -84,7 +167,24 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 		[locale],
 	);
 
-	const value = useMemo<I18nContextValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
+	const value = useMemo<I18nContextValue>(
+		() => ({
+			locale,
+			setLocale,
+			t,
+			systemLocaleSuggestion,
+			acceptSystemLocaleSuggestion,
+			dismissSystemLocaleSuggestion,
+		}),
+		[
+			locale,
+			setLocale,
+			t,
+			systemLocaleSuggestion,
+			acceptSystemLocaleSuggestion,
+			dismissSystemLocaleSuggestion,
+		],
+	);
 
 	return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
