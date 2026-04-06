@@ -41,7 +41,9 @@
 		"color": "颜色",
 		"gradient": "渐变",
 		"uploadCustom": "上传自定义",
-		"gradientLabel": "渐变 {{index}}"
+		"gradientLabel": "渐变 {{index}}",
+		"colorWheel": "颜色轮",
+		"colorPalette": "颜色调色板"
 	},
 	"crop": {
 		"title": "裁剪",

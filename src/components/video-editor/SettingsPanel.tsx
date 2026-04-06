@@ -1014,7 +1014,7 @@ export function SettingsPanel({
 													}}
 												>
 													<span className="text-xs text-slate-300 truncate flex-1 text-left">
-														{t("annotation.colorWheel")}
+														{t("background.colorWheel")}
 													</span>
 												</Button>
 												<Button
@@ -1028,7 +1028,7 @@ export function SettingsPanel({
 													}}
 												>
 													<span className="text-xs text-slate-300 truncate flex-1 text-left">
-														{t("annotation.colorPalette")}
+														{t("background.colorPalette")}
 													</span>
 												</Button>
 											</div>

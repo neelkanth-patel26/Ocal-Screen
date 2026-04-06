@@ -41,7 +41,9 @@
 		"color": "Color",
 		"gradient": "Gradient",
 		"uploadCustom": "Upload Custom",
-		"gradientLabel": "Gradient {{index}}"
+		"gradientLabel": "Gradient {{index}}",
+		"colorWheel": "Color Wheel",
+		"colorPalette": "Color Palette"
 	},
 	"crop": {
 		"title": "Crop",

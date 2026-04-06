@@ -41,7 +41,9 @@
 		"color": "Color",
 		"gradient": "Degradado",
 		"uploadCustom": "Subir personalizado",
-		"gradientLabel": "Degradado {{index}}"
+		"gradientLabel": "Degradado {{index}}",
+		"colorWheel": "Rueda de colores",
+		"colorPalette": "Paleta de colores"
 	},
 	"crop": {
 		"title": "Recortar",
