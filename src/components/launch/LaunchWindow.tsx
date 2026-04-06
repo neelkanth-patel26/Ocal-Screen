@@ -1,5 +1,5 @@
-import { ChevronDown, Languages } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, Languages } from "lucide-react";
+import { useEffect, useState } from "react";
 import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
 import { FaRegStopCircle } from "react-icons/fa";
 import { FaFolderOpen } from "react-icons/fa6";
@@ -28,6 +28,12 @@ import { requestCameraAccess } from "../../lib/requestCameraAccess";
 import { formatTimePadded } from "../../utils/timeUtils";
 import { AudioLevelMeter } from "../ui/audio-level-meter";
 import { Button } from "../ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import { Tooltip } from "../ui/tooltip";
 import styles from "./LaunchWindow.module.css";
 
@@ -171,8 +177,6 @@ export function LaunchWindow() {
 
 	const [selectedSource, setSelectedSource] = useState("Screen");
 	const [hasSelectedSource, setHasSelectedSource] = useState(false);
-	const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
-	const languageMenuRef = useRef<HTMLDivElement | null>(null);
 
 	useEffect(() => {
 		const checkSelectedSource = async () => {
@@ -193,31 +197,6 @@ export function LaunchWindow() {
 		const interval = setInterval(checkSelectedSource, 500);
 		return () => clearInterval(interval);
 	}, []);
-
-	useEffect(() => {
-		if (!isLanguageMenuOpen) return;
-
-		const onPointerDown = (event: MouseEvent) => {
-			if (!languageMenuRef.current) return;
-			if (!languageMenuRef.current.contains(event.target as Node)) {
-				setIsLanguageMenuOpen(false);
-			}
-		};
-
-		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") {
-				setIsLanguageMenuOpen(false);
-			}
-		};
-
-		document.addEventListener("mousedown", onPointerDown);
-		document.addEventListener("keydown", onKeyDown);
-
-		return () => {
-			document.removeEventListener("mousedown", onPointerDown);
-			document.removeEventListener("keydown", onKeyDown);
-		};
-	}, [isLanguageMenuOpen]);
 
 	const openSourceSelector = () => {
 		if (window.electronAPI) {
@@ -557,42 +536,38 @@ export function LaunchWindow() {
 
 				{/* Right sidebar controls */}
 				<div className={`${hudSidebarClasses} ${styles.electronNoDrag}`}>
-					<div ref={languageMenuRef} className={`relative ${styles.electronNoDrag}`}>
-						<button
-							type="button"
-							aria-label={t("language")}
-							aria-expanded={isLanguageMenuOpen}
-							onClick={() => setIsLanguageMenuOpen((prev) => !prev)}
-							className={`h-8 w-8 rounded-lg border border-white/10 bg-white/5 text-white/85 shadow-none transition-colors hover:bg-white/10 ${styles.electronNoDrag}`}
-						>
-							<div className="flex w-full items-center justify-center">
-								<Languages size={13} className="text-white/75" />
-							</div>
-						</button>
-
-						{isLanguageMenuOpen && (
-							<div
-								className={`absolute bottom-[calc(100%+8px)] right-0 z-50 w-36 min-w-0 rounded-md border border-white/15 bg-[rgba(24,24,34,0.98)] p-1 text-white shadow-2xl backdrop-blur-xl ${styles.electronNoDrag}`}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button
+								type="button"
+								aria-label={t("language")}
+								className={`h-8 w-8 rounded-lg border border-white/10 bg-white/5 text-white/85 shadow-none transition-colors hover:bg-white/10 ${styles.electronNoDrag}`}
 							>
-								{SUPPORTED_LOCALES.map((loc) => (
-									<button
-										type="button"
-										key={loc}
-										onClick={() => {
-											setLocale(loc);
-											setIsLanguageMenuOpen(false);
-										}}
-										className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[11px] transition-colors hover:bg-white/10 ${loc === locale ? "text-white" : "text-white/90"} ${styles.electronNoDrag}`}
-									>
-										<span className="inline-block w-3 text-[11px] text-white/85">
-											{loc === locale ? "\u2713" : ""}
-										</span>
-										<span>{getLocaleName(loc)}</span>
-									</button>
-								))}
-							</div>
-						)}
-					</div>
+								<div className="flex w-full items-center justify-center">
+									<Languages size={13} className="text-white/75" />
+								</div>
+							</button>
+						</DropdownMenuTrigger>
+
+						<DropdownMenuContent
+							align="end"
+							side="top"
+							sideOffset={6}
+							collisionPadding={6}
+							className={`w-36 min-w-0 max-h-none overflow-hidden border-white/15 bg-[rgba(24,24,34,0.98)] p-1 text-white shadow-2xl backdrop-blur-xl ${styles.electronNoDrag}`}
+						>
+							{SUPPORTED_LOCALES.map((loc) => (
+								<DropdownMenuItem
+									key={loc}
+									onSelect={() => setLocale(loc)}
+									className={`flex items-center justify-between rounded-sm px-2 py-1.5 text-[11px] transition-colors ${loc === locale ? "text-white" : "text-white/90"} focus:bg-white/10 focus:text-white ${styles.electronNoDrag}`}
+								>
+									<span className="truncate">{getLocaleName(loc)}</span>
+									{loc === locale ? <Check size={11} className="text-white/85" /> : null}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
 
 					{/* Window controls */}
 					<div className="flex items-center gap-0.5">
