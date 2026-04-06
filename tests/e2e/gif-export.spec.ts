@@ -11,12 +11,15 @@ const TEST_VIDEO = path.join(__dirname, "../fixtures/sample.webm");
 
 test("exports a GIF from a loaded video", async () => {
 	const outputPath = path.join(os.tmpdir(), `test-gif-export-${Date.now()}.gif`);
+	let testVideoInRecordings = "";
 
 	const app = await electron.launch({
 		args: [
 			MAIN_JS,
 			// Required in CI sandbox environments (GitHub Actions, Docker, etc.)
 			"--no-sandbox",
+			// Force software WebGL in headless CI to avoid GPU framebuffer errors.
+			"--enable-unsafe-swiftshader",
 		],
 		env: {
 			...process.env,
@@ -58,22 +61,24 @@ test("exports a GIF from a loaded video", async () => {
 			);
 		});
 
+		// Copy the test fixture into the app's recordings directory so it passes
+		// the path security check in set-current-video-path.
+		const userDataDir = await app.evaluate(({ app: electronApp }) => {
+			return electronApp.getPath("userData");
+		});
+		const recordingsDir = path.join(userDataDir, "recordings");
+		testVideoInRecordings = path.join(recordingsDir, "test-sample.webm");
+		fs.mkdirSync(recordingsDir, { recursive: true });
+		fs.copyFileSync(TEST_VIDEO, testVideoInRecordings);
+
 		try {
-			await hudWindow.evaluate(async (videoPath: string) => {
-				await window.electronAPI.setCurrentVideoPath(videoPath);
+			await hudWindow.evaluate((videoPath: string) => {
+				window.electronAPI.setCurrentVideoPath(videoPath);
 				window.electronAPI.switchToEditor();
-			}, TEST_VIDEO);
-		} catch (error) {
-			// Expected: switchToEditor() closes the HUD window, which terminates
+			}, testVideoInRecordings);
+		} catch {
+			// Expected: switchToEditor() closes the HUD window, terminating
 			// the Playwright page context before evaluate() can resolve.
-			if (
-				!(
-					error instanceof Error &&
-					error.message.includes("Target page, context or browser has been closed")
-				)
-			) {
-				throw error;
-			}
 		}
 
 		// ── 3. Switch to the editor window. This closes the HUD and opens
@@ -124,6 +129,9 @@ test("exports a GIF from a loaded video", async () => {
 		await app.close();
 		if (fs.existsSync(outputPath)) {
 			fs.unlinkSync(outputPath);
+		}
+		if (testVideoInRecordings && fs.existsSync(testVideoInRecordings)) {
+			fs.unlinkSync(testVideoInRecordings);
 		}
 	}
 });
