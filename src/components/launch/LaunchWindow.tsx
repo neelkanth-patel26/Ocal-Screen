@@ -228,7 +228,7 @@ export function LaunchWindow() {
 	};
 
 	return (
-		<div className={`w-screen h-screen bg-transparent ${styles.electronDrag}`}>
+		<div className={`w-screen h-screen overflow-hidden bg-transparent ${styles.electronDrag}`}>
 			{/* Language switcher — top-left, beside traffic lights */}
 			<div
 				className={`fixed top-2 flex items-center gap-1 px-2 py-1 rounded-md text-white/50 hover:text-white/90 hover:bg-white/10 transition-all duration-150 ${isMac ? "left-[72px]" : "left-2"} ${styles.electronNoDrag}`}
