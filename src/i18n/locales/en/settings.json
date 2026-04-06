@@ -108,6 +108,8 @@
 		"background": "Background",
 		"none": "None",
 		"color": "Color",
+		"colorWheel": "Color Wheel",
+		"colorPalette": "Color Palette",
 		"clearBackground": "Clear Background",
 		"uploadImage": "Upload Image",
 		"supportedFormats": "Supported formats: JPG, PNG, GIF, WebP",

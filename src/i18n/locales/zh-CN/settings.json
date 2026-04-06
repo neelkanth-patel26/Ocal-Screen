@@ -108,6 +108,8 @@
 		"background": "背景",
 		"none": "无",
 		"color": "颜色",
+		"colorWheel": "颜色轮",
+		"colorPalette": "颜色调色板",
 		"clearBackground": "清除背景",
 		"uploadImage": "上传图片",
 		"supportedFormats": "支持的格式：JPG、PNG、GIF、WebP",
