@@ -1,5 +1,5 @@
 import type { Span } from "dnd-timeline";
-import { useItem } from "dnd-timeline";
+import { useItem, useTimelineContext } from "dnd-timeline";
 import { Gauge, MessageSquare, Scissors, ZoomIn } from "lucide-react";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -13,8 +13,11 @@ interface ItemProps {
 	isSelected?: boolean;
 	onSelect?: () => void;
 	zoomDepth?: number;
+	zoomInDurationMs?: number;
+	zoomOutDurationMs?: number;
 	speedValue?: number;
 	variant?: "zoom" | "trim" | "annotation" | "speed";
+	onZoomDurationChange?: (id: string, zoomIn: number, zoomOut: number) => void;
 }
 
 // Map zoom depth to multiplier labels
@@ -44,10 +47,14 @@ export default function Item({
 	isSelected = false,
 	onSelect,
 	zoomDepth = 1,
+	zoomInDurationMs,
+	zoomOutDurationMs,
 	speedValue,
 	variant = "zoom",
 	children,
+	onZoomDurationChange,
 }: ItemProps) {
+	const { pixelsToValue } = useTimelineContext();
 	const { setNodeRef, attributes, listeners, itemStyle, itemContentStyle } = useItem({
 		id,
 		span,
@@ -101,6 +108,96 @@ export default function Item({
 						onSelect?.();
 					}}
 				>
+					{isZoom && (
+						<>
+							{/* Transition In Marker */}
+							<div
+								className="absolute top-0 bottom-0 left-0 bg-white/10 border-r border-white/20 pointer-events-none"
+								style={{
+									width: `${((zoomInDurationMs ?? 1522.575) / (span.end - span.start)) * 100}%`,
+								}}
+							/>
+							{/* Draggable handle for Transition In */}
+							<div
+								className="absolute top-0 bottom-0 w-2 cursor-col-resize z-20 group-hover:bg-white/5 transition-colors"
+								style={{
+									left: `${((zoomInDurationMs ?? 1522.575) / (span.end - span.start)) * 100}%`,
+									transform: "translateX(-50%)",
+								}}
+								onPointerDown={(e) => {
+									e.stopPropagation();
+									e.preventDefault();
+									const target = e.currentTarget;
+									target.setPointerCapture(e.pointerId);
+
+									const onPointerMove = (moveEvent: PointerEvent) => {
+										const deltaPx = moveEvent.clientX - e.clientX;
+										const deltaMs = pixelsToValue(deltaPx);
+										const newDuration = Math.max(
+											0,
+											Math.min(
+												(zoomInDurationMs ?? 1522.575) + deltaMs,
+												span.end - span.start - (zoomOutDurationMs ?? 1015.05),
+											),
+										);
+										onZoomDurationChange?.(id, newDuration, zoomOutDurationMs ?? 1015.05);
+									};
+
+									const onPointerUp = () => {
+										target.releasePointerCapture(e.pointerId);
+										window.removeEventListener("pointermove", onPointerMove);
+										window.removeEventListener("pointerup", onPointerUp);
+									};
+
+									window.addEventListener("pointermove", onPointerMove);
+									window.addEventListener("pointerup", onPointerUp);
+								}}
+							/>
+							{/* Transition Out Marker */}
+							<div
+								className="absolute top-0 bottom-0 right-0 bg-white/10 border-l border-white/20 pointer-events-none"
+								style={{
+									width: `${((zoomOutDurationMs ?? 1015.05) / (span.end - span.start)) * 100}%`,
+								}}
+							/>
+							{/* Draggable handle for Transition Out */}
+							<div
+								className="absolute top-0 bottom-0 w-2 cursor-col-resize z-20 group-hover:bg-white/5 transition-colors"
+								style={{
+									right: `${((zoomOutDurationMs ?? 1015.05) / (span.end - span.start)) * 100}%`,
+									transform: "translateX(50%)",
+								}}
+								onPointerDown={(e) => {
+									e.stopPropagation();
+									e.preventDefault();
+									const target = e.currentTarget;
+									target.setPointerCapture(e.pointerId);
+
+									const onPointerMove = (moveEvent: PointerEvent) => {
+										const deltaPx = e.clientX - moveEvent.clientX; // Inverted because right-anchored
+										const deltaMs = pixelsToValue(deltaPx);
+										const newDuration = Math.max(
+											0,
+											Math.min(
+												(zoomOutDurationMs ?? 1015.05) + deltaMs,
+												span.end - span.start - (zoomInDurationMs ?? 1522.575),
+											),
+										);
+										onZoomDurationChange?.(id, zoomInDurationMs ?? 1522.575, newDuration);
+									};
+
+									const onPointerUp = () => {
+										target.releasePointerCapture(e.pointerId);
+										window.removeEventListener("pointermove", onPointerMove);
+										window.removeEventListener("pointerup", onPointerUp);
+									};
+
+									window.addEventListener("pointermove", onPointerMove);
+									window.addEventListener("pointerup", onPointerUp);
+								}}
+							/>
+						</>
+					)}
 					<div
 						className={cn(glassStyles.zoomEndCap, glassStyles.left)}
 						style={{
