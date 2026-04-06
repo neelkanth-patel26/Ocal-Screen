@@ -5,6 +5,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import {
@@ -91,6 +92,7 @@ function getInitialLocale(): Locale {
 export function I18nProvider({ children }: { children: ReactNode }) {
 	const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
 	const [systemLocaleSuggestion, setSystemLocaleSuggestion] = useState<Locale | null>(null);
+	const hasRunSystemLocaleCheckRef = useRef(false);
 
 	const markPromptAsHandled = useCallback(() => {
 		try {
@@ -117,6 +119,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 	}, [locale]);
 
 	useEffect(() => {
+		if (hasRunSystemLocaleCheckRef.current) return;
+		hasRunSystemLocaleCheckRef.current = true;
+
 		let hasStoredLocale = false;
 		let hasHandledSystemPrompt = false;
 		try {
@@ -127,7 +132,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 			// localStorage may be unavailable
 		}
 
-		if (hasStoredLocale || hasHandledSystemPrompt || systemLocaleSuggestion) return;
+		if (hasStoredLocale || hasHandledSystemPrompt) return;
 
 		const detectedSystemLocale = getSupportedSystemLocale();
 		if (!detectedSystemLocale || detectedSystemLocale === DEFAULT_LOCALE) {
@@ -136,7 +141,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 		}
 
 		setSystemLocaleSuggestion(detectedSystemLocale);
-	}, [markPromptAsHandled, systemLocaleSuggestion]);
+	}, [markPromptAsHandled]);
 
 	const acceptSystemLocaleSuggestion = useCallback(() => {
 		if (!systemLocaleSuggestion) return;
