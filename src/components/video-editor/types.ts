@@ -138,7 +138,16 @@ export const DEFAULT_CROP_REGION: CropRegion = {
 	height: 1,
 };
 
-export type PlaybackSpeed = 0.25 | 0.5 | 0.75 | 1.25 | 1.5 | 1.75 | 2;
+export type PlaybackSpeed = number;
+
+export const MIN_PLAYBACK_SPEED = 0.1;
+// Anything above 16x causes the playhead to stall during preview
+// due to the video decoder not being able to keep up.
+export const MAX_PLAYBACK_SPEED = 16;
+
+export function clampPlaybackSpeed(speed: number): PlaybackSpeed {
+	return Math.round(Math.min(MAX_PLAYBACK_SPEED, Math.max(MIN_PLAYBACK_SPEED, speed)) * 100) / 100;
+}
 
 export interface SpeedRegion {
 	id: string;
@@ -155,6 +164,9 @@ export const SPEED_OPTIONS: Array<{ speed: PlaybackSpeed; label: string }> = [
 	{ speed: 1.5, label: "1.5×" },
 	{ speed: 1.75, label: "1.75×" },
 	{ speed: 2, label: "2×" },
+	{ speed: 3, label: "3×" },
+	{ speed: 4, label: "4×" },
+	{ speed: 5, label: "5×" },
 ];
 
 export const DEFAULT_PLAYBACK_SPEED: PlaybackSpeed = 1.5;

@@ -8,6 +8,10 @@
 		"node": "22.22.1",
 		"npm": "10.9.4"
 	},
+	"author": {
+		"name": "Sid",
+		"email": "svaddem@asu.edu"
+	},
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build && electron-builder",
@@ -18,7 +22,7 @@
 		"preview": "vite preview",
 		"build:mac": "tsc && vite build && electron-builder --mac",
 		"build:win": "tsc && vite build && electron-builder --win",
-		"build:linux": "tsc && vite build && electron-builder --linux",
+		"build:linux": "tsc && vite build && electron-builder --linux AppImage deb",
 		"test": "vitest --run",
 		"test:watch": "vitest",
 		"build-vite": "tsc && vite build",
