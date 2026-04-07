@@ -26,6 +26,7 @@
 		"test": "vitest --run",
 		"test:watch": "vitest",
 		"build-vite": "tsc && vite build",
+		"test:browser": "vitest --config vitest.browser.config.ts --run",
 		"test:e2e": "playwright test",
 		"prepare": "husky"
 	},
@@ -82,6 +83,8 @@
 		"@types/react-dom": "^18.2.21",
 		"@types/uuid": "^10.0.0",
 		"@vitejs/plugin-react": "^4.2.1",
+		"@vitest/browser": "^4.0.16",
+		"@vitest/browser-playwright": "^4.0.16",
 		"autoprefixer": "^10.4.21",
 		"electron": "^39.2.7",
 		"electron-builder": "^26.7.0",
