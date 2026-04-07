@@ -16,7 +16,6 @@ export default defineConfig({
 			headless: true,
 			instances: [{ browser: "chromium" }],
 		},
-		// GIF export encodes frames and renders — give it plenty of time.
 		testTimeout: 120_000,
 		hookTimeout: 30_000,
 	},
@@ -25,6 +24,5 @@ export default defineConfig({
 			"@": path.resolve(__dirname, "src"),
 		},
 	},
-	// Let Vite treat .webm and .wasm files as static assets importable via `?url`.
 	assetsInclude: ["**/*.webm"],
 });
