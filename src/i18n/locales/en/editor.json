@@ -1,4 +1,10 @@
 {
+	"newRecording": {
+		"title": "Return to Recorder",
+		"description": "Your current session has been saved.",
+		"cancel": "Cancel",
+		"confirm": "Confirm"
+	},
 	"errors": {
 		"noVideoLoaded": "No video loaded",
 		"videoNotReady": "Video not ready",
