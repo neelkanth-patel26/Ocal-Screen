@@ -133,7 +133,15 @@ jobs:
       - name: Find .app bundle
         id: find_app
         run: |
-          APP_BUNDLE=$(find release/${{ steps.version.outputs.version }} -maxdepth 2 -name "*.app" -type d | head -n1)
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "=== Release directory contents ==="
+          ls -laR "release/${VERSION}/" || echo "release/${VERSION}/ not found"
+          echo "=== Searching for .app bundle ==="
+          APP_BUNDLE=$(find "release/${VERSION}" -maxdepth 4 -name "*.app" -type d | head -n1)
+          if [ -z "$APP_BUNDLE" ]; then
+            echo "::error::No .app bundle found in release/${VERSION}/"
+            exit 1
+          fi
           echo "app_bundle=$APP_BUNDLE" >> $GITHUB_OUTPUT
           echo "Found: $APP_BUNDLE"
 
