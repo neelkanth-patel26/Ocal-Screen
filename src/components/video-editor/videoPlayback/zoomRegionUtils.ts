@@ -37,10 +37,15 @@ function easeConnectedPan(value: number) {
 	return cubicBezier(0.1, 0.0, 0.2, 1.0, value);
 }
 
-const DEFAULT_ZOOM_OUT_MS = TRANSITION_WINDOW_MS;
-const DEFAULT_ZOOM_IN_MS = ZOOM_IN_TRANSITION_WINDOW_MS;
+export const DEFAULT_ZOOM_OUT_MS = TRANSITION_WINDOW_MS;
+export const DEFAULT_ZOOM_IN_MS = ZOOM_IN_TRANSITION_WINDOW_MS;
 
-function getDurations(region: ZoomRegion) {
+export function getDurations(region: {
+	startMs: number;
+	endMs: number;
+	zoomInDurationMs?: number;
+	zoomOutDurationMs?: number;
+}) {
 	let zoomIn = region.zoomInDurationMs ?? DEFAULT_ZOOM_IN_MS;
 	let zoomOut = region.zoomOutDurationMs ?? DEFAULT_ZOOM_OUT_MS;
 

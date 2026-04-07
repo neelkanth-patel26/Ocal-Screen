@@ -1773,13 +1773,13 @@ export default function VideoEditor() {
 						selectedZoomInDuration={
 							selectedZoomId
 								? (zoomRegions.find((z) => z.id === selectedZoomId)?.zoomInDurationMs ??
-									ZOOM_IN_TRANSITION_WINDOW_MS)
+									Math.round(ZOOM_IN_TRANSITION_WINDOW_MS))
 								: undefined
 						}
 						selectedZoomOutDuration={
 							selectedZoomId
 								? (zoomRegions.find((z) => z.id === selectedZoomId)?.zoomOutDurationMs ??
-									TRANSITION_WINDOW_MS)
+									Math.round(TRANSITION_WINDOW_MS))
 								: undefined
 						}
 						onZoomDurationChange={(zoomIn, zoomOut) =>

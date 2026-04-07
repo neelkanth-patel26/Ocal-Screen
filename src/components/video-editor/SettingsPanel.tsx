@@ -166,7 +166,6 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 	{ depth: 6, label: "5×" },
 ];
 
-// TODO: make this configurable
 const ZOOM_SPEED_OPTIONS = [
 	{ label: "Instant", zoomIn: 0, zoomOut: 0 },
 	{ label: "Fast", zoomIn: 500, zoomOut: 350 },
@@ -570,8 +569,10 @@ export function SettingsPanel({
 							<div className="grid grid-cols-4 gap-1.5">
 								{ZOOM_SPEED_OPTIONS.map((opt) => {
 									const isActive =
-										selectedZoomInDuration === opt.zoomIn &&
-										selectedZoomOutDuration === opt.zoomOut;
+										selectedZoomInDuration !== undefined &&
+										selectedZoomOutDuration !== undefined &&
+										Math.round(selectedZoomInDuration) === Math.round(opt.zoomIn) &&
+										Math.round(selectedZoomOutDuration) === Math.round(opt.zoomOut);
 									return (
 										<Button
 											key={opt.label}
@@ -924,7 +925,7 @@ export function SettingsPanel({
 						</AccordionTrigger>
 						<AccordionContent className="pb-3">
 							<Tabs defaultValue="image" className="w-full">
-								<TabsList className="mb-2 bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3  rounded-lg">
+								<TabsList className="mb-2 bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 rounded-lg">
 									<TabsTrigger
 										value="image"
 										className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 text-[10px] py-1 rounded-md transition-all"
