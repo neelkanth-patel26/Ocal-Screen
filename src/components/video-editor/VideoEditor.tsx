@@ -1760,6 +1760,7 @@ export default function VideoEditor() {
 						onAnnotationStyleChange={handleAnnotationStyleChange}
 						onAnnotationFigureDataChange={handleAnnotationFigureDataChange}
 						onAnnotationDelete={handleAnnotationDelete}
+						selectedSpeedId={selectedSpeedId}
 						selectedSpeedValue={
 							selectedSpeedId
 								? (speedRegions.find((r) => r.id === selectedSpeedId)?.speed ?? null)
