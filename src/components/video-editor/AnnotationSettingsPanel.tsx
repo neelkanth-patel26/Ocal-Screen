@@ -1,5 +1,4 @@
 import Block from "@uiw/react-color-block";
-import Colorful from "@uiw/react-color-colorful";
 import {
 	AlignCenter,
 	AlignLeft,
@@ -31,6 +30,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useScopedT } from "@/contexts/I18nContext";
 import { type CustomFont, getCustomFonts } from "@/lib/customFonts";
 import { cn } from "@/lib/utils";
+import ColorPicker from "../ui/color-picker";
 import { AddCustomFontDialog } from "./AddCustomFontDialog";
 import { getArrowComponent } from "./ArrowSvgs";
 import type { AnnotationRegion, AnnotationType, ArrowDirection, FigureData } from "./types";
@@ -68,7 +68,6 @@ export function AnnotationSettingsPanel({
 	const t = useScopedT("settings");
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
-	const [colorMode, setColorMode] = useState<"wheel" | "palette">("wheel");
 	const fontStyleLabels: Record<string, string> = {
 		classic: t("fontStyles.classic"),
 		editor: t("fontStyles.editor"),
@@ -140,15 +139,6 @@ export function AnnotationSettingsPanel({
 		event.target.value = "";
 	};
 
-	const getTextColor = (color: string) => {
-		if (color === "transparent") return "#ffffff";
-		const r = parseInt(color.slice(1, 3), 16);
-		const g = parseInt(color.slice(3, 5), 16);
-		const b = parseInt(color.slice(5, 7), 16);
-		const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-		if (luminance > 186) return "#000000";
-		return "#ffffff";
-	};
 	return (
 		<div className="flex-[2] min-w-0 bg-[#09090b] border border-white/5 rounded-2xl p-4 flex flex-col shadow-xl h-full overflow-y-auto custom-scrollbar">
 			<div className="mb-6">
@@ -394,64 +384,17 @@ export function AnnotationSettingsPanel({
 											side="top"
 											className="w-[260px] p-3 bg-[#1a1a1c] border border-white/10 rounded-xl shadow-xl"
 										>
-											<div className="flex flex-col gap-4 items-center">
-												{colorMode === "palette" && (
-													<Block
-														color={annotation.style.color}
-														colors={colorPalette}
-														onChange={(color) => {
-															onStyleChange({ color: color.hex });
-														}}
-														style={{
-															borderRadius: "8px",
-														}}
-													/>
-												)}
-												{colorMode === "wheel" && (
-													<>
-														<div
-															className={`w-full h-20 flex items-center justify-center border border-white/10 rounded-lg`}
-															style={{ backgroundColor: annotation.style.color }}
-														>
-															<span style={{ color: getTextColor(annotation.style.color) }}>
-																{annotation.style.color}
-															</span>
-														</div>
-														<Colorful
-															color={annotation.style.color}
-															onChange={(color) => {
-																onStyleChange({ color: color.hex });
-															}}
-															style={{
-																borderRadius: "8px",
-															}}
-															disableAlpha={true}
-														/>
-													</>
-												)}
-												<div className="flex items-center gap-2 w-full">
-													<Button
-														variant="outline"
-														size="sm"
-														className="w-full h-9 justify-start gap-2 bg-white/5 border-white/10 hover:bg-white/10 px-2"
-														onClick={() => setColorMode("wheel")}
-													>
-														<span className="text-xs text-slate-300 truncate flex-1 text-left">
-															{t("annotation.colorWheel")}
-														</span>
-													</Button>
-													<Button
-														variant="outline"
-														size="sm"
-														className="w-full h-9 justify-start gap-2 bg-white/5 border-white/10 hover:bg-white/10 px-2"
-														onClick={() => setColorMode("palette")}
-													>
-														<span className="text-xs text-slate-300 truncate flex-1 text-left">
-															{t("annotation.colorPalette")}
-														</span>
-													</Button>
-												</div>
-											</div>
+											<ColorPicker
+												selectedColor={annotation.style.color}
+												colorPalette={colorPalette}
+												translations={{
+													colorWheel: t("annotation.colorWheel"),
+													colorPalette: t("annotation.colorPalette"),
+												}}
+												onUpdateColor={(color) => {
+													onStyleChange({ color: color });
+												}}
+											/>
 										</PopoverContent>
 									</Popover>
 								</div>
@@ -484,80 +427,19 @@ export function AnnotationSettingsPanel({
 											side="top"
 											className="w-[260px] p-3 bg-[#1a1a1c] border border-white/10 rounded-xl shadow-xl"
 										>
-											<div className="flex flex-col gap-4 items-center items-center">
-												{colorMode === "palette" && (
-													<Block
-														color={
-															annotation.style.backgroundColor === "transparent"
-																? "#000000"
-																: annotation.style.backgroundColor
-														}
-														colors={colorPalette}
-														onChange={(color) => {
-															onStyleChange({ backgroundColor: color.hex });
-														}}
-														style={{
-															borderRadius: "8px",
-														}}
-													/>
-												)}
-												{colorMode === "wheel" && (
-													<>
-														<div
-															className={`w-full h-20 flex items-center justify-center border border-white/10 rounded-lg`}
-															style={{ backgroundColor: annotation.style.backgroundColor }}
-														>
-															<span
-																style={{ color: getTextColor(annotation.style.backgroundColor) }}
-															>
-																{annotation.style.backgroundColor}
-															</span>
-														</div>
-														<Colorful
-															color={annotation.style.backgroundColor}
-															onChange={(color) => {
-																onStyleChange({ backgroundColor: color.hex });
-															}}
-															style={{
-																borderRadius: "8px",
-															}}
-															disableAlpha={true}
-														/>
-													</>
-												)}
-												<div className="flex items-center gap-2 w-full">
-													<Button
-														variant="outline"
-														size="sm"
-														className="w-full h-9 justify-start gap-2 bg-white/5 border-white/10 hover:bg-white/10 px-2"
-														onClick={() => setColorMode("wheel")}
-													>
-														<span className="text-xs text-slate-300 truncate flex-1 text-left">
-															{t("annotation.colorWheel")}
-														</span>
-													</Button>
-													<Button
-														variant="outline"
-														size="sm"
-														className="w-full h-9 justify-start gap-2 bg-white/5 border-white/10 hover:bg-white/10 px-2"
-														onClick={() => setColorMode("palette")}
-													>
-														<span className="text-xs text-slate-300 truncate flex-1 text-left">
-															{t("annotation.colorPalette")}
-														</span>
-													</Button>
-												</div>
-											</div>
-											<Button
-												variant="ghost"
-												size="sm"
-												className="w-full mt-2 text-xs h-7 hover:bg-white/5 text-slate-400"
-												onClick={() => {
-													onStyleChange({ backgroundColor: "transparent" });
+											<ColorPicker
+												selectedColor={annotation.style.backgroundColor}
+												colorPalette={colorPalette}
+												translations={{
+													colorWheel: t("annotation.colorWheel"),
+													colorPalette: t("annotation.colorPalette"),
+													clearBackground: t("annotation.clearBackground"),
 												}}
-											>
-												{t("annotation.clearBackground")}
-											</Button>
+												clearBackgroundOption={true}
+												onUpdateColor={(color) => {
+													onStyleChange({ backgroundColor: color });
+												}}
+											/>
 										</PopoverContent>
 									</Popover>
 								</div>

@@ -1,5 +1,3 @@
-import Block from "@uiw/react-color-block";
-import Colorful from "@uiw/react-color-colorful";
 import {
 	Bug,
 	Crop,
@@ -42,7 +40,7 @@ import { GIF_FRAME_RATES, GIF_SIZE_PRESETS } from "@/lib/exporter";
 import { cn } from "@/lib/utils";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
-import { Input } from "../ui/input";
+import ColorPicker from "../ui/color-picker";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { CropControl } from "./CropControl";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
@@ -229,7 +227,6 @@ export function SettingsPanel({
 	const t = useScopedT("settings");
 	const [wallpaperPaths, setWallpaperPaths] = useState<string[]>([]);
 	const [customImages, setCustomImages] = useState<string[]>([]);
-	const [backgroundColorMode, setBackgroundColorMode] = useState<"wheel" | "palette">("wheel");
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
@@ -321,16 +318,6 @@ export function SettingsPanel({
 		},
 		[cropRegion, onCropChange, videoWidth, videoHeight, cropAspectLocked],
 	);
-
-	const getTextColor = (color: string) => {
-		if (color === "transparent") return "#ffffff";
-		const r = parseInt(color.slice(1, 3), 16);
-		const g = parseInt(color.slice(3, 5), 16);
-		const b = parseInt(color.slice(5, 7), 16);
-		const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-		if (luminance > 186) return "#000000";
-		return "#ffffff";
-	};
 
 	const applyCropAspectPreset = useCallback(
 		(preset: string) => {
@@ -1001,84 +988,18 @@ export function SettingsPanel({
 									</TabsContent>
 
 									<TabsContent value="color" className="mt-0">
-										<div className="p-1 flex flex-col gap-4 items-center">
-											<div className="flex items-center gap-2 w-full">
-												<Button
-													variant="outline"
-													size="sm"
-													className="w-full h-9 justify-start gap-2 bg-white/5 border-white/10 hover:bg-white/10 px-2"
-													onClick={() => setBackgroundColorMode("wheel")}
-													style={{
-														backgroundColor:
-															backgroundColorMode === "wheel" ? "#34B27B" : "transparent",
-													}}
-												>
-													<span className="text-xs text-slate-300 truncate flex-1 text-left">
-														{t("background.colorWheel")}
-													</span>
-												</Button>
-												<Button
-													variant="outline"
-													size="sm"
-													className="w-full h-9 justify-start gap-2 bg-white/5 border-white/10 hover:bg-white/10 px-2"
-													onClick={() => setBackgroundColorMode("palette")}
-													style={{
-														backgroundColor:
-															backgroundColorMode === "palette" ? "#34B27B" : "transparent",
-													}}
-												>
-													<span className="text-xs text-slate-300 truncate flex-1 text-left">
-														{t("background.colorPalette")}
-													</span>
-												</Button>
-											</div>
-											{backgroundColorMode === "wheel" && (
-												<>
-													<div
-														className={`w-full h-20 flex items-center justify-center border border-white/10 rounded-lg`}
-														style={{ backgroundColor: selectedColor }}
-													>
-														<span style={{ color: getTextColor(selectedColor) }}>
-															{selectedColor}
-														</span>
-													</div>
-													<Colorful
-														color={selectedColor}
-														onChange={(color) => {
-															setSelectedColor(color.hex);
-															onWallpaperChange(color.hex);
-														}}
-														style={{
-															borderRadius: "8px",
-														}}
-														disableAlpha={true}
-													/>
-													<Input
-														type="text"
-														value={selectedColor}
-														className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-2 text-xs text-slate-200 outline-none focus:border-[#34B27B]/50 focus:ring-1 focus:ring-[#34B27B]/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-														onChange={(e) => {
-															setSelectedColor(e.target.value);
-															onWallpaperChange(e.target.value);
-														}}
-													/>
-												</>
-											)}
-											{backgroundColorMode === "palette" && (
-												<Block
-													color={selectedColor}
-													colors={colorPalette}
-													onChange={(color) => {
-														setSelectedColor(color.hex);
-														onWallpaperChange(color.hex);
-													}}
-													style={{
-														width: "100%",
-														borderRadius: "8px",
-													}}
-												/>
-											)}
-										</div>
+										<ColorPicker
+											selectedColor={selectedColor}
+											colorPalette={colorPalette}
+											translations={{
+												colorWheel: t("background.colorWheel"),
+												colorPalette: t("background.colorPalette"),
+											}}
+											onUpdateColor={(color) => {
+												setSelectedColor(color);
+												onWallpaperChange(color);
+											}}
+										/>
 									</TabsContent>
 
 									<TabsContent value="gradient" className="mt-0">
