@@ -13,7 +13,9 @@
 	"speed": {
 		"playbackSpeed": "Velocidad de reproducción",
 		"selectRegion": "Selecciona una región de velocidad para ajustar",
-		"deleteRegion": "Eliminar región de velocidad"
+		"deleteRegion": "Eliminar región de velocidad",
+		"customPlaybackSpeed": "Velocidad personalizada",
+		"maxSpeedError": "La velocidad no puede superar 16×"
 	},
 	"trim": {
 		"deleteRegion": "Eliminar región de recorte"

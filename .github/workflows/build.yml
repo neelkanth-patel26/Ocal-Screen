@@ -97,4 +97,5 @@ jobs:
           path: |
             release/**/*.AppImage
             release/**/*.zsync
+            release/**/*.deb
           retention-days: 30
