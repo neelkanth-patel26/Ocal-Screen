@@ -41,8 +41,16 @@ const DEFAULT_ZOOM_OUT_MS = TRANSITION_WINDOW_MS;
 const DEFAULT_ZOOM_IN_MS = ZOOM_IN_TRANSITION_WINDOW_MS;
 
 function getDurations(region: ZoomRegion) {
-	const zoomIn = region.zoomInDurationMs ?? DEFAULT_ZOOM_IN_MS;
-	const zoomOut = region.zoomOutDurationMs ?? DEFAULT_ZOOM_OUT_MS;
+	let zoomIn = region.zoomInDurationMs ?? DEFAULT_ZOOM_IN_MS;
+	let zoomOut = region.zoomOutDurationMs ?? DEFAULT_ZOOM_OUT_MS;
+
+	const duration = region.endMs - region.startMs;
+	if (zoomIn + zoomOut > duration) {
+		const scale = duration / (zoomIn + zoomOut);
+		zoomIn *= scale;
+		zoomOut *= scale;
+	}
+
 	return { zoomIn, zoomOut };
 }
 
