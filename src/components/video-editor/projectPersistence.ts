@@ -15,6 +15,7 @@ import {
 	DEFAULT_WEBCAM_LAYOUT_PRESET,
 	DEFAULT_WEBCAM_MASK_SHAPE,
 	DEFAULT_WEBCAM_POSITION,
+	DEFAULT_WEBCAM_SIZE_PRESET,
 	DEFAULT_ZOOM_DEPTH,
 	MAX_PLAYBACK_SPEED,
 	MIN_PLAYBACK_SPEED,
@@ -23,6 +24,7 @@ import {
 	type WebcamLayoutPreset,
 	type WebcamMaskShape,
 	type WebcamPosition,
+	type WebcamSizePreset,
 	type ZoomRegion,
 } from "./types";
 
@@ -50,6 +52,7 @@ export interface ProjectEditorState {
 	aspectRatio: AspectRatio;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape: WebcamMaskShape;
+	webcamSizePreset: WebcamSizePreset;
 	webcamPosition: WebcamPosition | null;
 	exportQuality: ExportQuality;
 	exportFormat: ExportFormat;
@@ -362,6 +365,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.webcamMaskShape === "rounded"
 				? editor.webcamMaskShape
 				: DEFAULT_WEBCAM_MASK_SHAPE,
+		webcamSizePreset:
+			typeof editor.webcamSizePreset === "number" && isFiniteNumber(editor.webcamSizePreset)
+				? Math.max(10, Math.min(50, editor.webcamSizePreset))
+				: DEFAULT_WEBCAM_SIZE_PRESET,
 		webcamPosition:
 			editor.webcamPosition &&
 			typeof editor.webcamPosition === "object" &&

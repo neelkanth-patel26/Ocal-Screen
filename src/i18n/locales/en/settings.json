@@ -26,7 +26,8 @@
 		"selectPreset": "Select preset",
 		"pictureInPicture": "Picture in Picture",
 		"verticalStack": "Vertical Stack",
-		"webcamShape": "Camera Shape"
+		"webcamShape": "Camera Shape",
+		"webcamSize": "Webcam Size"
 	},
 	"effects": {
 		"title": "Video Effects",

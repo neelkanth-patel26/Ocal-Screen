@@ -24,6 +24,7 @@ import {
 	type Size,
 	type StyledRenderRect,
 	type WebcamLayoutPreset,
+	type WebcamSizePreset,
 } from "@/lib/compositeLayout";
 import { getCssClipPath } from "@/lib/webcamMaskShapes";
 import {
@@ -69,6 +70,7 @@ interface VideoPlaybackProps {
 	webcamVideoPath?: string;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
+	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	onWebcamPositionChange?: (position: { cx: number; cy: number }) => void;
 	onWebcamPositionDragEnd?: () => void;
@@ -119,6 +121,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			webcamVideoPath,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamSizePreset,
 			webcamPosition,
 			onWebcamPositionChange,
 			onWebcamPositionDragEnd,
@@ -195,7 +198,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const isPlayingRef = useRef(isPlaying);
 		const isSeekingRef = useRef(false);
 		const allowPlaybackRef = useRef(false);
-		const lockedVideoDimensionsRef = useRef<{ width: number; height: number } | null>(null);
+		const lockedVideoDimensionsRef = useRef<{
+			width: number;
+			height: number;
+		} | null>(null);
 		const layoutVideoContentRef = useRef<(() => void) | null>(null);
 		const trimRegionsRef = useRef<TrimRegion[]>([]);
 		const speedRegionsRef = useRef<SpeedRegion[]>([]);
@@ -283,6 +289,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				padding,
 				webcamDimensions,
 				webcamLayoutPreset,
+				webcamSizePreset,
 				webcamPosition,
 				webcamMaskShape,
 			});
@@ -314,6 +321,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			padding,
 			webcamDimensions,
 			webcamLayoutPreset,
+			webcamSizePreset,
 			webcamPosition,
 			webcamMaskShape,
 		]);
@@ -648,7 +656,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				app.ticker.maxFPS = 60;
 
 				if (!mounted) {
-					app.destroy(true, { children: true, texture: true, textureSource: true });
+					app.destroy(true, {
+						children: true,
+						texture: true,
+						textureSource: true,
+					});
 					return;
 				}
 
@@ -672,7 +684,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				mounted = false;
 				setPixiReady(false);
 				if (app && app.renderer) {
-					app.destroy(true, { children: true, texture: true, textureSource: true });
+					app.destroy(true, {
+						children: true,
+						texture: true,
+						textureSource: true,
+					});
 				}
 				appRef.current = null;
 				cameraContainerRef.current = null;
@@ -853,12 +869,19 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const ss = stageSizeRef.current;
 				const viewportRatio =
 					bm.width > 0 && bm.height > 0
-						? { widthRatio: ss.width / bm.width, heightRatio: ss.height / bm.height }
+						? {
+								widthRatio: ss.width / bm.width,
+								heightRatio: ss.height / bm.height,
+							}
 						: undefined;
 				const { region, strength, blendedScale, transition } = findDominantRegion(
 					zoomRegionsRef.current,
 					currentTimeRef.current,
-					{ connectZooms: true, cursorTelemetry: cursorTelemetryRef.current, viewportRatio },
+					{
+						connectZooms: true,
+						cursorTelemetry: cursorTelemetryRef.current,
+						viewportRatio,
+					},
 				);
 
 				const defaultFocus = DEFAULT_FOCUS;

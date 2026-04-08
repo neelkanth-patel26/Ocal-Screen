@@ -98,6 +98,7 @@ export default function VideoEditor() {
 		aspectRatio,
 		webcamLayoutPreset,
 		webcamMaskShape,
+		webcamSizePreset,
 		webcamPosition,
 	} = editorState;
 
@@ -215,6 +216,7 @@ export default function VideoEditor() {
 				aspectRatio: normalizedEditor.aspectRatio,
 				webcamLayoutPreset: normalizedEditor.webcamLayoutPreset,
 				webcamMaskShape: normalizedEditor.webcamMaskShape,
+				webcamSizePreset: normalizedEditor.webcamSizePreset,
 				webcamPosition: normalizedEditor.webcamPosition,
 			});
 			setExportQuality(normalizedEditor.exportQuality);
@@ -305,6 +307,7 @@ export default function VideoEditor() {
 		aspectRatio,
 		webcamLayoutPreset,
 		webcamMaskShape,
+		webcamSizePreset,
 		webcamPosition,
 		exportQuality,
 		exportFormat,
@@ -425,6 +428,7 @@ export default function VideoEditor() {
 				aspectRatio,
 				webcamLayoutPreset,
 				webcamMaskShape,
+				webcamSizePreset,
 				webcamPosition,
 				exportQuality,
 				exportFormat,
@@ -480,6 +484,7 @@ export default function VideoEditor() {
 			aspectRatio,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
 			exportFormat,
@@ -697,7 +702,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
 					region.id === id
-						? { ...region, startMs: Math.round(span.start), endMs: Math.round(span.end) }
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+							}
 						: region,
 				),
 			}));
@@ -710,7 +719,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				trimRegions: prev.trimRegions.map((region) =>
 					region.id === id
-						? { ...region, startMs: Math.round(span.start), endMs: Math.round(span.end) }
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+							}
 						: region,
 				),
 			}));
@@ -736,7 +749,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
 					region.id === selectedZoomId
-						? { ...region, depth, focus: clampFocusToDepth(region.focus, depth) }
+						? {
+								...region,
+								depth,
+								focus: clampFocusToDepth(region.focus, depth),
+							}
 						: region,
 				),
 			}));
@@ -758,7 +775,9 @@ export default function VideoEditor() {
 
 	const handleZoomDelete = useCallback(
 		(id: string) => {
-			pushState((prev) => ({ zoomRegions: prev.zoomRegions.filter((r) => r.id !== id) }));
+			pushState((prev) => ({
+				zoomRegions: prev.zoomRegions.filter((r) => r.id !== id),
+			}));
 			if (selectedZoomId === id) {
 				setSelectedZoomId(null);
 			}
@@ -768,7 +787,9 @@ export default function VideoEditor() {
 
 	const handleTrimDelete = useCallback(
 		(id: string) => {
-			pushState((prev) => ({ trimRegions: prev.trimRegions.filter((r) => r.id !== id) }));
+			pushState((prev) => ({
+				trimRegions: prev.trimRegions.filter((r) => r.id !== id),
+			}));
 			if (selectedTrimId === id) {
 				setSelectedTrimId(null);
 			}
@@ -794,7 +815,9 @@ export default function VideoEditor() {
 				endMs: Math.round(span.end),
 				speed: DEFAULT_PLAYBACK_SPEED,
 			};
-			pushState((prev) => ({ speedRegions: [...prev.speedRegions, newRegion] }));
+			pushState((prev) => ({
+				speedRegions: [...prev.speedRegions, newRegion],
+			}));
 			setSelectedSpeedId(id);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
@@ -859,7 +882,9 @@ export default function VideoEditor() {
 				style: { ...DEFAULT_ANNOTATION_STYLE },
 				zIndex,
 			};
-			pushState((prev) => ({ annotationRegions: [...prev.annotationRegions, newRegion] }));
+			pushState((prev) => ({
+				annotationRegions: [...prev.annotationRegions, newRegion],
+			}));
 			setSelectedAnnotationId(id);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
@@ -872,7 +897,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				annotationRegions: prev.annotationRegions.map((region) =>
 					region.id === id
-						? { ...region, startMs: Math.round(span.start), endMs: Math.round(span.end) }
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+							}
 						: region,
 				),
 			}));
@@ -1193,6 +1222,7 @@ export default function VideoEditor() {
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
+						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
 						previewHeight,
@@ -1326,6 +1356,7 @@ export default function VideoEditor() {
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
+						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
 						previewHeight,
@@ -1396,6 +1427,7 @@ export default function VideoEditor() {
 			aspectRatio,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
 			handleExportSaved,
@@ -1618,6 +1650,7 @@ export default function VideoEditor() {
 											webcamVideoPath={webcamVideoPath || undefined}
 											webcamLayoutPreset={webcamLayoutPreset}
 											webcamMaskShape={webcamMaskShape}
+											webcamSizePreset={webcamSizePreset}
 											webcamPosition={webcamPosition}
 											onWebcamPositionChange={(pos) => updateState({ webcamPosition: pos })}
 											onWebcamPositionDragEnd={commitState}
@@ -1768,6 +1801,9 @@ export default function VideoEditor() {
 						}
 						webcamMaskShape={webcamMaskShape}
 						onWebcamMaskShapeChange={(shape) => pushState({ webcamMaskShape: shape })}
+						webcamSizePreset={webcamSizePreset}
+						onWebcamSizePresetChange={(v) => updateState({ webcamSizePreset: v })}
+						onWebcamSizePresetCommit={commitState}
 						videoElement={videoPlaybackRef.current?.video || null}
 						exportQuality={exportQuality}
 						onExportQualityChange={setExportQuality}
