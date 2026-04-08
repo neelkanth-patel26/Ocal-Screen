@@ -20,7 +20,9 @@
 	"speed": {
 		"playbackSpeed": "Playback Speed",
 		"selectRegion": "Select a speed region to adjust",
-		"deleteRegion": "Delete Speed Region"
+		"deleteRegion": "Delete Speed Region",
+		"customPlaybackSpeed": "Custom Playback Speed",
+		"maxSpeedError": "Speed can't go higher than 16×"
 	},
 	"trim": {
 		"deleteRegion": "Delete Trim Region"
@@ -31,7 +33,8 @@
 		"selectPreset": "Select preset",
 		"pictureInPicture": "Picture in Picture",
 		"verticalStack": "Vertical Stack",
-		"webcamShape": "Camera Shape"
+		"webcamShape": "Camera Shape",
+		"webcamSize": "Webcam Size"
 	},
 	"effects": {
 		"title": "Video Effects",

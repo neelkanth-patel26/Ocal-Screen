@@ -5,6 +5,7 @@ import { ASPECT_RATIOS, type AspectRatio } from "@/utils/aspectRatioUtils";
 import {
 	type AnnotationRegion,
 	type CropRegion,
+	clampPlaybackSpeed,
 	DEFAULT_ANNOTATION_POSITION,
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
@@ -14,12 +15,16 @@ import {
 	DEFAULT_WEBCAM_LAYOUT_PRESET,
 	DEFAULT_WEBCAM_MASK_SHAPE,
 	DEFAULT_WEBCAM_POSITION,
+	DEFAULT_WEBCAM_SIZE_PRESET,
 	DEFAULT_ZOOM_DEPTH,
+	MAX_PLAYBACK_SPEED,
+	MIN_PLAYBACK_SPEED,
 	type SpeedRegion,
 	type TrimRegion,
 	type WebcamLayoutPreset,
 	type WebcamMaskShape,
 	type WebcamPosition,
+	type WebcamSizePreset,
 	type ZoomRegion,
 } from "./types";
 
@@ -47,6 +52,7 @@ export interface ProjectEditorState {
 	aspectRatio: AspectRatio;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape: WebcamMaskShape;
+	webcamSizePreset: WebcamSizePreset;
 	webcamPosition: WebcamPosition | null;
 	exportQuality: ExportQuality;
 	exportFormat: ExportFormat;
@@ -223,14 +229,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					const endMs = Math.max(startMs + 1, rawEnd);
 
 					const speed =
-						region.speed === 0.25 ||
-						region.speed === 0.5 ||
-						region.speed === 0.75 ||
-						region.speed === 1.25 ||
-						region.speed === 1.5 ||
-						region.speed === 1.75 ||
-						region.speed === 2
-							? region.speed
+						isFiniteNumber(region.speed) &&
+						region.speed >= MIN_PLAYBACK_SPEED &&
+						region.speed <= MAX_PLAYBACK_SPEED
+							? clampPlaybackSpeed(region.speed)
 							: DEFAULT_PLAYBACK_SPEED;
 
 					return {
@@ -363,6 +365,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.webcamMaskShape === "rounded"
 				? editor.webcamMaskShape
 				: DEFAULT_WEBCAM_MASK_SHAPE,
+		webcamSizePreset:
+			typeof editor.webcamSizePreset === "number" && isFiniteNumber(editor.webcamSizePreset)
+				? Math.max(10, Math.min(50, editor.webcamSizePreset))
+				: DEFAULT_WEBCAM_SIZE_PRESET,
 		webcamPosition:
 			editor.webcamPosition &&
 			typeof editor.webcamPosition === "object" &&

@@ -20,7 +20,9 @@
 	"speed": {
 		"playbackSpeed": "Velocidad de reproducción",
 		"selectRegion": "Selecciona una región de velocidad para ajustar",
-		"deleteRegion": "Eliminar región de velocidad"
+		"deleteRegion": "Eliminar región de velocidad",
+		"customPlaybackSpeed": "Velocidad personalizada",
+		"maxSpeedError": "La velocidad no puede superar 16×"
 	},
 	"trim": {
 		"deleteRegion": "Eliminar región de recorte"
@@ -31,7 +33,8 @@
 		"selectPreset": "Seleccionar predefinido",
 		"pictureInPicture": "Imagen en imagen",
 		"verticalStack": "Apilado vertical",
-		"webcamShape": "Forma de cámara"
+		"webcamShape": "Forma de cámara",
+		"webcamSize": "Tamaño de cámara"
 	},
 	"effects": {
 		"title": "Efectos de video",

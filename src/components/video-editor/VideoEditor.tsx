@@ -1,8 +1,16 @@
 import type { Span } from "dnd-timeline";
-import { FolderOpen, Languages, Save } from "lucide-react";
+import { FolderOpen, Languages, Save, Video } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { INITIAL_EDITOR_STATE, useEditorHistory } from "@/hooks/useEditorHistory";
@@ -91,6 +99,7 @@ export default function VideoEditor() {
 		aspectRatio,
 		webcamLayoutPreset,
 		webcamMaskShape,
+		webcamSizePreset,
 		webcamPosition,
 	} = editorState;
 
@@ -118,6 +127,7 @@ export default function VideoEditor() {
 	const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
 	const [exportError, setExportError] = useState<string | null>(null);
 	const [showExportDialog, setShowExportDialog] = useState(false);
+	const [showNewRecordingDialog, setShowNewRecordingDialog] = useState(false);
 	const [exportQuality, setExportQuality] = useState<ExportQuality>("good");
 	const [exportFormat, setExportFormat] = useState<ExportFormat>("mp4");
 	const [gifFrameRate, setGifFrameRate] = useState<GifFrameRate>(15);
@@ -207,6 +217,7 @@ export default function VideoEditor() {
 				aspectRatio: normalizedEditor.aspectRatio,
 				webcamLayoutPreset: normalizedEditor.webcamLayoutPreset,
 				webcamMaskShape: normalizedEditor.webcamMaskShape,
+				webcamSizePreset: normalizedEditor.webcamSizePreset,
 				webcamPosition: normalizedEditor.webcamPosition,
 			});
 			setExportQuality(normalizedEditor.exportQuality);
@@ -297,6 +308,7 @@ export default function VideoEditor() {
 		aspectRatio,
 		webcamLayoutPreset,
 		webcamMaskShape,
+		webcamSizePreset,
 		webcamPosition,
 		exportQuality,
 		exportFormat,
@@ -417,6 +429,7 @@ export default function VideoEditor() {
 				aspectRatio,
 				webcamLayoutPreset,
 				webcamMaskShape,
+				webcamSizePreset,
 				webcamPosition,
 				exportQuality,
 				exportFormat,
@@ -472,6 +485,7 @@ export default function VideoEditor() {
 			aspectRatio,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
 			exportFormat,
@@ -501,6 +515,16 @@ export default function VideoEditor() {
 	const handleSaveProjectAs = useCallback(async () => {
 		await saveProject(true);
 	}, [saveProject]);
+
+	const handleNewRecordingConfirm = useCallback(async () => {
+		const result = await window.electronAPI.startNewRecording();
+		if (result.success) {
+			setShowNewRecordingDialog(false);
+		} else {
+			console.error("Failed to start new recording:", result.error);
+			setError("Failed to start new recording: " + (result.error || "Unknown error"));
+		}
+	}, []);
 
 	const handleLoadProject = useCallback(async () => {
 		const result = await window.electronAPI.loadProjectFile();
@@ -679,7 +703,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
 					region.id === id
-						? { ...region, startMs: Math.round(span.start), endMs: Math.round(span.end) }
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+							}
 						: region,
 				),
 			}));
@@ -692,7 +720,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				trimRegions: prev.trimRegions.map((region) =>
 					region.id === id
-						? { ...region, startMs: Math.round(span.start), endMs: Math.round(span.end) }
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+							}
 						: region,
 				),
 			}));
@@ -718,7 +750,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
 					region.id === selectedZoomId
-						? { ...region, depth, focus: clampFocusToDepth(region.focus, depth) }
+						? {
+								...region,
+								depth,
+								focus: clampFocusToDepth(region.focus, depth),
+							}
 						: region,
 				),
 			}));
@@ -740,7 +776,9 @@ export default function VideoEditor() {
 
 	const handleZoomDelete = useCallback(
 		(id: string) => {
-			pushState((prev) => ({ zoomRegions: prev.zoomRegions.filter((r) => r.id !== id) }));
+			pushState((prev) => ({
+				zoomRegions: prev.zoomRegions.filter((r) => r.id !== id),
+			}));
 			if (selectedZoomId === id) {
 				setSelectedZoomId(null);
 			}
@@ -750,7 +788,9 @@ export default function VideoEditor() {
 
 	const handleTrimDelete = useCallback(
 		(id: string) => {
-			pushState((prev) => ({ trimRegions: prev.trimRegions.filter((r) => r.id !== id) }));
+			pushState((prev) => ({
+				trimRegions: prev.trimRegions.filter((r) => r.id !== id),
+			}));
 			if (selectedTrimId === id) {
 				setSelectedTrimId(null);
 			}
@@ -776,7 +816,9 @@ export default function VideoEditor() {
 				endMs: Math.round(span.end),
 				speed: DEFAULT_PLAYBACK_SPEED,
 			};
-			pushState((prev) => ({ speedRegions: [...prev.speedRegions, newRegion] }));
+			pushState((prev) => ({
+				speedRegions: [...prev.speedRegions, newRegion],
+			}));
 			setSelectedSpeedId(id);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
@@ -841,7 +883,9 @@ export default function VideoEditor() {
 				style: { ...DEFAULT_ANNOTATION_STYLE },
 				zIndex,
 			};
-			pushState((prev) => ({ annotationRegions: [...prev.annotationRegions, newRegion] }));
+			pushState((prev) => ({
+				annotationRegions: [...prev.annotationRegions, newRegion],
+			}));
 			setSelectedAnnotationId(id);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
@@ -867,7 +911,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				annotationRegions: prev.annotationRegions.map((region) =>
 					region.id === id
-						? { ...region, startMs: Math.round(span.start), endMs: Math.round(span.end) }
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+							}
 						: region,
 				),
 			}));
@@ -1188,6 +1236,7 @@ export default function VideoEditor() {
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
+						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
 						previewHeight,
@@ -1321,6 +1370,7 @@ export default function VideoEditor() {
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
+						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
 						previewHeight,
@@ -1391,6 +1441,7 @@ export default function VideoEditor() {
 			aspectRatio,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
 			handleExportSaved,
@@ -1496,6 +1547,34 @@ export default function VideoEditor() {
 
 	return (
 		<div className="flex flex-col h-screen bg-[#09090b] text-slate-200 overflow-hidden selection:bg-[#34B27B]/30">
+			<Dialog open={showNewRecordingDialog} onOpenChange={setShowNewRecordingDialog}>
+				<DialogContent
+					className="sm:max-w-[425px]"
+					style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+				>
+					<DialogHeader>
+						<DialogTitle>{t("newRecording.title")}</DialogTitle>
+						<DialogDescription>{t("newRecording.description")}</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<button
+							type="button"
+							onClick={() => setShowNewRecordingDialog(false)}
+							className="px-4 py-2 rounded-md bg-white/10 text-white hover:bg-white/20 text-sm font-medium transition-colors"
+						>
+							{t("newRecording.cancel")}
+						</button>
+						<button
+							type="button"
+							onClick={handleNewRecordingConfirm}
+							className="px-4 py-2 rounded-md bg-[#34B27B] text-white hover:bg-[#34B27B]/90 text-sm font-medium transition-colors"
+						>
+							{t("newRecording.confirm")}
+						</button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
 			<div
 				className="h-10 flex-shrink-0 bg-[#09090b]/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-6 z-50"
 				style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
@@ -1521,6 +1600,14 @@ export default function VideoEditor() {
 							))}
 						</select>
 					</div>
+					<button
+						type="button"
+						onClick={() => setShowNewRecordingDialog(true)}
+						className="flex items-center gap-1 px-2 py-1 rounded-md text-white/50 hover:text-white/90 hover:bg-white/10 transition-all duration-150 text-[11px] font-medium"
+					>
+						<Video size={14} />
+						{t("newRecording.title")}
+					</button>
 					<button
 						type="button"
 						onClick={handleLoadProject}
@@ -1577,6 +1664,7 @@ export default function VideoEditor() {
 											webcamVideoPath={webcamVideoPath || undefined}
 											webcamLayoutPreset={webcamLayoutPreset}
 											webcamMaskShape={webcamMaskShape}
+											webcamSizePreset={webcamSizePreset}
 											webcamPosition={webcamPosition}
 											onWebcamPositionChange={(pos) => updateState({ webcamPosition: pos })}
 											onWebcamPositionDragEnd={commitState}
@@ -1728,6 +1816,9 @@ export default function VideoEditor() {
 						}
 						webcamMaskShape={webcamMaskShape}
 						onWebcamMaskShapeChange={(shape) => pushState({ webcamMaskShape: shape })}
+						webcamSizePreset={webcamSizePreset}
+						onWebcamSizePresetChange={(v) => updateState({ webcamSizePreset: v })}
+						onWebcamSizePresetCommit={commitState}
 						videoElement={videoPlaybackRef.current?.video || null}
 						exportQuality={exportQuality}
 						onExportQualityChange={setExportQuality}
