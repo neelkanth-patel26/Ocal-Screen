@@ -1028,8 +1028,17 @@ export default function VideoEditor() {
 					return updatedRegion;
 				}),
 			}));
+
+			if (type === "blur" && selectedAnnotationId === id) {
+				setSelectedAnnotationId(null);
+				setSelectedBlurId(id);
+				setSelectedSpeedId(null);
+			} else if (type !== "blur" && selectedBlurId === id) {
+				setSelectedBlurId(null);
+				setSelectedAnnotationId(id);
+			}
 		},
-		[pushState],
+		[pushState, selectedAnnotationId, selectedBlurId],
 	);
 
 	const handleAnnotationStyleChange = useCallback(
@@ -1212,14 +1221,14 @@ export default function VideoEditor() {
 	useEffect(() => {
 		if (
 			selectedAnnotationId &&
-			!annotationRegions.some((region) => region.id === selectedAnnotationId)
+			!annotationOnlyRegions.some((region) => region.id === selectedAnnotationId)
 		) {
 			setSelectedAnnotationId(null);
 		}
-		if (selectedBlurId && !annotationRegions.some((region) => region.id === selectedBlurId)) {
+		if (selectedBlurId && !blurRegions.some((region) => region.id === selectedBlurId)) {
 			setSelectedBlurId(null);
 		}
-	}, [selectedAnnotationId, selectedBlurId, annotationRegions]);
+	}, [selectedAnnotationId, selectedBlurId, annotationOnlyRegions, blurRegions]);
 
 	useEffect(() => {
 		if (selectedSpeedId && !speedRegions.some((region) => region.id === selectedSpeedId)) {

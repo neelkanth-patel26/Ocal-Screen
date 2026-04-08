@@ -14,7 +14,7 @@ interface ItemProps {
 	onSelect?: () => void;
 	zoomDepth?: number;
 	speedValue?: number;
-	variant?: "zoom" | "trim" | "annotation" | "speed";
+	variant?: "zoom" | "trim" | "annotation" | "speed" | "blur";
 }
 
 // Map zoom depth to multiplier labels
