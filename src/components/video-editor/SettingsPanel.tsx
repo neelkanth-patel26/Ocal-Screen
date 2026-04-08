@@ -42,11 +42,13 @@ import { cn } from "@/lib/utils";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
+import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { CropControl } from "./CropControl";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
 	AnnotationType,
+	BlurData,
 	CropRegion,
 	FigureData,
 	PlaybackSpeed,
@@ -209,6 +211,11 @@ interface SettingsPanelProps {
 	onAnnotationStyleChange?: (id: string, style: Partial<AnnotationRegion["style"]>) => void;
 	onAnnotationFigureDataChange?: (id: string, figureData: FigureData) => void;
 	onAnnotationDelete?: (id: string) => void;
+	selectedBlurId?: string | null;
+	blurRegions?: AnnotationRegion[];
+	onBlurDataChange?: (id: string, blurData: BlurData) => void;
+	onBlurDataCommit?: () => void;
+	onBlurDelete?: (id: string) => void;
 	selectedSpeedId?: string | null;
 	selectedSpeedValue?: PlaybackSpeed | null;
 	onSpeedChange?: (speed: PlaybackSpeed) => void;
@@ -285,6 +292,11 @@ export function SettingsPanel({
 	onAnnotationStyleChange,
 	onAnnotationFigureDataChange,
 	onAnnotationDelete,
+	selectedBlurId,
+	blurRegions = [],
+	onBlurDataChange,
+	onBlurDataCommit,
+	onBlurDelete,
 	selectedSpeedId,
 	selectedSpeedValue,
 	onSpeedChange,
@@ -520,6 +532,9 @@ export function SettingsPanel({
 	const selectedAnnotation = selectedAnnotationId
 		? annotationRegions.find((a) => a.id === selectedAnnotationId)
 		: null;
+	const selectedBlur = selectedBlurId
+		? blurRegions.find((region) => region.id === selectedBlurId)
+		: null;
 
 	// If an annotation is selected, show annotation settings instead
 	if (
@@ -541,6 +556,17 @@ export function SettingsPanel({
 						: undefined
 				}
 				onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
+			/>
+		);
+	}
+
+	if (selectedBlur && onBlurDataChange && onBlurDelete) {
+		return (
+			<BlurSettingsPanel
+				blurRegion={selectedBlur}
+				onBlurDataChange={(blurData) => onBlurDataChange(selectedBlur.id, blurData)}
+				onBlurDataCommit={onBlurDataCommit}
+				onDelete={() => onBlurDelete(selectedBlur.id)}
 			/>
 		);
 	}

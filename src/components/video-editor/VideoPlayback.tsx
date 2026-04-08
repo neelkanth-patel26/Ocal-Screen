@@ -35,6 +35,7 @@ import {
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import {
 	type AnnotationRegion,
+	type BlurData,
 	type SpeedRegion,
 	type TrimRegion,
 	ZOOM_DEPTH_SCALES,
@@ -101,6 +102,13 @@ interface VideoPlaybackProps {
 	onSelectAnnotation?: (id: string | null) => void;
 	onAnnotationPositionChange?: (id: string, position: { x: number; y: number }) => void;
 	onAnnotationSizeChange?: (id: string, size: { width: number; height: number }) => void;
+	blurRegions?: AnnotationRegion[];
+	selectedBlurId?: string | null;
+	onSelectBlur?: (id: string | null) => void;
+	onBlurPositionChange?: (id: string, position: { x: number; y: number }) => void;
+	onBlurSizeChange?: (id: string, size: { width: number; height: number }) => void;
+	onBlurDataChange?: (id: string, blurData: BlurData) => void;
+	onBlurDataCommit?: () => void;
 	cursorTelemetry?: import("./types").CursorTelemetryPoint[];
 }
 
@@ -152,6 +160,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onSelectAnnotation,
 			onAnnotationPositionChange,
 			onAnnotationSizeChange,
+			blurRegions = [],
+			selectedBlurId,
+			onSelectBlur,
+			onBlurPositionChange,
+			onBlurSizeChange,
+			onBlurDataChange,
+			onBlurDataCommit,
 			cursorTelemetry = [],
 		},
 		ref,
@@ -166,6 +181,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const timeUpdateAnimationRef = useRef<number | null>(null);
 		const [pixiReady, setPixiReady] = useState(false);
 		const [videoReady, setVideoReady] = useState(false);
+		const [overlaySize, setOverlaySize] = useState({ width: 800, height: 600 });
+		const [overlayElement, setOverlayElement] = useState<HTMLDivElement | null>(null);
 		const overlayRef = useRef<HTMLDivElement | null>(null);
 		const focusIndicatorRef = useRef<HTMLDivElement | null>(null);
 		const [webcamLayout, setWebcamLayout] = useState<StyledRenderRect | null>(null);
@@ -329,6 +346,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		useEffect(() => {
 			layoutVideoContentRef.current = layoutVideoContent;
 		}, [layoutVideoContent]);
+
+		const setOverlayRefs = useCallback((node: HTMLDivElement | null) => {
+			overlayRef.current = node;
+			setOverlayElement(node);
+		}, []);
 
 		const selectedZoom = useMemo(() => {
 			if (!selectedZoomId) return null;
@@ -623,7 +645,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [selectedZoom, pixiReady, videoReady, updateOverlayForRegion]);
 
 		useEffect(() => {
-			const overlayEl = overlayRef.current;
+			if (!pixiReady || !videoReady) return;
+			const overlayEl = overlayElement;
 			if (!overlayEl) return;
 			if (!selectedZoom) {
 				overlayEl.style.cursor = "default";
@@ -632,7 +655,34 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			}
 			overlayEl.style.cursor = isPlaying ? "not-allowed" : "grab";
 			overlayEl.style.pointerEvents = isPlaying ? "none" : "auto";
-		}, [selectedZoom, isPlaying]);
+		}, [selectedZoom, isPlaying, pixiReady, videoReady, overlayElement]);
+
+		useEffect(() => {
+			const overlayEl = overlayElement;
+			if (!overlayEl) return;
+
+			const updateOverlaySize = () => {
+				const width = overlayEl.clientWidth || 800;
+				const height = overlayEl.clientHeight || 600;
+				setOverlaySize((prev) => {
+					if (prev.width === width && prev.height === height) return prev;
+					return { width, height };
+				});
+			};
+
+			updateOverlaySize();
+
+			if (typeof ResizeObserver !== "undefined") {
+				const observer = new ResizeObserver(() => {
+					updateOverlaySize();
+				});
+				observer.observe(overlayEl);
+				return () => observer.disconnect();
+			}
+
+			window.addEventListener("resize", updateOverlaySize);
+			return () => window.removeEventListener("resize", updateOverlaySize);
+		}, [overlayElement]);
 
 		useEffect(() => {
 			const container = containerRef.current;
@@ -1287,7 +1337,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				{/* Only render overlay after PIXI and video are fully initialized */}
 				{pixiReady && videoReady && (
 					<div
-						ref={overlayRef}
+						ref={setOverlayRefs}
 						className="absolute inset-0 select-none"
 						style={{ pointerEvents: "none", zIndex: 30 }}
 						onPointerDown={handleOverlayPointerDown}
@@ -1332,16 +1382,49 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 							return sorted.map((annotation) => (
 								<AnnotationOverlay
-									key={annotation.id}
+									key={`${annotation.id}-${overlaySize.width}-${overlaySize.height}`}
 									annotation={annotation}
 									isSelected={annotation.id === selectedAnnotationId}
-									containerWidth={overlayRef.current?.clientWidth || 800}
-									containerHeight={overlayRef.current?.clientHeight || 600}
+									containerWidth={overlaySize.width}
+									containerHeight={overlaySize.height}
 									onPositionChange={(id, position) => onAnnotationPositionChange?.(id, position)}
 									onSizeChange={(id, size) => onAnnotationSizeChange?.(id, size)}
 									onClick={handleAnnotationClick}
 									zIndex={annotation.zIndex}
 									isSelectedBoost={annotation.id === selectedAnnotationId}
+								/>
+							));
+						})()}
+						{(() => {
+							const filtered = (blurRegions || []).filter((blurRegion) => {
+								if (typeof blurRegion.startMs !== "number" || typeof blurRegion.endMs !== "number")
+									return false;
+
+								if (blurRegion.id === selectedBlurId) return true;
+
+								const timeMs = Math.round(currentTime * 1000);
+								return timeMs >= blurRegion.startMs && timeMs <= blurRegion.endMs;
+							});
+
+							const sorted = [...filtered].sort((a, b) => a.zIndex - b.zIndex);
+							const handleBlurClick = (clickedId: string) => {
+								onSelectBlur?.(clickedId);
+							};
+
+							return sorted.map((blurRegion) => (
+								<AnnotationOverlay
+									key={`${blurRegion.id}-${overlaySize.width}-${overlaySize.height}-${blurRegion.blurData?.shape ?? "rectangle"}-${(blurRegion.blurData?.freehandPoints ?? []).map((p) => `${Math.round(p.x)}_${Math.round(p.y)}`).join("-")}`}
+									annotation={blurRegion}
+									isSelected={blurRegion.id === selectedBlurId}
+									containerWidth={overlaySize.width}
+									containerHeight={overlaySize.height}
+									onPositionChange={(id, position) => onBlurPositionChange?.(id, position)}
+									onSizeChange={(id, size) => onBlurSizeChange?.(id, size)}
+									onBlurDataChange={(id, blurData) => onBlurDataChange?.(id, blurData)}
+									onBlurDataCommit={onBlurDataCommit}
+									onClick={handleBlurClick}
+									zIndex={blurRegion.zIndex}
+									isSelectedBoost={blurRegion.id === selectedBlurId}
 								/>
 							));
 						})()}

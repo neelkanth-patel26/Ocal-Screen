@@ -9,6 +9,9 @@ import {
 	DEFAULT_ANNOTATION_POSITION,
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
+	DEFAULT_BLUR_DATA,
+	DEFAULT_BLUR_FREEHAND_POINTS,
+	DEFAULT_BLUR_INTENSITY,
 	DEFAULT_CROP_REGION,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
@@ -17,7 +20,9 @@ import {
 	DEFAULT_WEBCAM_POSITION,
 	DEFAULT_WEBCAM_SIZE_PRESET,
 	DEFAULT_ZOOM_DEPTH,
+	MAX_BLUR_INTENSITY,
 	MAX_PLAYBACK_SPEED,
+	MIN_BLUR_INTENSITY,
 	MIN_PLAYBACK_SPEED,
 	type SpeedRegion,
 	type TrimRegion,
@@ -259,7 +264,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						id: region.id,
 						startMs,
 						endMs,
-						type: region.type === "image" || region.type === "figure" ? region.type : "text",
+						type:
+							region.type === "image" || region.type === "figure" || region.type === "blur"
+								? region.type
+								: "text",
 						content: typeof region.content === "string" ? region.content : "",
 						textContent: typeof region.textContent === "string" ? region.textContent : undefined,
 						imageContent: typeof region.imageContent === "string" ? region.imageContent : undefined,
@@ -306,6 +314,36 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 									...region.figureData,
 								}
 							: undefined,
+						blurData:
+							region.blurData && typeof region.blurData === "object"
+								? {
+										...DEFAULT_BLUR_DATA,
+										...region.blurData,
+										intensity: isFiniteNumber(region.blurData.intensity)
+											? clamp(region.blurData.intensity, MIN_BLUR_INTENSITY, MAX_BLUR_INTENSITY)
+											: DEFAULT_BLUR_INTENSITY,
+										freehandPoints: Array.isArray(region.blurData.freehandPoints)
+											? region.blurData.freehandPoints
+													.filter(
+														(
+															point,
+														): point is {
+															x: number;
+															y: number;
+														} =>
+															Boolean(
+																point &&
+																	isFiniteNumber((point as { x?: unknown }).x) &&
+																	isFiniteNumber((point as { y?: unknown }).y),
+															),
+													)
+													.map((point) => ({
+														x: clamp(point.x, 0, 100),
+														y: clamp(point.y, 0, 100),
+													}))
+											: DEFAULT_BLUR_FREEHAND_POINTS,
+									}
+								: undefined,
 					};
 				})
 		: [];
