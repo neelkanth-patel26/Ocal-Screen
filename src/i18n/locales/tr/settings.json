@@ -41,7 +41,9 @@
 		"color": "Renk",
 		"gradient": "Gradyan",
 		"uploadCustom": "Özel Yükle",
-		"gradientLabel": "Gradyan {{index}}"
+		"gradientLabel": "Gradyan {{index}}",
+		"colorWheel": "Renk çarkı",
+		"colorPalette": "Renk paleti"
 	},
 	"crop": {
 		"title": "Kırpma",
@@ -108,6 +110,8 @@
 		"background": "Arka Plan",
 		"none": "Yok",
 		"color": "Renk",
+		"colorWheel": "Renk çarkı",
+		"colorPalette": "Renk paleti",
 		"clearBackground": "Arka Planı Temizle",
 		"uploadImage": "Görüntü Yükle",
 		"supportedFormats": "Desteklenen biçimler: JPG, PNG, GIF, WebP",
