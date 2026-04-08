@@ -131,7 +131,7 @@ export default function ColorPicker(props: ColorPickerProps) {
 			)}
 			{colorMode === "palette" && (
 				<Block
-					color={selectedColor}
+					color={selectedColor !== "transparent" ? selectedColor : transparentColorHSVA}
 					colors={colorPalette}
 					onChange={(color) => {
 						onUpdateColor(color.hex);
