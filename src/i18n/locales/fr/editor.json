@@ -1,4 +1,10 @@
 {
+	"newRecording": {
+		"title": "Retour à l'enregistreur",
+		"description": "Votre session actuelle a été enregistrée.",
+		"cancel": "Annuler",
+		"confirm": "Confirmer"
+	},
 	"errors": {
 		"noVideoLoaded": "Aucune vidéo chargée",
 		"videoNotReady": "Vidéo non prête",
