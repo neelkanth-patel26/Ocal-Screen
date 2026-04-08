@@ -52,10 +52,74 @@ import type {
 	PlaybackSpeed,
 	WebcamLayoutPreset,
 	WebcamMaskShape,
+	WebcamSizePreset,
 	ZoomDepth,
 	ZoomFocusMode,
 } from "./types";
-import { SPEED_OPTIONS } from "./types";
+import { DEFAULT_WEBCAM_SIZE_PRESET, MAX_PLAYBACK_SPEED, SPEED_OPTIONS } from "./types";
+
+function CustomSpeedInput({
+	value,
+	onChange,
+	onError,
+}: {
+	value: number;
+	onChange: (val: number) => void;
+	onError: () => void;
+}) {
+	const isPreset = SPEED_OPTIONS.some((o) => o.speed === value);
+	const [draft, setDraft] = useState(isPreset ? "" : String(Math.round(value)));
+	const [isFocused, setIsFocused] = useState(false);
+
+	const prevValue = useRef(value);
+	if (!isFocused && prevValue.current !== value) {
+		prevValue.current = value;
+		setDraft(isPreset ? "" : String(Math.round(value)));
+	}
+
+	const handleChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const digits = e.target.value.replace(/\D/g, "");
+			if (digits === "") {
+				setDraft("");
+				return;
+			}
+			const num = Number(digits);
+			if (num > MAX_PLAYBACK_SPEED) {
+				onError();
+				return;
+			}
+			setDraft(digits);
+			if (num >= 1) onChange(num);
+		},
+		[onChange, onError],
+	);
+
+	const handleBlur = useCallback(() => {
+		setIsFocused(false);
+		if (!draft || Number(draft) < 1) {
+			setDraft(isPreset ? "" : String(Math.round(value)));
+		}
+	}, [draft, isPreset, value]);
+
+	return (
+		<div className="flex items-center gap-1">
+			<input
+				type="text"
+				inputMode="numeric"
+				pattern="[0-9]*"
+				placeholder="--"
+				value={draft}
+				onFocus={() => setIsFocused(true)}
+				onChange={handleChange}
+				onBlur={handleBlur}
+				onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+				className="w-12 bg-white/5 border border-white/10 rounded-md px-1 py-0.5 text-[11px] font-semibold text-[#d97706] text-center focus:outline-none focus:border-[#d97706]/40"
+			/>
+			<span className="text-[11px] font-semibold text-slate-500">×</span>
+		</div>
+	);
+}
 
 const WALLPAPER_COUNT = 18;
 const WALLPAPER_RELATIVE = Array.from(
@@ -132,7 +196,11 @@ interface SettingsPanelProps {
 	onGifSizePresetChange?: (preset: GifSizePreset) => void;
 	gifOutputDimensions?: { width: number; height: number };
 	onExport?: () => void;
-	unsavedExport?: { arrayBuffer: ArrayBuffer; fileName: string; format: string } | null;
+	unsavedExport?: {
+		arrayBuffer: ArrayBuffer;
+		fileName: string;
+		format: string;
+	} | null;
 	onSaveUnsavedExport?: () => void;
 	selectedAnnotationId?: string | null;
 	annotationRegions?: AnnotationRegion[];
@@ -150,6 +218,9 @@ interface SettingsPanelProps {
 	onWebcamLayoutPresetChange?: (preset: WebcamLayoutPreset) => void;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
 	onWebcamMaskShapeChange?: (shape: import("./types").WebcamMaskShape) => void;
+	webcamSizePreset?: WebcamSizePreset;
+	onWebcamSizePresetChange?: (size: WebcamSizePreset) => void;
+	onWebcamSizePresetCommit?: () => void;
 }
 
 export default SettingsPanel;
@@ -223,6 +294,9 @@ export function SettingsPanel({
 	onWebcamLayoutPresetChange,
 	webcamMaskShape = "rectangle",
 	onWebcamMaskShapeChange,
+	webcamSizePreset = DEFAULT_WEBCAM_SIZE_PRESET,
+	onWebcamSizePresetChange,
+	onWebcamSizePresetCommit,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [wallpaperPaths, setWallpaperPaths] = useState<string[]>([]);
@@ -584,7 +658,7 @@ export function SettingsPanel({
 							</span>
 						)}
 					</div>
-					<div className="grid grid-cols-7 gap-1.5">
+					<div className="grid grid-cols-5 gap-1.5">
 						{SPEED_OPTIONS.map((option) => {
 							const isActive = selectedSpeedValue === option.speed;
 							return (
@@ -608,6 +682,29 @@ export function SettingsPanel({
 								</Button>
 							);
 						})}
+					</div>
+					<div className="mt-3">
+						<div className="flex items-center justify-between">
+							<span
+								className={cn("text-[11px]", selectedSpeedId ? "text-slate-500" : "text-slate-600")}
+							>
+								{t("speed.customPlaybackSpeed")}
+							</span>
+							{selectedSpeedId ? (
+								<CustomSpeedInput
+									value={selectedSpeedValue ?? 1}
+									onChange={(val) => onSpeedChange?.(val)}
+									onError={() => toast.error(t("speed.maxSpeedError"))}
+								/>
+							) : (
+								<div className="flex items-center gap-1 opacity-40">
+									<div className="w-12 bg-white/5 border border-white/10 rounded-md px-1 py-0.5 text-[11px] font-semibold text-slate-600 text-center">
+										--
+									</div>
+									<span className="text-[11px] font-semibold text-slate-600">×</span>
+								</div>
+							)}
+						</div>
 					</div>
 					{!selectedSpeedId && (
 						<p className="text-[10px] text-slate-500 mt-2 text-center">{t("speed.selectRegion")}</p>
@@ -749,6 +846,27 @@ export function SettingsPanel({
 												</button>
 											))}
 										</div>
+									</div>
+								)}
+								{webcamLayoutPreset === "picture-in-picture" && (
+									<div className="p-2 rounded-lg bg-white/5 border border-white/5 mt-2">
+										<div className="flex items-center justify-between mb-1.5">
+											<div className="text-[10px] font-medium text-slate-300">
+												{t("layout.webcamSize")}
+											</div>
+											<div className="text-[10px] font-medium text-slate-400">
+												{webcamSizePreset}%
+											</div>
+										</div>
+										<Slider
+											value={[webcamSizePreset]}
+											onValueChange={(values) => onWebcamSizePresetChange?.(values[0])}
+											onValueCommit={() => onWebcamSizePresetCommit?.()}
+											min={10}
+											max={50}
+											step={1}
+											className="w-full"
+										/>
 									</div>
 								)}
 							</AccordionContent>
@@ -1014,7 +1132,9 @@ export function SettingsPanel({
 															: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
 													)}
 													style={{ background: g }}
-													aria-label={t("background.gradientLabel", { index: idx + 1 })}
+													aria-label={t("background.gradientLabel", {
+														index: idx + 1,
+													})}
 													onClick={() => {
 														setGradient(g);
 														onWallpaperChange(g);

@@ -13,6 +13,7 @@ import type {
 	CropRegion,
 	SpeedRegion,
 	WebcamLayoutPreset,
+	WebcamSizePreset,
 	ZoomDepth,
 	ZoomRegion,
 } from "@/components/video-editor/types";
@@ -70,6 +71,7 @@ interface FrameRenderConfig {
 	webcamSize?: Size | null;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
+	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	annotationRegions?: AnnotationRegion[];
 	speedRegions?: SpeedRegion[];
@@ -112,6 +114,8 @@ export class FrameRenderer {
 	private shadowCtx: CanvasRenderingContext2D | null = null;
 	private compositeCanvas: HTMLCanvasElement | null = null;
 	private compositeCtx: CanvasRenderingContext2D | null = null;
+	private rasterCanvas: HTMLCanvasElement | null = null;
+	private rasterCtx: CanvasRenderingContext2D | null = null;
 	private config: FrameRenderConfig;
 	private animationState: AnimationState;
 	private layoutCache: LayoutCache | null = null;
@@ -189,6 +193,14 @@ export class FrameRenderer {
 
 		if (!this.compositeCtx) {
 			throw new Error("Failed to get 2D context for composite canvas");
+		}
+
+		this.rasterCanvas = document.createElement("canvas");
+		this.rasterCanvas.width = this.config.width;
+		this.rasterCanvas.height = this.config.height;
+		this.rasterCtx = this.rasterCanvas.getContext("2d");
+		if (!this.rasterCtx) {
+			throw new Error("Failed to get 2D context for raster canvas");
 		}
 
 		// Setup shadow canvas if needed
@@ -453,6 +465,7 @@ export class FrameRenderer {
 			screenSize: { width: croppedVideoWidth, height: croppedVideoHeight },
 			webcamSize: webcamFrame ? this.config.webcamSize : null,
 			layoutPreset: this.config.webcamLayoutPreset,
+			webcamSizePreset: this.config.webcamSizePreset,
 			webcamPosition: this.config.webcamPosition,
 			webcamMaskShape: this.config.webcamMaskShape,
 		});
@@ -675,10 +688,46 @@ export class FrameRenderer {
 		);
 	}
 
+	// On Linux/Wayland the implicit GPU→2D texture-sharing path
+	// used by drawImage(webglCanvas) can fail silently (EGL/Ozone),
+	// producing green/empty frames. Explicit gl.readPixels always
+	// copies from GPU to CPU memory, bypassing that path.
+	private readbackVideoCanvas(): HTMLCanvasElement {
+		const glCanvas = this.app!.canvas as HTMLCanvasElement;
+		const gl =
+			(glCanvas.getContext("webgl2") as WebGL2RenderingContext | null) ??
+			(glCanvas.getContext("webgl") as WebGLRenderingContext | null);
+
+		if (!gl || !this.rasterCanvas || !this.rasterCtx) {
+			return glCanvas;
+		}
+
+		const w = glCanvas.width;
+		const h = glCanvas.height;
+		const buf = new Uint8Array(w * h * 4);
+		gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+
+		// readPixels returns rows bottom-to-top; flip vertically
+		const rowSize = w * 4;
+		const temp = new Uint8Array(rowSize);
+		for (let top = 0, bot = h - 1; top < bot; top++, bot--) {
+			const tOff = top * rowSize;
+			const bOff = bot * rowSize;
+			temp.set(buf.subarray(tOff, tOff + rowSize));
+			buf.copyWithin(tOff, bOff, bOff + rowSize);
+			buf.set(temp, bOff);
+		}
+
+		const imageData = new ImageData(new Uint8ClampedArray(buf.buffer), w, h);
+		this.rasterCtx.putImageData(imageData, 0, 0);
+
+		return this.rasterCanvas;
+	}
+
 	private compositeWithShadows(webcamFrame?: VideoFrame | null): void {
 		if (!this.compositeCanvas || !this.compositeCtx || !this.app) return;
 
-		const videoCanvas = this.app.canvas as HTMLCanvasElement;
+		const videoCanvas = this.readbackVideoCanvas();
 		const ctx = this.compositeCtx;
 		const w = this.compositeCanvas.width;
 		const h = this.compositeCanvas.height;
@@ -795,5 +844,7 @@ export class FrameRenderer {
 		this.shadowCtx = null;
 		this.compositeCanvas = null;
 		this.compositeCtx = null;
+		this.rasterCanvas = null;
+		this.rasterCtx = null;
 	}
 }

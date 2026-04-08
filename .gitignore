@@ -30,3 +30,6 @@ release/**
 # Playwright
 test-results
 playwright-report/
+
+# Vitest browser mode screenshots
+__screenshots__/
