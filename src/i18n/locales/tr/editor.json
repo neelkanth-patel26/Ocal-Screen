@@ -1,0 +1,35 @@
+{
+	"errors": {
+		"noVideoLoaded": "Video yüklenmedi",
+		"videoNotReady": "Video hazır değil",
+		"unableToDetermineSourcePath": "Kaynak video yolu belirlenemiyor",
+		"failedToSaveGif": "GIF kaydedilemedi",
+		"gifExportFailed": "GIF dışa aktarımı başarısız oldu",
+		"failedToSaveVideo": "Video kaydedilemedi",
+		"exportFailed": "Dışa aktarım başarısız oldu",
+		"exportFailedWithError": "Dışa aktarım başarısız: {{error}}",
+		"failedToSaveExport": "Dışa aktarım kaydedilemedi",
+		"failedToSaveExportedVideo": "Dışa aktarılan video kaydedilemedi",
+		"failedToRevealInFolder": "Klasörde gösterme hatası: {{error}}"
+	},
+	"export": {
+		"canceled": "Dışa aktarım iptal edildi",
+		"exportedSuccessfully": "{{format}} başarıyla dışa aktarıldı"
+	},
+	"project": {
+		"saveCanceled": "Proje kaydetme iptal edildi",
+		"failedToSave": "Proje kaydedilemedi",
+		"savedTo": "Proje şuraya kaydedildi: {{path}}",
+		"failedToLoad": "Proje yüklenemedi",
+		"invalidFormat": "Geçersiz proje dosyası biçimi",
+		"loadedFrom": "Proje şuradan yüklendi: {{path}}"
+	},
+	"recording": {
+		"failedCameraAccess": "Kamera erişimi istenemedi.",
+		"cameraBlocked": "Kamera erişimi engellendi. Kamerayı kullanmak için sistem ayarlarından izin verin.",
+		"systemAudioUnavailable": "Sistem sesi kullanılamıyor. Sistem sesi olmadan kaydediliyor.",
+		"microphoneDenied": "Mikrofon erişimi reddedildi. Kayıt ses olmadan devam edecek.",
+		"cameraDenied": "Kamera erişimi reddedildi. Kayıt kamera olmadan devam edecek.",
+		"permissionDenied": "Kayıt izni reddedildi. Lütfen ekran kaydına izin verin."
+	}
+}
