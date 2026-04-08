@@ -5,20 +5,24 @@ import { useEffect, useState } from "react";
 import { Button } from "./button";
 import { Input } from "./input";
 
-export default function ColorPicker({
-	selectedColor,
-	colorPalette,
-	translations,
-	clearBackgroundOption = false,
-	onUpdateColor,
-}: {
+type BaseProps = {
 	selectedColor: string;
 	colorPalette: string[];
-	translations: Record<"colorWheel" | "colorPalette", string> &
-		Partial<Record<"clearBackground", string>>;
-	clearBackgroundOption?: boolean;
 	onUpdateColor: (color: string) => void;
-}) {
+};
+
+type ColorPickerProps =
+	| (BaseProps & {
+			clearBackgroundOption?: false;
+			translations: Record<"colorWheel" | "colorPalette", string>;
+	  })
+	| (BaseProps & {
+			clearBackgroundOption: true;
+			translations: Record<"colorWheel" | "colorPalette" | "clearBackground", string>;
+	  });
+
+export default function ColorPicker(props: ColorPickerProps) {
+	const { selectedColor, colorPalette, translations, onUpdateColor } = props;
 	const [colorMode, setColorMode] = useState<"wheel" | "palette">("wheel");
 	const [hexInput, setHexInput] = useState(selectedColor);
 	const [transparentColorHSVA, setTransparentColorHSVA] = useState<HsvaColor>({
@@ -64,6 +68,7 @@ export default function ColorPicker({
 	};
 
 	const toTransparent = (color: string) => {
+		if (color === "transparent") return;
 		const hsva = hexToHsva(color);
 		hsva.a = 0;
 		return hsva;
@@ -137,18 +142,18 @@ export default function ColorPicker({
 					}}
 				/>
 			)}
-			{clearBackgroundOption && (
+			{props.clearBackgroundOption === true && (
 				<Button
 					variant="ghost"
 					size="sm"
 					className="w-full mt-2 text-xs h-7 hover:bg-white/5 text-slate-400"
 					onClick={() => {
 						const hsva = toTransparent(selectedColor);
-						setTransparentColorHSVA(hsva);
+						if (hsva) setTransparentColorHSVA(hsva);
 						onUpdateColor("transparent");
 					}}
 				>
-					{translations.clearBackground}
+					{props.translations.clearBackground}
 				</Button>
 			)}
 		</div>
