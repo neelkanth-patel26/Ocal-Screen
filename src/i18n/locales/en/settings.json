@@ -119,6 +119,7 @@
 		"strokeWidth": "Stroke Width: {{width}}px",
 		"arrowColor": "Arrow Color",
 		"blurShape": "Blur Shape",
+		"blurIntensity": "Blur Intensity",
 		"blurShapeRectangle": "Rectangle",
 		"blurShapeOval": "Oval",
 		"blurShapeFreehand": "Freehand",

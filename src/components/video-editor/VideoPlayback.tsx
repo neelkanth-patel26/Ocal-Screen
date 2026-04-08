@@ -1408,7 +1408,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 							const sorted = [...filtered].sort((a, b) => a.zIndex - b.zIndex);
 							const handleBlurClick = (clickedId: string) => {
-								onSelectBlur?.(clickedId);
+								if (!onSelectBlur) return;
+
+								if (clickedId === selectedBlurId && sorted.length > 1) {
+									const currentIndex = sorted.findIndex((a) => a.id === clickedId);
+									const nextIndex = (currentIndex + 1) % sorted.length;
+									onSelectBlur(sorted[nextIndex].id);
+								} else {
+									onSelectBlur(clickedId);
+								}
 							};
 
 							return sorted.map((blurRegion) => (

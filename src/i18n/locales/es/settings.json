@@ -119,6 +119,7 @@
 		"strokeWidth": "Grosor del trazo: {{width}}px",
 		"arrowColor": "Color de la flecha",
 		"blurShape": "Forma del desenfoque",
+		"blurIntensity": "Intensidad del desenfoque",
 		"blurShapeRectangle": "Rectángulo",
 		"blurShapeOval": "Óvalo",
 		"blurShapeFreehand": "Mano alzada",

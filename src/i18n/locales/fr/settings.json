@@ -116,6 +116,7 @@
 		"strokeWidth": "Épaisseur du trait : {{width}}px",
 		"arrowColor": "Couleur de la flèche",
 		"blurShape": "Forme du flou",
+		"blurIntensity": "Intensité du flou",
 		"blurShapeRectangle": "Rectangle",
 		"blurShapeOval": "Ovale",
 		"blurShapeFreehand": "Main levée",

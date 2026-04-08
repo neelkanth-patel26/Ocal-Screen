@@ -53,8 +53,8 @@ export function AnnotationOverlay({
 	const y = (annotation.position.y / 100) * containerHeight;
 	const width = (annotation.size.width / 100) * containerWidth;
 	const height = (annotation.size.height / 100) * containerHeight;
-	const isSelectedFreehandBlur = false;
-
+	const blurShape = annotation.type === "blur" ? annotation.blurData?.shape || "rectangle" : null;
+	const isSelectedFreehandBlur = isSelected && blurShape === "freehand";
 	const isDraggingRef = useRef(false);
 	const isDrawingFreehandRef = useRef(false);
 	const freehandPointsRef = useRef<Array<{ x: number; y: number }>>([]);
@@ -233,7 +233,7 @@ export function AnnotationOverlay({
 				);
 
 			case "blur": {
-				const shape = annotation.blurData?.shape === "oval" ? "oval" : "rectangle";
+				const shape = blurShape || "rectangle";
 				const blurIntensity = Math.max(
 					1,
 					Math.round(annotation.blurData?.intensity ?? DEFAULT_BLUR_INTENSITY),
@@ -276,7 +276,7 @@ export function AnnotationOverlay({
 					clipPath: isFreehandDrawing ? undefined : clipPath,
 					WebkitClipPath: isFreehandDrawing ? undefined : clipPath,
 				};
-				const isFreehandSelected = isSelected && shape === "freehand";
+				const isFreehandSelected = isSelectedFreehandBlur;
 				return (
 					<div className="w-full h-full relative">
 						<div

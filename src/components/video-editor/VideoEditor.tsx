@@ -670,6 +670,7 @@ export default function VideoEditor() {
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
+			setSelectedSpeedId(null);
 		}
 	}, []);
 

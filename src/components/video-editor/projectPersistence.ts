@@ -34,6 +34,7 @@ import {
 } from "./types";
 
 const WALLPAPER_COUNT = 18;
+const VALID_BLUR_SHAPES = new Set(["rectangle", "oval", "freehand"] as const);
 
 export const WALLPAPER_PATHS = Array.from(
 	{ length: WALLPAPER_COUNT },
@@ -259,6 +260,11 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					const rawEnd = isFiniteNumber(region.endMs) ? Math.round(region.endMs) : rawStart + 1000;
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
+					const blurShape =
+						typeof region.blurData?.shape === "string" &&
+						VALID_BLUR_SHAPES.has(region.blurData.shape)
+							? region.blurData.shape
+							: DEFAULT_BLUR_DATA.shape;
 
 					return {
 						id: region.id,
@@ -319,6 +325,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 								? {
 										...DEFAULT_BLUR_DATA,
 										...region.blurData,
+										shape: blurShape,
 										intensity: isFiniteNumber(region.blurData.intensity)
 											? clamp(region.blurData.intensity, MIN_BLUR_INTENSITY, MAX_BLUR_INTENSITY)
 											: DEFAULT_BLUR_INTENSITY,

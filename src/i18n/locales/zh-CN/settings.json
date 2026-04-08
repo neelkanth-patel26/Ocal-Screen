@@ -119,6 +119,7 @@
 		"strokeWidth": "描边宽度：{{width}}px",
 		"arrowColor": "箭头颜色",
 		"blurShape": "模糊形状",
+		"blurIntensity": "模糊强度",
 		"blurShapeRectangle": "矩形",
 		"blurShapeOval": "椭圆",
 		"blurShapeFreehand": "自由手绘",

@@ -116,6 +116,7 @@
 		"strokeWidth": "Çizgi Kalınlığı: {{width}}px",
 		"arrowColor": "Ok Rengi",
 		"blurShape": "Bulanik Sekli",
+		"blurIntensity": "Bulaniklik Yogunlugu",
 		"blurShapeRectangle": "Dikdortgen",
 		"blurShapeOval": "Oval",
 		"blurShapeFreehand": "Serbest",
