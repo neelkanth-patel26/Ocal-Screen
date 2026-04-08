@@ -5,6 +5,7 @@ import { ASPECT_RATIOS, type AspectRatio } from "@/utils/aspectRatioUtils";
 import {
 	type AnnotationRegion,
 	type CropRegion,
+	clampPlaybackSpeed,
 	DEFAULT_ANNOTATION_POSITION,
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
@@ -15,6 +16,8 @@ import {
 	DEFAULT_WEBCAM_MASK_SHAPE,
 	DEFAULT_WEBCAM_POSITION,
 	DEFAULT_ZOOM_DEPTH,
+	MAX_PLAYBACK_SPEED,
+	MIN_PLAYBACK_SPEED,
 	type SpeedRegion,
 	type TrimRegion,
 	type WebcamLayoutPreset,
@@ -223,14 +226,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					const endMs = Math.max(startMs + 1, rawEnd);
 
 					const speed =
-						region.speed === 0.25 ||
-						region.speed === 0.5 ||
-						region.speed === 0.75 ||
-						region.speed === 1.25 ||
-						region.speed === 1.5 ||
-						region.speed === 1.75 ||
-						region.speed === 2
-							? region.speed
+						isFiniteNumber(region.speed) &&
+						region.speed >= MIN_PLAYBACK_SPEED &&
+						region.speed <= MAX_PLAYBACK_SPEED
+							? clampPlaybackSpeed(region.speed)
 							: DEFAULT_PLAYBACK_SPEED;
 
 					return {

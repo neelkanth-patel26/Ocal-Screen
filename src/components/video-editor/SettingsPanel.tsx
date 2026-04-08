@@ -55,7 +55,70 @@ import type {
 	ZoomDepth,
 	ZoomFocusMode,
 } from "./types";
-import { SPEED_OPTIONS } from "./types";
+import { MAX_PLAYBACK_SPEED, SPEED_OPTIONS } from "./types";
+
+function CustomSpeedInput({
+	value,
+	onChange,
+	onError,
+}: {
+	value: number;
+	onChange: (val: number) => void;
+	onError: () => void;
+}) {
+	const isPreset = SPEED_OPTIONS.some((o) => o.speed === value);
+	const [draft, setDraft] = useState(isPreset ? "" : String(Math.round(value)));
+	const [isFocused, setIsFocused] = useState(false);
+
+	const prevValue = useRef(value);
+	if (!isFocused && prevValue.current !== value) {
+		prevValue.current = value;
+		setDraft(isPreset ? "" : String(Math.round(value)));
+	}
+
+	const handleChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const digits = e.target.value.replace(/\D/g, "");
+			if (digits === "") {
+				setDraft("");
+				return;
+			}
+			const num = Number(digits);
+			if (num > MAX_PLAYBACK_SPEED) {
+				onError();
+				return;
+			}
+			setDraft(digits);
+			if (num >= 1) onChange(num);
+		},
+		[onChange, onError],
+	);
+
+	const handleBlur = useCallback(() => {
+		setIsFocused(false);
+		if (!draft || Number(draft) < 1) {
+			setDraft(isPreset ? "" : String(Math.round(value)));
+		}
+	}, [draft, isPreset, value]);
+
+	return (
+		<div className="flex items-center gap-1">
+			<input
+				type="text"
+				inputMode="numeric"
+				pattern="[0-9]*"
+				placeholder="--"
+				value={draft}
+				onFocus={() => setIsFocused(true)}
+				onChange={handleChange}
+				onBlur={handleBlur}
+				onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+				className="w-12 bg-white/5 border border-white/10 rounded-md px-1 py-0.5 text-[11px] font-semibold text-[#d97706] text-center focus:outline-none focus:border-[#d97706]/40"
+			/>
+			<span className="text-[11px] font-semibold text-slate-500">×</span>
+		</div>
+	);
+}
 
 const WALLPAPER_COUNT = 18;
 const WALLPAPER_RELATIVE = Array.from(
@@ -584,7 +647,7 @@ export function SettingsPanel({
 							</span>
 						)}
 					</div>
-					<div className="grid grid-cols-7 gap-1.5">
+					<div className="grid grid-cols-5 gap-1.5">
 						{SPEED_OPTIONS.map((option) => {
 							const isActive = selectedSpeedValue === option.speed;
 							return (
@@ -608,6 +671,29 @@ export function SettingsPanel({
 								</Button>
 							);
 						})}
+					</div>
+					<div className="mt-3">
+						<div className="flex items-center justify-between">
+							<span
+								className={cn("text-[11px]", selectedSpeedId ? "text-slate-500" : "text-slate-600")}
+							>
+								{t("speed.customPlaybackSpeed")}
+							</span>
+							{selectedSpeedId ? (
+								<CustomSpeedInput
+									value={selectedSpeedValue ?? 1}
+									onChange={(val) => onSpeedChange?.(val)}
+									onError={() => toast.error(t("speed.maxSpeedError"))}
+								/>
+							) : (
+								<div className="flex items-center gap-1 opacity-40">
+									<div className="w-12 bg-white/5 border border-white/10 rounded-md px-1 py-0.5 text-[11px] font-semibold text-slate-600 text-center">
+										--
+									</div>
+									<span className="text-[11px] font-semibold text-slate-600">×</span>
+								</div>
+							)}
+						</div>
 					</div>
 					{!selectedSpeedId && (
 						<p className="text-[10px] text-slate-500 mt-2 text-center">{t("speed.selectRegion")}</p>

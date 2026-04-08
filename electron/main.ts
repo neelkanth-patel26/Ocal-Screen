@@ -371,6 +371,16 @@ app.whenReady().then(async () => {
 	// Ensure recordings directory exists
 	await ensureRecordingsDir();
 
+	function switchToHudWrapper() {
+		if (mainWindow) {
+			isForceClosing = true;
+			mainWindow.close();
+			isForceClosing = false;
+			mainWindow = null;
+		}
+		showMainWindow();
+	}
+
 	registerIpcHandlers(
 		createEditorWindowWrapper,
 		createSourceSelectorWindowWrapper,
@@ -384,6 +394,7 @@ app.whenReady().then(async () => {
 				showMainWindow();
 			}
 		},
+		switchToHudWrapper,
 	);
 	createWindow();
 });

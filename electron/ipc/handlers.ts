@@ -355,7 +355,24 @@ export function registerIpcHandlers(
 	getMainWindow: () => BrowserWindow | null,
 	getSourceSelectorWindow: () => BrowserWindow | null,
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
+	switchToHud?: () => void,
 ) {
+	ipcMain.handle("switch-to-hud", () => {
+		if (switchToHud) switchToHud();
+	});
+	ipcMain.handle("start-new-recording", async () => {
+		try {
+			setCurrentRecordingSessionState(null);
+			if (switchToHud) {
+				switchToHud();
+			}
+			return { success: true };
+		} catch (error) {
+			console.error("Failed to start new recording:", error);
+			return { success: false, error: String(error) };
+		}
+	});
+
 	ipcMain.handle("get-sources", async (_, opts) => {
 		const sources = await desktopCapturer.getSources(opts);
 		return sources.map((source) => ({
