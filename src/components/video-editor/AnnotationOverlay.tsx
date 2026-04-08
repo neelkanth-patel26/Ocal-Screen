@@ -9,6 +9,8 @@ import {
 	DEFAULT_BLUR_INTENSITY,
 } from "./types";
 
+const FREEHAND_POINT_THRESHOLD = 1;
+
 function buildBlurPolygonClipPath(points: Array<{ x: number; y: number }>) {
 	if (points.length < 3) return undefined;
 	const polygon = points.map((point) => `${point.x}% ${point.y}%`).join(", ");
@@ -53,7 +55,7 @@ export function AnnotationOverlay({
 	const y = (annotation.position.y / 100) * containerHeight;
 	const width = (annotation.size.width / 100) * containerWidth;
 	const height = (annotation.size.height / 100) * containerHeight;
-	const blurShape = annotation.type === "blur" ? annotation.blurData?.shape || "rectangle" : null;
+	const blurShape = annotation.type === "blur" ? (annotation.blurData?.shape ?? "rectangle") : null;
 	const isSelectedFreehandBlur = isSelected && blurShape === "freehand";
 	const isDraggingRef = useRef(false);
 	const isDrawingFreehandRef = useRef(false);
@@ -92,8 +94,8 @@ export function AnnotationOverlay({
 		}
 		const dx = point.x - lastPoint.x;
 		const dy = point.y - lastPoint.y;
-		// Keep enough points to follow the cursor closely.
-		if (Math.hypot(dx, dy) >= 0.03) {
+		// Sample freehand points in annotation-space percent units to avoid overly dense paths.
+		if (Math.hypot(dx, dy) >= FREEHAND_POINT_THRESHOLD) {
 			points.push(point);
 		}
 	};
@@ -233,7 +235,7 @@ export function AnnotationOverlay({
 				);
 
 			case "blur": {
-				const shape = blurShape || "rectangle";
+				const shape = annotation.blurData?.shape ?? "rectangle";
 				const blurIntensity = Math.max(
 					1,
 					Math.round(annotation.blurData?.intensity ?? DEFAULT_BLUR_INTENSITY),

@@ -734,7 +734,7 @@ function Timeline({
 						span={item.span}
 						isSelected={item.id === selectedBlurId}
 						onSelect={() => onSelectBlur?.(item.id)}
-						variant="annotation"
+						variant={item.variant}
 					>
 						{item.label}
 					</Item>

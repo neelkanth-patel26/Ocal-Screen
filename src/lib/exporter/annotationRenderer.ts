@@ -6,6 +6,9 @@ import {
 	MIN_BLUR_INTENSITY,
 } from "@/components/video-editor/types";
 
+let blurScratchCanvas: HTMLCanvasElement | null = null;
+let blurScratchCtx: CanvasRenderingContext2D | null = null;
+
 // SVG path data for each arrow direction
 const ARROW_PATHS: Record<ArrowDirection, string[]> = {
 	up: ["M 50 20 L 50 80", "M 50 20 L 35 35", "M 50 20 L 65 35"],
@@ -165,18 +168,22 @@ function renderBlur(
 	const sh = Math.max(0, ey - sy);
 	if (sw <= 0 || sh <= 0) return;
 
-	const tempCanvas = document.createElement("canvas");
-	tempCanvas.width = sw;
-	tempCanvas.height = sh;
-	const tempCtx = tempCanvas.getContext("2d");
-	if (!tempCtx) return;
-	tempCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+	if (!blurScratchCanvas || !blurScratchCtx) {
+		blurScratchCanvas = document.createElement("canvas");
+		blurScratchCtx = blurScratchCanvas.getContext("2d");
+	}
+	if (!blurScratchCanvas || !blurScratchCtx) return;
+
+	blurScratchCanvas.width = sw;
+	blurScratchCanvas.height = sh;
+	blurScratchCtx.clearRect(0, 0, sw, sh);
+	blurScratchCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
 
 	ctx.save();
 	drawBlurPath(ctx, annotation, x, y, width, height);
 	ctx.clip();
 	ctx.filter = `blur(${blurRadius}px)`;
-	ctx.drawImage(tempCanvas, sx, sy);
+	ctx.drawImage(blurScratchCanvas, sx, sy);
 	ctx.filter = "none";
 	ctx.restore();
 }
