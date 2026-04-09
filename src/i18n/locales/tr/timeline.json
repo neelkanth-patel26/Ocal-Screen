@@ -5,14 +5,14 @@
 		"addTrim": "Kırpma Ekle (T)",
 		"addAnnotation": "Açıklama Ekle (A)",
 		"addSpeed": "Hız Ekle (S)",
-		"addBlur": "Bulanık ekle"
+		"addBlur": "Bulanık ekle (B)"
 	},
 	"hints": {
 		"pressZoom": "Yakınlaştırma eklemek için Z tuşuna basın",
 		"pressTrim": "Kırpma eklemek için T tuşuna basın",
 		"pressAnnotation": "Açıklama eklemek için A tuşuna basın",
 		"pressSpeed": "Hız eklemek için S tuşuna basın",
-		"pressBlur": "Araçtan bulanık bölgeleri ekleyin"
+		"pressBlur": "Bulanık bölge eklemek için B tuşuna basın"
 	},
 	"labels": {
 		"pan": "Kaydır",

@@ -4,14 +4,14 @@
 		"suggestZooms": "Suggest Zooms from Cursor",
 		"addTrim": "Add Trim (T)",
 		"addAnnotation": "Add Annotation (A)",
-		"addBlur": "Add Blur",
+		"addBlur": "Add Blur (B)",
 		"addSpeed": "Add Speed (S)"
 	},
 	"hints": {
 		"pressZoom": "Press Z to add zoom",
 		"pressTrim": "Press T to add trim",
 		"pressAnnotation": "Press A to add annotation",
-		"pressBlur": "Add blur regions from toolbar",
+		"pressBlur": "Press B to add blur region",
 		"pressSpeed": "Press S to add speed"
 	},
 	"labels": {
