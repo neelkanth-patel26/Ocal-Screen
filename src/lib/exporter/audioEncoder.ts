@@ -459,7 +459,10 @@ export class AudioProcessor {
 	}
 
 	private cloneWithTimestamp(src: AudioData, newTimestamp: number): AudioData {
-		const isPlanar = src.format?.includes("planar") ?? false;
+		if (!src.format) {
+			throw new Error("AudioData format is required for cloning");
+		}
+		const isPlanar = src.format.includes("planar");
 		const numPlanes = isPlanar ? src.numberOfChannels : 1;
 
 		let totalSize = 0;
@@ -476,7 +479,7 @@ export class AudioProcessor {
 		}
 
 		return new AudioData({
-			format: src.format!,
+			format: src.format,
 			sampleRate: src.sampleRate,
 			numberOfFrames: src.numberOfFrames,
 			numberOfChannels: src.numberOfChannels,

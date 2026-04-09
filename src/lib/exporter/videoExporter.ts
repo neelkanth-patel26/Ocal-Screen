@@ -422,7 +422,7 @@ export class VideoExporter {
 				})();
 
 				this.muxingPromises.push(muxingPromise);
-				this.encodeQueue--;
+				this.encodeQueue = Math.max(0, this.encodeQueue - 1);
 			},
 			error: (error) => {
 				console.error("[VideoExporter] Encoder error:", error);

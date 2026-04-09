@@ -490,7 +490,24 @@ export function registerIpcHandlers(
 				return { success: false, message: "No recorded video found" };
 			}
 
-			const latestVideo = videoFiles.sort().reverse()[0];
+			// Sort by most recently modified to reliably get the latest recording.
+			// Lexicographic sort is unreliable (e.g. recording-9.webm > recording-10.webm).
+			let latestVideo: string | null = null;
+			let latestMtimeMs = 0;
+			for (const file of videoFiles) {
+				try {
+					const stat = await fs.stat(path.join(RECORDINGS_DIR, file));
+					if (stat.mtimeMs > latestMtimeMs) {
+						latestMtimeMs = stat.mtimeMs;
+						latestVideo = file;
+					}
+				} catch {
+					// Skip inaccessible files.
+				}
+			}
+			if (!latestVideo) {
+				return { success: false, message: "No recorded video found" };
+			}
 			const videoPath = path.join(RECORDINGS_DIR, latestVideo);
 
 			return { success: true, path: videoPath };
@@ -616,6 +633,18 @@ export function registerIpcHandlers(
 
 	ipcMain.handle("open-external-url", async (_, url: string) => {
 		try {
+			const ALLOWED_SCHEMES = ["http:", "https:", "mailto:"];
+			let parsed: URL;
+			try {
+				parsed = new URL(url);
+			} catch {
+				return { success: false, error: "Invalid URL" };
+			}
+
+			if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
+				return { success: false, error: `Unsupported URL scheme: ${parsed.protocol}` };
+			}
+
 			await shell.openExternal(url);
 			return { success: true };
 		} catch (error) {
