@@ -51,6 +51,12 @@ export function createHudOverlayWindow(): BrowserWindow {
 		},
 	});
 
+	// Follow the user across macOS Spaces (virtual desktops).
+	// Without this the HUD stays pinned to the Space it was first opened on.
+	if (process.platform === "darwin") {
+		win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+	}
+
 	win.webContents.on("did-finish-load", () => {
 		win?.webContents.send("main-process-message", new Date().toLocaleString());
 	});
@@ -141,6 +147,12 @@ export function createSourceSelectorWindow(): BrowserWindow {
 			contextIsolation: true,
 		},
 	});
+
+	// Follow the user across macOS Spaces so the selector appears on the
+	// active desktop regardless of where the HUD was originally opened.
+	if (process.platform === "darwin") {
+		win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+	}
 
 	if (VITE_DEV_SERVER_URL) {
 		win.loadURL(VITE_DEV_SERVER_URL + "?windowType=source-selector");
