@@ -536,11 +536,24 @@ export class StreamingVideoDecoder {
 		return segments;
 	}
 
-	getEffectiveDuration(trimRegions?: TrimRegion[], speedRegions?: SpeedRegion[]): number {
+	getExportMetrics(
+		targetFrameRate: number,
+		trimRegions?: TrimRegion[],
+		speedRegions?: SpeedRegion[],
+	): { effectiveDuration: number; totalFrames: number } {
 		if (!this.metadata) throw new Error("Must call loadMetadata() first");
 		const trimSegments = this.computeSegments(this.metadata.duration, trimRegions);
-		const speedSegments = this.splitBySpeed(trimSegments, speedRegions);
-		return speedSegments.reduce((sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed, 0);
+		const segments = this.splitBySpeed(trimSegments, speedRegions);
+		return {
+			effectiveDuration: segments.reduce(
+				(sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed,
+				0,
+			),
+			totalFrames: segments.reduce(
+				(sum, seg) => sum + Math.ceil(((seg.endSec - seg.startSec) / seg.speed) * targetFrameRate),
+				0,
+			),
+		};
 	}
 
 	private splitBySpeed(
