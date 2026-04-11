@@ -62,10 +62,11 @@ let mainWindow: BrowserWindow | null = null;
 let sourceSelectorWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let selectedSourceName = "";
+const isMac = process.platform === "darwin";
 
 // Tray Icons
-const defaultTrayIcon = getTrayIcon("openscreen.png");
-const recordingTrayIcon = getTrayIcon("rec-button.png");
+const defaultTrayIcon = getTrayIcon("openscreen.png", isMac ? 18 : 24);
+const recordingTrayIcon = getTrayIcon("rec-button.png", isMac ? 18 : 24);
 
 function createWindow() {
 	mainWindow = createHudOverlayWindow();
@@ -199,12 +200,12 @@ function createTray() {
 	});
 }
 
-function getTrayIcon(filename: string) {
+function getTrayIcon(filename: string, size: number) {
 	return nativeImage
 		.createFromPath(path.join(process.env.VITE_PUBLIC || RENDERER_DIST, filename))
 		.resize({
-			width: 24,
-			height: 24,
+			width: size,
+			height: size,
 			quality: "best",
 		});
 }
