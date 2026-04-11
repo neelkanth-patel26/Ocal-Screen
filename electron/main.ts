@@ -63,10 +63,11 @@ let sourceSelectorWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let selectedSourceName = "";
 const isMac = process.platform === "darwin";
+const trayIconSize = isMac ? 16 : 24;
 
 // Tray Icons
-const defaultTrayIcon = getTrayIcon("openscreen.png", isMac ? 18 : 24);
-const recordingTrayIcon = getTrayIcon("rec-button.png", isMac ? 18 : 24);
+const defaultTrayIcon = getTrayIcon("openscreen.png", trayIconSize);
+const recordingTrayIcon = getTrayIcon("rec-button.png", trayIconSize);
 
 function createWindow() {
 	mainWindow = createHudOverlayWindow();
