@@ -320,7 +320,6 @@ export default function VideoEditor() {
 		aspectRatio,
 		webcamLayoutPreset,
 		webcamMaskShape,
-		webcamSizePreset,
 		webcamPosition,
 		exportQuality,
 		exportFormat,
