@@ -638,6 +638,18 @@ export function registerIpcHandlers(
 			return null;
 		}
 	});
+
+/**
+ * Handles saving an exported video file.
+ * Shows a save dialog, normalizes the file path for the current OS,
+ * ensures the directory exists, and writes the video data.
+ * @param _ - Unused event parameter.
+ * @param videoData - The exported video as an ArrayBuffer.
+ * @param fileName - Suggested filename for the save dialog.
+ * @returns Object with success status, optional file path, and error details.
+ */
+
+
 	ipcMain.handle("save-exported-video", async (_, videoData: ArrayBuffer, fileName: string) => {
 		try {
 			// Determine file type from extension
