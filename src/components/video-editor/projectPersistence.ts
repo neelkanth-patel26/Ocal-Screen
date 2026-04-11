@@ -1,7 +1,7 @@
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { normalizeProjectMedia } from "@/lib/recordingSession";
-import { ASPECT_RATIOS, type AspectRatio } from "@/utils/aspectRatioUtils";
+import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import {
 	type AnnotationRegion,
 	type CropRegion,
@@ -76,6 +76,26 @@ export interface EditorProjectData {
 
 function isFiniteNumber(value: unknown): value is number {
 	return typeof value === "number" && Number.isFinite(value);
+}
+
+function computeNormalizedWebcamLayoutPreset(
+	webcamLayoutPreset: Partial<ProjectEditorState>["webcamLayoutPreset"],
+	normalizedAspectRatio: AspectRatio,
+): WebcamLayoutPreset {
+	switch (webcamLayoutPreset) {
+		case "picture-in-picture":
+			return webcamLayoutPreset;
+		case "vertical-stack":
+			return isPortraitAspectRatio(normalizedAspectRatio)
+				? webcamLayoutPreset
+				: DEFAULT_WEBCAM_LAYOUT_PRESET;
+		case "dual-frame":
+			return isPortraitAspectRatio(normalizedAspectRatio)
+				? DEFAULT_WEBCAM_LAYOUT_PRESET
+				: webcamLayoutPreset;
+		default:
+			return DEFAULT_WEBCAM_LAYOUT_PRESET;
+	}
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -185,6 +205,26 @@ export function resolveProjectMedia(
 
 export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): ProjectEditorState {
 	const validAspectRatios = new Set<AspectRatio>(ASPECT_RATIOS);
+	const normalizedAspectRatio: AspectRatio = validAspectRatios.has(
+		editor.aspectRatio as AspectRatio,
+	)
+		? (editor.aspectRatio as AspectRatio)
+		: "16:9";
+	const normalizedWebcamLayoutPreset = computeNormalizedWebcamLayoutPreset(
+		editor.webcamLayoutPreset,
+		normalizedAspectRatio,
+	);
+	const normalizedWebcamPosition: WebcamPosition | null =
+		normalizedWebcamLayoutPreset === "picture-in-picture" &&
+		editor.webcamPosition &&
+		typeof editor.webcamPosition === "object" &&
+		isFiniteNumber((editor.webcamPosition as WebcamPosition).cx) &&
+		isFiniteNumber((editor.webcamPosition as WebcamPosition).cy)
+			? {
+					cx: clamp((editor.webcamPosition as WebcamPosition).cx, 0, 1),
+					cy: clamp((editor.webcamPosition as WebcamPosition).cy, 0, 1),
+				}
+			: DEFAULT_WEBCAM_POSITION;
 
 	const normalizedZoomRegions: ZoomRegion[] = Array.isArray(editor.zoomRegions)
 		? editor.zoomRegions
@@ -396,13 +436,8 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		trimRegions: normalizedTrimRegions,
 		speedRegions: normalizedSpeedRegions,
 		annotationRegions: normalizedAnnotationRegions,
-		aspectRatio:
-			editor.aspectRatio && validAspectRatios.has(editor.aspectRatio) ? editor.aspectRatio : "16:9",
-		webcamLayoutPreset:
-			editor.webcamLayoutPreset === "vertical-stack" ||
-			editor.webcamLayoutPreset === "picture-in-picture"
-				? editor.webcamLayoutPreset
-				: DEFAULT_WEBCAM_LAYOUT_PRESET,
+		aspectRatio: normalizedAspectRatio,
+		webcamLayoutPreset: normalizedWebcamLayoutPreset,
 		webcamMaskShape:
 			editor.webcamMaskShape === "rectangle" ||
 			editor.webcamMaskShape === "circle" ||
@@ -414,16 +449,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			typeof editor.webcamSizePreset === "number" && isFiniteNumber(editor.webcamSizePreset)
 				? Math.max(10, Math.min(50, editor.webcamSizePreset))
 				: DEFAULT_WEBCAM_SIZE_PRESET,
-		webcamPosition:
-			editor.webcamPosition &&
-			typeof editor.webcamPosition === "object" &&
-			isFiniteNumber((editor.webcamPosition as WebcamPosition).cx) &&
-			isFiniteNumber((editor.webcamPosition as WebcamPosition).cy)
-				? {
-						cx: clamp((editor.webcamPosition as WebcamPosition).cx, 0, 1),
-						cy: clamp((editor.webcamPosition as WebcamPosition).cy, 0, 1),
-					}
-				: DEFAULT_WEBCAM_POSITION,
+		webcamPosition: normalizedWebcamPosition,
 		exportQuality:
 			editor.exportQuality === "medium" || editor.exportQuality === "source"
 				? editor.exportQuality
