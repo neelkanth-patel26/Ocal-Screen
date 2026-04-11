@@ -8,14 +8,8 @@ import {
 	useRef,
 	useState,
 } from "react";
-import {
-	DEFAULT_LOCALE,
-	type I18nNamespace,
-	LOCALE_STORAGE_KEY,
-	type Locale,
-	SUPPORTED_LOCALES,
-} from "@/i18n/config";
-import { translate } from "@/i18n/loader";
+import { DEFAULT_LOCALE, type I18nNamespace, LOCALE_STORAGE_KEY, type Locale } from "@/i18n/config";
+import { getAvailableLocales, translate } from "@/i18n/loader";
 
 type TranslateVars = Record<string, string | number>;
 
@@ -48,11 +42,12 @@ export function useScopedT(namespace: I18nNamespace) {
 }
 
 function isSupportedLocale(value: string): value is Locale {
-	return (SUPPORTED_LOCALES as readonly string[]).includes(value);
+	return getAvailableLocales().includes(value);
 }
 
 function getSupportedSystemLocale(): Locale | null {
 	if (typeof navigator === "undefined") return null;
+	const availableLocales = getAvailableLocales();
 
 	const candidates =
 		Array.isArray(navigator.languages) && navigator.languages.length > 0
@@ -63,7 +58,7 @@ function getSupportedSystemLocale(): Locale | null {
 		if (!candidate) continue;
 		if (isSupportedLocale(candidate)) return candidate;
 
-		const exactMatch = SUPPORTED_LOCALES.find(
+		const exactMatch = availableLocales.find(
 			(locale) => locale.toLowerCase() === candidate.toLowerCase(),
 		);
 		if (exactMatch) return exactMatch;
@@ -71,9 +66,9 @@ function getSupportedSystemLocale(): Locale | null {
 		const baseLanguage = candidate.split("-")[0]?.toLowerCase();
 		if (!baseLanguage) continue;
 
-		if (baseLanguage === "zh") return "zh-CN";
+		if (baseLanguage === "zh" && availableLocales.includes("zh-CN")) return "zh-CN";
 
-		const baseMatch = SUPPORTED_LOCALES.find((locale) => locale.toLowerCase() === baseLanguage);
+		const baseMatch = availableLocales.find((locale) => locale.toLowerCase() === baseLanguage);
 		if (baseMatch) return baseMatch;
 	}
 

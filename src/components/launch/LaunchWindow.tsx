@@ -1,5 +1,6 @@
 import { Check, ChevronDown, Languages } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
 import { FaRegStopCircle } from "react-icons/fa";
 import { FaFolderOpen } from "react-icons/fa6";
@@ -18,8 +19,7 @@ import {
 } from "react-icons/md";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
-import { SUPPORTED_LOCALES } from "@/i18n/config";
-import { getLocaleName } from "@/i18n/loader";
+import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
 import { useCameraDevices } from "../../hooks/useCameraDevices";
 import { useMicrophoneDevices } from "../../hooks/useMicrophoneDevices";
@@ -28,12 +28,6 @@ import { requestCameraAccess } from "../../lib/requestCameraAccess";
 import { formatTimePadded } from "../../utils/timeUtils";
 import { AudioLevelMeter } from "../ui/audio-level-meter";
 import { Button } from "../ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
 import { Tooltip } from "../ui/tooltip";
 import styles from "./LaunchWindow.module.css";
 
@@ -83,6 +77,7 @@ const hudSidebarClasses = "ml-0.5 pl-1.5 border-l border-white/10 flex items-cen
 
 export function LaunchWindow() {
 	const t = useScopedT("launch");
+	const availableLocales = getAvailableLocales();
 	const {
 		locale,
 		setLocale,
@@ -123,6 +118,18 @@ export function LaunchWindow() {
 	const [isWebcamHovered, setIsWebcamHovered] = useState(false);
 	const [isWebcamFocused, setIsWebcamFocused] = useState(false);
 	const webcamExpanded = isWebcamHovered || isWebcamFocused;
+	const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+	const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
+	const languageMenuPanelRef = useRef<HTMLDivElement | null>(null);
+	const [languageMenuStyle, setLanguageMenuStyle] = useState<{
+		right: number;
+		top: number;
+		maxHeight: number;
+	}>({
+		right: 12,
+		top: 12,
+		maxHeight: 240,
+	});
 
 	const {
 		devices: micDevices,
@@ -175,6 +182,71 @@ export function LaunchWindow() {
 			console.warn("Failed to trigger camera access request during development:", error);
 		});
 	}, []);
+
+	useEffect(() => {
+		if (!isLanguageMenuOpen) return;
+
+		const handlePointerDown = (event: PointerEvent) => {
+			const target = event.target as Node;
+			const clickedTrigger = languageTriggerRef.current?.contains(target);
+			const clickedMenu = languageMenuPanelRef.current?.contains(target);
+			if (!clickedTrigger && !clickedMenu) {
+				setIsLanguageMenuOpen(false);
+			}
+		};
+
+		const handleEscape = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				setIsLanguageMenuOpen(false);
+			}
+		};
+
+		window.addEventListener("pointerdown", handlePointerDown);
+		window.addEventListener("keydown", handleEscape);
+
+		return () => {
+			window.removeEventListener("pointerdown", handlePointerDown);
+			window.removeEventListener("keydown", handleEscape);
+		};
+	}, [isLanguageMenuOpen]);
+
+	useEffect(() => {
+		if (!isLanguageMenuOpen || !languageTriggerRef.current) return;
+
+		const updatePosition = () => {
+			if (!languageTriggerRef.current) return;
+			const rect = languageTriggerRef.current.getBoundingClientRect();
+			const gap = 8;
+			const viewportPadding = 8;
+			const availableHeight = Math.max(80, rect.top - viewportPadding - gap);
+			const top = Math.max(viewportPadding, rect.top - gap - availableHeight);
+
+			setLanguageMenuStyle({
+				right: Math.max(viewportPadding, window.innerWidth - rect.right),
+				top,
+				maxHeight: availableHeight,
+			});
+		};
+
+		updatePosition();
+		window.addEventListener("resize", updatePosition);
+		window.addEventListener("scroll", updatePosition, true);
+
+		return () => {
+			window.removeEventListener("resize", updatePosition);
+			window.removeEventListener("scroll", updatePosition, true);
+		};
+	}, [isLanguageMenuOpen]);
+
+	useEffect(() => {
+		if (!isLanguageMenuOpen || !languageMenuPanelRef.current) return;
+		const id = requestAnimationFrame(() => {
+			if (languageMenuPanelRef.current) {
+				languageMenuPanelRef.current.scrollTop = 0;
+			}
+		});
+		return () => cancelAnimationFrame(id);
+	}, [isLanguageMenuOpen]);
 
 	const [selectedSource, setSelectedSource] = useState("Screen");
 	const [hasSelectedSource, setHasSelectedSource] = useState(false);
@@ -537,41 +609,60 @@ export function LaunchWindow() {
 
 				{/* Right sidebar controls */}
 				<div className={`${hudSidebarClasses} ${styles.electronNoDrag}`}>
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<button
-								type="button"
-								aria-label={t("language")}
-								className={`h-8 w-8 rounded-lg border border-white/10 bg-white/5 text-white/85 shadow-none transition-colors hover:bg-white/10 ${styles.electronNoDrag}`}
-							>
-								<div className="flex w-full items-center justify-center">
-									<Languages size={13} className="text-white/75" />
-								</div>
-							</button>
-						</DropdownMenuTrigger>
-
-						<DropdownMenuContent
-							align="end"
-							side="top"
-							sideOffset={6}
-							collisionPadding={6}
-							className={`w-36 min-w-0 max-h-none overflow-y-hidden overflow-x-hidden border-white/15 bg-[rgba(24,24,34,0.98)] p-1 text-white shadow-2xl backdrop-blur-xl ${styles.electronNoDrag}`}
+					<div className={`${styles.languageMenuContainer} ${styles.electronNoDrag}`}>
+						<button
+							ref={languageTriggerRef}
+							type="button"
+							aria-label={t("language")}
+							aria-expanded={isLanguageMenuOpen}
+							aria-haspopup="menu"
+							onClick={() => setIsLanguageMenuOpen((open) => !open)}
+							className={`h-8 w-8 rounded-lg border border-white/10 bg-white/5 text-white/85 shadow-none transition-colors hover:bg-white/10 ${styles.electronNoDrag}`}
 						>
-							{SUPPORTED_LOCALES.map((loc) => (
-								<DropdownMenuItem
-									key={loc}
-									onSelect={() => {
-										setLocale(loc);
-										resolveSystemLocaleSuggestion();
-									}}
-									className={`flex items-center justify-between rounded-sm px-2 py-1.5 text-[11px] transition-colors ${loc === locale ? "text-white" : "text-white/90"} focus:bg-white/10 focus:text-white ${styles.electronNoDrag}`}
+							<div className="flex w-full items-center justify-center">
+								<Languages size={13} className="text-white/75" />
+							</div>
+						</button>
+					</div>
+
+					{isLanguageMenuOpen
+						? createPortal(
+								<div
+									ref={languageMenuPanelRef}
+									role="menu"
+									className={`${styles.languageMenuPanel} ${styles.languageMenuScroll} ${styles.electronNoDrag}`}
+									style={
+										{
+											WebkitAppRegion: "no-drag",
+											pointerEvents: "auto",
+											right: `${languageMenuStyle.right}px`,
+											top: `${languageMenuStyle.top}px`,
+											maxHeight: `${languageMenuStyle.maxHeight}px`,
+										} as React.CSSProperties
+									}
+									onPointerDown={(event) => event.stopPropagation()}
 								>
-									<span className="truncate">{getLocaleName(loc)}</span>
-									{loc === locale ? <Check size={11} className="text-white/85" /> : null}
-								</DropdownMenuItem>
-							))}
-						</DropdownMenuContent>
-					</DropdownMenu>
+									{availableLocales.map((loc) => (
+										<button
+											key={loc}
+											type="button"
+											role="menuitemradio"
+											aria-checked={loc === locale}
+											onClick={() => {
+												setLocale(loc);
+												resolveSystemLocaleSuggestion();
+												setIsLanguageMenuOpen(false);
+											}}
+											className={`${styles.languageMenuItem} ${loc === locale ? styles.languageMenuItemActive : ""}`}
+										>
+											<span className="truncate">{getLocaleName(loc)}</span>
+											{loc === locale ? <Check size={11} className="text-white/85" /> : null}
+										</button>
+									))}
+								</div>,
+								document.body,
+							)
+						: null}
 
 					{/* Window controls */}
 					<div className="flex items-center gap-0.5">
