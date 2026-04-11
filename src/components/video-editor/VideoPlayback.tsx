@@ -809,7 +809,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			blurFilter.resolution = app.renderer.resolution;
 			blurFilter.blur = 0;
 			const motionBlurFilter = new MotionBlurFilter([0, 0], 5, 0);
-			videoContainer.filters = [blurFilter, motionBlurFilter];
 			blurFilterRef.current = blurFilter;
 			motionBlurFilterRef.current = motionBlurFilter;
 
@@ -1081,6 +1080,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					motionIntensity,
 					motionVector,
 				);
+
+				const isMotionBlurActive = (motionBlurAmountRef.current || 0) > 0 && isPlayingRef.current;
+
+				if (isMotionBlurActive && blurFilterRef.current && motionBlurFilterRef.current && videoContainerRef.current) {
+					videoContainerRef.current.filters = [blurFilterRef.current, motionBlurFilterRef.current];
+				} else if (videoContainerRef.current) {
+					videoContainerRef.current.filters = null;
+				}
 			};
 
 			app.ticker.add(ticker);
