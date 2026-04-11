@@ -1884,8 +1884,7 @@ export default function VideoEditor() {
 										pushState({
 											aspectRatio: ar,
 											webcamLayoutPreset:
-												(isPortraitAspectRatio(ar) && webcamLayoutPreset === "dual-frame") ||
-												(!isPortraitAspectRatio(ar) && webcamLayoutPreset === "vertical-stack")
+												!isPortraitAspectRatio(ar) && webcamLayoutPreset === "vertical-stack"
 													? "picture-in-picture"
 													: webcamLayoutPreset,
 										})
@@ -1938,7 +1937,7 @@ export default function VideoEditor() {
 						onWebcamLayoutPresetChange={(preset) =>
 							pushState({
 								webcamLayoutPreset: preset,
-								webcamPosition: preset === "picture-in-picture" ? webcamPosition : null,
+								webcamPosition: preset === "vertical-stack" ? null : webcamPosition,
 							})
 						}
 						webcamMaskShape={webcamMaskShape}
