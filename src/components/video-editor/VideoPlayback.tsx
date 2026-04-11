@@ -915,22 +915,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			};
 
 			const ticker = () => {
-				const bm = baseMaskRef.current;
-				const ss = stageSizeRef.current;
-				const viewportRatio =
-					bm.width > 0 && bm.height > 0
-						? {
-								widthRatio: ss.width / bm.width,
-								heightRatio: ss.height / bm.height,
-							}
-						: undefined;
 				const { region, strength, blendedScale, transition } = findDominantRegion(
 					zoomRegionsRef.current,
 					currentTimeRef.current,
 					{
 						connectZooms: true,
 						cursorTelemetry: cursorTelemetryRef.current,
-						viewportRatio,
 					},
 				);
 

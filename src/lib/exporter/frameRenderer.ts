@@ -540,16 +540,10 @@ export class FrameRenderer {
 	private updateAnimationState(timeMs: number): number {
 		if (!this.cameraContainer || !this.layoutCache) return 0;
 
-		const bmEx = this.layoutCache.maskRect;
-		const ssEx = this.layoutCache.stageSize;
-		const viewportRatio =
-			bmEx.width > 0 && bmEx.height > 0
-				? { widthRatio: ssEx.width / bmEx.width, heightRatio: ssEx.height / bmEx.height }
-				: undefined;
 		const { region, strength, blendedScale, transition } = findDominantRegion(
 			this.config.zoomRegions,
 			timeMs,
-			{ connectZooms: true, cursorTelemetry: this.config.cursorTelemetry, viewportRatio },
+			{ connectZooms: true, cursorTelemetry: this.config.cursorTelemetry },
 		);
 
 		const defaultFocus = DEFAULT_FOCUS;
