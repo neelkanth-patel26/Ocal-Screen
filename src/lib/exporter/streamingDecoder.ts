@@ -253,6 +253,8 @@ export class StreamingVideoDecoder {
 			this.computeSegments(this.metadata.duration, trimRegions),
 			speedRegions,
 		);
+		const requiredEndSec = segments[segments.length - 1]?.endSec ?? 0;
+
 		const segmentOutputFrameCounts = segments.map((segment) =>
 			Math.ceil(((segment.endSec - segment.startSec) / segment.speed) * targetFrameRate),
 		);
@@ -510,11 +512,13 @@ if (shouldFailDecodeEndedEarly({
     const decodedAtLabel = lastDecodedFrameSec === null ? "no decoded frame" : `${lastDecodedFrameSec.toFixed(3)}s`;
     const decodeGapSec = lastDecodedFrameSec === null ? Infinity : requiredEndSec - lastDecodedFrameSec;
 
-    // On Windows, tolerate a small decode gap (<= 3 seconds) to work around driver quirks.
-    // For severe failures (no frames at all, or a large gap), still throw.
-    if (isWindows && lastDecodedFrameSec !== null && decodeGapSec <= 3.0) {
+    // On Windows, tolerate a small decode gap: up to 10% of required duration, capped at 3 seconds.
+    const maxToleratedGap = Math.min(3.0, requiredEndSec * 0.1);
+
+    if (isWindows && lastDecodedFrameSec !== null && decodeGapSec <= maxToleratedGap) {
         console.warn(
-            `[StreamingVideoDecoder] Decode ended early on Windows with a small gap (${decodeGapSec.toFixed(2)}s) – proceeding anyway.`,
+            `[StreamingVideoDecoder] Decode ended early on Windows with a gap of ${decodeGapSec.toFixed(2)}s ` +
+            `(max tolerated: ${maxToleratedGap.toFixed(2)}s) – proceeding anyway.`,
         );
     } else {
         throw new Error(
@@ -522,6 +526,8 @@ if (shouldFailDecodeEndedEarly({
         );
     }
 }
+	}
+
 	private computeSegments(
 		totalDuration: number,
 		trimRegions?: TrimRegion[],
