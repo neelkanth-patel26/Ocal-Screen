@@ -638,7 +638,6 @@ export function registerIpcHandlers(
 			return null;
 		}
 	});
-
 	ipcMain.handle("save-exported-video", async (_, videoData: ArrayBuffer, fileName: string) => {
 		try {
 			// Determine file type from extension
@@ -664,11 +663,18 @@ export function registerIpcHandlers(
 				};
 			}
 
-			await fs.writeFile(result.filePath, Buffer.from(videoData));
+			// --- FIX: Normalize the path for Windows compatibility ---
+			const normalizedPath = path.normalize(result.filePath);
+
+			// Ensure the parent directory exists (Windows may fail if the folder is missing)
+			await fs.mkdir(path.dirname(normalizedPath), { recursive: true });
+			// --- END FIX ---
+
+			await fs.writeFile(normalizedPath, Buffer.from(videoData));
 
 			return {
 				success: true,
-				path: result.filePath,
+				path: normalizedPath,
 				message: "Video exported successfully",
 			};
 		} catch (error) {
@@ -680,7 +686,6 @@ export function registerIpcHandlers(
 			};
 		}
 	});
-
 	ipcMain.handle("open-video-file-picker", async () => {
 		try {
 			const result = await dialog.showOpenDialog({

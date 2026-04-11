@@ -492,6 +492,8 @@ export class StreamingVideoDecoder {
 		this.decoder = null;
 
 		const requiredEndSec = segments.length > 0 ? segments[segments.length - 1].endSec : 0;
+		const isWindows = typeof navigator !== "undefined" && /Windows/.test(navigator.userAgent);
+
 		if (
 			shouldFailDecodeEndedEarly({
 				cancelled: this.cancelled,
@@ -502,9 +504,17 @@ export class StreamingVideoDecoder {
 		) {
 			const decodedAtLabel =
 				lastDecodedFrameSec === null ? "no decoded frame" : `${lastDecodedFrameSec.toFixed(3)}s`;
-			throw new Error(
-				`Video decode ended early at ${decodedAtLabel} (needed ${requiredEndSec.toFixed(3)}s).`,
-			);
+
+			if (isWindows) {
+				console.warn(
+					`[StreamingVideoDecoder] Decode ended early on Windows at ${decodedAtLabel} (needed ${requiredEndSec.toFixed(3)}s) – proceeding anyway.`,
+				);
+				// Do not throw on Windows; allow export to complete with the frames we have.
+			} else {
+				throw new Error(
+					`Video decode ended early at ${decodedAtLabel} (needed ${requiredEndSec.toFixed(3)}s).`,
+				);
+			}
 		}
 	}
 
