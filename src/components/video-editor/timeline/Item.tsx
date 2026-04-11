@@ -21,8 +21,8 @@ interface ItemProps {
 	zoomInDurationMs?: number;
 	zoomOutDurationMs?: number;
 	speedValue?: number;
-	variant?: "zoom" | "trim" | "annotation" | "speed";
 	onZoomDurationChange?: (id: string, zoomIn: number, zoomOut: number) => void;
+	variant?: "zoom" | "trim" | "annotation" | "speed" | "blur";
 }
 
 // Map zoom depth to multiplier labels

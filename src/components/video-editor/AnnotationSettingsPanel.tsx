@@ -32,7 +32,12 @@ import { type CustomFont, getCustomFonts } from "@/lib/customFonts";
 import { cn } from "@/lib/utils";
 import { AddCustomFontDialog } from "./AddCustomFontDialog";
 import { getArrowComponent } from "./ArrowSvgs";
-import type { AnnotationRegion, AnnotationType, ArrowDirection, FigureData } from "./types";
+import {
+	type AnnotationRegion,
+	type AnnotationType,
+	type ArrowDirection,
+	type FigureData,
+} from "./types";
 
 interface AnnotationSettingsPanelProps {
 	annotation: AnnotationRegion;

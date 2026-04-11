@@ -1,4 +1,13 @@
-import type { AnnotationRegion, ArrowDirection } from "@/components/video-editor/types";
+import {
+	type AnnotationRegion,
+	type ArrowDirection,
+	DEFAULT_BLUR_INTENSITY,
+	MAX_BLUR_INTENSITY,
+	MIN_BLUR_INTENSITY,
+} from "@/components/video-editor/types";
+
+let blurScratchCanvas: HTMLCanvasElement | null = null;
+let blurScratchCtx: CanvasRenderingContext2D | null = null;
 
 // SVG path data for each arrow direction
 const ARROW_PATHS: Record<ArrowDirection, string[]> = {
@@ -94,6 +103,93 @@ function renderArrow(
 	ctx.stroke();
 
 	ctx.restore();
+}
+
+function drawBlurPath(
+	ctx: CanvasRenderingContext2D,
+	annotation: AnnotationRegion,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+) {
+	const shape = annotation.blurData?.shape || "rectangle";
+	if (shape === "rectangle") {
+		ctx.beginPath();
+		ctx.rect(x, y, width, height);
+		return;
+	}
+
+	if (shape === "oval") {
+		ctx.beginPath();
+		ctx.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
+		return;
+	}
+
+	const points = annotation.blurData?.freehandPoints;
+	if (shape === "freehand" && points && points.length >= 3) {
+		ctx.beginPath();
+		ctx.moveTo(x + (points[0].x / 100) * width, y + (points[0].y / 100) * height);
+		for (let i = 1; i < points.length; i++) {
+			ctx.lineTo(x + (points[i].x / 100) * width, y + (points[i].y / 100) * height);
+		}
+		ctx.closePath();
+		return;
+	}
+
+	ctx.beginPath();
+	ctx.rect(x, y, width, height);
+}
+
+function renderBlur(
+	ctx: CanvasRenderingContext2D,
+	annotation: AnnotationRegion,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	scaleFactor: number,
+) {
+	const canvas = ctx.canvas;
+	const configuredIntensity = annotation.blurData?.intensity ?? DEFAULT_BLUR_INTENSITY;
+	const blurRadius = Math.max(
+		1,
+		Math.round(clamp(configuredIntensity, MIN_BLUR_INTENSITY, MAX_BLUR_INTENSITY) * scaleFactor),
+	);
+
+	// Sample pixels around the target shape too; without this padding, small blur regions
+	// lose intensity because the filter has no neighboring pixels to blend with.
+	const samplePadding = Math.max(2, Math.ceil(blurRadius * 2));
+	const sx = Math.max(0, Math.floor(x) - samplePadding);
+	const sy = Math.max(0, Math.floor(y) - samplePadding);
+	const ex = Math.min(canvas.width, Math.ceil(x + width) + samplePadding);
+	const ey = Math.min(canvas.height, Math.ceil(y + height) + samplePadding);
+	const sw = Math.max(0, ex - sx);
+	const sh = Math.max(0, ey - sy);
+	if (sw <= 0 || sh <= 0) return;
+
+	if (!blurScratchCanvas || !blurScratchCtx) {
+		blurScratchCanvas = document.createElement("canvas");
+		blurScratchCtx = blurScratchCanvas.getContext("2d");
+	}
+	if (!blurScratchCanvas || !blurScratchCtx) return;
+
+	blurScratchCanvas.width = sw;
+	blurScratchCanvas.height = sh;
+	blurScratchCtx.clearRect(0, 0, sw, sh);
+	blurScratchCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+	ctx.save();
+	drawBlurPath(ctx, annotation, x, y, width, height);
+	ctx.clip();
+	ctx.filter = `blur(${blurRadius}px)`;
+	ctx.drawImage(blurScratchCanvas, sx, sy);
+	ctx.filter = "none";
+	ctx.restore();
+}
+
+function clamp(value: number, min: number, max: number) {
+	return Math.min(max, Math.max(min, value));
 }
 
 function renderText(
@@ -303,6 +399,10 @@ export async function renderAnnotations(
 						scaleFactor,
 					);
 				}
+				break;
+
+			case "blur":
+				renderBlur(ctx, annotation, x, y, width, height, scaleFactor);
 				break;
 		}
 	}

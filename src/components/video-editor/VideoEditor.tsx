@@ -54,11 +54,13 @@ import { SettingsPanel } from "./SettingsPanel";
 import TimelineEditor from "./timeline/TimelineEditor";
 import {
 	type AnnotationRegion,
+	type BlurData,
 	type CursorTelemetryPoint,
 	clampFocusToDepth,
 	DEFAULT_ANNOTATION_POSITION,
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
+	DEFAULT_BLUR_DATA,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_ZOOM_DEPTH,
@@ -123,6 +125,7 @@ export default function VideoEditor() {
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
 	const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+	const [selectedBlurId, setSelectedBlurId] = useState<string | null>(null);
 	const [isExporting, setIsExporting] = useState(false);
 	const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
 	const [exportError, setExportError] = useState<string | null>(null);
@@ -157,6 +160,15 @@ export default function VideoEditor() {
 	const nextAnnotationIdRef = useRef(1);
 	const nextAnnotationZIndexRef = useRef(1);
 	const exporterRef = useRef<VideoExporter | null>(null);
+
+	const annotationOnlyRegions = useMemo(
+		() => annotationRegions.filter((region) => region.type !== "blur"),
+		[annotationRegions],
+	);
+	const blurRegions = useMemo(
+		() => annotationRegions.filter((region) => region.type === "blur"),
+		[annotationRegions],
+	);
 
 	const currentProjectMedia = useMemo<ProjectMedia | null>(() => {
 		const screenVideoPath = videoSourcePath ?? (videoPath ? fromFileUrl(videoPath) : null);
@@ -230,6 +242,7 @@ export default function VideoEditor() {
 			setSelectedTrimId(null);
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 
 			nextZoomIdRef.current = deriveNextId(
 				"zoom",
@@ -627,7 +640,11 @@ export default function VideoEditor() {
 
 	const handleSelectZoom = useCallback((id: string | null) => {
 		setSelectedZoomId(id);
-		if (id) setSelectedTrimId(null);
+		if (id) {
+			setSelectedTrimId(null);
+			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
+		}
 	}, []);
 
 	const handleSelectTrim = useCallback((id: string | null) => {
@@ -635,6 +652,7 @@ export default function VideoEditor() {
 		if (id) {
 			setSelectedZoomId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		}
 	}, []);
 
@@ -643,6 +661,17 @@ export default function VideoEditor() {
 		if (id) {
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedBlurId(null);
+		}
+	}, []);
+
+	const handleSelectBlur = useCallback((id: string | null) => {
+		setSelectedBlurId(id);
+		if (id) {
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedAnnotationId(null);
+			setSelectedSpeedId(null);
 		}
 	}, []);
 
@@ -660,6 +689,7 @@ export default function VideoEditor() {
 			setSelectedZoomId(id);
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -678,6 +708,7 @@ export default function VideoEditor() {
 			setSelectedZoomId(id);
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -694,6 +725,7 @@ export default function VideoEditor() {
 			setSelectedTrimId(id);
 			setSelectedZoomId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -804,6 +836,7 @@ export default function VideoEditor() {
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		}
 	}, []);
 
@@ -823,6 +856,7 @@ export default function VideoEditor() {
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -889,6 +923,35 @@ export default function VideoEditor() {
 			setSelectedAnnotationId(id);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedBlurId(null);
+		},
+		[pushState],
+	);
+
+	const handleBlurAdded = useCallback(
+		(span: Span) => {
+			const id = `annotation-${nextAnnotationIdRef.current++}`;
+			const zIndex = nextAnnotationZIndexRef.current++;
+			const newRegion: AnnotationRegion = {
+				id,
+				startMs: Math.round(span.start),
+				endMs: Math.round(span.end),
+				type: "blur",
+				content: "",
+				position: { ...DEFAULT_ANNOTATION_POSITION },
+				size: { ...DEFAULT_ANNOTATION_SIZE },
+				style: { ...DEFAULT_ANNOTATION_STYLE },
+				zIndex,
+				blurData: { ...DEFAULT_BLUR_DATA },
+			};
+			pushState((prev) => ({
+				annotationRegions: [...prev.annotationRegions, newRegion],
+			}));
+			setSelectedBlurId(id);
+			setSelectedAnnotationId(null);
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
 		},
 		[pushState],
 	);
@@ -931,8 +994,11 @@ export default function VideoEditor() {
 			if (selectedAnnotationId === id) {
 				setSelectedAnnotationId(null);
 			}
+			if (selectedBlurId === id) {
+				setSelectedBlurId(null);
+			}
 		},
-		[selectedAnnotationId, pushState],
+		[selectedAnnotationId, selectedBlurId, pushState],
 	);
 
 	const handleAnnotationContentChange = useCallback(
@@ -967,12 +1033,26 @@ export default function VideoEditor() {
 						if (!region.figureData) {
 							updatedRegion.figureData = { ...DEFAULT_FIGURE_DATA };
 						}
+					} else if (type === "blur") {
+						updatedRegion.content = "";
+						if (!region.blurData) {
+							updatedRegion.blurData = { ...DEFAULT_BLUR_DATA };
+						}
 					}
 					return updatedRegion;
 				}),
 			}));
+
+			if (type === "blur" && selectedAnnotationId === id) {
+				setSelectedAnnotationId(null);
+				setSelectedBlurId(id);
+				setSelectedSpeedId(null);
+			} else if (type !== "blur" && selectedBlurId === id) {
+				setSelectedBlurId(null);
+				setSelectedAnnotationId(id);
+			}
 		},
-		[pushState],
+		[pushState, selectedAnnotationId, selectedBlurId],
 	);
 
 	const handleAnnotationStyleChange = useCallback(
@@ -991,6 +1071,51 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				annotationRegions: prev.annotationRegions.map((region) =>
 					region.id === id ? { ...region, figureData } : region,
+				),
+			}));
+		},
+		[pushState],
+	);
+
+	const handleBlurDataPreviewChange = useCallback(
+		(id: string, blurData: BlurData) => {
+			updateState((prev) => ({
+				annotationRegions: prev.annotationRegions.map((region) =>
+					region.id === id
+						? {
+								...region,
+								blurData,
+								// Freehand drawing area is the full video surface.
+								...(blurData.shape === "freehand"
+									? {
+											position: { x: 0, y: 0 },
+											size: { width: 100, height: 100 },
+										}
+									: {}),
+							}
+						: region,
+				),
+			}));
+		},
+		[updateState],
+	);
+
+	const handleBlurDataPanelChange = useCallback(
+		(id: string, blurData: BlurData) => {
+			pushState((prev) => ({
+				annotationRegions: prev.annotationRegions.map((region) =>
+					region.id === id
+						? {
+								...region,
+								blurData,
+								...(blurData.shape === "freehand"
+									? {
+											position: { x: 0, y: 0 },
+											size: { width: 100, height: 100 },
+										}
+									: {}),
+							}
+						: region,
 				),
 			}));
 		},
@@ -1110,11 +1235,14 @@ export default function VideoEditor() {
 	useEffect(() => {
 		if (
 			selectedAnnotationId &&
-			!annotationRegions.some((region) => region.id === selectedAnnotationId)
+			!annotationOnlyRegions.some((region) => region.id === selectedAnnotationId)
 		) {
 			setSelectedAnnotationId(null);
 		}
-	}, [selectedAnnotationId, annotationRegions]);
+		if (selectedBlurId && !blurRegions.some((region) => region.id === selectedBlurId)) {
+			setSelectedBlurId(null);
+		}
+	}, [selectedAnnotationId, selectedBlurId, annotationOnlyRegions, blurRegions]);
 
 	useEffect(() => {
 		if (selectedSpeedId && !speedRegions.some((region) => region.id === selectedSpeedId)) {
@@ -1689,11 +1817,18 @@ export default function VideoEditor() {
 											cropRegion={cropRegion}
 											trimRegions={trimRegions}
 											speedRegions={speedRegions}
-											annotationRegions={annotationRegions}
+											annotationRegions={annotationOnlyRegions}
 											selectedAnnotationId={selectedAnnotationId}
 											onSelectAnnotation={handleSelectAnnotation}
 											onAnnotationPositionChange={handleAnnotationPositionChange}
 											onAnnotationSizeChange={handleAnnotationSizeChange}
+											blurRegions={blurRegions}
+											selectedBlurId={selectedBlurId}
+											onSelectBlur={handleSelectBlur}
+											onBlurPositionChange={handleAnnotationPositionChange}
+											onBlurSizeChange={handleAnnotationSizeChange}
+											onBlurDataChange={handleBlurDataPreviewChange}
+											onBlurDataCommit={commitState}
 											cursorTelemetry={cursorTelemetry}
 										/>
 									</div>
@@ -1747,18 +1882,25 @@ export default function VideoEditor() {
 									onSpeedDelete={handleSpeedDelete}
 									selectedSpeedId={selectedSpeedId}
 									onSelectSpeed={handleSelectSpeed}
-									annotationRegions={annotationRegions}
+									annotationRegions={annotationOnlyRegions}
 									onAnnotationAdded={handleAnnotationAdded}
 									onAnnotationSpanChange={handleAnnotationSpanChange}
 									onAnnotationDelete={handleAnnotationDelete}
 									selectedAnnotationId={selectedAnnotationId}
 									onSelectAnnotation={handleSelectAnnotation}
+									blurRegions={blurRegions}
+									onBlurAdded={handleBlurAdded}
+									onBlurSpanChange={handleAnnotationSpanChange}
+									onBlurDelete={handleAnnotationDelete}
+									selectedBlurId={selectedBlurId}
+									onSelectBlur={handleSelectBlur}
 									aspectRatio={aspectRatio}
 									onAspectRatioChange={(ar) =>
 										pushState({
 											aspectRatio: ar,
 											webcamLayoutPreset:
-												!isPortraitAspectRatio(ar) && webcamLayoutPreset === "vertical-stack"
+												(isPortraitAspectRatio(ar) && webcamLayoutPreset === "dual-frame") ||
+												(!isPortraitAspectRatio(ar) && webcamLayoutPreset === "vertical-stack")
 													? "picture-in-picture"
 													: webcamLayoutPreset,
 										})
@@ -1811,7 +1953,7 @@ export default function VideoEditor() {
 						onWebcamLayoutPresetChange={(preset) =>
 							pushState({
 								webcamLayoutPreset: preset,
-								webcamPosition: preset === "vertical-stack" ? null : webcamPosition,
+								webcamPosition: preset === "picture-in-picture" ? webcamPosition : null,
 							})
 						}
 						webcamMaskShape={webcamMaskShape}
@@ -1845,12 +1987,17 @@ export default function VideoEditor() {
 						)}
 						onExport={handleOpenExportDialog}
 						selectedAnnotationId={selectedAnnotationId}
-						annotationRegions={annotationRegions}
+						annotationRegions={annotationOnlyRegions}
 						onAnnotationContentChange={handleAnnotationContentChange}
 						onAnnotationTypeChange={handleAnnotationTypeChange}
 						onAnnotationStyleChange={handleAnnotationStyleChange}
 						onAnnotationFigureDataChange={handleAnnotationFigureDataChange}
 						onAnnotationDelete={handleAnnotationDelete}
+						selectedBlurId={selectedBlurId}
+						blurRegions={blurRegions}
+						onBlurDataChange={handleBlurDataPanelChange}
+						onBlurDataCommit={commitState}
+						onBlurDelete={handleAnnotationDelete}
 						selectedSpeedId={selectedSpeedId}
 						selectedSpeedValue={
 							selectedSpeedId

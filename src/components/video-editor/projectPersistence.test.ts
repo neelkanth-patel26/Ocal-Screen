@@ -44,6 +44,7 @@ describe("projectPersistence media compatibility", () => {
 				aspectRatio: "16:9",
 				webcamLayoutPreset: "picture-in-picture",
 				webcamMaskShape: "circle",
+				webcamPosition: null,
 				exportQuality: "good",
 				exportFormat: "mp4",
 				gifFrameRate: 15,
@@ -65,6 +66,30 @@ describe("projectPersistence media compatibility", () => {
 		expect(
 			normalizeProjectEditor({ webcamMaskShape: "not-a-real-shape" as never }).webcamMaskShape,
 		).toBe("rectangle");
+	});
+
+	it("accepts the dual frame webcam layout preset", () => {
+		expect(normalizeProjectEditor({ webcamLayoutPreset: "dual-frame" }).webcamLayoutPreset).toBe(
+			"dual-frame",
+		);
+	});
+
+	it("falls back from dual frame to picture in picture for portrait aspect ratios", () => {
+		expect(
+			normalizeProjectEditor({
+				aspectRatio: "9:16",
+				webcamLayoutPreset: "dual-frame",
+			}).webcamLayoutPreset,
+		).toBe("picture-in-picture");
+	});
+
+	it("clears webcamPosition when the normalized preset is not picture in picture", () => {
+		expect(
+			normalizeProjectEditor({
+				webcamLayoutPreset: "dual-frame",
+				webcamPosition: { cx: 0.2, cy: 0.8 },
+			}).webcamPosition,
+		).toBeNull();
 	});
 });
 
