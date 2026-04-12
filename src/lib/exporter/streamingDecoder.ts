@@ -86,12 +86,12 @@ export function validateDuration(containerDuration: number, scannedDuration: num
 	if (scannedDuration <= 0) {
 		// Zero scanned duration means corrupted/empty file — fall back to container
 		// (downstream shouldFailDecodeEndedEarly will catch truly empty files)
-		return Math.max(containerDuration, 0);
+		return Number.isFinite(containerDuration) ? Math.max(containerDuration, 0) : 0;
 	}
 	if (!Number.isFinite(containerDuration) || containerDuration <= 0) {
 		return scannedDuration;
 	}
-	if (containerDuration - scannedDuration > DURATION_DIVERGENCE_THRESHOLD_SEC) {
+	if (Math.abs(containerDuration - scannedDuration) > DURATION_DIVERGENCE_THRESHOLD_SEC) {
 		return scannedDuration;
 	}
 	return containerDuration;

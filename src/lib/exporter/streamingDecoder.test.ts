@@ -27,8 +27,16 @@ describe("validateDuration", () => {
 		expect(validateDuration(15.0, 15.3)).toBe(15.0);
 	});
 
+	it("returns scanned duration when container under-reports beyond threshold", () => {
+		expect(validateDuration(10, 15.3)).toBe(15.3);
+	});
+
 	it("returns container duration when scanned is zero (corrupted/empty file)", () => {
 		expect(validateDuration(10, 0)).toBe(10);
+	});
+
+	it("returns 0 when both container is NaN and scanned is zero", () => {
+		expect(validateDuration(NaN, 0)).toBe(0);
 	});
 });
 
