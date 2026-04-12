@@ -5,6 +5,7 @@ import type { VideoMuxer } from "./muxer";
 const AUDIO_BITRATE = 128_000;
 const DECODE_BACKPRESSURE_LIMIT = 20;
 const MIN_SPEED_REGION_DELTA_MS = 0.0001;
+const SEEK_TIMEOUT_MS = 5_000;
 
 export class AudioProcessor {
 	private cancelled = false;
@@ -20,7 +21,7 @@ export class AudioProcessor {
 		videoUrl: string,
 		trimRegions?: TrimRegion[],
 		speedRegions?: SpeedRegion[],
-		readEndSec?: number,
+		validatedDurationSec?: number,
 	): Promise<void> {
 		const sortedTrims = trimRegions ? [...trimRegions].sort((a, b) => a.startMs - b.startMs) : [];
 		const sortedSpeedRegions = speedRegions
@@ -35,14 +36,20 @@ export class AudioProcessor {
 				videoUrl,
 				sortedTrims,
 				sortedSpeedRegions,
+				validatedDurationSec,
 			);
-			if (!this.cancelled) {
+			if (!this.cancelled && renderedAudioBlob.size > 0) {
 				await this.muxRenderedAudioBlob(renderedAudioBlob, muxer);
 				return;
 			}
+			return;
 		}
 
 		// No speed edits: keep the original demux/decode/encode path with trim timestamp remap.
+		const readEndSec =
+			typeof validatedDurationSec === "number" && Number.isFinite(validatedDurationSec)
+				? validatedDurationSec + 0.5
+				: undefined;
 		await this.processTrimOnlyAudio(demuxer, muxer, sortedTrims, readEndSec);
 	}
 
@@ -187,6 +194,7 @@ export class AudioProcessor {
 		videoUrl: string,
 		trimRegions: TrimRegion[],
 		speedRegions: SpeedRegion[],
+		validatedDurationSec?: number,
 	): Promise<Blob> {
 		const media = document.createElement("audio");
 		media.src = videoUrl;
@@ -211,15 +219,41 @@ export class AudioProcessor {
 		const destinationNode = audioContext.createMediaStreamDestination();
 		sourceNode.connect(destinationNode);
 
-		const { recorder, recordedBlobPromise } = this.startAudioRecording(destinationNode.stream);
 		let rafId: number | null = null;
+		let recorder: MediaRecorder | null = null;
+		let recordedBlobPromise: Promise<Blob> | null = null;
 
 		try {
 			if (audioContext.state === "suspended") {
 				await audioContext.resume();
 			}
 
-			await this.seekTo(media, 0);
+			// Skip past any initial trim region before recording starts
+			// to avoid capturing trimmed audio during the first frames.
+			let startPosition = 0;
+			const initialTrim = this.findActiveTrimRegion(0, trimRegions);
+			if (initialTrim) {
+				startPosition = initialTrim.endMs / 1000;
+			}
+
+			const effectiveEnd = validatedDurationSec ?? media.duration;
+			if (startPosition >= effectiveEnd) {
+				// All content is trimmed — return silent blob
+				return new Blob([], { type: "audio/webm" });
+			}
+
+			await this.seekTo(media, startPosition);
+
+			// Set initial playback rate for the starting position
+			const initialSpeedRegion = this.findActiveSpeedRegion(startPosition * 1000, speedRegions);
+			if (initialSpeedRegion) {
+				media.playbackRate = initialSpeedRegion.speed;
+			}
+
+			// Start recording only AFTER seeking past trims
+			const recording = this.startAudioRecording(destinationNode.stream);
+			recorder = recording.recorder;
+			recordedBlobPromise = recording.recordedBlobPromise;
 			await media.play();
 
 			await new Promise<void>((resolve, reject) => {
@@ -249,24 +283,69 @@ export class AudioProcessor {
 						return;
 					}
 
+					// Stop playback at validated duration — browser's media.duration
+					// may be inflated from bad container metadata.
+					if (validatedDurationSec !== undefined && media.currentTime >= validatedDurationSec) {
+						media.pause();
+						cleanup();
+						resolve();
+						return;
+					}
+
 					const currentTimeMs = media.currentTime * 1000;
 					const activeTrimRegion = this.findActiveTrimRegion(currentTimeMs, trimRegions);
 
 					if (activeTrimRegion && !media.paused && !media.ended) {
 						const skipToTime = activeTrimRegion.endMs / 1000;
-						if (skipToTime >= media.duration) {
+						if (
+							skipToTime >= media.duration ||
+							(validatedDurationSec !== undefined && skipToTime >= validatedDurationSec)
+						) {
 							media.pause();
 							cleanup();
 							resolve();
 							return;
 						}
+						// Pause recording during trim seek to prevent capturing
+						// silence/noise as the audio element seeks.
+						media.pause();
+						if (recorder?.state === "recording") recorder.pause();
+						const onSeeked = () => {
+							clearTimeout(seekTimer);
+							if (this.cancelled) {
+								cleanup();
+								resolve();
+								return;
+							}
+							if (recorder?.state === "paused") recorder.resume();
+							media
+								.play()
+								.then(() => {
+									if (!this.cancelled) rafId = requestAnimationFrame(tick);
+								})
+								.catch((err) => {
+									cleanup();
+									reject(
+										new Error(
+											`Failed to resume playback after trim seek: ${err instanceof Error ? err.message : String(err)}`,
+										),
+									);
+								});
+						};
+						const seekTimer = window.setTimeout(() => {
+							media.removeEventListener("seeked", onSeeked);
+							cleanup();
+							reject(new Error("Audio seek timed out while skipping trim region"));
+						}, SEEK_TIMEOUT_MS);
+						media.addEventListener("seeked", onSeeked, { once: true });
 						media.currentTime = skipToTime;
-					} else {
-						const activeSpeedRegion = this.findActiveSpeedRegion(currentTimeMs, speedRegions);
-						const playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
-						if (Math.abs(media.playbackRate - playbackRate) > 0.0001) {
-							media.playbackRate = playbackRate;
-						}
+						return;
+					}
+
+					const activeSpeedRegion = this.findActiveSpeedRegion(currentTimeMs, speedRegions);
+					const playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
+					if (Math.abs(media.playbackRate - playbackRate) > 0.0001) {
+						media.playbackRate = playbackRate;
 					}
 
 					if (!media.paused && !media.ended) {
@@ -286,7 +365,7 @@ export class AudioProcessor {
 				cancelAnimationFrame(rafId);
 			}
 			media.pause();
-			if (recorder.state !== "inactive") {
+			if (recorder && recorder.state !== "inactive") {
 				recorder.stop();
 			}
 			destinationNode.stream.getTracks().forEach((track) => track.stop());
@@ -297,6 +376,9 @@ export class AudioProcessor {
 			media.load();
 		}
 
+		if (!recordedBlobPromise) {
+			return new Blob([], { type: "audio/webm" });
+		}
 		const recordedBlob = await recordedBlobPromise;
 		if (this.cancelled) {
 			throw new Error("Export cancelled");

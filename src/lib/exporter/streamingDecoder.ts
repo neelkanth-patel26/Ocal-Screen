@@ -70,6 +70,32 @@ type EarlyDecodeEndCheck = {
 const EARLY_DECODE_END_THRESHOLD_SEC = 1;
 const METADATA_TAIL_TOLERANCE_SEC = 1.5;
 const STREAM_DURATION_MATCH_TOLERANCE_SEC = 0.25;
+const DURATION_DIVERGENCE_THRESHOLD_SEC = 1.5;
+
+/**
+ * Validate container duration against actual packet timestamps.
+ *
+ * Chrome/Electron's MediaRecorder writes WebM containers with unreliable
+ * Duration fields (often Infinity, 0, or inflated) — especially on Linux.
+ * This function picks the most trustworthy duration value.
+ *
+ * @param containerDuration  Duration from the container-level metadata
+ * @param scannedDuration    Duration derived from actual packet timestamps (ground truth)
+ */
+export function validateDuration(containerDuration: number, scannedDuration: number): number {
+	if (scannedDuration <= 0) {
+		// Zero scanned duration means corrupted/empty file — fall back to container
+		// (downstream shouldFailDecodeEndedEarly will catch truly empty files)
+		return Math.max(containerDuration, 0);
+	}
+	if (!Number.isFinite(containerDuration) || containerDuration <= 0) {
+		return scannedDuration;
+	}
+	if (containerDuration - scannedDuration > DURATION_DIVERGENCE_THRESHOLD_SEC) {
+		return scannedDuration;
+	}
+	return containerDuration;
+}
 
 export function shouldFailDecodeEndedEarly({
 	cancelled,
@@ -201,10 +227,34 @@ export class StreamingVideoDecoder {
 
 		const audioStream = mediaInfo.streams.find((s) => s.codec_type_string === "audio");
 
+		// Scan video packets to find the true content boundary.
+		// MediaRecorder (especially on Linux) writes unreliable container durations.
+		// Packet timestamps are ground truth — no decode needed, just timestamp reads.
+		let maxPacketEndUs = 0;
+		const scanReader = (
+			this.demuxer.read("video") as ReadableStream<EncodedVideoChunk>
+		).getReader();
+		try {
+			while (true) {
+				const { done, value } = await scanReader.read();
+				if (done || !value) break;
+				const endUs = value.timestamp + (value.duration ?? 0);
+				if (endUs > maxPacketEndUs) maxPacketEndUs = endUs;
+			}
+		} finally {
+			try {
+				await scanReader.cancel();
+			} catch {
+				/* already closed */
+			}
+		}
+		const scannedDuration = maxPacketEndUs / 1_000_000;
+		const validatedDuration = validateDuration(mediaInfo.duration, scannedDuration);
+
 		this.metadata = {
 			width: videoStream?.width || 1920,
 			height: videoStream?.height || 1080,
-			duration: mediaInfo.duration,
+			duration: validatedDuration,
 			streamDuration:
 				typeof videoStream?.duration === "number" && Number.isFinite(videoStream.duration)
 					? videoStream.duration
@@ -305,7 +355,7 @@ export class StreamingVideoDecoder {
 
 		// One forward stream through the whole file.
 		// Pass explicit range because some containers are truncated when no end is provided.
-		const readEndSec = Math.max(this.metadata.duration, this.metadata.streamDuration ?? 0) + 0.5;
+		const readEndSec = this.metadata.duration + 0.5;
 		const reader = this.demuxer.read("video", 0, readEndSec).getReader();
 
 		// Feed chunks to decoder in background with backpressure

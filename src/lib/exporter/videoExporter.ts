@@ -157,17 +157,11 @@ export class VideoExporter {
 			this.muxer = muxer;
 			await muxer.initialize();
 
-			const { effectiveDuration, totalFrames } = streamingDecoder.getExportMetrics(
+			const { totalFrames } = streamingDecoder.getExportMetrics(
 				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
 			);
-			const readEndSec = Math.max(videoInfo.duration, videoInfo.streamDuration ?? 0) + 0.5;
-
-			console.log("[VideoExporter] Original duration:", videoInfo.duration, "s");
-			console.log("[VideoExporter] Effective duration:", effectiveDuration, "s");
-			console.log("[VideoExporter] Total frames to export:", totalFrames);
-			console.log("[VideoExporter] Using streaming decode (web-demuxer + VideoDecoder)");
 
 			const frameDuration = 1_000_000 / this.config.frameRate;
 			let frameIndex = 0;
@@ -346,7 +340,7 @@ export class VideoExporter {
 						this.config.videoUrl,
 						this.config.trimRegions,
 						this.config.speedRegions,
-						readEndSec,
+						videoInfo.duration,
 					);
 				}
 			}
