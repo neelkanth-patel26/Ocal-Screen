@@ -16,24 +16,14 @@ buildNpmPackage {
   src =
     let
       fs = lib.fileset;
-      maybe = fs.maybeMissing;
     in
     fs.toSource {
       root = ../.;
-      fileset = fs.difference ../. (
+      fileset = fs.difference (fs.gitTracked ../.) (
         fs.unions [
           ../nix
           ../flake.nix
           ../flake.lock
-          (maybe ../release)
-          (maybe ../test-results)
-          (maybe ../playwright-report)
-          (maybe ../.github)
-          (maybe ../.vscode)
-          (maybe ../.idea)
-          (maybe ../.kiro)
-          (maybe ../.envrc)
-          (maybe ../.direnv)
           (fs.fileFilter (file: file.hasExt "md") ../.)
         ]
       );
