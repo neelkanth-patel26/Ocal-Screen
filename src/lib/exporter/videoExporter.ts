@@ -111,6 +111,8 @@ export class VideoExporter {
 		this.cancelled = false;
 		this.fatalEncoderError = null;
 
+		const platform = await window.electronAPI.getPlatform();
+
 		try {
 			const streamingDecoder = new StreamingVideoDecoder();
 			this.streamingDecoder = streamingDecoder;
@@ -237,25 +239,29 @@ export class VideoExporter {
 
 						const canvas = renderer.getCanvas();
 
-						// Read raw pixels from the canvas instead of passing
-						// the canvas directly to VideoFrame. On some Linux
-						// systems the GPU shared-image path (EGL/Ozone) fails
-						// silently, producing empty frames.
-						const canvasCtx = canvas.getContext("2d")!;
-						const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-						const exportFrame = new VideoFrame(imageData.data.buffer, {
-							format: "RGBA",
-							codedWidth: canvas.width,
-							codedHeight: canvas.height,
-							timestamp,
-							duration: frameDuration,
-							colorSpace: {
-								primaries: "bt709",
-								transfer: "iec61966-2-1",
-								matrix: "rgb",
-								fullRange: true,
-							},
-						});
+						let exportFrame: VideoFrame;
+
+						// On some Linux systems the GPU shared-image path (EGL/Ozone) fails
+						// silently, producing empty frames, so we force a CPU readback instead.
+						if (platform === "linux") {
+							const canvasCtx = canvas.getContext("2d")!;
+							const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+							exportFrame = new VideoFrame(imageData.data.buffer, {
+								format: "RGBA",
+								codedWidth: canvas.width,
+								codedHeight: canvas.height,
+								timestamp,
+								duration: frameDuration,
+								colorSpace: {
+									primaries: "bt709",
+									transfer: "iec61966-2-1",
+									matrix: "rgb",
+									fullRange: true,
+								},
+							});
+						} else {
+							exportFrame = new VideoFrame(canvas, { timestamp, duration: frameDuration });
+						}
 
 						while (
 							this.encoder &&

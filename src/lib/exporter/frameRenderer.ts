@@ -187,8 +187,12 @@ export class FrameRenderer {
 		this.compositeCanvas = document.createElement("canvas");
 		this.compositeCanvas.width = this.config.width;
 		this.compositeCanvas.height = this.config.height;
+
+		// On Linux, getImageData() is called frequently causing frequent CPU readback
+		const isLinux = (await window.electronAPI.getPlatform()) === "linux";
+
 		this.compositeCtx = this.compositeCanvas.getContext("2d", {
-			willReadFrequently: false,
+			willReadFrequently: isLinux,
 		});
 
 		if (!this.compositeCtx) {
