@@ -246,7 +246,9 @@ export class StreamingVideoDecoder {
 			speedRegions,
 		);
 		const segmentOutputFrameCounts = segments.map((segment) =>
-			Math.ceil(((segment.endSec - segment.startSec) / segment.speed) * targetFrameRate),
+			Math.ceil(
+				((segment.endSec - segment.startSec - EPSILON_SEC) / segment.speed) * targetFrameRate,
+			),
 		);
 		const frameDurationUs = 1_000_000 / targetFrameRate;
 
