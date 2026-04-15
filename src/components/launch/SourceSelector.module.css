@@ -8,9 +8,9 @@
 		Removed box-shadow here because electron doesn't round corners of the shadow, thereby leaving a square border shadow conflicting with the rounded corners of the SourceSelector.
 		The result is easily visible when you place a white window just behind the SourceSelector
 	*/
-	/*box-shadow:
+	/* box-shadow:
 		0 0px 16px 0 rgba(0, 0, 0, 0.32),
-		0 1px 3px 0 rgba(0, 0, 0, 0.18) inset;*/
+		0 1px 3px 0 rgba(0, 0, 0, 0.18) inset; */
 	border: 1.5px solid rgba(60, 60, 80, 0.3);
 }
 
