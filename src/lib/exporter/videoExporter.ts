@@ -111,9 +111,9 @@ export class VideoExporter {
 		this.cancelled = false;
 		this.fatalEncoderError = null;
 
-		const platform = await window.electronAPI.getPlatform();
-
 		try {
+			const platform = await window.electronAPI.getPlatform();
+
 			const streamingDecoder = new StreamingVideoDecoder();
 			this.streamingDecoder = streamingDecoder;
 			const videoInfo = await streamingDecoder.loadMetadata(this.config.videoUrl);
@@ -148,6 +148,7 @@ export class VideoExporter {
 				previewWidth: this.config.previewWidth,
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
+				platform,
 			});
 			this.renderer = renderer;
 			await renderer.initialize();

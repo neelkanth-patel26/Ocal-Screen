@@ -115,7 +115,10 @@ export class GifExporter {
 
 	async export(): Promise<ExportResult> {
 		let webcamFrameQueue: AsyncVideoFrameQueue | null = null;
+
 		try {
+			const platform = await window.electronAPI.getPlatform();
+
 			this.cleanup();
 			this.cancelled = false;
 
@@ -153,6 +156,7 @@ export class GifExporter {
 				previewWidth: this.config.previewWidth,
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
+				platform,
 			});
 			await this.renderer.initialize();
 
