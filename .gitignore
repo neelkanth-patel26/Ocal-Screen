@@ -37,4 +37,4 @@ playwright-report/
 __screenshots__/
 
 # shell files
-./shell.sh
+/shell.sh
