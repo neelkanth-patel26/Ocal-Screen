@@ -71,6 +71,11 @@ const EARLY_DECODE_END_THRESHOLD_SEC = 1;
 const METADATA_TAIL_TOLERANCE_SEC = 1.5;
 const STREAM_DURATION_MATCH_TOLERANCE_SEC = 0.25;
 const DURATION_DIVERGENCE_THRESHOLD_SEC = 1.5;
+// Fallback upper bound for the packet scan when no reliable duration hint is
+// available. Explicit end is required (some containers are truncated without
+// one), but the hint-derived bound would cap the scan prematurely when
+// container/stream duration are missing or corrupt.
+const SCAN_UNBOUNDED_FALLBACK_SEC = 24 * 60 * 60;
 
 /**
  * Validate container duration against actual packet timestamps.
@@ -238,7 +243,9 @@ export class StreamingVideoDecoder {
 			typeof videoStream?.duration === "number" && Number.isFinite(videoStream.duration)
 				? videoStream.duration
 				: 0;
-		const scanEndSec = Math.max(containerDurationSec, streamDurationSec, 0) + 0.5;
+		const hintedDurationSec = Math.max(containerDurationSec, streamDurationSec, 0);
+		const scanEndSec =
+			hintedDurationSec > 0 ? hintedDurationSec + 0.5 : SCAN_UNBOUNDED_FALLBACK_SEC;
 		let maxPacketEndUs = 0;
 		const scanReader = this.demuxer.read("video", 0, scanEndSec).getReader();
 		try {
