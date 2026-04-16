@@ -339,7 +339,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			const activeRunId = countdownRunId.current;
 			if (cleanup) cleanup();
 			countdownRunId.current += 1;
-			void window.electronAPI.hideCountdownOverlay(activeRunId);
+			void window.electronAPI.hideCountdownOverlay(activeRunId).catch((error) => {
+				console.warn("Failed to hide countdown overlay during cleanup:", error);
+			});
 			allowAutoFinalize.current = false;
 			restarting.current = false;
 			discardRecordingId.current = null;
@@ -374,7 +376,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		const activeRunId = countdownRunId.current;
 		countdownRunId.current += 1;
 		setCountdownActive(false);
-		void window.electronAPI.hideCountdownOverlay(activeRunId);
+		void window.electronAPI.hideCountdownOverlay(activeRunId).catch((error) => {
+			console.warn("Failed to hide countdown overlay during cancel:", error);
+		});
 	};
 
 	const safeShowCountdownOverlay = async (value: number, runId: number) => {
