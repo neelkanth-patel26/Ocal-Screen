@@ -225,6 +225,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				try {
 					const screenBlob = await activeScreenRecorder.recordedBlobPromise;
 					if (discardRecordingId.current === activeRecordingId) {
+						window.electronAPI?.discardCursorTelemetry();
 						return;
 					}
 					if (screenBlob.size === 0) {

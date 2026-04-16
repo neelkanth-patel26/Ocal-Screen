@@ -96,6 +96,50 @@ describe("createCursorTelemetryBuffer", () => {
 		expect(batch.map((s) => s.timeMs)).toEqual([1]);
 	});
 
+	it("discardLatestPending() drops the most recently enqueued batch", () => {
+		const buf = createCursorTelemetryBuffer({ maxActiveSamples: 10 });
+
+		buf.startSession();
+		buf.push(sample(1));
+		buf.endSession();
+
+		buf.startSession();
+		buf.push(sample(2));
+		buf.endSession();
+
+		expect(buf.pendingCount).toBe(2);
+		buf.discardLatestPending();
+		expect(buf.pendingCount).toBe(1);
+		expect(buf.takeNextBatch().map((s) => s.timeMs)).toEqual([1]);
+	});
+
+	it("discardLatestPending() is safe to call on an empty queue", () => {
+		const buf = createCursorTelemetryBuffer({ maxActiveSamples: 10 });
+		buf.discardLatestPending();
+		expect(buf.pendingCount).toBe(0);
+	});
+
+	it("prependBatch() re-inserts a batch at the front of the queue", () => {
+		const buf = createCursorTelemetryBuffer({ maxActiveSamples: 10 });
+
+		buf.startSession();
+		buf.push(sample(1));
+		buf.endSession();
+
+		const batch = buf.takeNextBatch();
+		expect(buf.pendingCount).toBe(0);
+
+		buf.prependBatch(batch);
+		expect(buf.pendingCount).toBe(1);
+		expect(buf.takeNextBatch().map((s) => s.timeMs)).toEqual([1]);
+	});
+
+	it("prependBatch() ignores empty batches", () => {
+		const buf = createCursorTelemetryBuffer({ maxActiveSamples: 10 });
+		buf.prependBatch([]);
+		expect(buf.pendingCount).toBe(0);
+	});
+
 	it("reset() clears both active and pending state", () => {
 		const buf = createCursorTelemetryBuffer({ maxActiveSamples: 10 });
 		buf.startSession();

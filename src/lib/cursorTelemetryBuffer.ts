@@ -9,6 +9,8 @@ export interface CursorTelemetryBuffer {
 	push(point: CursorTelemetryPoint): void;
 	endSession(): void;
 	takeNextBatch(): CursorTelemetryPoint[];
+	prependBatch(batch: CursorTelemetryPoint[]): void;
+	discardLatestPending(): void;
 	reset(): void;
 	readonly activeCount: number;
 	readonly pendingCount: number;
@@ -51,6 +53,14 @@ export function createCursorTelemetryBuffer(
 		},
 		takeNextBatch() {
 			return pending.shift() ?? [];
+		},
+		prependBatch(batch) {
+			if (batch.length > 0) {
+				pending.unshift(batch);
+			}
+		},
+		discardLatestPending() {
+			pending.pop();
 		},
 		reset() {
 			active = [];

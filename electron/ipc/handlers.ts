@@ -281,11 +281,16 @@ async function storeRecordedSessionFiles(payload: StoreRecordedSessionInput) {
 	const telemetryPath = `${screenVideoPath}.cursor.json`;
 	const pendingSamples: CursorTelemetryPoint[] = cursorTelemetryBuffer.takeNextBatch();
 	if (pendingSamples.length > 0) {
-		await fs.writeFile(
-			telemetryPath,
-			JSON.stringify({ version: CURSOR_TELEMETRY_VERSION, samples: pendingSamples }, null, 2),
-			"utf-8",
-		);
+		try {
+			await fs.writeFile(
+				telemetryPath,
+				JSON.stringify({ version: CURSOR_TELEMETRY_VERSION, samples: pendingSamples }, null, 2),
+				"utf-8",
+			);
+		} catch (err) {
+			cursorTelemetryBuffer.prependBatch(pendingSamples);
+			throw err;
+		}
 	}
 
 	const sessionManifestPath = path.join(
@@ -542,6 +547,10 @@ export function registerIpcHandlers(
 		if (onRecordingStateChange) {
 			onRecordingStateChange(recording, source.name);
 		}
+	});
+
+	ipcMain.handle("discard-cursor-telemetry", () => {
+		cursorTelemetryBuffer.discardLatestPending();
 	});
 
 	ipcMain.handle("get-cursor-telemetry", async (_, videoPath?: string) => {

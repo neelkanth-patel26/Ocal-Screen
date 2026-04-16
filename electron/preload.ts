@@ -53,6 +53,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getCursorTelemetry: (videoPath?: string) => {
 		return ipcRenderer.invoke("get-cursor-telemetry", videoPath);
 	},
+	discardCursorTelemetry: () => {
+		return ipcRenderer.invoke("discard-cursor-telemetry");
+	},
 	onStopRecordingFromTray: (callback: () => void) => {
 		const listener = () => callback();
 		ipcRenderer.on("stop-recording-from-tray", listener);
