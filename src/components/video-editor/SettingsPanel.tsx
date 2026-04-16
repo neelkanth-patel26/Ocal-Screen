@@ -468,7 +468,9 @@ export function SettingsPanel({
 						? (figureData) => onAnnotationFigureDataChange(selectedAnnotation.id, figureData)
 						: undefined
 				}
-				onDuplicate={onAnnotationDuplicate ? () => onAnnotationDuplicate(selectedAnnotation.id) : undefined}
+				onDuplicate={
+					onAnnotationDuplicate ? () => onAnnotationDuplicate(selectedAnnotation.id) : undefined
+				}
 				onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
 			/>
 		);
