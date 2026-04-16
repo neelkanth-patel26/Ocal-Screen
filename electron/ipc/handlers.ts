@@ -352,11 +352,50 @@ function sampleCursorPoint() {
 export function registerIpcHandlers(
 	createEditorWindow: () => void,
 	createSourceSelectorWindow: () => BrowserWindow,
+	createCountdownOverlayWindow: () => BrowserWindow,
 	getMainWindow: () => BrowserWindow | null,
 	getSourceSelectorWindow: () => BrowserWindow | null,
+	getCountdownOverlayWindow: () => BrowserWindow | null,
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
 	switchToHud?: () => void,
 ) {
+	ipcMain.handle("countdown-overlay-show", async (_, value: number) => {
+		const win = getCountdownOverlayWindow() ?? createCountdownOverlayWindow();
+		if (win.isDestroyed()) {
+			return;
+		}
+
+		if (win.webContents.isLoading()) {
+			win.webContents.once("did-finish-load", () => {
+				if (!win.isDestroyed()) {
+					win.webContents.send("countdown-overlay-value", value);
+					win.showInactive();
+				}
+			});
+		} else {
+			win.webContents.send("countdown-overlay-value", value);
+			win.showInactive();
+		}
+	});
+
+	ipcMain.handle("countdown-overlay-set-value", (_, value: number) => {
+		const win = getCountdownOverlayWindow();
+		if (!win || win.isDestroyed()) {
+			return;
+		}
+
+		win.webContents.send("countdown-overlay-value", value);
+	});
+
+	ipcMain.handle("countdown-overlay-hide", () => {
+		const win = getCountdownOverlayWindow();
+		if (!win || win.isDestroyed()) {
+			return;
+		}
+
+		win.hide();
+	});
+
 	ipcMain.handle("switch-to-hud", () => {
 		if (switchToHud) switchToHud();
 	});
@@ -518,9 +557,8 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("read-binary-file", async (_, inputPath: string) => {
-		let normalizedPath: string | null = null;
 		try {
-			normalizedPath = normalizeVideoSourcePath(inputPath);
+			const normalizedPath = normalizeVideoSourcePath(inputPath);
 			if (!normalizedPath) {
 				return { success: false, message: "Invalid file path" };
 			}
@@ -545,7 +583,6 @@ export function registerIpcHandlers(
 				success: false,
 				message: "Failed to read binary file",
 				error: String(error),
-				path: normalizedPath,
 			};
 		}
 	});

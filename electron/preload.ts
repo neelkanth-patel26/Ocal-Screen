@@ -130,6 +130,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	setHasUnsavedChanges: (hasChanges: boolean) => {
 		ipcRenderer.send("set-has-unsaved-changes", hasChanges);
 	},
+	showCountdownOverlay: (value: number) => {
+		return ipcRenderer.invoke("countdown-overlay-show", value);
+	},
+	setCountdownOverlayValue: (value: number) => {
+		return ipcRenderer.invoke("countdown-overlay-set-value", value);
+	},
+	hideCountdownOverlay: () => {
+		return ipcRenderer.invoke("countdown-overlay-hide");
+	},
+	onCountdownOverlayValue: (callback: (value: number) => void) => {
+		const listener = (_event: unknown, value: number) => callback(value);
+		ipcRenderer.on("countdown-overlay-value", listener);
+		return () => ipcRenderer.removeListener("countdown-overlay-value", listener);
+	},
 	onRequestSaveBeforeClose: (callback: () => Promise<boolean> | boolean) => {
 		const listener = async () => {
 			try {

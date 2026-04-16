@@ -135,6 +135,10 @@ interface Window {
 		saveShortcuts: (shortcuts: unknown) => Promise<{ success: boolean; error?: string }>;
 		hudOverlayHide: () => void;
 		hudOverlayClose: () => void;
+		showCountdownOverlay: (value: number) => Promise<void>;
+		setCountdownOverlayValue: (value: number) => Promise<void>;
+		hideCountdownOverlay: () => Promise<void>;
+		onCountdownOverlayValue: (callback: (value: number) => void) => () => void;
 		setMicrophoneExpanded: (expanded: boolean) => void;
 		setHasUnsavedChanges: (hasChanges: boolean) => void;
 		onRequestSaveBeforeClose: (callback: () => Promise<boolean> | boolean) => () => void;

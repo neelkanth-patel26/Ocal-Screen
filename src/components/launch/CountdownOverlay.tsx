@@ -1,0 +1,19 @@
+import { useEffect, useState } from "react";
+
+export function CountdownOverlay() {
+	const [value, setValue] = useState(3);
+
+	useEffect(() => {
+		const unsubscribe = window.electronAPI.onCountdownOverlayValue((nextValue) => {
+			setValue(nextValue);
+		});
+
+		return () => unsubscribe();
+	}, []);
+
+	return (
+		<div className="w-screen h-screen bg-transparent flex items-center justify-center pointer-events-none select-none">
+			<div className="text-white/90 text-[120px] font-bold leading-none tabular-nums">{value}</div>
+		</div>
+	);
+}

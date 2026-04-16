@@ -14,7 +14,12 @@ import {
 } from "electron";
 import { mainT, setMainLocale } from "./i18n";
 import { registerIpcHandlers } from "./ipc/handlers";
-import { createEditorWindow, createHudOverlayWindow, createSourceSelectorWindow } from "./windows";
+import {
+	createCountdownOverlayWindow,
+	createEditorWindow,
+	createHudOverlayWindow,
+	createSourceSelectorWindow,
+} from "./windows";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -60,6 +65,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 // Window references
 let mainWindow: BrowserWindow | null = null;
 let sourceSelectorWindow: BrowserWindow | null = null;
+let countdownOverlayWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let selectedSourceName = "";
 const isMac = process.platform === "darwin";
@@ -322,6 +328,18 @@ function createSourceSelectorWindowWrapper() {
 	return sourceSelectorWindow;
 }
 
+function createCountdownOverlayWindowWrapper() {
+	if (countdownOverlayWindow && !countdownOverlayWindow.isDestroyed()) {
+		return countdownOverlayWindow;
+	}
+
+	countdownOverlayWindow = createCountdownOverlayWindow();
+	countdownOverlayWindow.on("closed", () => {
+		countdownOverlayWindow = null;
+	});
+	return countdownOverlayWindow;
+}
+
 // On macOS, applications and their menu bar stay active until the user quits
 // explicitly with Cmd + Q.
 app.on("window-all-closed", () => {
@@ -386,8 +404,10 @@ app.whenReady().then(async () => {
 	registerIpcHandlers(
 		createEditorWindowWrapper,
 		createSourceSelectorWindowWrapper,
+		createCountdownOverlayWindowWrapper,
 		() => mainWindow,
 		() => sourceSelectorWindow,
+		() => countdownOverlayWindow,
 		(recording: boolean, sourceName: string) => {
 			selectedSourceName = sourceName;
 			if (!tray) createTray();

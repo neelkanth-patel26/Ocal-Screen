@@ -110,6 +110,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const allowAutoFinalize = useRef(false);
 	const discardRecordingId = useRef<number | null>(null);
 	const restarting = useRef(false);
+	const countdownRunId = useRef(0);
+	const [countdownActive, setCountdownActive] = useState(false);
 
 	const getRecordingDurationMs = useCallback(() => {
 		const segmentDuration =
@@ -335,6 +337,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		return () => {
 			if (cleanup) cleanup();
+			countdownRunId.current += 1;
+			void window.electronAPI.hideCountdownOverlay();
 			allowAutoFinalize.current = false;
 			restarting.current = false;
 			discardRecordingId.current = null;
@@ -364,6 +368,88 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			teardownMedia();
 		};
 	}, [teardownMedia]);
+
+	const cancelCountdown = () => {
+		countdownRunId.current += 1;
+		setCountdownActive(false);
+		void window.electronAPI.hideCountdownOverlay();
+	};
+
+	const safeShowCountdownOverlay = async (value: number) => {
+		try {
+			await window.electronAPI.showCountdownOverlay(value);
+			return true;
+		} catch (error) {
+			console.warn("Failed to show countdown overlay:", error);
+			return false;
+		}
+	};
+
+	const safeSetCountdownOverlayValue = async (value: number) => {
+		try {
+			await window.electronAPI.setCountdownOverlayValue(value);
+		} catch (error) {
+			console.warn("Failed to update countdown overlay value:", error);
+		}
+	};
+
+	const safeHideCountdownOverlay = async () => {
+		try {
+			await window.electronAPI.hideCountdownOverlay();
+		} catch (error) {
+			console.warn("Failed to hide countdown overlay:", error);
+		}
+	};
+
+	const startRecordCountdown = async () => {
+		if (countdownActive || recording) {
+			return;
+		}
+
+		let selectedSource: ProcessedDesktopSource | null = null;
+		try {
+			selectedSource = await window.electronAPI.getSelectedSource();
+		} catch (error) {
+			console.warn("Failed to read selected source before countdown:", error);
+		}
+
+		if (!selectedSource) {
+			alert(t("recording.selectSource"));
+			return;
+		}
+
+		const runId = countdownRunId.current + 1;
+		countdownRunId.current = runId;
+		setCountdownActive(true);
+
+		try {
+			const values = [3, 2, 1];
+			const overlayShown = await safeShowCountdownOverlay(values[0]);
+
+			for (const value of values) {
+				if (countdownRunId.current !== runId) {
+					return;
+				}
+
+				if (overlayShown && value !== values[0]) {
+					await safeSetCountdownOverlayValue(value);
+				}
+
+				await new Promise((resolve) => window.setTimeout(resolve, 1000));
+			}
+
+			if (countdownRunId.current !== runId) {
+				return;
+			}
+
+			await startRecording();
+		} finally {
+			if (countdownRunId.current === runId) {
+				setCountdownActive(false);
+			}
+			await safeHideCountdownOverlay();
+		}
+	};
 
 	const startRecording = async () => {
 		try {
@@ -635,7 +721,12 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	};
 
 	const toggleRecording = () => {
-		recording ? stopRecording.current() : startRecording();
+		if (countdownActive) {
+			cancelCountdown();
+			return;
+		}
+
+		recording ? stopRecording.current() : void startRecordCountdown();
 	};
 
 	const restartRecording = async () => {
@@ -698,6 +789,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, [getRecordingDurationMs, paused, recording]);
 
 	const cancelRecording = () => {
+		if (countdownActive) {
+			cancelCountdown();
+			return;
+		}
+
 		const activeScreenRecorder = screenRecorder.current;
 		if (!activeScreenRecorder || activeScreenRecorder.recorder.state !== "recording") return;
 
