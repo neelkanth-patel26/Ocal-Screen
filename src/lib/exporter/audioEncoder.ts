@@ -19,9 +19,9 @@ export class AudioProcessor {
 		demuxer: WebDemuxer,
 		muxer: VideoMuxer,
 		videoUrl: string,
-		trimRegions?: TrimRegion[],
-		speedRegions?: SpeedRegion[],
-		validatedDurationSec?: number,
+		trimRegions: TrimRegion[] | undefined,
+		speedRegions: SpeedRegion[] | undefined,
+		validatedDurationSec: number,
 	): Promise<void> {
 		const sortedTrims = trimRegions ? [...trimRegions].sort((a, b) => a.startMs - b.startMs) : [];
 		const sortedSpeedRegions = speedRegions
@@ -46,10 +46,9 @@ export class AudioProcessor {
 		}
 
 		// No speed edits: keep the original demux/decode/encode path with trim timestamp remap.
-		const readEndSec =
-			typeof validatedDurationSec === "number" && Number.isFinite(validatedDurationSec)
-				? validatedDurationSec + 0.5
-				: undefined;
+		// The +0.5s buffer mirrors streamingDecoder.decodeAll's read window so the trim-only
+		// and speed-aware paths agree on how far to read past the validated duration boundary.
+		const readEndSec = validatedDurationSec + 0.5;
 		await this.processTrimOnlyAudio(demuxer, muxer, sortedTrims, readEndSec);
 	}
 
@@ -193,7 +192,7 @@ export class AudioProcessor {
 		videoUrl: string,
 		trimRegions: TrimRegion[],
 		speedRegions: SpeedRegion[],
-		validatedDurationSec?: number,
+		validatedDurationSec: number,
 	): Promise<Blob> {
 		const media = document.createElement("audio");
 		media.src = videoUrl;
@@ -230,7 +229,7 @@ export class AudioProcessor {
 			// Skip past any initial trim region(s) before recording starts to avoid
 			// capturing trimmed audio during the first rAF frames of playback.
 			// Loops to handle back-to-back or overlapping trims at t=0.
-			const effectiveEnd = validatedDurationSec ?? media.duration;
+			const effectiveEnd = validatedDurationSec;
 			let startPosition = 0;
 			for (let i = 0; i <= trimRegions.length; i++) {
 				const activeTrim = this.findActiveTrimRegion(startPosition * 1000, trimRegions);
@@ -287,7 +286,7 @@ export class AudioProcessor {
 
 					// Stop playback at validated duration — browser's media.duration
 					// may be inflated from bad container metadata.
-					if (validatedDurationSec !== undefined && media.currentTime >= validatedDurationSec) {
+					if (media.currentTime >= validatedDurationSec) {
 						media.pause();
 						cleanup();
 						resolve();
@@ -299,10 +298,7 @@ export class AudioProcessor {
 
 					if (activeTrimRegion && !media.paused && !media.ended) {
 						const skipToTime = activeTrimRegion.endMs / 1000;
-						if (
-							skipToTime >= media.duration ||
-							(validatedDurationSec !== undefined && skipToTime >= validatedDurationSec)
-						) {
+						if (skipToTime >= media.duration || skipToTime >= validatedDurationSec) {
 							media.pause();
 							cleanup();
 							resolve();
@@ -379,7 +375,10 @@ export class AudioProcessor {
 		}
 
 		if (!recordedBlobPromise) {
-			return new Blob([], { type: "audio/webm" });
+			// Invariant: either an early return above fires, or startAudioRecording ran and
+			// populated recordedBlobPromise before the playback Promise resolved. Reaching
+			// here means that contract was broken — fail loud instead of returning silence.
+			throw new Error("Audio recorder finished without assigning recordedBlobPromise");
 		}
 		const recordedBlob = await recordedBlobPromise;
 		if (this.cancelled) {
