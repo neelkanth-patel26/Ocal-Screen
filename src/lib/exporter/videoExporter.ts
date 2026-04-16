@@ -7,6 +7,7 @@ import type {
 	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { getPlatform } from "@/utils/platformUtils";
 import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
 import { AudioProcessor } from "./audioEncoder";
 import { FrameRenderer } from "./frameRenderer";
@@ -112,7 +113,7 @@ export class VideoExporter {
 		this.fatalEncoderError = null;
 
 		try {
-			const platform = await window.electronAPI.getPlatform();
+			const platform = await getPlatform();
 
 			const streamingDecoder = new StreamingVideoDecoder();
 			this.streamingDecoder = streamingDecoder;
