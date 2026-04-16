@@ -1,9 +1,9 @@
 import Block from "@uiw/react-color-block";
 import {
 	AlignCenter,
-	Copy,
 	AlignLeft,
 	AlignRight,
+	Copy,
 	Bold,
 	ChevronDown,
 	Image as ImageIcon,
