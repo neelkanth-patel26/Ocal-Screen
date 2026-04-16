@@ -62,7 +62,7 @@ export class AudioProcessor {
 	): Promise<void> {
 		let audioConfig: AudioDecoderConfig;
 		try {
-			audioConfig = (await demuxer.getDecoderConfig("audio")) as AudioDecoderConfig;
+			audioConfig = await demuxer.getDecoderConfig("audio");
 		} catch {
 			console.warn("[AudioProcessor] No audio track found, skipping");
 			return;
@@ -87,11 +87,10 @@ export class AudioProcessor {
 			typeof readEndSec === "number" && Number.isFinite(readEndSec)
 				? Math.max(0, readEndSec)
 				: undefined;
-		const audioStream = (
+		const audioStream =
 			safeReadEndSec !== undefined
 				? demuxer.read("audio", 0, safeReadEndSec)
-				: demuxer.read("audio")
-		) as ReadableStream<EncodedAudioChunk>;
+				: demuxer.read("audio");
 		const reader = audioStream.getReader();
 
 		try {
@@ -396,8 +395,8 @@ export class AudioProcessor {
 
 		try {
 			await demuxer.load(file);
-			const audioConfig = (await demuxer.getDecoderConfig("audio")) as AudioDecoderConfig;
-			const reader = (demuxer.read("audio") as ReadableStream<EncodedAudioChunk>).getReader();
+			const audioConfig = await demuxer.getDecoderConfig("audio");
+			const reader = demuxer.read("audio").getReader();
 			let isFirstChunk = true;
 
 			try {

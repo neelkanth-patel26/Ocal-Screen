@@ -231,11 +231,16 @@ export class StreamingVideoDecoder {
 		// MediaRecorder (especially on Linux) writes unreliable container durations.
 		// Packet timestamps are ground truth — no decode needed, just timestamp reads.
 		// Pass explicit range because some containers are truncated without one.
-		const scanEndSec = Math.max(mediaInfo.duration, videoStream?.duration ?? 0, 0) + 0.5;
+		// Sanitize because mediaInfo.duration can be NaN/Infinity (Chromium Linux bug),
+		// which would propagate into demuxer.read() as an invalid endpoint.
+		const containerDurationSec = Number.isFinite(mediaInfo.duration) ? mediaInfo.duration : 0;
+		const streamDurationSec =
+			typeof videoStream?.duration === "number" && Number.isFinite(videoStream.duration)
+				? videoStream.duration
+				: 0;
+		const scanEndSec = Math.max(containerDurationSec, streamDurationSec, 0) + 0.5;
 		let maxPacketEndUs = 0;
-		const scanReader = (
-			this.demuxer.read("video", 0, scanEndSec) as ReadableStream<EncodedVideoChunk>
-		).getReader();
+		const scanReader = this.demuxer.read("video", 0, scanEndSec).getReader();
 		try {
 			while (true) {
 				const { done, value } = await scanReader.read();
