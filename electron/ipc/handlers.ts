@@ -362,6 +362,7 @@ export function registerIpcHandlers(
 	const countdownOverlayState = {
 		visible: false,
 		value: null as number | null,
+		activeRunId: null as number | null,
 	};
 
 	const flushCountdownOverlayState = (win: BrowserWindow) => {
@@ -379,7 +380,8 @@ export function registerIpcHandlers(
 		}
 	};
 
-	ipcMain.handle("countdown-overlay-show", (_, value: number) => {
+	ipcMain.handle("countdown-overlay-show", (_, value: number, runId: number) => {
+		countdownOverlayState.activeRunId = runId;
 		countdownOverlayState.visible = true;
 		countdownOverlayState.value = value;
 
@@ -399,7 +401,11 @@ export function registerIpcHandlers(
 		}
 	});
 
-	ipcMain.handle("countdown-overlay-set-value", (_, value: number) => {
+	ipcMain.handle("countdown-overlay-set-value", (_, value: number, runId: number) => {
+		if (countdownOverlayState.activeRunId !== runId || !countdownOverlayState.visible) {
+			return;
+		}
+
 		countdownOverlayState.value = value;
 
 		const win = getCountdownOverlayWindow();
@@ -414,7 +420,11 @@ export function registerIpcHandlers(
 		win.webContents.send("countdown-overlay-value", value);
 	});
 
-	ipcMain.handle("countdown-overlay-hide", () => {
+	ipcMain.handle("countdown-overlay-hide", (_, runId: number) => {
+		if (countdownOverlayState.activeRunId !== runId) {
+			return;
+		}
+
 		countdownOverlayState.visible = false;
 		countdownOverlayState.value = null;
 

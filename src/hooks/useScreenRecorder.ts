@@ -336,9 +336,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		}
 
 		return () => {
+			const activeRunId = countdownRunId.current;
 			if (cleanup) cleanup();
 			countdownRunId.current += 1;
-			void window.electronAPI.hideCountdownOverlay();
+			void window.electronAPI.hideCountdownOverlay(activeRunId);
 			allowAutoFinalize.current = false;
 			restarting.current = false;
 			discardRecordingId.current = null;
@@ -370,14 +371,15 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, [teardownMedia]);
 
 	const cancelCountdown = () => {
+		const activeRunId = countdownRunId.current;
 		countdownRunId.current += 1;
 		setCountdownActive(false);
-		void window.electronAPI.hideCountdownOverlay();
+		void window.electronAPI.hideCountdownOverlay(activeRunId);
 	};
 
-	const safeShowCountdownOverlay = async (value: number) => {
+	const safeShowCountdownOverlay = async (value: number, runId: number) => {
 		try {
-			await window.electronAPI.showCountdownOverlay(value);
+			await window.electronAPI.showCountdownOverlay(value, runId);
 			return true;
 		} catch (error) {
 			console.warn("Failed to show countdown overlay:", error);
@@ -385,17 +387,17 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		}
 	};
 
-	const safeSetCountdownOverlayValue = async (value: number) => {
+	const safeSetCountdownOverlayValue = async (value: number, runId: number) => {
 		try {
-			await window.electronAPI.setCountdownOverlayValue(value);
+			await window.electronAPI.setCountdownOverlayValue(value, runId);
 		} catch (error) {
 			console.warn("Failed to update countdown overlay value:", error);
 		}
 	};
 
-	const safeHideCountdownOverlay = async () => {
+	const safeHideCountdownOverlay = async (runId: number) => {
 		try {
-			await window.electronAPI.hideCountdownOverlay();
+			await window.electronAPI.hideCountdownOverlay(runId);
 		} catch (error) {
 			console.warn("Failed to hide countdown overlay:", error);
 		}
@@ -427,7 +429,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		try {
 			const values = [3, 2, 1];
-			const overlayShown = await safeShowCountdownOverlay(values[0]);
+			const overlayShown = await safeShowCountdownOverlay(values[0], runId);
+
+			if (countdownRunId.current !== runId) {
+				return;
+			}
 
 			for (const value of values) {
 				if (countdownRunId.current !== runId) {
@@ -435,7 +441,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				}
 
 				if (overlayShown && value !== values[0]) {
-					await safeSetCountdownOverlayValue(value);
+					await safeSetCountdownOverlayValue(value, runId);
+
+					if (countdownRunId.current !== runId) {
+						return;
+					}
 				}
 
 				await new Promise((resolve) => window.setTimeout(resolve, 1000));
@@ -449,7 +459,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		} finally {
 			if (countdownRunId.current === runId) {
 				setCountdownActive(false);
-				await safeHideCountdownOverlay();
+				await safeHideCountdownOverlay(runId);
 			}
 		}
 	};
