@@ -759,12 +759,17 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	};
 
 	const toggleRecording = () => {
+		if (recording) {
+			stopRecording.current();
+			return;
+		}
+
 		if (countdownActive) {
 			cancelCountdown();
 			return;
 		}
 
-		recording ? stopRecording.current() : void startRecordCountdown();
+		void startRecordCountdown();
 	};
 
 	const restartRecording = async () => {
@@ -827,19 +832,23 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, [getRecordingDurationMs, paused, recording]);
 
 	const cancelRecording = () => {
+		const activeScreenRecorder = screenRecorder.current;
+		if (
+			activeScreenRecorder?.recorder.state === "recording" ||
+			activeScreenRecorder?.recorder.state === "paused"
+		) {
+			const activeRecordingId = recordingId.current;
+			discardRecordingId.current = activeRecordingId;
+			allowAutoFinalize.current = false;
+
+			stopRecording.current();
+			return;
+		}
+
 		if (countdownActive) {
 			cancelCountdown();
 			return;
 		}
-
-		const activeScreenRecorder = screenRecorder.current;
-		if (!activeScreenRecorder || activeScreenRecorder.recorder.state !== "recording") return;
-
-		const activeRecordingId = recordingId.current;
-		discardRecordingId.current = activeRecordingId;
-		allowAutoFinalize.current = false;
-
-		stopRecording.current();
 	};
 
 	return {
