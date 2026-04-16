@@ -204,7 +204,7 @@ export function createCountdownOverlayWindow(): BrowserWindow {
 		transparent: true,
 		backgroundColor: "#00000000",
 		hasShadow: false,
-		show: !HEADLESS,
+		show: false,
 		webPreferences: {
 			preload: path.join(__dirname, "preload.mjs"),
 			nodeIntegration: false,

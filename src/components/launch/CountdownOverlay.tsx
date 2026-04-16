@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 export function CountdownOverlay() {
-	const [value, setValue] = useState(3);
+	const [value, setValue] = useState<number | null>(null);
 
 	useEffect(() => {
 		const unsubscribe = window.electronAPI.onCountdownOverlayValue((nextValue) => {
@@ -13,7 +13,11 @@ export function CountdownOverlay() {
 
 	return (
 		<div className="w-screen h-screen bg-transparent flex items-center justify-center pointer-events-none select-none">
-			<div className="text-white/90 text-[120px] font-bold leading-none tabular-nums">{value}</div>
+			{value === null ? null : (
+				<div className="text-white/90 text-[120px] font-bold leading-none tabular-nums">
+					{value}
+				</div>
+			)}
 		</div>
 	);
 }

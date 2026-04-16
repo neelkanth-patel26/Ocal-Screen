@@ -401,6 +401,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		}
 	};
 
+	const isCountdownRunActive = (runId?: number) =>
+		runId === undefined || countdownRunId.current === runId;
+
 	const startRecordCountdown = async () => {
 		if (countdownActive || recording) {
 			return;
@@ -442,20 +445,25 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				return;
 			}
 
-			await startRecording();
+			await startRecording(runId);
 		} finally {
 			if (countdownRunId.current === runId) {
 				setCountdownActive(false);
+				await safeHideCountdownOverlay();
 			}
-			await safeHideCountdownOverlay();
 		}
 	};
 
-	const startRecording = async () => {
+	const startRecording = async (countdownRunToken?: number) => {
 		try {
 			const selectedSource = await window.electronAPI.getSelectedSource();
 			if (!selectedSource) {
 				alert(t("recording.selectSource"));
+				return;
+			}
+
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
 				return;
 			}
 
@@ -499,6 +507,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			}
 			screenStream.current = screenMediaStream;
 
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
+			}
+
 			if (microphoneEnabled) {
 				try {
 					microphoneStream.current = await navigator.mediaDevices.getUserMedia({
@@ -521,6 +534,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					toast.error(t("recording.microphoneDenied"));
 					setMicrophoneEnabled(false);
 				}
+			}
+
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
 			}
 
 			if (webcamEnabled) {
@@ -549,6 +567,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					setWebcamEnabledState(false);
 					toast.error(t("recording.cameraDenied"));
 				}
+			}
+
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
 			}
 
 			stream.current = new MediaStream();
@@ -610,6 +633,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			);
 
 			const hasAudio = stream.current.getAudioTracks().length > 0;
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
+			}
+
 			screenRecorder.current = createRecorderHandle(stream.current, {
 				mimeType,
 				videoBitsPerSecond,

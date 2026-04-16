@@ -139,8 +139,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	hideCountdownOverlay: () => {
 		return ipcRenderer.invoke("countdown-overlay-hide");
 	},
-	onCountdownOverlayValue: (callback: (value: number) => void) => {
-		const listener = (_event: unknown, value: number) => callback(value);
+	onCountdownOverlayValue: (callback: (value: number | null) => void) => {
+		const listener = (_event: unknown, value: number | null) => callback(value);
 		ipcRenderer.on("countdown-overlay-value", listener);
 		return () => ipcRenderer.removeListener("countdown-overlay-value", listener);
 	},

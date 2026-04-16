@@ -359,7 +359,30 @@ export function registerIpcHandlers(
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
 	switchToHud?: () => void,
 ) {
-	ipcMain.handle("countdown-overlay-show", async (_, value: number) => {
+	const countdownOverlayState = {
+		visible: false,
+		value: null as number | null,
+	};
+
+	const flushCountdownOverlayState = (win: BrowserWindow) => {
+		if (win.isDestroyed()) {
+			return;
+		}
+
+		win.webContents.send("countdown-overlay-value", countdownOverlayState.value);
+		if (countdownOverlayState.visible && !win.isVisible()) {
+			setTimeout(() => {
+				if (!win.isDestroyed() && countdownOverlayState.visible && !win.isVisible()) {
+					win.showInactive();
+				}
+			}, 16);
+		}
+	};
+
+	ipcMain.handle("countdown-overlay-show", (_, value: number) => {
+		countdownOverlayState.visible = true;
+		countdownOverlayState.value = value;
+
 		const win = getCountdownOverlayWindow() ?? createCountdownOverlayWindow();
 		if (win.isDestroyed()) {
 			return;
@@ -368,19 +391,23 @@ export function registerIpcHandlers(
 		if (win.webContents.isLoading()) {
 			win.webContents.once("did-finish-load", () => {
 				if (!win.isDestroyed()) {
-					win.webContents.send("countdown-overlay-value", value);
-					win.showInactive();
+					flushCountdownOverlayState(win);
 				}
 			});
 		} else {
-			win.webContents.send("countdown-overlay-value", value);
-			win.showInactive();
+			flushCountdownOverlayState(win);
 		}
 	});
 
 	ipcMain.handle("countdown-overlay-set-value", (_, value: number) => {
+		countdownOverlayState.value = value;
+
 		const win = getCountdownOverlayWindow();
 		if (!win || win.isDestroyed()) {
+			return;
+		}
+
+		if (win.webContents.isLoading()) {
 			return;
 		}
 
@@ -388,18 +415,23 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("countdown-overlay-hide", () => {
+		countdownOverlayState.visible = false;
+		countdownOverlayState.value = null;
+
 		const win = getCountdownOverlayWindow();
 		if (!win || win.isDestroyed()) {
 			return;
 		}
 
-		win.hide();
+		if (!win.webContents.isLoading()) {
+			win.webContents.send("countdown-overlay-value", countdownOverlayState.value);
+		}
 	});
 
 	ipcMain.handle("switch-to-hud", () => {
 		if (switchToHud) switchToHud();
 	});
-	ipcMain.handle("start-new-recording", async () => {
+	ipcMain.handle("start-new-recording", () => {
 		try {
 			setCurrentRecordingSessionState(null);
 			if (switchToHud) {
