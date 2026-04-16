@@ -501,8 +501,9 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("read-binary-file", async (_, inputPath: string) => {
+		let normalizedPath: string | null = null;
 		try {
-			const normalizedPath = normalizeVideoSourcePath(inputPath);
+			normalizedPath = normalizeVideoSourcePath(inputPath);
 			if (!normalizedPath) {
 				return { success: false, message: "Invalid file path" };
 			}
@@ -527,6 +528,7 @@ export function registerIpcHandlers(
 				success: false,
 				message: "Failed to read binary file",
 				error: String(error),
+				path: normalizedPath,
 			};
 		}
 	});
