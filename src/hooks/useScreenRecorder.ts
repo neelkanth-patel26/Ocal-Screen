@@ -415,6 +415,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			return;
 		}
 
+		const runId = countdownRunId.current + 1;
+		countdownRunId.current = runId;
+		setCountdownActive(true);
+
 		let selectedSource: ProcessedDesktopSource | null = null;
 		try {
 			selectedSource = await window.electronAPI.getSelectedSource();
@@ -422,14 +426,17 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			console.warn("Failed to read selected source before countdown:", error);
 		}
 
-		if (!selectedSource) {
-			alert(t("recording.selectSource"));
+		if (!isCountdownRunActive(runId)) {
 			return;
 		}
 
-		const runId = countdownRunId.current + 1;
-		countdownRunId.current = runId;
-		setCountdownActive(true);
+		if (!selectedSource) {
+			if (countdownRunId.current === runId) {
+				setCountdownActive(false);
+			}
+			alert(t("recording.selectSource"));
+			return;
+		}
 
 		try {
 			const values = [3, 2, 1];
