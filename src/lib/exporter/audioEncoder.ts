@@ -227,15 +227,18 @@ export class AudioProcessor {
 				await audioContext.resume();
 			}
 
-			// Skip past any initial trim region before recording starts
-			// to avoid capturing trimmed audio during the first frames.
+			// Skip past any initial trim region(s) before recording starts to avoid
+			// capturing trimmed audio during the first rAF frames of playback.
+			// Loops to handle back-to-back or overlapping trims at t=0.
+			const effectiveEnd = validatedDurationSec ?? media.duration;
 			let startPosition = 0;
-			const initialTrim = this.findActiveTrimRegion(0, trimRegions);
-			if (initialTrim) {
-				startPosition = initialTrim.endMs / 1000;
+			for (let i = 0; i <= trimRegions.length; i++) {
+				const activeTrim = this.findActiveTrimRegion(startPosition * 1000, trimRegions);
+				if (!activeTrim) break;
+				startPosition = activeTrim.endMs / 1000;
+				if (startPosition >= effectiveEnd) break;
 			}
 
-			const effectiveEnd = validatedDurationSec ?? media.duration;
 			if (startPosition >= effectiveEnd) {
 				// All content is trimmed — return silent blob
 				return new Blob([], { type: "audio/webm" });
