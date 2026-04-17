@@ -14,11 +14,13 @@ export function CountdownOverlay() {
 	return (
 		<div className="w-screen h-screen bg-transparent flex items-center justify-center pointer-events-none select-none">
 			{value === null ? null : (
-				<div
-					className="text-white/90 text-[120px] font-bold leading-none tabular-nums"
-					style={{ textShadow: "0 4px 24px rgba(0, 0, 0, 0.65)" }}
-				>
-					{value}
+				<div className="flex items-center justify-center w-40 h-40 rounded-full bg-black/50">
+					<div
+						className="text-white/90 text-[80px] font-bold leading-none tabular-nums"
+						style={{ textShadow: "0 4px 24px rgba(0, 0, 0, 0.65)" }}
+					>
+						{value}
+					</div>
 				</div>
 			)}
 		</div>
