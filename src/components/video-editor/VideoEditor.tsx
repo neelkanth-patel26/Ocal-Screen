@@ -987,6 +987,33 @@ export default function VideoEditor() {
 		[pushState],
 	);
 
+	const handleAnnotationDuplicate = useCallback(
+		(id: string) => {
+			const duplicateId = `annotation-${nextAnnotationIdRef.current++}`;
+			const duplicateZIndex = nextAnnotationZIndexRef.current++;
+			pushState((prev) => {
+				const source = prev.annotationRegions.find((region) => region.id === id);
+				if (!source) return {};
+
+				const duplicate: AnnotationRegion = {
+					...source,
+					id: duplicateId,
+					zIndex: duplicateZIndex,
+					position: { x: source.position.x + 4, y: source.position.y + 4 },
+					size: { ...source.size },
+					style: { ...source.style },
+					figureData: source.figureData ? { ...source.figureData } : undefined,
+				};
+
+				return { annotationRegions: [...prev.annotationRegions, duplicate] };
+			});
+			setSelectedAnnotationId(duplicateId);
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+		},
+		[pushState],
+	);
+
 	const handleAnnotationDelete = useCallback(
 		(id: string) => {
 			pushState((prev) => ({
@@ -1993,6 +2020,7 @@ export default function VideoEditor() {
 						onAnnotationTypeChange={handleAnnotationTypeChange}
 						onAnnotationStyleChange={handleAnnotationStyleChange}
 						onAnnotationFigureDataChange={handleAnnotationFigureDataChange}
+						onAnnotationDuplicate={handleAnnotationDuplicate}
 						onAnnotationDelete={handleAnnotationDelete}
 						selectedBlurId={selectedBlurId}
 						blurRegions={blurRegions}
