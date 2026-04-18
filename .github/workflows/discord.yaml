@@ -25,7 +25,8 @@ jobs:
         id: sync
         uses: actions/github-script@v7
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_PR_FORUM_WEBHOOK }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_PR_FORUM_WEBHOOK: ${{ secrets.DISCORD_PR_FORUM_WEBHOOK }}
           DISCORD_WEBHOOK_USERNAME: ${{ secrets.DISCORD_WEBHOOK_USERNAME }}
           DISCORD_WEBHOOK_AVATAR_URL: ${{ secrets.DISCORD_WEBHOOK_AVATAR_URL }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
@@ -37,7 +38,7 @@ jobs:
             const WEBHOOK_AVATAR = (process.env.DISCORD_WEBHOOK_AVATAR_URL || "").trim();
 
             const THREAD_MARKER_REGEX = /<!--\s*discord-thread-id:(\d+)\s*-->/i;
-            const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || "").trim();
+            const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || process.env.DISCORD_PR_FORUM_WEBHOOK || "").trim();
             const botToken = (process.env.DISCORD_BOT_TOKEN || "").trim();
             const reviewerRoleId = (process.env.DISCORD_REVIEWER_ROLE_ID || "").trim();
             const alertWebhookUrl = (process.env.DISCORD_ALERT_WEBHOOK_URL || "").trim();
@@ -193,14 +194,21 @@ jobs:
             }
 
             try {
-              if (!webhookUrl) {
-                core.setFailed("Missing webhook URL (DISCORD_PR_FORUM_WEBHOOK).");
-                return;
-              }
-
               const pr = await getPullRequest();
               if (!pr) {
                 core.info("No PR context found. Skipping.");
+                return;
+              }
+
+              const isForkPr = !!pr.head?.repo?.fork;
+              if (!webhookUrl) {
+                if (isForkPr) {
+                  core.info("Skipping Discord sync: webhook secret is unavailable for fork PR events.");
+                  return;
+                }
+                core.setFailed(
+                  "Missing Discord webhook secret. Set either DISCORD_WEBHOOK_URL or DISCORD_PR_FORUM_WEBHOOK in repository secrets, or pass it explicitly if using reusable workflows."
+                );
                 return;
               }
 
