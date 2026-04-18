@@ -506,6 +506,7 @@ export default function VideoEditor() {
 			gifSizePreset,
 			videoPath,
 			t,
+			webcamSizePreset,
 		],
 	);
 
