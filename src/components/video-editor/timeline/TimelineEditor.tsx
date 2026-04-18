@@ -1322,7 +1322,6 @@ export default function TimelineEditor({
 		selectedBlurId,
 		selectedSpeedId,
 		annotationRegions,
-		blurRegions,
 		currentTime,
 		onSelectAnnotation,
 		keyShortcuts,

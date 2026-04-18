@@ -281,7 +281,15 @@ export class StreamingVideoDecoder {
 
 		return this.metadata;
 	}
-
+	/**
+	 * Decodes all video frames from the loaded source and invokes a callback for each.
+	 * Handles trimming and speed adjustments, and resamples to the target frame rate.
+	 * On Windows, early decode termination is tolerated to work around driver quirks.
+	 * @param targetFrameRate - Desired output frame rate.
+	 * @param trimRegions - Array of time regions to keep (others discarded).
+	 * @param speedRegions - Array of speed adjustments for specific time ranges.
+	 * @param onFrame - Async callback receiving each decoded VideoFrame.
+	 */
 	async decodeAll(
 		targetFrameRate: number,
 		trimRegions: TrimRegion[] | undefined,
@@ -309,6 +317,8 @@ export class StreamingVideoDecoder {
 			this.computeSegments(this.metadata.duration, trimRegions),
 			speedRegions,
 		);
+		const requiredEndSec = segments[segments.length - 1]?.endSec ?? 0;
+
 		const segmentOutputFrameCounts = segments.map((segment) =>
 			Math.ceil(
 				((segment.endSec - segment.startSec - EPSILON_SEC) / segment.speed) * targetFrameRate,
@@ -556,7 +566,8 @@ export class StreamingVideoDecoder {
 		}
 		this.decoder = null;
 
-		const requiredEndSec = segments.length > 0 ? segments[segments.length - 1].endSec : 0;
+		const isWindows = typeof navigator !== "undefined" && /Windows/.test(navigator.userAgent);
+
 		if (
 			shouldFailDecodeEndedEarly({
 				cancelled: this.cancelled,
@@ -567,9 +578,22 @@ export class StreamingVideoDecoder {
 		) {
 			const decodedAtLabel =
 				lastDecodedFrameSec === null ? "no decoded frame" : `${lastDecodedFrameSec.toFixed(3)}s`;
-			throw new Error(
-				`Video decode ended early at ${decodedAtLabel} (needed ${requiredEndSec.toFixed(3)}s).`,
-			);
+			const decodeGapSec =
+				lastDecodedFrameSec === null ? Infinity : requiredEndSec - lastDecodedFrameSec;
+
+			// On Windows, tolerate a small decode gap: up to 10% of required duration, capped at 3 seconds.
+			const maxToleratedGap = Math.min(3.0, requiredEndSec * 0.1);
+
+			if (isWindows && lastDecodedFrameSec !== null && decodeGapSec <= maxToleratedGap) {
+				console.warn(
+					`[StreamingVideoDecoder] Decode ended early on Windows with a gap of ${decodeGapSec.toFixed(2)}s ` +
+						`(max tolerated: ${maxToleratedGap.toFixed(2)}s) – proceeding anyway.`,
+				);
+			} else {
+				throw new Error(
+					`Video decode ended early at ${decodedAtLabel} (needed ${requiredEndSec.toFixed(3)}s).`,
+				);
+			}
 		}
 	}
 

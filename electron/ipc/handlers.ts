@@ -670,6 +670,16 @@ export function registerIpcHandlers(
 		}
 	});
 
+	/**
+	 * Handles saving an exported video file.
+	 * Shows a save dialog, normalizes the file path for the current OS,
+	 * ensures the directory exists, and writes the video data.
+	 * @param _ - Unused event parameter.
+	 * @param videoData - The exported video as an ArrayBuffer.
+	 * @param fileName - Suggested filename for the save dialog.
+	 * @returns Object with success status, optional file path, and error details.
+	 */
+
 	ipcMain.handle("save-exported-video", async (_, videoData: ArrayBuffer, fileName: string) => {
 		try {
 			// Determine file type from extension
@@ -695,11 +705,18 @@ export function registerIpcHandlers(
 				};
 			}
 
-			await fs.writeFile(result.filePath, Buffer.from(videoData));
+			// --- FIX: Normalize the path for Windows compatibility ---
+			const normalizedPath = path.normalize(result.filePath);
+
+			// Ensure the parent directory exists (Windows may fail if the folder is missing)
+			await fs.mkdir(path.dirname(normalizedPath), { recursive: true });
+			// --- END FIX ---
+
+			await fs.writeFile(normalizedPath, Buffer.from(videoData));
 
 			return {
 				success: true,
-				path: result.filePath,
+				path: normalizedPath,
 				message: "Video exported successfully",
 			};
 		} catch (error) {
@@ -711,7 +728,6 @@ export function registerIpcHandlers(
 			};
 		}
 	});
-
 	ipcMain.handle("open-video-file-picker", async () => {
 		try {
 			const result = await dialog.showOpenDialog({
