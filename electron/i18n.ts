@@ -5,10 +5,12 @@ import commonEn from "../src/i18n/locales/en/common.json";
 import dialogsEn from "../src/i18n/locales/en/dialogs.json";
 import commonEs from "../src/i18n/locales/es/common.json";
 import dialogsEs from "../src/i18n/locales/es/dialogs.json";
+import commonFr from "../src/i18n/locales/fr/common.json";
+import dialogsFr from "../src/i18n/locales/fr/dialogs.json";
 import commonZh from "../src/i18n/locales/zh-CN/common.json";
 import dialogsZh from "../src/i18n/locales/zh-CN/dialogs.json";
 
-type Locale = "en" | "zh-CN" | "es";
+type Locale = "en" | "zh-CN" | "es" | "fr";
 type Namespace = "common" | "dialogs";
 type MessageMap = Record<string, unknown>;
 
@@ -16,12 +18,13 @@ const messages: Record<Locale, Record<Namespace, MessageMap>> = {
 	en: { common: commonEn, dialogs: dialogsEn },
 	"zh-CN": { common: commonZh, dialogs: dialogsZh },
 	es: { common: commonEs, dialogs: dialogsEs },
+	fr: { common: commonFr, dialogs: dialogsFr },
 };
 
 let currentLocale: Locale = "en";
 
 export function setMainLocale(locale: string) {
-	if (locale === "en" || locale === "zh-CN" || locale === "es") {
+	if (locale === "en" || locale === "zh-CN" || locale === "es" || locale === "fr") {
 		currentLocale = locale;
 	}
 }

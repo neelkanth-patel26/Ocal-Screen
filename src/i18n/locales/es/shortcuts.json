@@ -18,6 +18,7 @@
 		"addTrim": "Agregar recorte",
 		"addSpeed": "Agregar velocidad",
 		"addAnnotation": "Agregar anotación",
+		"addBlur": "Agregar desenfoque",
 		"addKeyframe": "Agregar fotograma clave",
 		"deleteSelected": "Eliminar seleccionado",
 		"playPause": "Reproducir / Pausar"
@@ -29,6 +30,8 @@
 		"cycleAnnotationsBackward": "Recorrer anotaciones hacia atrás",
 		"deleteSelectedAlt": "Eliminar seleccionado (alt)",
 		"panTimeline": "Desplazar línea de tiempo",
-		"zoomTimeline": "Zoom en línea de tiempo"
+		"zoomTimeline": "Zoom en línea de tiempo",
+		"frameBack": "Fotograma anterior",
+		"frameForward": "Fotograma siguiente"
 	}
 }

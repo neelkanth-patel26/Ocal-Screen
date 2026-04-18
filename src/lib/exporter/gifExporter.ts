@@ -5,6 +5,7 @@ import type {
 	SpeedRegion,
 	TrimRegion,
 	WebcamLayoutPreset,
+	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
 import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
@@ -42,6 +43,7 @@ interface GifExporterConfig {
 	cropRegion: CropRegion;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
+	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	annotationRegions?: AnnotationRegion[];
 	previewWidth?: number;
@@ -144,6 +146,7 @@ export class GifExporter {
 				webcamSize: webcamInfo ? { width: webcamInfo.width, height: webcamInfo.height } : null,
 				webcamLayoutPreset: this.config.webcamLayoutPreset,
 				webcamMaskShape: this.config.webcamMaskShape,
+				webcamSizePreset: this.config.webcamSizePreset,
 				webcamPosition: this.config.webcamPosition,
 				annotationRegions: this.config.annotationRegions,
 				speedRegions: this.config.speedRegions,
@@ -171,11 +174,11 @@ export class GifExporter {
 			});
 
 			// Calculate effective duration and frame count (excluding trim regions)
-			const effectiveDuration = this.streamingDecoder.getEffectiveDuration(
+			const { effectiveDuration, totalFrames } = this.streamingDecoder.getExportMetrics(
+				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
 			);
-			const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
 
 			// Calculate frame delay in milliseconds (gif.js uses ms)
 			const frameDelay = Math.round(1000 / this.config.frameRate);

@@ -24,16 +24,111 @@ describe("computeCompositeLayout", () => {
 			webcamSize: { width: 1920, height: 1080 },
 		});
 
+		const refDim = Math.sqrt(1280 * 720);
+		const defaultFraction = 25 / 100; // DEFAULT_WEBCAM_SIZE_PRESET = 25
 		expect(layout).not.toBeNull();
 		expect(layout!.webcamRect).not.toBeNull();
-		expect(layout!.webcamRect!.width).toBeLessThanOrEqual(Math.round(1280 * 0.18) + 1);
-		expect(layout!.webcamRect!.height).toBeLessThanOrEqual(Math.round(720 * 0.18) + 1);
+		expect(layout!.webcamRect!.width).toBeLessThanOrEqual(Math.round(refDim * defaultFraction) + 1);
+		expect(layout!.webcamRect!.height).toBeLessThanOrEqual(
+			Math.round(refDim * defaultFraction) + 1,
+		);
 		expect(
 			Math.abs(layout!.webcamRect!.width * 1080 - layout!.webcamRect!.height * 1920),
 		).toBeLessThanOrEqual(1920);
 	});
 
-	it("uses cover-style full-width stacking in vertical stack mode", () => {
+	it("produces consistent webcam size across landscape and portrait aspect ratios", () => {
+		const webcamSize = { width: 1280, height: 720 };
+		const landscape = computeCompositeLayout({
+			canvasSize: { width: 1920, height: 1080 },
+			screenSize: { width: 1920, height: 1080 },
+			webcamSize,
+			webcamSizePreset: 50,
+		});
+		const portrait = computeCompositeLayout({
+			canvasSize: { width: 1080, height: 1920 },
+			screenSize: { width: 1080, height: 1920 },
+			webcamSize,
+			webcamSizePreset: 50,
+		});
+
+		expect(landscape).not.toBeNull();
+		expect(portrait).not.toBeNull();
+		// Same total pixel count — webcam area should be comparable
+		const landscapeArea = landscape!.webcamRect!.width * landscape!.webcamRect!.height;
+		const portraitArea = portrait!.webcamRect!.width * portrait!.webcamRect!.height;
+		expect(landscapeArea).toBe(portraitArea);
+	});
+
+	it("scales the webcam proportionally as webcamSizePreset increases", () => {
+		const canvasSize = { width: 1920, height: 1080 };
+		const screenSize = { width: 1920, height: 1080 };
+		const webcamSize = { width: 1280, height: 720 };
+
+		const small = computeCompositeLayout({
+			canvasSize,
+			screenSize,
+			webcamSize,
+			webcamSizePreset: 10,
+		});
+		const medium = computeCompositeLayout({
+			canvasSize,
+			screenSize,
+			webcamSize,
+			webcamSizePreset: 25,
+		});
+		const large = computeCompositeLayout({
+			canvasSize,
+			screenSize,
+			webcamSize,
+			webcamSizePreset: 50,
+		});
+
+		expect(small!.webcamRect!.width).toBeLessThan(medium!.webcamRect!.width);
+		expect(medium!.webcamRect!.width).toBeLessThan(large!.webcamRect!.width);
+		expect(small!.webcamRect!.height).toBeLessThan(medium!.webcamRect!.height);
+		expect(medium!.webcamRect!.height).toBeLessThan(large!.webcamRect!.height);
+	});
+
+	it("clamps webcamSizePreset to the valid range (10–50)", () => {
+		const canvasSize = { width: 1920, height: 1080 };
+		const screenSize = { width: 1920, height: 1080 };
+		const webcamSize = { width: 1280, height: 720 };
+
+		const atMin = computeCompositeLayout({
+			canvasSize,
+			screenSize,
+			webcamSize,
+			webcamSizePreset: 10,
+		});
+		const belowMin = computeCompositeLayout({
+			canvasSize,
+			screenSize,
+			webcamSize,
+			webcamSizePreset: 1,
+		});
+		const atMax = computeCompositeLayout({
+			canvasSize,
+			screenSize,
+			webcamSize,
+			webcamSizePreset: 50,
+		});
+		const aboveMax = computeCompositeLayout({
+			canvasSize,
+			screenSize,
+			webcamSize,
+			webcamSizePreset: 100,
+		});
+
+		// Values below 10 should clamp to 10
+		expect(belowMin!.webcamRect!.width).toBe(atMin!.webcamRect!.width);
+		expect(belowMin!.webcamRect!.height).toBe(atMin!.webcamRect!.height);
+		// Values above 50 should clamp to 50
+		expect(aboveMax!.webcamRect!.width).toBe(atMax!.webcamRect!.width);
+		expect(aboveMax!.webcamRect!.height).toBe(atMax!.webcamRect!.height);
+	});
+
+	it("centers the combined screen and webcam stack in vertical stack mode", () => {
 		const layout = computeCompositeLayout({
 			canvasSize: { width: 1920, height: 1080 },
 			maxContentSize: { width: 1536, height: 864 },
@@ -43,23 +138,19 @@ describe("computeCompositeLayout", () => {
 		});
 
 		expect(layout).not.toBeNull();
-		expect(layout?.screenRect).toEqual({
-			x: 0,
-			y: 0,
-			width: 1920,
-			height: 0,
-		});
-		expect(layout?.webcamRect).toEqual({
-			x: 0,
-			y: 0,
-			width: 1920,
-			height: 1080,
-			borderRadius: 0,
-		});
-		expect(layout?.screenCover).toBe(true);
+		// Webcam is full-width at the bottom
+		expect(layout!.webcamRect).not.toBeNull();
+		expect(layout!.webcamRect!.x).toBe(0);
+		expect(layout!.webcamRect!.width).toBe(1920);
+		expect(layout!.webcamRect!.borderRadius).toBe(0);
+		// Screen fills remaining space at the top (cover mode)
+		expect(layout!.screenRect.x).toBe(0);
+		expect(layout!.screenRect.y).toBe(0);
+		expect(layout!.screenRect.width).toBe(1920);
+		expect(layout!.screenCover).toBe(true);
 	});
 
-	it("fills the canvas with the screen when vertical stack has no webcam", () => {
+	it("keeps the screen full-canvas and omits the webcam when dimensions are unavailable in stack mode", () => {
 		const layout = computeCompositeLayout({
 			canvasSize: { width: 1920, height: 1080 },
 			maxContentSize: { width: 1536, height: 864 },
@@ -75,6 +166,29 @@ describe("computeCompositeLayout", () => {
 			height: 1080,
 		});
 		expect(layout?.webcamRect).toBeNull();
+		expect(layout?.screenCover).toBe(true);
+	});
+
+	it("uses a 2:1 split layout in dual frame mode", () => {
+		const layout = computeCompositeLayout({
+			canvasSize: { width: 1920, height: 1080 },
+			maxContentSize: { width: 1536, height: 864 },
+			screenSize: { width: 1920, height: 1080 },
+			webcamSize: { width: 1280, height: 720 },
+			layoutPreset: "dual-frame",
+		});
+
+		expect(layout).not.toBeNull();
+		expect(layout?.webcamRect).not.toBeNull();
+		expect(layout?.screenRect.y).toBe(108);
+		expect(layout?.screenRect.height).toBe(864);
+		expect(layout?.screenBorderRadius).toBe(layout?.webcamRect?.borderRadius);
+		expect(layout?.webcamRect?.y).toBe(108);
+		expect(layout?.webcamRect?.height).toBe(864);
+		expect(layout?.webcamRect?.x).toBeGreaterThan(layout?.screenRect.x ?? 0);
+		expect(
+			Math.abs((layout?.screenRect.width ?? 0) - 2 * (layout?.webcamRect?.width ?? 0)),
+		).toBeLessThanOrEqual(1);
 		expect(layout?.screenCover).toBe(true);
 	});
 

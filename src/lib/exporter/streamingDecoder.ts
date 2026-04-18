@@ -2,6 +2,52 @@ import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
 
 const SOURCE_LOAD_TIMEOUT_MS = 60_000;
+const EPSILON_SEC = 0.001;
+/**
+ * Build a full WebCodecs-compatible AV1 codec string from the AV1CodecConfigurationRecord.
+ * web-demuxer may return a bare "av01" when the WASM-side parser fails to read
+ * the extradata (e.g. raw OBU sequence header from WebM instead of ISOBMFF av1C box).
+ * This function parses the record if present, otherwise returns a safe default.
+ *
+ * @see https://aomediacodec.github.io/av1-isobmff/#av1codecconfigurationbox-section
+ */
+function buildAV1CodecString(description?: BufferSource): string {
+	const fallback = "av01.0.01M.08";
+
+	if (!description) return fallback;
+
+	const bytes =
+		description instanceof ArrayBuffer
+			? new Uint8Array(description)
+			: new Uint8Array(description.buffer, description.byteOffset, description.byteLength);
+
+	// AV1CodecConfigurationRecord layout (4+ bytes):
+	//   Byte 0: marker (1) | version (7)
+	//   Byte 1: seq_profile (3) | seq_level_idx_0 (5)
+	//   Byte 2: seq_tier_0 (1) | high_bitdepth (1) | twelve_bit (1) | ...
+	// The spec says version should be 1, but Chrome/Electron's MediaRecorder
+	// may write version 127 (0xFF first byte). We accept any version as long
+	// as the marker bit is set and the record is long enough.
+	if (bytes.length < 4) return fallback;
+	if (!(bytes[0] & 0x80)) return fallback; // marker bit must be 1
+
+	// Byte 1: seq_profile (3) | seq_level_idx_0 (5)
+	const profile = (bytes[1] >> 5) & 0x07;
+	const level = bytes[1] & 0x1f;
+
+	// Byte 2: seq_tier_0 (1) | high_bitdepth (1) | twelve_bit (1) | monochrome (1) | ...
+	const tier = (bytes[2] >> 7) & 0x01;
+	const highBitdepth = (bytes[2] >> 6) & 0x01;
+	const twelveBit = (bytes[2] >> 5) & 0x01;
+	let bitdepth = 8;
+	if (highBitdepth) bitdepth = twelveBit ? 12 : 10;
+
+	const tierChar = tier ? "H" : "M";
+	const levelStr = level.toString().padStart(2, "0");
+	const bitdepthStr = bitdepth.toString().padStart(2, "0");
+
+	return `av01.${profile}.${levelStr}${tierChar}.${bitdepthStr}`;
+}
 
 export interface DecodedVideoInfo {
 	width: number;
@@ -183,17 +229,28 @@ export class StreamingVideoDecoder {
 		}
 
 		const decoderConfig = await this.demuxer.getDecoderConfig("video");
-		const codec = this.metadata.codec.toLowerCase();
+
+		// web-demuxer may return a bare "av01" for AV1 in WebM containers when the
+		// extradata isn't in the expected ISOBMFF format. WebCodecs requires the
+		// full parametrized form (e.g. "av01.0.05M.08").
+		if (/^av01$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = buildAV1CodecString(
+				decoderConfig.description as BufferSource | undefined,
+			);
+		}
+
+		const codec = decoderConfig.codec.toLowerCase();
 		const shouldPreferSoftwareDecode = codec.includes("av01") || codec.includes("av1");
 		const segments = this.splitBySpeed(
 			this.computeSegments(this.metadata.duration, trimRegions),
 			speedRegions,
 		);
 		const segmentOutputFrameCounts = segments.map((segment) =>
-			Math.ceil(((segment.endSec - segment.startSec) / segment.speed) * targetFrameRate),
+			Math.ceil(
+				((segment.endSec - segment.startSec - EPSILON_SEC) / segment.speed) * targetFrameRate,
+			),
 		);
 		const frameDurationUs = 1_000_000 / targetFrameRate;
-		const epsilonSec = 0.001;
 
 		// Async frame queue — decoder pushes, consumer pulls
 		const pendingFrames: VideoFrame[] = [];
@@ -304,7 +361,7 @@ export class StreamingVideoDecoder {
 
 			const sourceTimeSec =
 				segment.startSec + (segmentFrameIndex / targetFrameRate) * segment.speed;
-			if (sourceTimeSec >= segment.endSec - epsilonSec) return false;
+			if (sourceTimeSec >= segment.endSec - EPSILON_SEC) return false;
 
 			const clone = new VideoFrame(heldFrame, { timestamp: heldFrame.timestamp });
 			await onFrame(clone, exportFrameIndex * frameDurationUs, sourceTimeSec * 1000);
@@ -323,7 +380,7 @@ export class StreamingVideoDecoder {
 			// Finalize completed segments before handling this frame.
 			while (
 				segmentIdx < segments.length &&
-				frameTimeSec >= segments[segmentIdx].endSec - epsilonSec
+				frameTimeSec >= segments[segmentIdx].endSec - EPSILON_SEC
 			) {
 				const segment = segments[segmentIdx];
 				while (!this.cancelled && (await emitHeldFrameForTarget(segment))) {
@@ -335,7 +392,7 @@ export class StreamingVideoDecoder {
 				if (
 					heldFrame &&
 					segmentIdx < segments.length &&
-					heldFrameSec < segments[segmentIdx].startSec - epsilonSec
+					heldFrameSec < segments[segmentIdx].startSec - EPSILON_SEC
 				) {
 					heldFrame.close();
 					heldFrame = null;
@@ -350,7 +407,7 @@ export class StreamingVideoDecoder {
 			const currentSegment = segments[segmentIdx];
 
 			// Before current segment (trimmed region or pre-roll).
-			if (frameTimeSec < currentSegment.startSec - epsilonSec) {
+			if (frameTimeSec < currentSegment.startSec - EPSILON_SEC) {
 				frame.close();
 				continue;
 			}
@@ -371,7 +428,7 @@ export class StreamingVideoDecoder {
 
 				const sourceTimeSec =
 					currentSegment.startSec + (segmentFrameIndex / targetFrameRate) * currentSegment.speed;
-				if (sourceTimeSec >= currentSegment.endSec - epsilonSec) {
+				if (sourceTimeSec >= currentSegment.endSec - EPSILON_SEC) {
 					break;
 				}
 				if (sourceTimeSec > handoffBoundarySec) {
@@ -393,7 +450,7 @@ export class StreamingVideoDecoder {
 		if (heldFrame && segmentIdx < segments.length) {
 			while (!this.cancelled && segmentIdx < segments.length) {
 				const segment = segments[segmentIdx];
-				if (heldFrameSec < segment.startSec - epsilonSec) {
+				if (heldFrameSec < segment.startSec - EPSILON_SEC) {
 					break;
 				}
 
@@ -405,7 +462,7 @@ export class StreamingVideoDecoder {
 				segmentFrameIndex = 0;
 				if (
 					segmentIdx < segments.length &&
-					heldFrameSec < segments[segmentIdx].startSec - epsilonSec
+					heldFrameSec < segments[segmentIdx].startSec - EPSILON_SEC
 				) {
 					break;
 				}
@@ -480,11 +537,24 @@ export class StreamingVideoDecoder {
 		return segments;
 	}
 
-	getEffectiveDuration(trimRegions?: TrimRegion[], speedRegions?: SpeedRegion[]): number {
+	getExportMetrics(
+		targetFrameRate: number,
+		trimRegions?: TrimRegion[],
+		speedRegions?: SpeedRegion[],
+	): { effectiveDuration: number; totalFrames: number } {
 		if (!this.metadata) throw new Error("Must call loadMetadata() first");
 		const trimSegments = this.computeSegments(this.metadata.duration, trimRegions);
-		const speedSegments = this.splitBySpeed(trimSegments, speedRegions);
-		return speedSegments.reduce((sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed, 0);
+		const segments = this.splitBySpeed(trimSegments, speedRegions);
+		return {
+			effectiveDuration: segments.reduce(
+				(sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed,
+				0,
+			),
+			totalFrames: segments.reduce((sum, seg) => {
+				const segDur = seg.endSec - seg.startSec - EPSILON_SEC;
+				return sum + Math.max(0, Math.ceil((segDur / seg.speed) * targetFrameRate));
+			}, 0),
+		};
 	}
 
 	private splitBySpeed(

@@ -62,10 +62,12 @@ let mainWindow: BrowserWindow | null = null;
 let sourceSelectorWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let selectedSourceName = "";
+const isMac = process.platform === "darwin";
+const trayIconSize = isMac ? 16 : 24;
 
 // Tray Icons
-const defaultTrayIcon = getTrayIcon("openscreen.png");
-const recordingTrayIcon = getTrayIcon("rec-button.png");
+const defaultTrayIcon = getTrayIcon("openscreen.png", trayIconSize);
+const recordingTrayIcon = getTrayIcon("rec-button.png", trayIconSize);
 
 function createWindow() {
 	mainWindow = createHudOverlayWindow();
@@ -199,12 +201,12 @@ function createTray() {
 	});
 }
 
-function getTrayIcon(filename: string) {
+function getTrayIcon(filename: string, size: number) {
 	return nativeImage
 		.createFromPath(path.join(process.env.VITE_PUBLIC || RENDERER_DIST, filename))
 		.resize({
-			width: 24,
-			height: 24,
+			width: size,
+			height: size,
 			quality: "best",
 		});
 }
@@ -371,6 +373,16 @@ app.whenReady().then(async () => {
 	// Ensure recordings directory exists
 	await ensureRecordingsDir();
 
+	function switchToHudWrapper() {
+		if (mainWindow) {
+			isForceClosing = true;
+			mainWindow.close();
+			isForceClosing = false;
+			mainWindow = null;
+		}
+		showMainWindow();
+	}
+
 	registerIpcHandlers(
 		createEditorWindowWrapper,
 		createSourceSelectorWindowWrapper,
@@ -384,6 +396,7 @@ app.whenReady().then(async () => {
 				showMainWindow();
 			}
 		},
+		switchToHudWrapper,
 	);
 	createWindow();
 });

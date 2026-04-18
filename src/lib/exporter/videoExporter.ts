@@ -4,6 +4,7 @@ import type {
 	SpeedRegion,
 	TrimRegion,
 	WebcamLayoutPreset,
+	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
 import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
@@ -33,6 +34,7 @@ interface VideoExporterConfig extends ExportConfig {
 	cropRegion: CropRegion;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
+	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	annotationRegions?: AnnotationRegion[];
 	previewWidth?: number;
@@ -137,6 +139,7 @@ export class VideoExporter {
 				webcamSize: webcamInfo ? { width: webcamInfo.width, height: webcamInfo.height } : null,
 				webcamLayoutPreset: this.config.webcamLayoutPreset,
 				webcamMaskShape: this.config.webcamMaskShape,
+				webcamSizePreset: this.config.webcamSizePreset,
 				webcamPosition: this.config.webcamPosition,
 				annotationRegions: this.config.annotationRegions,
 				speedRegions: this.config.speedRegions,
@@ -154,11 +157,11 @@ export class VideoExporter {
 			this.muxer = muxer;
 			await muxer.initialize();
 
-			const effectiveDuration = streamingDecoder.getEffectiveDuration(
+			const { effectiveDuration, totalFrames } = streamingDecoder.getExportMetrics(
+				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
 			);
-			const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
 			const readEndSec = Math.max(videoInfo.duration, videoInfo.streamDuration ?? 0) + 0.5;
 
 			console.log("[VideoExporter] Original duration:", videoInfo.duration, "s");
