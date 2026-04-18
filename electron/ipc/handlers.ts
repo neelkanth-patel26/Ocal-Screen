@@ -645,7 +645,7 @@ export function registerIpcHandlers(
 				return { success: false, error: `Unsupported URL scheme: ${parsed.protocol}` };
 			}
 
-			await shell.openExternal(url);
+			await shell.openExternal(parsed.toString());
 			return { success: true };
 		} catch (error) {
 			console.error("Failed to open URL:", error);
