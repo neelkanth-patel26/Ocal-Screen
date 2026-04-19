@@ -359,10 +359,37 @@ export function registerIpcHandlers(
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
 	switchToHud?: () => void,
 ) {
+	const supportsWindowOpacity = process.platform !== "linux";
 	const countdownOverlayState = {
 		visible: false,
 		value: null as number | null,
 		activeRunId: null as number | null,
+		hideCommitId: 0,
+		hideCommitTimer: null as ReturnType<typeof setTimeout> | null,
+	};
+	const COUNTDOWN_OVERLAY_HIDE_DEBOUNCE_MS = 1200;
+
+	const clearCountdownOverlayHideCommit = () => {
+		if (countdownOverlayState.hideCommitTimer) {
+			clearTimeout(countdownOverlayState.hideCommitTimer);
+			countdownOverlayState.hideCommitTimer = null;
+		}
+	};
+
+	const commitCountdownOverlayHide = (win: BrowserWindow, hideCommitId: number) => {
+		if (win.isDestroyed()) {
+			return;
+		}
+
+		if (countdownOverlayState.visible || countdownOverlayState.hideCommitId !== hideCommitId) {
+			return;
+		}
+
+		win.hide();
+		if (supportsWindowOpacity) {
+			// Reset baseline opacity for the next show cycle.
+			win.setOpacity(1);
+		}
 	};
 
 	const flushCountdownOverlayState = (win: BrowserWindow) => {
@@ -370,14 +397,35 @@ export function registerIpcHandlers(
 			return;
 		}
 
+		clearCountdownOverlayHideCommit();
 		win.webContents.send("countdown-overlay-value", countdownOverlayState.value);
-		if (countdownOverlayState.visible && !win.isVisible()) {
-			setTimeout(() => {
-				if (!win.isDestroyed() && countdownOverlayState.visible && !win.isVisible()) {
-					win.showInactive();
-				}
-			}, 16);
+		if (!countdownOverlayState.visible) {
+			return;
 		}
+
+		if (win.isVisible()) {
+			if (supportsWindowOpacity) {
+				win.setOpacity(1);
+			}
+			return;
+		}
+
+		setTimeout(() => {
+			if (!win.isDestroyed() && countdownOverlayState.visible && !win.isVisible()) {
+				if (supportsWindowOpacity) {
+					win.setOpacity(0);
+				}
+				win.showInactive();
+
+				if (supportsWindowOpacity) {
+					setTimeout(() => {
+						if (!win.isDestroyed() && countdownOverlayState.visible && win.isVisible()) {
+							win.setOpacity(1);
+						}
+					}, 0);
+				}
+			}
+		}, 16);
 	};
 
 	ipcMain.handle("countdown-overlay-show", (_, value: number, runId: number) => {
@@ -426,16 +474,35 @@ export function registerIpcHandlers(
 		}
 
 		countdownOverlayState.visible = false;
-		countdownOverlayState.value = null;
+		countdownOverlayState.hideCommitId += 1;
+		const hideCommitId = countdownOverlayState.hideCommitId;
+		clearCountdownOverlayHideCommit();
 
 		const win = getCountdownOverlayWindow();
 		if (!win || win.isDestroyed()) {
+			countdownOverlayState.value = null;
 			return;
 		}
 
+		if (supportsWindowOpacity) {
+			// Hide visually immediately to avoid hide/show compositor flashes on rapid restart.
+			win.setOpacity(0);
+		}
+
+		countdownOverlayState.value = null;
 		if (!win.webContents.isLoading()) {
 			win.webContents.send("countdown-overlay-value", countdownOverlayState.value);
 		}
+
+		if (!supportsWindowOpacity) {
+			win.hide();
+			return;
+		}
+
+		countdownOverlayState.hideCommitTimer = setTimeout(() => {
+			countdownOverlayState.hideCommitTimer = null;
+			commitCountdownOverlayHide(win, hideCommitId);
+		}, COUNTDOWN_OVERLAY_HIDE_DEBOUNCE_MS);
 	});
 
 	ipcMain.handle("switch-to-hud", () => {

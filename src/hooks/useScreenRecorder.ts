@@ -339,9 +339,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			const activeRunId = countdownRunId.current;
 			if (cleanup) cleanup();
 			countdownRunId.current += 1;
-			void window.electronAPI.hideCountdownOverlay(activeRunId).catch((error) => {
-				console.warn("Failed to hide countdown overlay during cleanup:", error);
-			});
+			void safeHideCountdownOverlay(activeRunId);
 			allowAutoFinalize.current = false;
 			restarting.current = false;
 			discardRecordingId.current = null;
@@ -633,6 +631,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					"Unable to lock 4K/60fps constraints, using best available track settings.",
 					constraintError,
 				);
+			}
+
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
 			}
 
 			let {
