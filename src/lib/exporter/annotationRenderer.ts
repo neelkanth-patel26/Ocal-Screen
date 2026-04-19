@@ -10,12 +10,12 @@ import {
 let blurScratchCanvas: HTMLCanvasElement | null = null;
 let blurScratchCtx: CanvasRenderingContext2D | null = null;
 
-// Matches a single code point in Hiragana, Katakana, CJK Unified Ideographs
-// Extension A, CJK Unified Ideographs, Hangul Syllables, or CJK Compatibility
-// Ideographs. Used to split CJK text at character boundaries during wrap,
-// since CJK scripts have no word-separating whitespace.
-const CJK_CHAR =
-	/[\u3040-\u309f\u30a0-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]/u;
+// Matches a single code point whose script is Han (including non-BMP
+// Extension A-F), Hiragana, Katakana (including halfwidth forms), or
+// Hangul. Used to split CJK text at character boundaries during wrap,
+// since CJK scripts have no word-separating whitespace. Unicode script
+// property escapes require ES2018+; tsconfig target is ES2020.
+const CJK_CHAR = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 
 function tokenizeForWrap(line: string): string[] {
 	// Split Latin text on whitespace (preserving the whitespace as its own token,
