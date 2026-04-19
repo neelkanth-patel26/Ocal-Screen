@@ -153,10 +153,10 @@ export default function VideoEditor() {
 	const nextSpeedIdRef = useRef(1);
 
 	const { shortcuts, isMac } = useShortcuts();
+	const { locale, setLocale, t: rawT } = useI18n();
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
 	const availableLocales = getAvailableLocales();
-	const { locale, setLocale } = useI18n();
 
 	const nextAnnotationIdRef = useRef(1);
 	const nextAnnotationZIndexRef = useRef(1);
@@ -361,7 +361,10 @@ export default function VideoEditor() {
 					setLastSavedSnapshot(
 						createProjectSnapshot(
 							webcamSourcePath
-								? { screenVideoPath: sourcePath, webcamVideoPath: webcamSourcePath }
+								? {
+										screenVideoPath: sourcePath,
+										webcamVideoPath: webcamSourcePath,
+									}
 								: { screenVideoPath: sourcePath },
 							INITIAL_EDITOR_STATE,
 						),
@@ -547,18 +550,18 @@ export default function VideoEditor() {
 		}
 
 		if (!result.success) {
-			toast.error(result.message || "Failed to load project");
+			toast.error(result.message || t("project.failedToLoad"));
 			return;
 		}
 
 		const restored = await applyLoadedProject(result.project, result.path ?? null);
 		if (!restored) {
-			toast.error("Invalid project file format");
+			toast.error(t("project.invalidFormat"));
 			return;
 		}
 
-		toast.success(`Project loaded from ${result.path}`);
-	}, [applyLoadedProject]);
+		toast.success(t("project.loadedFrom", { path: result.path ?? "" }));
+	}, [applyLoadedProject, t]);
 
 	useEffect(() => {
 		const removeLoadListener = window.electronAPI.onMenuLoadProject(handleLoadProject);
@@ -961,7 +964,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
 					region.id === id
-						? { ...region, zoomInDurationMs: zoomIn, zoomOutDurationMs: zoomOut }
+						? {
+								...region,
+								zoomInDurationMs: zoomIn,
+								zoomOutDurationMs: zoomOut,
+							}
 						: region,
 				),
 			}));
@@ -1295,17 +1302,22 @@ export default function VideoEditor() {
 	const handleExportSaved = useCallback(
 		(formatLabel: "GIF" | "Video", filePath: string) => {
 			setExportedFilePath(filePath);
-			toast.success(`${formatLabel} exported successfully`, {
-				description: filePath,
-				action: {
-					label: "Show in Folder",
-					onClick: () => {
-						void handleShowExportedFile(filePath);
+			toast.success(
+				t("export.exportedSuccessfully", {
+					format: formatLabel,
+				}),
+				{
+					description: filePath,
+					action: {
+						label: rawT("common.actions.showInFolder"),
+						onClick: () => {
+							void handleShowExportedFile(filePath);
+						},
 					},
 				},
-			});
+			);
 		},
-		[handleShowExportedFile],
+		[handleShowExportedFile, t, rawT],
 	);
 
 	const handleSaveUnsavedExport = useCallback(async () => {
@@ -1679,7 +1691,7 @@ export default function VideoEditor() {
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center h-screen bg-background">
-				<div className="text-foreground">Loading video...</div>
+				<div className="text-foreground">{t("loadingVideo")}</div>
 			</div>
 		);
 	}
@@ -1693,7 +1705,7 @@ export default function VideoEditor() {
 						onClick={handleLoadProject}
 						className="px-3 py-1.5 rounded-md bg-[#34B27B] text-white text-sm hover:bg-[#34B27B]/90"
 					>
-						Load Project File
+						{ts("project.load")}
 					</button>
 				</div>
 			</div>
