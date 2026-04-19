@@ -25,12 +25,14 @@ export default function App() {
 			document.documentElement.style.background = "transparent";
 			document.getElementById("root")?.style.setProperty("background", "transparent");
 		}
+	}, [windowType]);
 
+	useEffect(() => {
 		// Load custom fonts on app initialization
 		loadAllCustomFonts().catch((error) => {
 			console.error("Failed to load custom fonts:", error);
 		});
-	}, [windowType]);
+	}, []);
 
 	const content = (() => {
 		switch (windowType) {
