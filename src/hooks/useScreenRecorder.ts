@@ -110,6 +110,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const allowAutoFinalize = useRef(false);
 	const discardRecordingId = useRef<number | null>(null);
 	const restarting = useRef(false);
+	const webcamReady = useRef(false);
+	const webcamAcquireId = useRef(0);
 
 	const getRecordingDurationMs = useCallback(() => {
 		const segmentDuration =
@@ -158,10 +160,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			microphoneStream.current.getTracks().forEach((track) => track.stop());
 			microphoneStream.current = null;
 		}
-		if (webcamStream.current) {
-			webcamStream.current.getTracks().forEach((track) => track.stop());
-			webcamStream.current = null;
-		}
 		if (mixingContext.current) {
 			mixingContext.current.close().catch(() => {
 				// Ignore close errors during recorder teardown.
@@ -193,6 +191,85 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		},
 		[t],
 	);
+
+	useEffect(() => {
+		if (!webcamEnabled) return;
+
+		let cancelled = false;
+		let acquiredStream: MediaStream | null = null;
+		const thisAcquireId = ++webcamAcquireId.current;
+		webcamReady.current = false;
+
+		const acquire = async () => {
+			try {
+				const stream = await navigator.mediaDevices.getUserMedia({
+					audio: false,
+					video: webcamDeviceId
+						? {
+								deviceId: { exact: webcamDeviceId },
+								width: { ideal: WEBCAM_TARGET_WIDTH },
+								height: { ideal: WEBCAM_TARGET_HEIGHT },
+								frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
+							}
+						: {
+								width: { ideal: WEBCAM_TARGET_WIDTH },
+								height: { ideal: WEBCAM_TARGET_HEIGHT },
+								frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
+							},
+				});
+
+				if (cancelled || thisAcquireId !== webcamAcquireId.current) {
+					stream.getTracks().forEach((track) => {
+						track.onended = null;
+						track.stop();
+					});
+					return;
+				}
+
+				acquiredStream = stream;
+				stream.getVideoTracks().forEach((track) => {
+					track.onended = () => {
+						webcamStream.current = null;
+						if (!restarting.current) {
+							setWebcamEnabledState(false);
+							toast.error(t("recording.cameraDisconnected"));
+						}
+					};
+				});
+				webcamStream.current = stream;
+				webcamReady.current = true;
+			} catch (cameraError) {
+				if (!cancelled) {
+					console.warn("Failed to get webcam access:", cameraError);
+					setWebcamEnabledState(false);
+					const isDeviceError =
+						cameraError instanceof DOMException &&
+						[
+							"NotFoundError",
+							"DevicesNotFoundError",
+							"OverconstrainedError",
+							"NotReadableError",
+						].includes(cameraError.name);
+					toast.error(t(isDeviceError ? "recording.cameraNotFound" : "recording.cameraBlocked"));
+					webcamReady.current = true;
+				}
+			}
+		};
+
+		void acquire();
+
+		return () => {
+			cancelled = true;
+			webcamReady.current = false;
+			if (acquiredStream) {
+				acquiredStream.getTracks().forEach((track) => {
+					track.onended = null;
+					track.stop();
+				});
+				webcamStream.current = null;
+			}
+		};
+	}, [webcamEnabled, webcamDeviceId, t]);
 
 	const finalizeRecording = useCallback(
 		(
@@ -438,30 +515,23 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			}
 
 			if (webcamEnabled) {
-				try {
-					webcamStream.current = await navigator.mediaDevices.getUserMedia({
-						audio: false,
-						video: webcamDeviceId
-							? {
-									deviceId: { exact: webcamDeviceId },
-									width: { ideal: WEBCAM_TARGET_WIDTH },
-									height: { ideal: WEBCAM_TARGET_HEIGHT },
-									frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
-								}
-							: {
-									width: { ideal: WEBCAM_TARGET_WIDTH },
-									height: { ideal: WEBCAM_TARGET_HEIGHT },
-									frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
-								},
+				if (!webcamReady.current) {
+					await new Promise<void>((resolve) => {
+						const interval = setInterval(() => {
+							if (webcamReady.current) {
+								clearInterval(interval);
+								resolve();
+							}
+						}, 50);
+						setTimeout(() => {
+							clearInterval(interval);
+							resolve();
+						}, 5000);
 					});
-				} catch (cameraError) {
-					console.warn("Failed to get webcam access:", cameraError);
-					if (webcamStream.current) {
-						webcamStream.current.getTracks().forEach((track) => track.stop());
-						webcamStream.current = null;
-					}
+				}
+				if (!webcamStream.current) {
+					webcamAcquireId.current++;
 					setWebcamEnabledState(false);
-					toast.error(t("recording.cameraDenied"));
 				}
 			}
 

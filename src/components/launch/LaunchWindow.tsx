@@ -526,6 +526,7 @@ export function LaunchWindow() {
 						onClick={async () => {
 							await setWebcamEnabled(!webcamEnabled);
 						}}
+						disabled={recording}
 						title={webcamEnabled ? t("webcam.disableWebcam") : t("webcam.enableWebcam")}
 					>
 						{webcamEnabled
