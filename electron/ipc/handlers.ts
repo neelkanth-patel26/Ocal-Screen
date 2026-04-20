@@ -352,15 +352,163 @@ function sampleCursorPoint() {
 export function registerIpcHandlers(
 	createEditorWindow: () => void,
 	createSourceSelectorWindow: () => BrowserWindow,
+	createCountdownOverlayWindow: () => BrowserWindow,
 	getMainWindow: () => BrowserWindow | null,
 	getSourceSelectorWindow: () => BrowserWindow | null,
+	getCountdownOverlayWindow: () => BrowserWindow | null,
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
 	switchToHud?: () => void,
 ) {
+	const supportsWindowOpacity = process.platform !== "linux";
+	const countdownOverlayState = {
+		visible: false,
+		value: null as number | null,
+		activeRunId: null as number | null,
+		hideCommitId: 0,
+		hideCommitTimer: null as ReturnType<typeof setTimeout> | null,
+	};
+	const COUNTDOWN_OVERLAY_HIDE_DEBOUNCE_MS = 1200;
+
+	const clearCountdownOverlayHideCommit = () => {
+		if (countdownOverlayState.hideCommitTimer) {
+			clearTimeout(countdownOverlayState.hideCommitTimer);
+			countdownOverlayState.hideCommitTimer = null;
+		}
+	};
+
+	const commitCountdownOverlayHide = (win: BrowserWindow, hideCommitId: number) => {
+		if (win.isDestroyed()) {
+			return;
+		}
+
+		if (countdownOverlayState.visible || countdownOverlayState.hideCommitId !== hideCommitId) {
+			return;
+		}
+
+		win.hide();
+		if (supportsWindowOpacity) {
+			// Reset baseline opacity for the next show cycle.
+			win.setOpacity(1);
+		}
+	};
+
+	const flushCountdownOverlayState = (win: BrowserWindow) => {
+		if (win.isDestroyed()) {
+			return;
+		}
+
+		clearCountdownOverlayHideCommit();
+		win.webContents.send("countdown-overlay-value", countdownOverlayState.value);
+		if (!countdownOverlayState.visible) {
+			return;
+		}
+
+		if (win.isVisible()) {
+			if (supportsWindowOpacity) {
+				win.setOpacity(1);
+			}
+			return;
+		}
+
+		setTimeout(() => {
+			if (!win.isDestroyed() && countdownOverlayState.visible && !win.isVisible()) {
+				if (supportsWindowOpacity) {
+					win.setOpacity(0);
+				}
+				win.showInactive();
+
+				if (supportsWindowOpacity) {
+					setTimeout(() => {
+						if (!win.isDestroyed() && countdownOverlayState.visible && win.isVisible()) {
+							win.setOpacity(1);
+						}
+					}, 0);
+				}
+			}
+		}, 16);
+	};
+
+	ipcMain.handle("countdown-overlay-show", (_, value: number, runId: number) => {
+		countdownOverlayState.activeRunId = runId;
+		countdownOverlayState.visible = true;
+		countdownOverlayState.value = value;
+
+		const win = getCountdownOverlayWindow() ?? createCountdownOverlayWindow();
+		if (win.isDestroyed()) {
+			return;
+		}
+
+		if (win.webContents.isLoading()) {
+			win.webContents.once("did-finish-load", () => {
+				if (!win.isDestroyed()) {
+					flushCountdownOverlayState(win);
+				}
+			});
+		} else {
+			flushCountdownOverlayState(win);
+		}
+	});
+
+	ipcMain.handle("countdown-overlay-set-value", (_, value: number, runId: number) => {
+		if (countdownOverlayState.activeRunId !== runId || !countdownOverlayState.visible) {
+			return;
+		}
+
+		countdownOverlayState.value = value;
+
+		const win = getCountdownOverlayWindow();
+		if (!win || win.isDestroyed()) {
+			return;
+		}
+
+		if (win.webContents.isLoading()) {
+			return;
+		}
+
+		win.webContents.send("countdown-overlay-value", value);
+	});
+
+	ipcMain.handle("countdown-overlay-hide", (_, runId: number) => {
+		if (countdownOverlayState.activeRunId !== runId) {
+			return;
+		}
+
+		countdownOverlayState.visible = false;
+		countdownOverlayState.hideCommitId += 1;
+		const hideCommitId = countdownOverlayState.hideCommitId;
+		clearCountdownOverlayHideCommit();
+
+		const win = getCountdownOverlayWindow();
+		if (!win || win.isDestroyed()) {
+			countdownOverlayState.value = null;
+			return;
+		}
+
+		if (supportsWindowOpacity) {
+			// Hide visually immediately to avoid hide/show compositor flashes on rapid restart.
+			win.setOpacity(0);
+		}
+
+		countdownOverlayState.value = null;
+		if (!win.webContents.isLoading()) {
+			win.webContents.send("countdown-overlay-value", countdownOverlayState.value);
+		}
+
+		if (!supportsWindowOpacity) {
+			win.hide();
+			return;
+		}
+
+		countdownOverlayState.hideCommitTimer = setTimeout(() => {
+			countdownOverlayState.hideCommitTimer = null;
+			commitCountdownOverlayHide(win, hideCommitId);
+		}, COUNTDOWN_OVERLAY_HIDE_DEBOUNCE_MS);
+	});
+
 	ipcMain.handle("switch-to-hud", () => {
 		if (switchToHud) switchToHud();
 	});
-	ipcMain.handle("start-new-recording", async () => {
+	ipcMain.handle("start-new-recording", () => {
 		try {
 			setCurrentRecordingSessionState(null);
 			if (switchToHud) {
@@ -518,9 +666,8 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("read-binary-file", async (_, inputPath: string) => {
-		let normalizedPath: string | null = null;
 		try {
-			normalizedPath = normalizeVideoSourcePath(inputPath);
+			const normalizedPath = normalizeVideoSourcePath(inputPath);
 			if (!normalizedPath) {
 				return { success: false, message: "Invalid file path" };
 			}
@@ -545,7 +692,6 @@ export function registerIpcHandlers(
 				success: false,
 				message: "Failed to read binary file",
 				error: String(error),
-				path: normalizedPath,
 			};
 		}
 	});
