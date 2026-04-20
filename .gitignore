@@ -12,9 +12,11 @@ dist
 dist-electron
 dist-ssr
 *.local
+.env
 
 # Editor directories and files
 .vscode/*
+.zed/
 !.vscode/extensions.json
 .idea
 .DS_Store
@@ -30,3 +32,13 @@ release/**
 # Playwright
 test-results
 playwright-report/
+
+# Vitest browser mode screenshots
+__screenshots__/
+
+# shell files
+/shell.sh
+# Nix
+result
+result-*
+.direnv/

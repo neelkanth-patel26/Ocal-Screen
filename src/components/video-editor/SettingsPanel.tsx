@@ -42,20 +42,86 @@ import { cn } from "@/lib/utils";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
+import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { CropControl } from "./CropControl";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
 	AnnotationType,
+	BlurData,
 	CropRegion,
 	FigureData,
 	PlaybackSpeed,
 	WebcamLayoutPreset,
 	WebcamMaskShape,
+	WebcamSizePreset,
 	ZoomDepth,
 	ZoomFocusMode,
 } from "./types";
-import { SPEED_OPTIONS } from "./types";
+import { DEFAULT_WEBCAM_SIZE_PRESET, MAX_PLAYBACK_SPEED, SPEED_OPTIONS } from "./types";
+
+function CustomSpeedInput({
+	value,
+	onChange,
+	onError,
+}: {
+	value: number;
+	onChange: (val: number) => void;
+	onError: () => void;
+}) {
+	const isPreset = SPEED_OPTIONS.some((o) => o.speed === value);
+	const [draft, setDraft] = useState(isPreset ? "" : String(Math.round(value)));
+	const [isFocused, setIsFocused] = useState(false);
+
+	const prevValue = useRef(value);
+	if (!isFocused && prevValue.current !== value) {
+		prevValue.current = value;
+		setDraft(isPreset ? "" : String(Math.round(value)));
+	}
+
+	const handleChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const digits = e.target.value.replace(/\D/g, "");
+			if (digits === "") {
+				setDraft("");
+				return;
+			}
+			const num = Number(digits);
+			if (num > MAX_PLAYBACK_SPEED) {
+				onError();
+				return;
+			}
+			setDraft(digits);
+			if (num >= 1) onChange(num);
+		},
+		[onChange, onError],
+	);
+
+	const handleBlur = useCallback(() => {
+		setIsFocused(false);
+		if (!draft || Number(draft) < 1) {
+			setDraft(isPreset ? "" : String(Math.round(value)));
+		}
+	}, [draft, isPreset, value]);
+
+	return (
+		<div className="flex items-center gap-1">
+			<input
+				type="text"
+				inputMode="numeric"
+				pattern="[0-9]*"
+				placeholder="--"
+				value={draft}
+				onFocus={() => setIsFocused(true)}
+				onChange={handleChange}
+				onBlur={handleBlur}
+				onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+				className="w-12 bg-white/5 border border-white/10 rounded-md px-1 py-0.5 text-[11px] font-semibold text-[#d97706] text-center focus:outline-none focus:border-[#d97706]/40"
+			/>
+			<span className="text-[11px] font-semibold text-slate-500">×</span>
+		</div>
+	);
+}
 
 const WALLPAPER_COUNT = 18;
 const WALLPAPER_RELATIVE = Array.from(
@@ -132,7 +198,11 @@ interface SettingsPanelProps {
 	onGifSizePresetChange?: (preset: GifSizePreset) => void;
 	gifOutputDimensions?: { width: number; height: number };
 	onExport?: () => void;
-	unsavedExport?: { arrayBuffer: ArrayBuffer; fileName: string; format: string } | null;
+	unsavedExport?: {
+		arrayBuffer: ArrayBuffer;
+		fileName: string;
+		format: string;
+	} | null;
 	onSaveUnsavedExport?: () => void;
 	selectedAnnotationId?: string | null;
 	annotationRegions?: AnnotationRegion[];
@@ -140,7 +210,13 @@ interface SettingsPanelProps {
 	onAnnotationTypeChange?: (id: string, type: AnnotationType) => void;
 	onAnnotationStyleChange?: (id: string, style: Partial<AnnotationRegion["style"]>) => void;
 	onAnnotationFigureDataChange?: (id: string, figureData: FigureData) => void;
+	onAnnotationDuplicate?: (id: string) => void;
 	onAnnotationDelete?: (id: string) => void;
+	selectedBlurId?: string | null;
+	blurRegions?: AnnotationRegion[];
+	onBlurDataChange?: (id: string, blurData: BlurData) => void;
+	onBlurDataCommit?: () => void;
+	onBlurDelete?: (id: string) => void;
 	selectedSpeedId?: string | null;
 	selectedSpeedValue?: PlaybackSpeed | null;
 	onSpeedChange?: (speed: PlaybackSpeed) => void;
@@ -150,6 +226,12 @@ interface SettingsPanelProps {
 	onWebcamLayoutPresetChange?: (preset: WebcamLayoutPreset) => void;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
 	onWebcamMaskShapeChange?: (shape: import("./types").WebcamMaskShape) => void;
+	selectedZoomInDuration?: number;
+	selectedZoomOutDuration?: number;
+	onZoomDurationChange?: (zoomIn: number, zoomOut: number) => void;
+	webcamSizePreset?: WebcamSizePreset;
+	onWebcamSizePresetChange?: (size: WebcamSizePreset) => void;
+	onWebcamSizePresetCommit?: () => void;
 }
 
 export default SettingsPanel;
@@ -161,6 +243,13 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 	{ depth: 4, label: "2.2×" },
 	{ depth: 5, label: "3.5×" },
 	{ depth: 6, label: "5×" },
+];
+
+const ZOOM_SPEED_OPTIONS = [
+	{ label: "Instant", zoomIn: 0, zoomOut: 0 },
+	{ label: "Fast", zoomIn: 500, zoomOut: 350 },
+	{ label: "Smooth", zoomIn: 1522, zoomOut: 1015 },
+	{ label: "Lazy", zoomIn: 3000, zoomOut: 2000 },
 ];
 
 export function SettingsPanel({
@@ -213,7 +302,13 @@ export function SettingsPanel({
 	onAnnotationTypeChange,
 	onAnnotationStyleChange,
 	onAnnotationFigureDataChange,
+	onAnnotationDuplicate,
 	onAnnotationDelete,
+	selectedBlurId,
+	blurRegions = [],
+	onBlurDataChange,
+	onBlurDataCommit,
+	onBlurDelete,
 	selectedSpeedId,
 	selectedSpeedValue,
 	onSpeedChange,
@@ -223,6 +318,12 @@ export function SettingsPanel({
 	onWebcamLayoutPresetChange,
 	webcamMaskShape = "rectangle",
 	onWebcamMaskShapeChange,
+	selectedZoomInDuration,
+	selectedZoomOutDuration,
+	onZoomDurationChange,
+	webcamSizePreset = DEFAULT_WEBCAM_SIZE_PRESET,
+	onWebcamSizePresetChange,
+	onWebcamSizePresetCommit,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [wallpaperPaths, setWallpaperPaths] = useState<string[]>([]);
@@ -268,6 +369,7 @@ export function SettingsPanel({
 	const cropSnapshotRef = useRef<CropRegion | null>(null);
 	const [cropAspectLocked, setCropAspectLocked] = useState(false);
 	const [cropAspectRatio, setCropAspectRatio] = useState("");
+	const isPortraitCanvas = isPortraitAspectRatio(aspectRatio);
 
 	const videoWidth = videoElement?.videoWidth || 1920;
 	const videoHeight = videoElement?.videoHeight || 1080;
@@ -446,6 +548,9 @@ export function SettingsPanel({
 	const selectedAnnotation = selectedAnnotationId
 		? annotationRegions.find((a) => a.id === selectedAnnotationId)
 		: null;
+	const selectedBlur = selectedBlurId
+		? blurRegions.find((region) => region.id === selectedBlurId)
+		: null;
 
 	// If an annotation is selected, show annotation settings instead
 	if (
@@ -466,7 +571,21 @@ export function SettingsPanel({
 						? (figureData) => onAnnotationFigureDataChange(selectedAnnotation.id, figureData)
 						: undefined
 				}
+				onDuplicate={
+					onAnnotationDuplicate ? () => onAnnotationDuplicate(selectedAnnotation.id) : undefined
+				}
 				onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
+			/>
+		);
+	}
+
+	if (selectedBlur && onBlurDataChange && onBlurDelete) {
+		return (
+			<BlurSettingsPanel
+				blurRegion={selectedBlur}
+				onBlurDataChange={(blurData) => onBlurDataChange(selectedBlur.id, blurData)}
+				onBlurDataCommit={onBlurDataCommit}
+				onDelete={() => onBlurDelete(selectedBlur.id)}
 			/>
 		);
 	}
@@ -547,6 +666,39 @@ export function SettingsPanel({
 							)}
 						</div>
 					)}
+
+					{zoomEnabled && (
+						<div className="mt-3">
+							<span className="text-sm font-medium text-slate-200 mb-2 block">
+								{t("zoom.speed.title") || "Zoom Speed"}
+							</span>
+							<div className="grid grid-cols-4 gap-1.5">
+								{ZOOM_SPEED_OPTIONS.map((opt) => {
+									const isActive =
+										selectedZoomInDuration !== undefined &&
+										selectedZoomOutDuration !== undefined &&
+										Math.round(selectedZoomInDuration) === Math.round(opt.zoomIn) &&
+										Math.round(selectedZoomOutDuration) === Math.round(opt.zoomOut);
+									return (
+										<Button
+											key={opt.label}
+											type="button"
+											onClick={() => onZoomDurationChange?.(opt.zoomIn, opt.zoomOut)}
+											className={cn(
+												"h-auto w-full rounded-lg border px-1 py-2 text-center shadow-sm transition-all",
+												"duration-200 ease-out cursor-pointer",
+												isActive
+													? "border-[#34B27B] bg-[#34B27B] text-white shadow-[#34B27B]/20"
+													: "border-white/5 bg-white/5 text-slate-400 hover:bg-white/10 hover:border-white/10 hover:text-slate-200",
+											)}
+										>
+											<span className="text-[10px] font-semibold">{opt.label}</span>
+										</Button>
+									);
+								})}
+							</div>
+						</div>
+					)}
 					{zoomEnabled && (
 						<Button
 							onClick={handleDeleteClick}
@@ -584,7 +736,7 @@ export function SettingsPanel({
 							</span>
 						)}
 					</div>
-					<div className="grid grid-cols-7 gap-1.5">
+					<div className="grid grid-cols-5 gap-1.5">
 						{SPEED_OPTIONS.map((option) => {
 							const isActive = selectedSpeedValue === option.speed;
 							return (
@@ -608,6 +760,29 @@ export function SettingsPanel({
 								</Button>
 							);
 						})}
+					</div>
+					<div className="mt-3">
+						<div className="flex items-center justify-between">
+							<span
+								className={cn("text-[11px]", selectedSpeedId ? "text-slate-500" : "text-slate-600")}
+							>
+								{t("speed.customPlaybackSpeed")}
+							</span>
+							{selectedSpeedId ? (
+								<CustomSpeedInput
+									value={selectedSpeedValue ?? 1}
+									onChange={(val) => onSpeedChange?.(val)}
+									onError={() => toast.error(t("speed.maxSpeedError"))}
+								/>
+							) : (
+								<div className="flex items-center gap-1 opacity-40">
+									<div className="w-12 bg-white/5 border border-white/10 rounded-md px-1 py-0.5 text-[11px] font-semibold text-slate-600 text-center">
+										--
+									</div>
+									<span className="text-[11px] font-semibold text-slate-600">×</span>
+								</div>
+							)}
+						</div>
 					</div>
 					{!selectedSpeedId && (
 						<p className="text-[10px] text-slate-500 mt-2 text-center">{t("speed.selectRegion")}</p>
@@ -656,15 +831,17 @@ export function SettingsPanel({
 											<SelectValue placeholder={t("layout.selectPreset")} />
 										</SelectTrigger>
 										<SelectContent>
-											{WEBCAM_LAYOUT_PRESETS.filter(
-												(preset) =>
-													preset.value === "picture-in-picture" ||
-													isPortraitAspectRatio(aspectRatio),
-											).map((preset) => (
+											{WEBCAM_LAYOUT_PRESETS.filter((preset) => {
+												if (preset.value === "picture-in-picture") return true;
+												if (preset.value === "vertical-stack") return isPortraitCanvas;
+												return !isPortraitCanvas;
+											}).map((preset) => (
 												<SelectItem key={preset.value} value={preset.value} className="text-xs">
 													{preset.value === "picture-in-picture"
 														? t("layout.pictureInPicture")
-														: t("layout.verticalStack")}
+														: preset.value === "vertical-stack"
+															? t("layout.verticalStack")
+															: t("layout.dualFrame")}
 												</SelectItem>
 											))}
 										</SelectContent>
@@ -749,6 +926,27 @@ export function SettingsPanel({
 												</button>
 											))}
 										</div>
+									</div>
+								)}
+								{webcamLayoutPreset === "picture-in-picture" && (
+									<div className="p-2 rounded-lg bg-white/5 border border-white/5 mt-2">
+										<div className="flex items-center justify-between mb-1.5">
+											<div className="text-[10px] font-medium text-slate-300">
+												{t("layout.webcamSize")}
+											</div>
+											<div className="text-[10px] font-medium text-slate-400">
+												{webcamSizePreset}%
+											</div>
+										</div>
+										<Slider
+											value={[webcamSizePreset]}
+											onValueChange={(values) => onWebcamSizePresetChange?.(values[0])}
+											onValueCommit={() => onWebcamSizePresetCommit?.()}
+											min={10}
+											max={50}
+											step={1}
+											className="w-full"
+										/>
 									</div>
 								)}
 							</AccordionContent>
@@ -879,7 +1077,7 @@ export function SettingsPanel({
 						</AccordionTrigger>
 						<AccordionContent className="pb-3">
 							<Tabs defaultValue="image" className="w-full">
-								<TabsList className="mb-2 bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 h-7 rounded-lg">
+								<TabsList className="mb-2 bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 rounded-lg">
 									<TabsTrigger
 										value="image"
 										className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 text-[10px] py-1 rounded-md transition-all"
@@ -1016,7 +1214,9 @@ export function SettingsPanel({
 															: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
 													)}
 													style={{ background: g }}
-													aria-label={t("background.gradientLabel", { index: idx + 1 })}
+													aria-label={t("background.gradientLabel", {
+														index: idx + 1,
+													})}
 													onClick={() => {
 														setGradient(g);
 														onWallpaperChange(g);

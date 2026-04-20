@@ -1,13 +1,21 @@
 import type { Span } from "dnd-timeline";
-import { FolderOpen, Languages, Save } from "lucide-react";
+import { FolderOpen, Languages, Save, Video } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { INITIAL_EDITOR_STATE, useEditorHistory } from "@/hooks/useEditorHistory";
-import { type Locale, SUPPORTED_LOCALES } from "@/i18n/config";
-import { getLocaleName } from "@/i18n/loader";
+import { type Locale } from "@/i18n/config";
+import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
 import {
 	calculateOutputDimensions,
 	type ExportFormat,
@@ -46,11 +54,13 @@ import { SettingsPanel } from "./SettingsPanel";
 import TimelineEditor from "./timeline/TimelineEditor";
 import {
 	type AnnotationRegion,
+	type BlurData,
 	type CursorTelemetryPoint,
 	clampFocusToDepth,
 	DEFAULT_ANNOTATION_POSITION,
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
+	DEFAULT_BLUR_DATA,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_ZOOM_DEPTH,
@@ -64,6 +74,7 @@ import {
 	type ZoomRegion,
 } from "./types";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
+import { TRANSITION_WINDOW_MS, ZOOM_IN_TRANSITION_WINDOW_MS } from "./videoPlayback/constants";
 
 export default function VideoEditor() {
 	const {
@@ -90,6 +101,7 @@ export default function VideoEditor() {
 		aspectRatio,
 		webcamLayoutPreset,
 		webcamMaskShape,
+		webcamSizePreset,
 		webcamPosition,
 	} = editorState;
 
@@ -113,10 +125,12 @@ export default function VideoEditor() {
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
 	const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+	const [selectedBlurId, setSelectedBlurId] = useState<string | null>(null);
 	const [isExporting, setIsExporting] = useState(false);
 	const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
 	const [exportError, setExportError] = useState<string | null>(null);
 	const [showExportDialog, setShowExportDialog] = useState(false);
+	const [showNewRecordingDialog, setShowNewRecordingDialog] = useState(false);
 	const [exportQuality, setExportQuality] = useState<ExportQuality>("good");
 	const [exportFormat, setExportFormat] = useState<ExportFormat>("mp4");
 	const [gifFrameRate, setGifFrameRate] = useState<GifFrameRate>(15);
@@ -141,11 +155,21 @@ export default function VideoEditor() {
 	const { shortcuts, isMac } = useShortcuts();
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
+	const availableLocales = getAvailableLocales();
 	const { locale, setLocale } = useI18n();
 
 	const nextAnnotationIdRef = useRef(1);
 	const nextAnnotationZIndexRef = useRef(1);
 	const exporterRef = useRef<VideoExporter | null>(null);
+
+	const annotationOnlyRegions = useMemo(
+		() => annotationRegions.filter((region) => region.type !== "blur"),
+		[annotationRegions],
+	);
+	const blurRegions = useMemo(
+		() => annotationRegions.filter((region) => region.type === "blur"),
+		[annotationRegions],
+	);
 
 	const currentProjectMedia = useMemo<ProjectMedia | null>(() => {
 		const screenVideoPath = videoSourcePath ?? (videoPath ? fromFileUrl(videoPath) : null);
@@ -206,6 +230,7 @@ export default function VideoEditor() {
 				aspectRatio: normalizedEditor.aspectRatio,
 				webcamLayoutPreset: normalizedEditor.webcamLayoutPreset,
 				webcamMaskShape: normalizedEditor.webcamMaskShape,
+				webcamSizePreset: normalizedEditor.webcamSizePreset,
 				webcamPosition: normalizedEditor.webcamPosition,
 			});
 			setExportQuality(normalizedEditor.exportQuality);
@@ -218,6 +243,7 @@ export default function VideoEditor() {
 			setSelectedTrimId(null);
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 
 			nextZoomIdRef.current = deriveNextId(
 				"zoom",
@@ -416,6 +442,7 @@ export default function VideoEditor() {
 				aspectRatio,
 				webcamLayoutPreset,
 				webcamMaskShape,
+				webcamSizePreset,
 				webcamPosition,
 				exportQuality,
 				exportFormat,
@@ -479,6 +506,7 @@ export default function VideoEditor() {
 			gifSizePreset,
 			videoPath,
 			t,
+			webcamSizePreset,
 		],
 	);
 
@@ -500,6 +528,16 @@ export default function VideoEditor() {
 	const handleSaveProjectAs = useCallback(async () => {
 		await saveProject(true);
 	}, [saveProject]);
+
+	const handleNewRecordingConfirm = useCallback(async () => {
+		const result = await window.electronAPI.startNewRecording();
+		if (result.success) {
+			setShowNewRecordingDialog(false);
+		} else {
+			console.error("Failed to start new recording:", result.error);
+			setError("Failed to start new recording: " + (result.error || "Unknown error"));
+		}
+	}, []);
 
 	const handleLoadProject = useCallback(async () => {
 		const result = await window.electronAPI.loadProjectFile();
@@ -602,7 +640,11 @@ export default function VideoEditor() {
 
 	const handleSelectZoom = useCallback((id: string | null) => {
 		setSelectedZoomId(id);
-		if (id) setSelectedTrimId(null);
+		if (id) {
+			setSelectedTrimId(null);
+			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
+		}
 	}, []);
 
 	const handleSelectTrim = useCallback((id: string | null) => {
@@ -610,6 +652,7 @@ export default function VideoEditor() {
 		if (id) {
 			setSelectedZoomId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		}
 	}, []);
 
@@ -618,6 +661,17 @@ export default function VideoEditor() {
 		if (id) {
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedBlurId(null);
+		}
+	}, []);
+
+	const handleSelectBlur = useCallback((id: string | null) => {
+		setSelectedBlurId(id);
+		if (id) {
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedAnnotationId(null);
+			setSelectedSpeedId(null);
 		}
 	}, []);
 
@@ -635,6 +689,7 @@ export default function VideoEditor() {
 			setSelectedZoomId(id);
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -653,6 +708,7 @@ export default function VideoEditor() {
 			setSelectedZoomId(id);
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -669,6 +725,7 @@ export default function VideoEditor() {
 			setSelectedTrimId(id);
 			setSelectedZoomId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -678,7 +735,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
 					region.id === id
-						? { ...region, startMs: Math.round(span.start), endMs: Math.round(span.end) }
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+							}
 						: region,
 				),
 			}));
@@ -691,7 +752,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				trimRegions: prev.trimRegions.map((region) =>
 					region.id === id
-						? { ...region, startMs: Math.round(span.start), endMs: Math.round(span.end) }
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+							}
 						: region,
 				),
 			}));
@@ -717,7 +782,11 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
 					region.id === selectedZoomId
-						? { ...region, depth, focus: clampFocusToDepth(region.focus, depth) }
+						? {
+								...region,
+								depth,
+								focus: clampFocusToDepth(region.focus, depth),
+							}
 						: region,
 				),
 			}));
@@ -739,7 +808,9 @@ export default function VideoEditor() {
 
 	const handleZoomDelete = useCallback(
 		(id: string) => {
-			pushState((prev) => ({ zoomRegions: prev.zoomRegions.filter((r) => r.id !== id) }));
+			pushState((prev) => ({
+				zoomRegions: prev.zoomRegions.filter((r) => r.id !== id),
+			}));
 			if (selectedZoomId === id) {
 				setSelectedZoomId(null);
 			}
@@ -749,7 +820,9 @@ export default function VideoEditor() {
 
 	const handleTrimDelete = useCallback(
 		(id: string) => {
-			pushState((prev) => ({ trimRegions: prev.trimRegions.filter((r) => r.id !== id) }));
+			pushState((prev) => ({
+				trimRegions: prev.trimRegions.filter((r) => r.id !== id),
+			}));
 			if (selectedTrimId === id) {
 				setSelectedTrimId(null);
 			}
@@ -763,6 +836,7 @@ export default function VideoEditor() {
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		}
 	}, []);
 
@@ -775,11 +849,14 @@ export default function VideoEditor() {
 				endMs: Math.round(span.end),
 				speed: DEFAULT_PLAYBACK_SPEED,
 			};
-			pushState((prev) => ({ speedRegions: [...prev.speedRegions, newRegion] }));
+			pushState((prev) => ({
+				speedRegions: [...prev.speedRegions, newRegion],
+			}));
 			setSelectedSpeedId(id);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -840,10 +917,54 @@ export default function VideoEditor() {
 				style: { ...DEFAULT_ANNOTATION_STYLE },
 				zIndex,
 			};
-			pushState((prev) => ({ annotationRegions: [...prev.annotationRegions, newRegion] }));
+			pushState((prev) => ({
+				annotationRegions: [...prev.annotationRegions, newRegion],
+			}));
 			setSelectedAnnotationId(id);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedBlurId(null);
+		},
+		[pushState],
+	);
+
+	const handleBlurAdded = useCallback(
+		(span: Span) => {
+			const id = `annotation-${nextAnnotationIdRef.current++}`;
+			const zIndex = nextAnnotationZIndexRef.current++;
+			const newRegion: AnnotationRegion = {
+				id,
+				startMs: Math.round(span.start),
+				endMs: Math.round(span.end),
+				type: "blur",
+				content: "",
+				position: { ...DEFAULT_ANNOTATION_POSITION },
+				size: { ...DEFAULT_ANNOTATION_SIZE },
+				style: { ...DEFAULT_ANNOTATION_STYLE },
+				zIndex,
+				blurData: { ...DEFAULT_BLUR_DATA },
+			};
+			pushState((prev) => ({
+				annotationRegions: [...prev.annotationRegions, newRegion],
+			}));
+			setSelectedBlurId(id);
+			setSelectedAnnotationId(null);
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
+		},
+		[pushState],
+	);
+
+	const handleZoomDurationChange = useCallback(
+		(id: string, zoomIn: number, zoomOut: number) => {
+			pushState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) =>
+					region.id === id
+						? { ...region, zoomInDurationMs: zoomIn, zoomOutDurationMs: zoomOut }
+						: region,
+				),
+			}));
 		},
 		[pushState],
 	);
@@ -853,10 +974,41 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				annotationRegions: prev.annotationRegions.map((region) =>
 					region.id === id
-						? { ...region, startMs: Math.round(span.start), endMs: Math.round(span.end) }
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+							}
 						: region,
 				),
 			}));
+		},
+		[pushState],
+	);
+
+	const handleAnnotationDuplicate = useCallback(
+		(id: string) => {
+			const duplicateId = `annotation-${nextAnnotationIdRef.current++}`;
+			const duplicateZIndex = nextAnnotationZIndexRef.current++;
+			pushState((prev) => {
+				const source = prev.annotationRegions.find((region) => region.id === id);
+				if (!source) return {};
+
+				const duplicate: AnnotationRegion = {
+					...source,
+					id: duplicateId,
+					zIndex: duplicateZIndex,
+					position: { x: source.position.x + 4, y: source.position.y + 4 },
+					size: { ...source.size },
+					style: { ...source.style },
+					figureData: source.figureData ? { ...source.figureData } : undefined,
+				};
+
+				return { annotationRegions: [...prev.annotationRegions, duplicate] };
+			});
+			setSelectedAnnotationId(duplicateId);
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
 		},
 		[pushState],
 	);
@@ -869,8 +1021,11 @@ export default function VideoEditor() {
 			if (selectedAnnotationId === id) {
 				setSelectedAnnotationId(null);
 			}
+			if (selectedBlurId === id) {
+				setSelectedBlurId(null);
+			}
 		},
-		[selectedAnnotationId, pushState],
+		[selectedAnnotationId, selectedBlurId, pushState],
 	);
 
 	const handleAnnotationContentChange = useCallback(
@@ -905,12 +1060,26 @@ export default function VideoEditor() {
 						if (!region.figureData) {
 							updatedRegion.figureData = { ...DEFAULT_FIGURE_DATA };
 						}
+					} else if (type === "blur") {
+						updatedRegion.content = "";
+						if (!region.blurData) {
+							updatedRegion.blurData = { ...DEFAULT_BLUR_DATA };
+						}
 					}
 					return updatedRegion;
 				}),
 			}));
+
+			if (type === "blur" && selectedAnnotationId === id) {
+				setSelectedAnnotationId(null);
+				setSelectedBlurId(id);
+				setSelectedSpeedId(null);
+			} else if (type !== "blur" && selectedBlurId === id) {
+				setSelectedBlurId(null);
+				setSelectedAnnotationId(id);
+			}
 		},
-		[pushState],
+		[pushState, selectedAnnotationId, selectedBlurId],
 	);
 
 	const handleAnnotationStyleChange = useCallback(
@@ -929,6 +1098,51 @@ export default function VideoEditor() {
 			pushState((prev) => ({
 				annotationRegions: prev.annotationRegions.map((region) =>
 					region.id === id ? { ...region, figureData } : region,
+				),
+			}));
+		},
+		[pushState],
+	);
+
+	const handleBlurDataPreviewChange = useCallback(
+		(id: string, blurData: BlurData) => {
+			updateState((prev) => ({
+				annotationRegions: prev.annotationRegions.map((region) =>
+					region.id === id
+						? {
+								...region,
+								blurData,
+								// Freehand drawing area is the full video surface.
+								...(blurData.shape === "freehand"
+									? {
+											position: { x: 0, y: 0 },
+											size: { width: 100, height: 100 },
+										}
+									: {}),
+							}
+						: region,
+				),
+			}));
+		},
+		[updateState],
+	);
+
+	const handleBlurDataPanelChange = useCallback(
+		(id: string, blurData: BlurData) => {
+			pushState((prev) => ({
+				annotationRegions: prev.annotationRegions.map((region) =>
+					region.id === id
+						? {
+								...region,
+								blurData,
+								...(blurData.shape === "freehand"
+									? {
+											position: { x: 0, y: 0 },
+											size: { width: 100, height: 100 },
+										}
+									: {}),
+							}
+						: region,
 				),
 			}));
 		},
@@ -1048,11 +1262,14 @@ export default function VideoEditor() {
 	useEffect(() => {
 		if (
 			selectedAnnotationId &&
-			!annotationRegions.some((region) => region.id === selectedAnnotationId)
+			!annotationOnlyRegions.some((region) => region.id === selectedAnnotationId)
 		) {
 			setSelectedAnnotationId(null);
 		}
-	}, [selectedAnnotationId, annotationRegions]);
+		if (selectedBlurId && !blurRegions.some((region) => region.id === selectedBlurId)) {
+			setSelectedBlurId(null);
+		}
+	}, [selectedAnnotationId, selectedBlurId, annotationOnlyRegions, blurRegions]);
 
 	useEffect(() => {
 		if (selectedSpeedId && !speedRegions.some((region) => region.id === selectedSpeedId)) {
@@ -1174,6 +1391,7 @@ export default function VideoEditor() {
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
+						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
 						previewHeight,
@@ -1307,6 +1525,7 @@ export default function VideoEditor() {
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
+						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
 						previewHeight,
@@ -1377,6 +1596,7 @@ export default function VideoEditor() {
 			aspectRatio,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
 			handleExportSaved,
@@ -1482,6 +1702,34 @@ export default function VideoEditor() {
 
 	return (
 		<div className="flex flex-col h-screen bg-[#09090b] text-slate-200 overflow-hidden selection:bg-[#34B27B]/30">
+			<Dialog open={showNewRecordingDialog} onOpenChange={setShowNewRecordingDialog}>
+				<DialogContent
+					className="sm:max-w-[425px]"
+					style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+				>
+					<DialogHeader>
+						<DialogTitle>{t("newRecording.title")}</DialogTitle>
+						<DialogDescription>{t("newRecording.description")}</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<button
+							type="button"
+							onClick={() => setShowNewRecordingDialog(false)}
+							className="px-4 py-2 rounded-md bg-white/10 text-white hover:bg-white/20 text-sm font-medium transition-colors"
+						>
+							{t("newRecording.cancel")}
+						</button>
+						<button
+							type="button"
+							onClick={handleNewRecordingConfirm}
+							className="px-4 py-2 rounded-md bg-[#34B27B] text-white hover:bg-[#34B27B]/90 text-sm font-medium transition-colors"
+						>
+							{t("newRecording.confirm")}
+						</button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
 			<div
 				className="h-10 flex-shrink-0 bg-[#09090b]/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-6 z-50"
 				style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
@@ -1500,13 +1748,21 @@ export default function VideoEditor() {
 							className="bg-transparent text-[11px] font-medium outline-none cursor-pointer appearance-none pr-1"
 							style={{ color: "inherit" }}
 						>
-							{SUPPORTED_LOCALES.map((loc) => (
+							{availableLocales.map((loc) => (
 								<option key={loc} value={loc} className="bg-[#09090b] text-white">
 									{getLocaleName(loc)}
 								</option>
 							))}
 						</select>
 					</div>
+					<button
+						type="button"
+						onClick={() => setShowNewRecordingDialog(true)}
+						className="flex items-center gap-1 px-2 py-1 rounded-md text-white/50 hover:text-white/90 hover:bg-white/10 transition-all duration-150 text-[11px] font-medium"
+					>
+						<Video size={14} />
+						{t("newRecording.title")}
+					</button>
 					<button
 						type="button"
 						onClick={handleLoadProject}
@@ -1563,6 +1819,7 @@ export default function VideoEditor() {
 											webcamVideoPath={webcamVideoPath || undefined}
 											webcamLayoutPreset={webcamLayoutPreset}
 											webcamMaskShape={webcamMaskShape}
+											webcamSizePreset={webcamSizePreset}
 											webcamPosition={webcamPosition}
 											onWebcamPositionChange={(pos) => updateState({ webcamPosition: pos })}
 											onWebcamPositionDragEnd={commitState}
@@ -1587,11 +1844,18 @@ export default function VideoEditor() {
 											cropRegion={cropRegion}
 											trimRegions={trimRegions}
 											speedRegions={speedRegions}
-											annotationRegions={annotationRegions}
+											annotationRegions={annotationOnlyRegions}
 											selectedAnnotationId={selectedAnnotationId}
 											onSelectAnnotation={handleSelectAnnotation}
 											onAnnotationPositionChange={handleAnnotationPositionChange}
 											onAnnotationSizeChange={handleAnnotationSizeChange}
+											blurRegions={blurRegions}
+											selectedBlurId={selectedBlurId}
+											onSelectBlur={handleSelectBlur}
+											onBlurPositionChange={handleAnnotationPositionChange}
+											onBlurSizeChange={handleAnnotationSizeChange}
+											onBlurDataChange={handleBlurDataPreviewChange}
+											onBlurDataCommit={commitState}
 											cursorTelemetry={cursorTelemetry}
 										/>
 									</div>
@@ -1629,6 +1893,7 @@ export default function VideoEditor() {
 									onZoomAdded={handleZoomAdded}
 									onZoomSuggested={handleZoomSuggested}
 									onZoomSpanChange={handleZoomSpanChange}
+									onZoomDurationChange={handleZoomDurationChange}
 									onZoomDelete={handleZoomDelete}
 									selectedZoomId={selectedZoomId}
 									onSelectZoom={handleSelectZoom}
@@ -1644,18 +1909,25 @@ export default function VideoEditor() {
 									onSpeedDelete={handleSpeedDelete}
 									selectedSpeedId={selectedSpeedId}
 									onSelectSpeed={handleSelectSpeed}
-									annotationRegions={annotationRegions}
+									annotationRegions={annotationOnlyRegions}
 									onAnnotationAdded={handleAnnotationAdded}
 									onAnnotationSpanChange={handleAnnotationSpanChange}
 									onAnnotationDelete={handleAnnotationDelete}
 									selectedAnnotationId={selectedAnnotationId}
 									onSelectAnnotation={handleSelectAnnotation}
+									blurRegions={blurRegions}
+									onBlurAdded={handleBlurAdded}
+									onBlurSpanChange={handleAnnotationSpanChange}
+									onBlurDelete={handleAnnotationDelete}
+									selectedBlurId={selectedBlurId}
+									onSelectBlur={handleSelectBlur}
 									aspectRatio={aspectRatio}
 									onAspectRatioChange={(ar) =>
 										pushState({
 											aspectRatio: ar,
 											webcamLayoutPreset:
-												!isPortraitAspectRatio(ar) && webcamLayoutPreset === "vertical-stack"
+												(isPortraitAspectRatio(ar) && webcamLayoutPreset === "dual-frame") ||
+												(!isPortraitAspectRatio(ar) && webcamLayoutPreset === "vertical-stack")
 													? "picture-in-picture"
 													: webcamLayoutPreset,
 										})
@@ -1708,11 +1980,14 @@ export default function VideoEditor() {
 						onWebcamLayoutPresetChange={(preset) =>
 							pushState({
 								webcamLayoutPreset: preset,
-								webcamPosition: preset === "vertical-stack" ? null : webcamPosition,
+								webcamPosition: preset === "picture-in-picture" ? webcamPosition : null,
 							})
 						}
 						webcamMaskShape={webcamMaskShape}
 						onWebcamMaskShapeChange={(shape) => pushState({ webcamMaskShape: shape })}
+						webcamSizePreset={webcamSizePreset}
+						onWebcamSizePresetChange={(v) => updateState({ webcamSizePreset: v })}
+						onWebcamSizePresetCommit={commitState}
 						videoElement={videoPlaybackRef.current?.video || null}
 						exportQuality={exportQuality}
 						onExportQualityChange={setExportQuality}
@@ -1739,12 +2014,18 @@ export default function VideoEditor() {
 						)}
 						onExport={handleOpenExportDialog}
 						selectedAnnotationId={selectedAnnotationId}
-						annotationRegions={annotationRegions}
+						annotationRegions={annotationOnlyRegions}
 						onAnnotationContentChange={handleAnnotationContentChange}
 						onAnnotationTypeChange={handleAnnotationTypeChange}
 						onAnnotationStyleChange={handleAnnotationStyleChange}
 						onAnnotationFigureDataChange={handleAnnotationFigureDataChange}
+						onAnnotationDuplicate={handleAnnotationDuplicate}
 						onAnnotationDelete={handleAnnotationDelete}
+						selectedBlurId={selectedBlurId}
+						blurRegions={blurRegions}
+						onBlurDataChange={handleBlurDataPanelChange}
+						onBlurDataCommit={commitState}
+						onBlurDelete={handleAnnotationDelete}
 						selectedSpeedId={selectedSpeedId}
 						selectedSpeedValue={
 							selectedSpeedId
@@ -1755,6 +2036,21 @@ export default function VideoEditor() {
 						onSpeedDelete={handleSpeedDelete}
 						unsavedExport={unsavedExport}
 						onSaveUnsavedExport={handleSaveUnsavedExport}
+						selectedZoomInDuration={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.zoomInDurationMs ??
+									Math.round(ZOOM_IN_TRANSITION_WINDOW_MS))
+								: undefined
+						}
+						selectedZoomOutDuration={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.zoomOutDurationMs ??
+									Math.round(TRANSITION_WINDOW_MS))
+								: undefined
+						}
+						onZoomDurationChange={(zoomIn, zoomOut) =>
+							selectedZoomId && handleZoomDurationChange(selectedZoomId, zoomIn, zoomOut)
+						}
 					/>
 				</div>
 			</div>
