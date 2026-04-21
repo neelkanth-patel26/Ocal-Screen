@@ -37,8 +37,8 @@ if (process.platform === "linux") {
 		process.env.XDG_SESSION_TYPE === "wayland" || process.env.WAYLAND_DISPLAY !== undefined;
 	if (isWayland) {
 		app.commandLine.appendSwitch("ozone-platform", "wayland");
-		// Enable PipeWire for screen capture on Wayland
-		app.commandLine.appendSwitch("enable-features", "WaylandWindowDrag,PipeWire");
+		// Enable WebRTCPipeWireCapturer for screen capture on Wayland
+		app.commandLine.appendSwitch("enable-features", "WaylandWindowDrag,WebRTCPipeWireCapturer");
 	}
 }
 
