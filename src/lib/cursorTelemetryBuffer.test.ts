@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type CursorTelemetryPoint, createCursorTelemetryBuffer } from "./cursorTelemetryBuffer";
 
 function sample(tag: number): CursorTelemetryPoint {
@@ -138,6 +138,56 @@ describe("createCursorTelemetryBuffer", () => {
 		const buf = createCursorTelemetryBuffer({ maxActiveSamples: 10 });
 		buf.prependBatch([]);
 		expect(buf.pendingCount).toBe(0);
+	});
+
+	it("endSession() returns the number of dropped batches and warns when the cap is exceeded", () => {
+		const buf = createCursorTelemetryBuffer({ maxActiveSamples: 10, maxPendingBatches: 2 });
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+		for (let round = 1; round <= 2; round++) {
+			buf.startSession();
+			buf.push(sample(round));
+			expect(buf.endSession()).toBe(0);
+		}
+		expect(warn).not.toHaveBeenCalled();
+
+		buf.startSession();
+		buf.push(sample(3));
+		const dropped = buf.endSession();
+		expect(dropped).toBe(1);
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn.mock.calls[0]?.[0]).toMatch(/dropped 1 pending batch/);
+		expect(buf.pendingCount).toBe(2);
+
+		warn.mockRestore();
+	});
+
+	it("prependBatch() defensively trims and warns when it would exceed the cap", () => {
+		const buf = createCursorTelemetryBuffer({ maxActiveSamples: 10, maxPendingBatches: 2 });
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+		// Fill the queue to the cap without dropping anything.
+		for (let round = 1; round <= 2; round++) {
+			buf.startSession();
+			buf.push(sample(round));
+			buf.endSession();
+		}
+		expect(buf.pendingCount).toBe(2);
+		expect(warn).not.toHaveBeenCalled();
+
+		// Simulate a misuse where a retry prepends without first draining:
+		// queue would grow to 3, so the oldest-trailing entry must be evicted.
+		buf.prependBatch([sample(99)]);
+		expect(buf.pendingCount).toBe(2);
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn.mock.calls[0]?.[0]).toMatch(/prependBatch trimmed 1 trailing batch/);
+
+		// Front is the prepended batch; the preserved trailing batch is round 1.
+		expect(buf.takeNextBatch().map((s) => s.timeMs)).toEqual([99]);
+		expect(buf.takeNextBatch().map((s) => s.timeMs)).toEqual([1]);
+		expect(buf.pendingCount).toBe(0);
+
+		warn.mockRestore();
 	});
 
 	it("reset() clears both active and pending state", () => {
