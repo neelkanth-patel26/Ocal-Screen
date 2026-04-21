@@ -1,8 +1,10 @@
 /**
  * A single cursor telemetry sample captured during a recording session.
  *
- * Coordinates (`cx`, `cy`) are device-pixel positions relative to the
- * captured surface; `timeMs` is the offset from the recording's start.
+ * Coordinates (`cx`, `cy`) are clamped ratios in the `[0, 1]` range,
+ * normalised against the captured surface's width and height by the
+ * main-process `sampleCursorPoint()` before being pushed. `timeMs` is the
+ * offset (in milliseconds) from the recording's start.
  */
 export interface CursorTelemetryPoint {
 	timeMs: number;
@@ -94,17 +96,29 @@ export interface CursorTelemetryBufferOptions {
 }
 
 const DEFAULT_MAX_PENDING_BATCHES = 8;
+const DEFAULT_MAX_ACTIVE_SAMPLES = 10_000;
+
+/** Coerce a numeric option into a safe, finite, positive integer. */
+function sanitizeLimit(value: number | undefined, fallback: number): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+	const floored = Math.floor(value);
+	return floored >= 1 ? floored : fallback;
+}
 
 /**
  * Create a cursor telemetry buffer.
+ *
+ * Numeric options are sanitized: non-finite, negative, or zero values fall
+ * back to safe defaults so a bad caller cannot disable the memory bounds
+ * (which would turn the trim loops into infinite loops).
  *
  * @see CursorTelemetryBuffer for the full lifecycle contract.
  */
 export function createCursorTelemetryBuffer(
 	options: CursorTelemetryBufferOptions,
 ): CursorTelemetryBuffer {
-	const maxActive = options.maxActiveSamples;
-	const maxPending = options.maxPendingBatches ?? DEFAULT_MAX_PENDING_BATCHES;
+	const maxActive = sanitizeLimit(options.maxActiveSamples, DEFAULT_MAX_ACTIVE_SAMPLES);
+	const maxPending = sanitizeLimit(options.maxPendingBatches, DEFAULT_MAX_PENDING_BATCHES);
 
 	let active: CursorTelemetryPoint[] = [];
 	let pending: CursorTelemetryPoint[][] = [];

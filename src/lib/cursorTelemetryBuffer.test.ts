@@ -190,6 +190,29 @@ describe("createCursorTelemetryBuffer", () => {
 		warn.mockRestore();
 	});
 
+	it("sanitizes non-finite or non-positive option values to safe defaults", () => {
+		// Infinity / NaN / negative would otherwise turn the trim loops
+		// into infinite loops. The buffer must fall back to defaults.
+		const buf = createCursorTelemetryBuffer({
+			maxActiveSamples: Number.POSITIVE_INFINITY,
+			maxPendingBatches: Number.NaN,
+		});
+
+		buf.startSession();
+		buf.push(sample(1));
+		expect(() => buf.endSession()).not.toThrow();
+		expect(buf.pendingCount).toBe(1);
+
+		const buf2 = createCursorTelemetryBuffer({
+			maxActiveSamples: -5,
+			maxPendingBatches: 0,
+		});
+		buf2.startSession();
+		buf2.push(sample(2));
+		expect(() => buf2.endSession()).not.toThrow();
+		expect(buf2.pendingCount).toBe(1);
+	});
+
 	it("reset() clears both active and pending state", () => {
 		const buf = createCursorTelemetryBuffer({ maxActiveSamples: 10 });
 		buf.startSession();
