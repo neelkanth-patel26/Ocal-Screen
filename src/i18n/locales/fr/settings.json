@@ -8,6 +8,13 @@
 			"manual": "Manuel",
 			"auto": "Auto",
 			"autoDescription": "La caméra suit la position du curseur enregistré"
+		},
+		"speed": {
+			"title": "Vitesse du zoom",
+			"instant": "Instantané",
+			"fast": "Rapide",
+			"smooth": "Fluide",
+			"lazy": "Lent"
 		}
 	},
 	"speed": {
@@ -26,6 +33,7 @@
 		"selectPreset": "Choisir un préréglage",
 		"pictureInPicture": "Incrustation d'image",
 		"verticalStack": "Empilement vertical",
+		"dualFrame": "Double cadre",
 		"webcamShape": "Forme de la caméra",
 		"webcamSize": "Taille de la caméra"
 	},
