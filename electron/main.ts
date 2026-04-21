@@ -30,6 +30,18 @@ if (process.platform === "darwin") {
 	app.commandLine.appendSwitch("disable-features", "MacCatapLoopbackAudioForScreenShare");
 }
 
+// Enable Wayland support for proper screen capture and window management
+// on Wayland compositors (Hyprland, GNOME, KDE, etc.)
+if (process.platform === "linux") {
+	const isWayland =
+		process.env.XDG_SESSION_TYPE === "wayland" || process.env.WAYLAND_DISPLAY !== undefined;
+	if (isWayland) {
+		app.commandLine.appendSwitch("ozone-platform", "wayland");
+		// Enable PipeWire for screen capture on Wayland
+		app.commandLine.appendSwitch("enable-features", "WaylandWindowDrag,PipeWire");
+	}
+}
+
 export const RECORDINGS_DIR = path.join(app.getPath("userData"), "recordings");
 
 async function ensureRecordingsDir() {
