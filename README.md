@@ -102,6 +102,16 @@ See the documentation here:
 
 Contributions are welcome! If you’d like to help out or see what’s currently being worked on, take a look at the open issues and the [project roadmap](https://github.com/users/siddharthvaddem/projects/3) to understand the current direction of the project and find ways to contribute.
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=siddharthvaddem%2Fopenscreen&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=siddharthvaddem/openscreen&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=siddharthvaddem/openscreen&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=siddharthvaddem/openscreen&type=date&legend=top-left" />
+ </picture>
+</a>
+
 ## License
 
 This project is licensed under the [MIT License](./LICENSE). By using this software, you agree that the authors are not liable for any issues, damages, or claims arising from its use.
