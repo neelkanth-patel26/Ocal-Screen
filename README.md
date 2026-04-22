@@ -5,12 +5,15 @@
   <img src="public/openscreen.png" alt="OpenScreen Logo" width="64" />
   <br />
   <br />
+	<a href="https://trendshift.io/repositories/17427" target="_blank"><img src="https://trendshift.io/api/badge/repositories/17427" alt="siddharthvaddem%2Fopenscreen | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+	<br />
+	<br />
   <a href="https://deepwiki.com/siddharthvaddem/openscreen">
     <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" />
   </a>
   &nbsp;
   <a href="https://discord.gg/yAQQhRaEeg">
-    <img src="https://img.shields.io/discord/pHAUbcqNd?logo=discord&label=Discord&color=5865F2" alt="Join Discord" />
+    <img src="https://dcbadge.limes.pink/api/server/https://discord.gg/yAQQhRaEeg?style=flat" alt="Join Discord" />
   </a>
 </p>
 
