@@ -856,7 +856,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				videoContainer.mask = null;
 				maskGraphicsRef.current = null;
 				if (blurFilterRef.current) {
-					videoContainer.filters = [];
+					videoContainer.filters = null;
 					blurFilterRef.current.destroy();
 					blurFilterRef.current = null;
 				}
@@ -913,6 +913,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				state.appliedScale = appliedTransform.scale;
 			};
 
+			let lastMotionBlurActive: boolean | null = null;
 			const ticker = () => {
 				const bm = baseMaskRef.current;
 				const ss = stageSizeRef.current;
@@ -1083,15 +1084,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 				const isMotionBlurActive = (motionBlurAmountRef.current || 0) > 0 && isPlayingRef.current;
 
-				if (
-					isMotionBlurActive &&
-					blurFilterRef.current &&
-					motionBlurFilterRef.current &&
-					videoContainerRef.current
-				) {
-					videoContainerRef.current.filters = [blurFilterRef.current, motionBlurFilterRef.current];
-				} else if (videoContainerRef.current) {
-					videoContainerRef.current.filters = null;
+				if (isMotionBlurActive !== lastMotionBlurActive && videoContainerRef.current) {
+					if (isMotionBlurActive && blurFilterRef.current && motionBlurFilterRef.current) {
+						videoContainerRef.current.filters = [
+							blurFilterRef.current,
+							motionBlurFilterRef.current,
+						];
+					} else {
+						videoContainerRef.current.filters = null;
+					}
+					lastMotionBlurActive = isMotionBlurActive;
 				}
 			};
 
