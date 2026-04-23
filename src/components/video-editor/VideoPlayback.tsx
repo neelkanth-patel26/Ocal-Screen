@@ -1083,7 +1083,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 				const isMotionBlurActive = (motionBlurAmountRef.current || 0) > 0 && isPlayingRef.current;
 
-				if (isMotionBlurActive && blurFilterRef.current && motionBlurFilterRef.current && videoContainerRef.current) {
+				if (
+					isMotionBlurActive &&
+					blurFilterRef.current &&
+					motionBlurFilterRef.current &&
+					videoContainerRef.current
+				) {
 					videoContainerRef.current.filters = [blurFilterRef.current, motionBlurFilterRef.current];
 				} else if (videoContainerRef.current) {
 					videoContainerRef.current.filters = null;
