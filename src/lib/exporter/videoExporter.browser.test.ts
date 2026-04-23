@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import sampleVideoUrl from "../../../tests/fixtures/sample.webm?url";
+import inflatedDurationVideoUrl from "../../../tests/fixtures/sample-inflated-duration.webm?url";
 import type { ExportProgress } from "./types";
 import { VideoExporter } from "./videoExporter";
 
@@ -39,5 +40,34 @@ describe("VideoExporter (real browser)", () => {
 		const finalizing = progressEvents.filter((p) => p.phase === "finalizing");
 		expect(finalizing.length).toBeGreaterThan(0);
 		expect(finalizing.at(-1)!.percentage).toBe(100);
+	});
+
+	it("exports successfully when container duration is inflated beyond actual content", async () => {
+		const exporter = new VideoExporter({
+			videoUrl: inflatedDurationVideoUrl,
+			width: 320,
+			height: 180,
+			frameRate: 15,
+			bitrate: 1_000_000,
+			wallpaper: "#1a1a2e",
+			zoomRegions: [],
+			showShadow: false,
+			shadowIntensity: 0,
+			showBlur: false,
+			cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+			onProgress: () => {
+				/**noop**/
+			},
+		});
+
+		const result = await exporter.export();
+
+		expect(result.success, result.error).toBe(true);
+		expect(result.blob).toBeInstanceOf(Blob);
+
+		const buf = await result.blob!.arrayBuffer();
+		const bytes = new Uint8Array(buf);
+		const ftyp = new TextDecoder().decode(bytes.slice(4, 8));
+		expect(ftyp).toBe("ftyp");
 	});
 });
