@@ -164,6 +164,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const [pixiReady, setPixiReady] = useState(false);
 		const [videoReady, setVideoReady] = useState(false);
 		const overlayRef = useRef<HTMLDivElement | null>(null);
+		const [containerSize, setContainerSize] = useState({
+			width: 800,
+			height: 600,
+		});
 		const focusIndicatorRef = useRef<HTMLDivElement | null>(null);
 		const [webcamLayout, setWebcamLayout] = useState<StyledRenderRect | null>(null);
 		const [webcamDimensions, setWebcamDimensions] = useState<Size | null>(null);
@@ -195,7 +199,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const isPlayingRef = useRef(isPlaying);
 		const isSeekingRef = useRef(false);
 		const allowPlaybackRef = useRef(false);
-		const lockedVideoDimensionsRef = useRef<{ width: number; height: number } | null>(null);
+		const lockedVideoDimensionsRef = useRef<{
+			width: number;
+			height: number;
+		} | null>(null);
 		const layoutVideoContentRef = useRef<(() => void) | null>(null);
 		const trimRegionsRef = useRef<TrimRegion[]>([]);
 		const speedRegionsRef = useRef<SpeedRegion[]>([]);
@@ -648,7 +655,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				app.ticker.maxFPS = 60;
 
 				if (!mounted) {
-					app.destroy(true, { children: true, texture: true, textureSource: true });
+					app.destroy(true, {
+						children: true,
+						texture: true,
+						textureSource: true,
+					});
 					return;
 				}
 
@@ -672,7 +683,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				mounted = false;
 				setPixiReady(false);
 				if (app && app.renderer) {
-					app.destroy(true, { children: true, texture: true, textureSource: true });
+					app.destroy(true, {
+						children: true,
+						texture: true,
+						textureSource: true,
+					});
 				}
 				appRef.current = null;
 				cameraContainerRef.current = null;
@@ -853,12 +868,19 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const ss = stageSizeRef.current;
 				const viewportRatio =
 					bm.width > 0 && bm.height > 0
-						? { widthRatio: ss.width / bm.width, heightRatio: ss.height / bm.height }
+						? {
+								widthRatio: ss.width / bm.width,
+								heightRatio: ss.height / bm.height,
+							}
 						: undefined;
 				const { region, strength, blendedScale, transition } = findDominantRegion(
 					zoomRegionsRef.current,
 					currentTimeRef.current,
-					{ connectZooms: true, cursorTelemetry: cursorTelemetryRef.current, viewportRatio },
+					{
+						connectZooms: true,
+						cursorTelemetry: cursorTelemetryRef.current,
+						viewportRatio,
+					},
 				);
 
 				const defaultFocus = DEFAULT_FOCUS;
@@ -1114,6 +1136,21 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [webcamVideoPath]);
 
 		useEffect(() => {
+			if (!overlayRef.current) return;
+
+			const observer = new ResizeObserver(() => {
+				setContainerSize({
+					width: overlayRef.current!.clientWidth,
+					height: overlayRef.current!.clientHeight,
+				});
+			});
+
+			observer.observe(overlayRef.current);
+
+			return () => observer.disconnect();
+		}, []);
+
+		useEffect(() => {
 			let mounted = true;
 			(async () => {
 				try {
@@ -1307,20 +1344,24 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								}
 							};
 
-							return sorted.map((annotation) => (
-								<AnnotationOverlay
-									key={annotation.id}
-									annotation={annotation}
-									isSelected={annotation.id === selectedAnnotationId}
-									containerWidth={overlayRef.current?.clientWidth || 800}
-									containerHeight={overlayRef.current?.clientHeight || 600}
-									onPositionChange={(id, position) => onAnnotationPositionChange?.(id, position)}
-									onSizeChange={(id, size) => onAnnotationSizeChange?.(id, size)}
-									onClick={handleAnnotationClick}
-									zIndex={annotation.zIndex}
-									isSelectedBoost={annotation.id === selectedAnnotationId}
-								/>
-							));
+							return sorted.map((annotation) => {
+								const containerWidth = containerSize.width;
+								const containerHeight = containerSize.height;
+								return (
+									<AnnotationOverlay
+										key={annotation.id}
+										annotation={annotation}
+										isSelected={annotation.id === selectedAnnotationId}
+										containerWidth={containerWidth}
+										containerHeight={containerHeight}
+										onPositionChange={(id, position) => onAnnotationPositionChange?.(id, position)}
+										onSizeChange={(id, size) => onAnnotationSizeChange?.(id, size)}
+										onClick={handleAnnotationClick}
+										zIndex={annotation.zIndex}
+										isSelectedBoost={annotation.id === selectedAnnotationId}
+									/>
+								);
+							});
 						})()}
 					</div>
 				)}
