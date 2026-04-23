@@ -129,11 +129,8 @@ export function shouldFailDecodeEndedEarly({
 	const decodedNearStreamEnd =
 		Math.abs(lastDecodedFrameSec - streamDurationSec) <= STREAM_DURATION_MATCH_TOLERANCE_SEC;
 
-	if (
-		decodedNearStreamEnd &&
-		metadataTailSec > 0 &&
-		metadataTailSec <= METADATA_TAIL_TOLERANCE_SEC
-	) {
+	const maxTailSec = Math.max(METADATA_TAIL_TOLERANCE_SEC, requiredEndSec * 0.01);
+	if (decodedNearStreamEnd && metadataTailSec > 0 && metadataTailSec <= maxTailSec) {
 		return false;
 	}
 
@@ -246,13 +243,14 @@ export class StreamingVideoDecoder {
 		const hintedDurationSec = Math.max(containerDurationSec, streamDurationSec, 0);
 		const scanEndSec =
 			hintedDurationSec > 0 ? hintedDurationSec + 0.5 : SCAN_UNBOUNDED_FALLBACK_SEC;
-		let maxPacketTimestampUs = 0;
+		let maxPacketEndUs = 0;
 		const scanReader = this.demuxer.read("video", 0, scanEndSec).getReader();
 		try {
 			while (true) {
 				const { done, value } = await scanReader.read();
 				if (done || !value) break;
-				if (value.timestamp > maxPacketTimestampUs) maxPacketTimestampUs = value.timestamp;
+				const endUs = value.timestamp + (value.duration ?? 0);
+				if (endUs > maxPacketEndUs) maxPacketEndUs = endUs;
 			}
 		} finally {
 			try {
@@ -261,12 +259,7 @@ export class StreamingVideoDecoder {
 				/* already closed */
 			}
 		}
-		// Use last frame's timestamp + one frame duration. The `duration` field on the last
-		// packet in a WebM container is frequently inflated by the demuxer to match the
-		// container's declared end, causing validateDuration to see no divergence and
-		// propagate a duration that the decoder can never actually reach.
-		const typicalFrameDurationUs = Math.ceil(1_000_000 / frameRate);
-		const scannedDuration = (maxPacketTimestampUs + typicalFrameDurationUs) / 1_000_000;
+		const scannedDuration = maxPacketEndUs / 1_000_000;
 		const validatedDuration = validateDuration(mediaInfo.duration, scannedDuration);
 
 		this.metadata = {
