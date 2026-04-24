@@ -1141,41 +1141,39 @@ export function SettingsPanel({
 												);
 											})}
 
-											{(wallpaperPaths.length > 0 ? wallpaperPaths : WALLPAPER_PATHS).map(
-												(path) => {
-													const isSelected = (() => {
-														if (!selected) return false;
-														if (selected === path) return true;
-														try {
-															const clean = (s: string) =>
-																s.replace(/^file:\/\//, "").replace(/^\//, "");
-															if (clean(selected).endsWith(clean(path))) return true;
-															if (clean(path).endsWith(clean(selected))) return true;
-														} catch {
-															// Best-effort comparison; fallback to strict match.
-														}
-														return false;
-													})();
-													return (
-														<div
-															key={path}
-															className={cn(
-																"aspect-square w-9 h-9 rounded-md border-2 overflow-hidden cursor-pointer transition-all duration-200 shadow-sm",
-																isSelected
-																	? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
-																	: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
-															)}
-															style={{
-																backgroundImage: `url(${path})`,
-																backgroundSize: "cover",
-																backgroundPosition: "center",
-															}}
-															onClick={() => onWallpaperChange(path)}
-															role="button"
-														/>
-													);
-												},
-											)}
+											{wallpaperPaths.map((path) => {
+												const isSelected = (() => {
+													if (!selected) return false;
+													if (selected === path) return true;
+													try {
+														const clean = (s: string) =>
+															s.replace(/^file:\/\//, "").replace(/^\//, "");
+														if (clean(selected).endsWith(clean(path))) return true;
+														if (clean(path).endsWith(clean(selected))) return true;
+													} catch {
+														// Best-effort comparison; fallback to strict match.
+													}
+													return false;
+												})();
+												return (
+													<div
+														key={path}
+														className={cn(
+															"aspect-square w-9 h-9 rounded-md border-2 overflow-hidden cursor-pointer transition-all duration-200 shadow-sm",
+															isSelected
+																? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
+																: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
+														)}
+														style={{
+															backgroundImage: `url(${path})`,
+															backgroundSize: "cover",
+															backgroundPosition: "center",
+														}}
+														onClick={() => onWallpaperChange(path)}
+														role="button"
+													/>
+												);
+											})}
 										</div>
 									</TabsContent>
 
