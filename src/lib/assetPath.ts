@@ -5,6 +5,13 @@ export class UnsafeAssetPathError extends Error {
 	}
 }
 
+export class AssetBaseUnavailableError extends Error {
+	constructor() {
+		super("electronAPI.assetBaseUrl is not available; preload did not load correctly");
+		this.name = "AssetBaseUnavailableError";
+	}
+}
+
 function encodeRelativeAssetPath(relativePath: string): string {
 	return relativePath
 		.replace(/^\/+/, "")
@@ -24,33 +31,22 @@ function ensureTrailingSlash(value: string): string {
 	return value.endsWith("/") ? value : `${value}/`;
 }
 
-export async function getAssetPath(relativePath: string): Promise<string> {
-	const encodedRelativePath = encodeRelativeAssetPath(relativePath);
+export function getAssetPath(relativePath: string): string {
+	const encoded = encodeRelativeAssetPath(relativePath);
 
-	try {
-		if (typeof window !== "undefined") {
-			if (
-				window.location &&
-				window.location.protocol &&
-				window.location.protocol.startsWith("http")
-			) {
-				return `/${encodedRelativePath}`;
-			}
-
-			if (window.electronAPI && typeof window.electronAPI.getAssetBasePath === "function") {
-				const base = await window.electronAPI.getAssetBasePath();
-				if (base) {
-					return new URL(encodedRelativePath, ensureTrailingSlash(base)).toString();
-				}
-			}
-		}
-	} catch (err) {
-		if (err instanceof UnsafeAssetPathError) {
-			throw err;
-		}
+	if (typeof window === "undefined") {
+		return `/${encoded}`;
 	}
 
-	return `/${encodedRelativePath}`;
+	if (window.location?.protocol?.startsWith("http")) {
+		return `/${encoded}`;
+	}
+
+	const base = window.electronAPI?.assetBaseUrl;
+	if (!base) {
+		throw new AssetBaseUnavailableError();
+	}
+	return new URL(encoded, ensureTrailingSlash(base)).toString();
 }
 
 export default getAssetPath;

@@ -55,7 +55,7 @@ interface Window {
 			message?: string;
 			error?: string;
 		}>;
-		getAssetBasePath: () => Promise<string | null>;
+		assetBaseUrl: string;
 		setRecordingState: (recording: boolean) => Promise<void>;
 		getCursorTelemetry: (videoPath?: string) => Promise<{
 			success: boolean;

@@ -280,7 +280,7 @@ export class FrameRenderer {
 			bgCtx.fillStyle = gradient;
 			bgCtx.fillRect(0, 0, this.config.width, this.config.height);
 		} else {
-			const imageUrl = await resolveImageWallpaperUrl(classified.path);
+			const imageUrl = resolveImageWallpaperUrl(classified.path);
 			const img = new Image();
 			if (imageUrl.startsWith("http") && !imageUrl.startsWith(window.location.origin)) {
 				img.crossOrigin = "anonymous";

@@ -1108,7 +1108,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			videoReadyRafRef.current = requestAnimationFrame(waitForRenderableFrame);
 		};
 
-		const [resolvedWallpaper, setResolvedWallpaper] = useState<string | null>(null);
+		const resolvedWallpaper = useMemo<string | null>(() => {
+			const source = wallpaper || DEFAULT_WALLPAPER;
+			const classified = classifyWallpaper(source);
+			if (classified.kind !== "image") return classified.value;
+			try {
+				return resolveImageWallpaperUrl(classified.path);
+			} catch (err) {
+				console.warn("[VideoPlayback] wallpaper resolve failed:", err);
+				return null;
+			}
+		}, [wallpaper]);
 		const webcamCssBoxShadow = useMemo(
 			() => getWebcamLayoutCssBoxShadow(webcamLayoutPreset),
 			[webcamLayoutPreset],
@@ -1175,28 +1185,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			webcamVideo.pause();
 			webcamVideo.currentTime = 0;
 		}, [webcamVideoPath]);
-
-		useEffect(() => {
-			let mounted = true;
-			(async () => {
-				const source = wallpaper || DEFAULT_WALLPAPER;
-				const classified = classifyWallpaper(source);
-				if (classified.kind !== "image") {
-					if (mounted) setResolvedWallpaper(classified.value);
-					return;
-				}
-				try {
-					const resolved = await resolveImageWallpaperUrl(classified.path);
-					if (mounted) setResolvedWallpaper(resolved);
-				} catch (err) {
-					console.warn("[VideoPlayback] wallpaper resolve failed:", err);
-					if (mounted) setResolvedWallpaper(null);
-				}
-			})();
-			return () => {
-				mounted = false;
-			};
-		}, [wallpaper]);
 
 		useEffect(() => {
 			return () => {

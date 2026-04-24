@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { UnsafeAssetPathError } from "./assetPath";
+import { AssetBaseUnavailableError, UnsafeAssetPathError } from "./assetPath";
 import {
 	BackgroundLoadError,
 	classifyWallpaper,
@@ -125,99 +125,87 @@ describe("resolveImageWallpaperUrl", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("passes through http URL", async () => {
-		expect(await resolveImageWallpaperUrl("http://example.com/bg.jpg")).toBe(
-			"http://example.com/bg.jpg",
-		);
+	it("passes through http URL", () => {
+		expect(resolveImageWallpaperUrl("http://example.com/bg.jpg")).toBe("http://example.com/bg.jpg");
 	});
 
-	it("passes through https URL", async () => {
-		expect(await resolveImageWallpaperUrl("https://example.com/bg.jpg")).toBe(
+	it("passes through https URL", () => {
+		expect(resolveImageWallpaperUrl("https://example.com/bg.jpg")).toBe(
 			"https://example.com/bg.jpg",
 		);
 	});
 
-	it("passes through file:// URL", async () => {
-		expect(await resolveImageWallpaperUrl("file:///tmp/bg.jpg")).toBe("file:///tmp/bg.jpg");
+	it("passes through file:// URL", () => {
+		expect(resolveImageWallpaperUrl("file:///tmp/bg.jpg")).toBe("file:///tmp/bg.jpg");
 	});
 
-	it("passes through data URI", async () => {
+	it("passes through data URI", () => {
 		const uri = "data:image/png;base64,AAAA";
-		expect(await resolveImageWallpaperUrl(uri)).toBe(uri);
+		expect(resolveImageWallpaperUrl(uri)).toBe(uri);
 	});
 
-	it("resolves leading-slash wallpaper path via http fallback", async () => {
-		expect(await resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg")).toBe(
+	it("resolves leading-slash wallpaper path via http fallback", () => {
+		expect(resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg")).toBe(
 			"/wallpapers/wallpaper1.jpg",
 		);
 	});
 
-	it("resolves bare relative wallpaper path", async () => {
-		expect(await resolveImageWallpaperUrl("wallpapers/wallpaper1.jpg")).toBe(
+	it("resolves bare relative wallpaper path", () => {
+		expect(resolveImageWallpaperUrl("wallpapers/wallpaper1.jpg")).toBe(
 			"/wallpapers/wallpaper1.jpg",
 		);
 	});
 
-	it("encodes special characters in path segments", async () => {
-		expect(await resolveImageWallpaperUrl("/wallpapers/my image.jpg")).toBe(
-			"/wallpapers/my%20image.jpg",
-		);
+	it("encodes special characters in path segments", () => {
+		expect(resolveImageWallpaperUrl("/wallpapers/my image.jpg")).toBe("/wallpapers/my%20image.jpg");
 	});
 
-	it("rejects image paths outside /wallpapers/", async () => {
-		await expect(resolveImageWallpaperUrl("/etc/passwd")).rejects.toBeInstanceOf(
-			BackgroundLoadError,
-		);
+	it("rejects image paths outside /wallpapers/", () => {
+		expect(() => resolveImageWallpaperUrl("/etc/passwd")).toThrow(BackgroundLoadError);
 	});
 
-	it("rejects traversal attempts", async () => {
-		await expect(resolveImageWallpaperUrl("/wallpapers/../etc/passwd")).rejects.toBeInstanceOf(
+	it("rejects traversal attempts", () => {
+		expect(() => resolveImageWallpaperUrl("/wallpapers/../etc/passwd")).toThrow(
 			UnsafeAssetPathError,
 		);
 	});
 
-	it("rejects percent-encoded traversal", async () => {
-		await expect(resolveImageWallpaperUrl("/wallpapers/%2e%2e/app.asar")).rejects.toBeInstanceOf(
+	it("rejects percent-encoded traversal", () => {
+		expect(() => resolveImageWallpaperUrl("/wallpapers/%2e%2e/app.asar")).toThrow(
 			UnsafeAssetPathError,
 		);
 	});
 
-	it("resolves via electronAPI when not http", async () => {
+	it("resolves via electronAPI.assetBaseUrl when not http", () => {
 		vi.stubGlobal("window", {
 			...globalThis.window,
 			location: { protocol: "file:" },
-			electronAPI: {
-				getAssetBasePath: vi.fn().mockResolvedValue("file:///opt/app/public/"),
-			},
+			electronAPI: { assetBaseUrl: "file:///opt/app/public/" },
 		});
-		expect(await resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg")).toBe(
+		expect(resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg")).toBe(
 			"file:///opt/app/public/wallpapers/wallpaper1.jpg",
 		);
 	});
 
-	it("electronAPI branch appends trailing slash if missing", async () => {
+	it("appends trailing slash to assetBaseUrl if missing", () => {
 		vi.stubGlobal("window", {
 			...globalThis.window,
 			location: { protocol: "file:" },
-			electronAPI: {
-				getAssetBasePath: vi.fn().mockResolvedValue("file:///opt/app/public"),
-			},
+			electronAPI: { assetBaseUrl: "file:///opt/app/public" },
 		});
-		expect(await resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg")).toBe(
+		expect(resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg")).toBe(
 			"file:///opt/app/public/wallpapers/wallpaper1.jpg",
 		);
 	});
 
-	it("falls back to leading-slash relative when electronAPI returns null", async () => {
+	it("throws loudly when assetBaseUrl is empty (no silent fallback)", () => {
 		vi.stubGlobal("window", {
 			...globalThis.window,
 			location: { protocol: "file:" },
-			electronAPI: {
-				getAssetBasePath: vi.fn().mockResolvedValue(null),
-			},
+			electronAPI: { assetBaseUrl: "" },
 		});
-		expect(await resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg")).toBe(
-			"/wallpapers/wallpaper1.jpg",
+		expect(() => resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg")).toThrow(
+			AssetBaseUnavailableError,
 		);
 	});
 });

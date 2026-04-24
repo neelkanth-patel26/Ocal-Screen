@@ -37,7 +37,7 @@ export function classifyWallpaper(value: string): WallpaperClassification {
 
 const ALLOWED_IMAGE_PREFIX = "/wallpapers/";
 
-export async function resolveImageWallpaperUrl(imagePath: string): Promise<string> {
+export function resolveImageWallpaperUrl(imagePath: string): string {
 	if (
 		imagePath.startsWith("http://") ||
 		imagePath.startsWith("https://") ||

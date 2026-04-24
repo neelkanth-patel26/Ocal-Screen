@@ -14,7 +14,7 @@ import {
 	Upload,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	Accordion,
@@ -321,24 +321,9 @@ export function SettingsPanel({
 	onWebcamSizePresetCommit,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
-	const [wallpaperPaths, setWallpaperPaths] = useState<string[]>([]);
+	const wallpaperPaths = useMemo(() => WALLPAPER_PATHS.map(resolveImageWallpaperUrl), []);
 	const [customImages, setCustomImages] = useState<string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-
-	useEffect(() => {
-		let mounted = true;
-		(async () => {
-			try {
-				const resolved = await Promise.all(WALLPAPER_PATHS.map((p) => resolveImageWallpaperUrl(p)));
-				if (mounted) setWallpaperPaths(resolved);
-			} catch (_err) {
-				if (mounted) setWallpaperPaths([...WALLPAPER_PATHS]);
-			}
-		})();
-		return () => {
-			mounted = false;
-		};
-	}, []);
 	const colorPalette = [
 		"#FF0000",
 		"#FFD700",
