@@ -801,15 +801,16 @@ export function registerIpcHandlers(
 		}
 	});
 
-	// Return base path for assets so renderer can resolve file:// paths in production
+	// Return base path for assets so renderer can resolve file:// paths in production.
+	// Packaged: electron-builder extraResources copies public/wallpapers -> resources/wallpapers.
+	// Unpackaged: wallpapers live at <appPath>/public/wallpapers.
+	// Single convention: "<base>/wallpapers/x.jpg" resolves in both modes.
 	ipcMain.handle("get-asset-base-path", () => {
 		try {
-			if (app.isPackaged) {
-				const assetPath = path.join(process.resourcesPath, "assets");
-				return pathToFileURL(`${assetPath}${path.sep}`).toString();
-			}
-			const assetPath = path.join(app.getAppPath(), "public", "assets");
-			return pathToFileURL(`${assetPath}${path.sep}`).toString();
+			const baseDir = app.isPackaged
+				? process.resourcesPath
+				: path.join(app.getAppPath(), "public");
+			return pathToFileURL(`${baseDir}${path.sep}`).toString();
 		} catch (err) {
 			console.error("Failed to resolve asset base path:", err);
 			return null;

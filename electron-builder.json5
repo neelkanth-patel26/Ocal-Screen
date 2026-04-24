@@ -23,7 +23,7 @@
   "extraResources": [
     {
       "from": "public/wallpapers",
-      "to": "assets/wallpapers"
+      "to": "wallpapers"
     }
   ],
 

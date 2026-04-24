@@ -7,6 +7,7 @@ import type {
 	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { BackgroundLoadError } from "@/lib/wallpaper";
 import { getPlatform } from "@/utils/platformUtils";
 import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
 import { AudioProcessor } from "./audioEncoder";
@@ -80,6 +81,11 @@ export class VideoExporter {
 
 				if (this.cancelled) {
 					return { success: false, error: "Export cancelled" };
+				}
+
+				if (normalizedError instanceof BackgroundLoadError) {
+					this.cleanup();
+					throw normalizedError;
 				}
 
 				if (encoderPreferences.length > 1) {

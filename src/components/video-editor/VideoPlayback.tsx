@@ -18,7 +18,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { getAssetPath } from "@/lib/assetPath";
 import {
 	getWebcamLayoutCssBoxShadow,
 	type Size,
@@ -26,6 +25,7 @@ import {
 	type WebcamLayoutPreset,
 	type WebcamSizePreset,
 } from "@/lib/compositeLayout";
+import { classifyWallpaper, DEFAULT_WALLPAPER, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { getCssClipPath } from "@/lib/webcamMaskShapes";
 import {
 	type AspectRatio,
@@ -1179,49 +1179,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		useEffect(() => {
 			let mounted = true;
 			(async () => {
-				try {
-					if (!wallpaper) {
-						const def = await getAssetPath("wallpapers/wallpaper1.jpg");
-						if (mounted) setResolvedWallpaper(def);
-						return;
-					}
-
-					if (
-						wallpaper.startsWith("#") ||
-						wallpaper.startsWith("linear-gradient") ||
-						wallpaper.startsWith("radial-gradient")
-					) {
-						if (mounted) setResolvedWallpaper(wallpaper);
-						return;
-					}
-
-					// If it's a data URL (custom uploaded image), use as-is
-					if (wallpaper.startsWith("data:")) {
-						if (mounted) setResolvedWallpaper(wallpaper);
-						return;
-					}
-
-					// If it's an absolute web/http or file path, use as-is
-					if (
-						wallpaper.startsWith("http") ||
-						wallpaper.startsWith("file://") ||
-						wallpaper.startsWith("/")
-					) {
-						// If it's an absolute server path (starts with '/'), resolve via getAssetPath as well
-						if (wallpaper.startsWith("/")) {
-							const rel = wallpaper.replace(/^\//, "");
-							const p = await getAssetPath(rel);
-							if (mounted) setResolvedWallpaper(p);
-							return;
-						}
-						if (mounted) setResolvedWallpaper(wallpaper);
-						return;
-					}
-					const p = await getAssetPath(wallpaper.replace(/^\//, ""));
-					if (mounted) setResolvedWallpaper(p);
-				} catch (_err) {
-					if (mounted) setResolvedWallpaper(wallpaper || "/wallpapers/wallpaper1.jpg");
+				const source = wallpaper || DEFAULT_WALLPAPER;
+				const classified = classifyWallpaper(source);
+				if (classified.kind !== "image") {
+					if (mounted) setResolvedWallpaper(classified.value);
+					return;
 				}
+				const resolved = await resolveImageWallpaperUrl(classified.path);
+				if (mounted) setResolvedWallpaper(resolved);
 			})();
 			return () => {
 				mounted = false;

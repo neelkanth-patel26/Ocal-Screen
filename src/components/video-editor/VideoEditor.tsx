@@ -32,6 +32,7 @@ import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
+import { BackgroundLoadError } from "@/lib/wallpaper";
 import {
 	getAspectRatioValue,
 	getNativeAspectRatioValue,
@@ -1566,9 +1567,15 @@ export default function VideoEditor() {
 				}
 			} catch (error) {
 				console.error("Export error:", error);
-				const errorMessage = error instanceof Error ? error.message : "Unknown error";
-				setExportError(errorMessage);
-				toast.error(`Export failed: ${errorMessage}`);
+				if (error instanceof BackgroundLoadError) {
+					const message = t("errors.exportBackgroundLoadFailed", { url: error.url });
+					setExportError(message);
+					toast.error(message);
+				} else {
+					const errorMessage = error instanceof Error ? error.message : "Unknown error";
+					setExportError(errorMessage);
+					toast.error(t("errors.exportFailedWithError", { error: errorMessage }));
+				}
 			} finally {
 				setIsExporting(false);
 				exporterRef.current = null;
@@ -1601,6 +1608,7 @@ export default function VideoEditor() {
 			exportQuality,
 			handleExportSaved,
 			cursorTelemetry,
+			t,
 		],
 	);
 
