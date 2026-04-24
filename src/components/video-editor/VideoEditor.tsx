@@ -1568,7 +1568,7 @@ export default function VideoEditor() {
 			} catch (error) {
 				console.error("Export error:", error);
 				if (error instanceof BackgroundLoadError) {
-					const message = t("errors.exportBackgroundLoadFailed", { url: error.url });
+					const message = t("errors.exportBackgroundLoadFailed", { url: error.displayUrl });
 					setExportError(message);
 					toast.error(message);
 				} else {

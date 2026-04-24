@@ -1,9 +1,22 @@
+export class UnsafeAssetPathError extends Error {
+	constructor(segment: string) {
+		super(`Unsafe asset path segment: ${segment}`);
+		this.name = "UnsafeAssetPathError";
+	}
+}
+
 function encodeRelativeAssetPath(relativePath: string): string {
 	return relativePath
 		.replace(/^\/+/, "")
 		.split("/")
 		.filter(Boolean)
-		.map((part) => encodeURIComponent(part))
+		.map((part) => {
+			const decoded = decodeURIComponent(part);
+			if (decoded === "." || decoded === "..") {
+				throw new UnsafeAssetPathError(decoded);
+			}
+			return encodeURIComponent(decoded);
+		})
 		.join("/");
 }
 
@@ -16,7 +29,6 @@ export async function getAssetPath(relativePath: string): Promise<string> {
 
 	try {
 		if (typeof window !== "undefined") {
-			// If running in a dev server (http/https), prefer the web-served path
 			if (
 				window.location &&
 				window.location.protocol &&
@@ -32,11 +44,12 @@ export async function getAssetPath(relativePath: string): Promise<string> {
 				}
 			}
 		}
-	} catch {
-		// ignore and use fallback
+	} catch (err) {
+		if (err instanceof UnsafeAssetPathError) {
+			throw err;
+		}
 	}
 
-	// Fallback for web/dev server: public/wallpapers are served at '/wallpapers/...'
 	return `/${encodedRelativePath}`;
 }
 

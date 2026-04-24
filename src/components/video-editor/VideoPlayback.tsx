@@ -1185,8 +1185,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					if (mounted) setResolvedWallpaper(classified.value);
 					return;
 				}
-				const resolved = await resolveImageWallpaperUrl(classified.path);
-				if (mounted) setResolvedWallpaper(resolved);
+				try {
+					const resolved = await resolveImageWallpaperUrl(classified.path);
+					if (mounted) setResolvedWallpaper(resolved);
+				} catch (err) {
+					console.warn("[VideoPlayback] wallpaper resolve failed:", err);
+					if (mounted) setResolvedWallpaper(null);
+				}
 			})();
 			return () => {
 				mounted = false;

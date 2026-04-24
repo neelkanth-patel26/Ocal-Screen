@@ -79,6 +79,10 @@ describe("GifExporter (real browser)", () => {
 			cropRegion: { x: 0, y: 0, width: 1, height: 1 },
 		});
 
-		await expect(exporter.export()).rejects.toBeInstanceOf(BackgroundLoadError);
+		const rejection = exporter.export();
+		await expect(rejection).rejects.toBeInstanceOf(BackgroundLoadError);
+		await expect(rejection).rejects.toMatchObject({
+			url: expect.stringContaining("does-not-exist"),
+		});
 	});
 });

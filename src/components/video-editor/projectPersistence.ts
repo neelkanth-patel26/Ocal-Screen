@@ -2,7 +2,7 @@ import { normalizeBlurColor, normalizeBlurType } from "@/lib/blurEffects";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { normalizeProjectMedia } from "@/lib/recordingSession";
-import { DEFAULT_WALLPAPER } from "@/lib/wallpaper";
+import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import {
 	type AnnotationRegion,
@@ -38,13 +38,9 @@ import {
 	type ZoomRegion,
 } from "./types";
 
-const WALLPAPER_COUNT = 18;
 const VALID_BLUR_SHAPES = new Set(["rectangle", "oval", "freehand"] as const);
 
-export const WALLPAPER_PATHS = Array.from(
-	{ length: WALLPAPER_COUNT },
-	(_, i) => `/wallpapers/wallpaper${i + 1}.jpg`,
-);
+export { WALLPAPER_PATHS };
 
 export const PROJECT_VERSION = 2;
 

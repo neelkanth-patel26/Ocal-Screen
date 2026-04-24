@@ -84,7 +84,6 @@ export class VideoExporter {
 				}
 
 				if (normalizedError instanceof BackgroundLoadError) {
-					this.cleanup();
 					throw normalizedError;
 				}
 

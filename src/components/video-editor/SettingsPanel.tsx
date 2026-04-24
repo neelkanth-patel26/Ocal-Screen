@@ -34,11 +34,11 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useScopedT } from "@/contexts/I18nContext";
-import { getAssetPath } from "@/lib/assetPath";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import { GIF_FRAME_RATES, GIF_SIZE_PRESETS } from "@/lib/exporter";
 import { cn } from "@/lib/utils";
+import { resolveImageWallpaperUrl, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
@@ -123,11 +123,6 @@ function CustomSpeedInput({
 	);
 }
 
-const WALLPAPER_COUNT = 18;
-const WALLPAPER_RELATIVE = Array.from(
-	{ length: WALLPAPER_COUNT },
-	(_, i) => `wallpapers/wallpaper${i + 1}.jpg`,
-);
 const GRADIENTS = [
 	"linear-gradient( 111.6deg,  rgba(114,167,232,1) 9.4%, rgba(253,129,82,1) 43.9%, rgba(253,129,82,1) 54.8%, rgba(249,202,86,1) 86.3% )",
 	"linear-gradient(120deg, #d4fc79 0%, #96e6a1 100%)",
@@ -334,10 +329,10 @@ export function SettingsPanel({
 		let mounted = true;
 		(async () => {
 			try {
-				const resolved = await Promise.all(WALLPAPER_RELATIVE.map((p) => getAssetPath(p)));
+				const resolved = await Promise.all(WALLPAPER_PATHS.map((p) => resolveImageWallpaperUrl(p)));
 				if (mounted) setWallpaperPaths(resolved);
 			} catch (_err) {
-				if (mounted) setWallpaperPaths(WALLPAPER_RELATIVE.map((p) => `/${p}`));
+				if (mounted) setWallpaperPaths([...WALLPAPER_PATHS]);
 			}
 		})();
 		return () => {
@@ -526,7 +521,7 @@ export function SettingsPanel({
 		setCustomImages((prev) => prev.filter((img) => img !== imageUrl));
 		// If the removed image was selected, clear selection
 		if (selected === imageUrl) {
-			onWallpaperChange(wallpaperPaths[0] || WALLPAPER_RELATIVE[0]);
+			onWallpaperChange(wallpaperPaths[0] || WALLPAPER_PATHS[0]);
 		}
 	};
 
@@ -1146,42 +1141,41 @@ export function SettingsPanel({
 												);
 											})}
 
-											{(wallpaperPaths.length > 0
-												? wallpaperPaths
-												: WALLPAPER_RELATIVE.map((p) => `/${p}`)
-											).map((path) => {
-												const isSelected = (() => {
-													if (!selected) return false;
-													if (selected === path) return true;
-													try {
-														const clean = (s: string) =>
-															s.replace(/^file:\/\//, "").replace(/^\//, "");
-														if (clean(selected).endsWith(clean(path))) return true;
-														if (clean(path).endsWith(clean(selected))) return true;
-													} catch {
-														// Best-effort comparison; fallback to strict match.
-													}
-													return false;
-												})();
-												return (
-													<div
-														key={path}
-														className={cn(
-															"aspect-square w-9 h-9 rounded-md border-2 overflow-hidden cursor-pointer transition-all duration-200 shadow-sm",
-															isSelected
-																? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
-																: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
-														)}
-														style={{
-															backgroundImage: `url(${path})`,
-															backgroundSize: "cover",
-															backgroundPosition: "center",
-														}}
-														onClick={() => onWallpaperChange(path)}
-														role="button"
-													/>
-												);
-											})}
+											{(wallpaperPaths.length > 0 ? wallpaperPaths : WALLPAPER_PATHS).map(
+												(path) => {
+													const isSelected = (() => {
+														if (!selected) return false;
+														if (selected === path) return true;
+														try {
+															const clean = (s: string) =>
+																s.replace(/^file:\/\//, "").replace(/^\//, "");
+															if (clean(selected).endsWith(clean(path))) return true;
+															if (clean(path).endsWith(clean(selected))) return true;
+														} catch {
+															// Best-effort comparison; fallback to strict match.
+														}
+														return false;
+													})();
+													return (
+														<div
+															key={path}
+															className={cn(
+																"aspect-square w-9 h-9 rounded-md border-2 overflow-hidden cursor-pointer transition-all duration-200 shadow-sm",
+																isSelected
+																	? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
+																	: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
+															)}
+															style={{
+																backgroundImage: `url(${path})`,
+																backgroundSize: "cover",
+																backgroundPosition: "center",
+															}}
+															onClick={() => onWallpaperChange(path)}
+															role="button"
+														/>
+													);
+												},
+											)}
 										</div>
 									</TabsContent>
 
