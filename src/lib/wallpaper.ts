@@ -14,7 +14,7 @@ export type WallpaperClassification =
 	| { kind: "gradient"; value: string }
 	| { kind: "image"; path: string };
 
-const GRADIENT_RE = /^(linear|radial|conic)-gradient\(/;
+const GRADIENT_RE = /^(repeating-)?(linear|radial|conic)-gradient\(/;
 const COLOR_FUNC_RE = /^(rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\(/;
 const IMAGE_URL_RE = /^(\/|https?:\/\/|file:\/\/|data:)/;
 
@@ -53,7 +53,11 @@ export function resolveImageWallpaperUrl(imagePath: string): string {
 			new Error(`Image wallpaper path must live under ${ALLOWED_IMAGE_PREFIX}`),
 		);
 	}
-	return getAssetPath(withLeadingSlash.slice(1));
+	try {
+		return getAssetPath(withLeadingSlash.slice(1));
+	} catch (cause) {
+		throw new BackgroundLoadError(imagePath, cause);
+	}
 }
 
 export class BackgroundLoadError extends Error {
@@ -79,9 +83,9 @@ function displayBasename(url: string): string {
 	try {
 		const parsed = new URL(url);
 		const last = parsed.pathname.split("/").filter(Boolean).pop();
-		return last ? decodeURIComponent(last) : url;
+		return last ? decodeURIComponent(last) : "(unknown)";
 	} catch {
 		const last = url.split("/").filter(Boolean).pop();
-		return last ?? url;
+		return last ?? "(unknown)";
 	}
 }

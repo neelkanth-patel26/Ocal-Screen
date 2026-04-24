@@ -64,6 +64,16 @@ describe("classifyWallpaper", () => {
 		expect(classifyWallpaper(v)).toEqual({ kind: "gradient", value: v });
 	});
 
+	it("repeating-linear gradient", () => {
+		const v = "repeating-linear-gradient(45deg, red 0 10px, blue 10px 20px)";
+		expect(classifyWallpaper(v)).toEqual({ kind: "gradient", value: v });
+	});
+
+	it("repeating-radial gradient", () => {
+		const v = "repeating-radial-gradient(circle, red, blue 20px)";
+		expect(classifyWallpaper(v)).toEqual({ kind: "gradient", value: v });
+	});
+
 	it("leading-slash image path", () => {
 		expect(classifyWallpaper("/wallpapers/wallpaper1.jpg")).toEqual({
 			kind: "image",
@@ -164,16 +174,24 @@ describe("resolveImageWallpaperUrl", () => {
 		expect(() => resolveImageWallpaperUrl("/etc/passwd")).toThrow(BackgroundLoadError);
 	});
 
-	it("rejects traversal attempts", () => {
-		expect(() => resolveImageWallpaperUrl("/wallpapers/../etc/passwd")).toThrow(
-			UnsafeAssetPathError,
-		);
+	it("wraps traversal attempts in BackgroundLoadError (preserves UnsafeAssetPathError as cause)", () => {
+		try {
+			resolveImageWallpaperUrl("/wallpapers/../etc/passwd");
+			expect.fail("should have thrown");
+		} catch (err) {
+			expect(err).toBeInstanceOf(BackgroundLoadError);
+			expect((err as BackgroundLoadError).cause).toBeInstanceOf(UnsafeAssetPathError);
+		}
 	});
 
-	it("rejects percent-encoded traversal", () => {
-		expect(() => resolveImageWallpaperUrl("/wallpapers/%2e%2e/app.asar")).toThrow(
-			UnsafeAssetPathError,
-		);
+	it("wraps percent-encoded traversal in BackgroundLoadError", () => {
+		try {
+			resolveImageWallpaperUrl("/wallpapers/%2e%2e/app.asar");
+			expect.fail("should have thrown");
+		} catch (err) {
+			expect(err).toBeInstanceOf(BackgroundLoadError);
+			expect((err as BackgroundLoadError).cause).toBeInstanceOf(UnsafeAssetPathError);
+		}
 	});
 
 	it("resolves via electronAPI.assetBaseUrl when not http", () => {
@@ -198,15 +216,19 @@ describe("resolveImageWallpaperUrl", () => {
 		);
 	});
 
-	it("throws loudly when assetBaseUrl is empty (no silent fallback)", () => {
+	it("wraps AssetBaseUnavailableError in BackgroundLoadError when assetBaseUrl is empty", () => {
 		vi.stubGlobal("window", {
 			...globalThis.window,
 			location: { protocol: "file:" },
 			electronAPI: { assetBaseUrl: "" },
 		});
-		expect(() => resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg")).toThrow(
-			AssetBaseUnavailableError,
-		);
+		try {
+			resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg");
+			expect.fail("should have thrown");
+		} catch (err) {
+			expect(err).toBeInstanceOf(BackgroundLoadError);
+			expect((err as BackgroundLoadError).cause).toBeInstanceOf(AssetBaseUnavailableError);
+		}
 	});
 });
 
@@ -227,6 +249,16 @@ describe("BackgroundLoadError", () => {
 	it("displayUrl abbreviates data URIs", () => {
 		const err = new BackgroundLoadError("data:image/png;base64,AAA");
 		expect(err.displayUrl).toBe("data:…");
+	});
+
+	it("displayUrl returns sentinel for empty-basename URLs", () => {
+		const err = new BackgroundLoadError("file:///");
+		expect(err.displayUrl).toBe("(unknown)");
+	});
+
+	it("displayUrl returns sentinel for unparseable bare slash", () => {
+		const err = new BackgroundLoadError("/");
+		expect(err.displayUrl).toBe("(unknown)");
 	});
 
 	it("preserves cause when provided", () => {

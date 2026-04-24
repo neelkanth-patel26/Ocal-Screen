@@ -40,6 +40,17 @@ import {
 
 const VALID_BLUR_SHAPES = new Set(["rectangle", "oval", "freehand"] as const);
 
+// Pre-fix projects could persist resolved file:// URLs (machine-specific) instead
+// of the canonical `/wallpapers/wallpaperN.jpg` form. Rewrite those on load so
+// they resolve against the current install's resources directory.
+const LEGACY_FILE_WALLPAPER_RE = /^file:\/\/.*?\/(?:assets\/)?wallpapers\/(wallpaper\d+\.jpg)$/i;
+
+function normalizeWallpaperValue(value: string): string {
+	const match = LEGACY_FILE_WALLPAPER_RE.exec(value);
+	if (!match) return value;
+	return `/wallpapers/${match[1]}`;
+}
+
 export { WALLPAPER_PATHS };
 
 export const PROJECT_VERSION = 2;
@@ -422,7 +433,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 	const cropHeight = clamp(rawCropHeight, 0.01, 1 - cropY);
 
 	return {
-		wallpaper: typeof editor.wallpaper === "string" ? editor.wallpaper : DEFAULT_WALLPAPER,
+		wallpaper:
+			typeof editor.wallpaper === "string"
+				? normalizeWallpaperValue(editor.wallpaper)
+				: DEFAULT_WALLPAPER,
 		shadowIntensity: typeof editor.shadowIntensity === "number" ? editor.shadowIntensity : 0,
 		showBlur: typeof editor.showBlur === "boolean" ? editor.showBlur : false,
 		motionBlurAmount: isFiniteNumber(editor.motionBlurAmount)

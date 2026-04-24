@@ -321,7 +321,10 @@ export function SettingsPanel({
 	onWebcamSizePresetCommit,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
-	const wallpaperPaths = useMemo(() => WALLPAPER_PATHS.map(resolveImageWallpaperUrl), []);
+	// Resolved URLs are for DOM rendering only (backgroundImage). The canonical
+	// `/wallpapers/wallpaperN.jpg` form in WALLPAPER_PATHS is what gets persisted
+	// on click — never the machine-specific file:// URL.
+	const wallpaperPreviewUrls = useMemo(() => WALLPAPER_PATHS.map(resolveImageWallpaperUrl), []);
 	const [customImages, setCustomImages] = useState<string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const colorPalette = [
@@ -506,7 +509,7 @@ export function SettingsPanel({
 		setCustomImages((prev) => prev.filter((img) => img !== imageUrl));
 		// If the removed image was selected, clear selection
 		if (selected === imageUrl) {
-			onWallpaperChange(wallpaperPaths[0] || WALLPAPER_PATHS[0]);
+			onWallpaperChange(WALLPAPER_PATHS[0]);
 		}
 	};
 
@@ -1126,23 +1129,12 @@ export function SettingsPanel({
 												);
 											})}
 
-											{wallpaperPaths.map((path) => {
-												const isSelected = (() => {
-													if (!selected) return false;
-													if (selected === path) return true;
-													try {
-														const clean = (s: string) =>
-															s.replace(/^file:\/\//, "").replace(/^\//, "");
-														if (clean(selected).endsWith(clean(path))) return true;
-														if (clean(path).endsWith(clean(selected))) return true;
-													} catch {
-														// Best-effort comparison; fallback to strict match.
-													}
-													return false;
-												})();
+											{WALLPAPER_PATHS.map((canonicalPath, i) => {
+												const previewUrl = wallpaperPreviewUrls[i] ?? canonicalPath;
+												const isSelected = selected === canonicalPath;
 												return (
 													<div
-														key={path}
+														key={canonicalPath}
 														className={cn(
 															"aspect-square w-9 h-9 rounded-md border-2 overflow-hidden cursor-pointer transition-all duration-200 shadow-sm",
 															isSelected
@@ -1150,11 +1142,11 @@ export function SettingsPanel({
 																: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
 														)}
 														style={{
-															backgroundImage: `url(${path})`,
+															backgroundImage: `url(${previewUrl})`,
 															backgroundSize: "cover",
 															backgroundPosition: "center",
 														}}
-														onClick={() => onWallpaperChange(path)}
+														onClick={() => onWallpaperChange(canonicalPath)}
 														role="button"
 													/>
 												);
