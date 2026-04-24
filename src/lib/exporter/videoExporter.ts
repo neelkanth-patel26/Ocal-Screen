@@ -4,8 +4,10 @@ import type {
 	SpeedRegion,
 	TrimRegion,
 	WebcamLayoutPreset,
+	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { getPlatform } from "@/utils/platformUtils";
 import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
 import { AudioProcessor } from "./audioEncoder";
 import { FrameRenderer } from "./frameRenderer";
@@ -33,6 +35,7 @@ interface VideoExporterConfig extends ExportConfig {
 	cropRegion: CropRegion;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
+	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	annotationRegions?: AnnotationRegion[];
 	previewWidth?: number;
@@ -110,6 +113,8 @@ export class VideoExporter {
 		this.fatalEncoderError = null;
 
 		try {
+			const platform = await getPlatform();
+
 			const streamingDecoder = new StreamingVideoDecoder();
 			this.streamingDecoder = streamingDecoder;
 			const videoInfo = await streamingDecoder.loadMetadata(this.config.videoUrl);
@@ -137,12 +142,14 @@ export class VideoExporter {
 				webcamSize: webcamInfo ? { width: webcamInfo.width, height: webcamInfo.height } : null,
 				webcamLayoutPreset: this.config.webcamLayoutPreset,
 				webcamMaskShape: this.config.webcamMaskShape,
+				webcamSizePreset: this.config.webcamSizePreset,
 				webcamPosition: this.config.webcamPosition,
 				annotationRegions: this.config.annotationRegions,
 				speedRegions: this.config.speedRegions,
 				previewWidth: this.config.previewWidth,
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
+				platform,
 			});
 			this.renderer = renderer;
 			await renderer.initialize();
@@ -154,17 +161,11 @@ export class VideoExporter {
 			this.muxer = muxer;
 			await muxer.initialize();
 
-			const effectiveDuration = streamingDecoder.getEffectiveDuration(
+			const { totalFrames } = streamingDecoder.getExportMetrics(
+				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
 			);
-			const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
-			const readEndSec = Math.max(videoInfo.duration, videoInfo.streamDuration ?? 0) + 0.5;
-
-			console.log("[VideoExporter] Original duration:", videoInfo.duration, "s");
-			console.log("[VideoExporter] Effective duration:", effectiveDuration, "s");
-			console.log("[VideoExporter] Total frames to export:", totalFrames);
-			console.log("[VideoExporter] Using streaming decode (web-demuxer + VideoDecoder)");
 
 			const frameDuration = 1_000_000 / this.config.frameRate;
 			let frameIndex = 0;
@@ -234,25 +235,29 @@ export class VideoExporter {
 
 						const canvas = renderer.getCanvas();
 
-						// Read raw pixels from the canvas instead of passing
-						// the canvas directly to VideoFrame. On some Linux
-						// systems the GPU shared-image path (EGL/Ozone) fails
-						// silently, producing empty frames.
-						const canvasCtx = canvas.getContext("2d")!;
-						const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-						const exportFrame = new VideoFrame(imageData.data.buffer, {
-							format: "RGBA",
-							codedWidth: canvas.width,
-							codedHeight: canvas.height,
-							timestamp,
-							duration: frameDuration,
-							colorSpace: {
-								primaries: "bt709",
-								transfer: "iec61966-2-1",
-								matrix: "rgb",
-								fullRange: true,
-							},
-						});
+						let exportFrame: VideoFrame;
+
+						// On some Linux systems the GPU shared-image path (EGL/Ozone) fails
+						// silently, producing empty frames, so we force a CPU readback instead.
+						if (platform === "linux") {
+							const canvasCtx = canvas.getContext("2d")!;
+							const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+							exportFrame = new VideoFrame(imageData.data.buffer, {
+								format: "RGBA",
+								codedWidth: canvas.width,
+								codedHeight: canvas.height,
+								timestamp,
+								duration: frameDuration,
+								colorSpace: {
+									primaries: "bt709",
+									transfer: "iec61966-2-1",
+									matrix: "rgb",
+									fullRange: true,
+								},
+							});
+						} else {
+							exportFrame = new VideoFrame(canvas, { timestamp, duration: frameDuration });
+						}
 
 						while (
 							this.encoder &&
@@ -343,7 +348,7 @@ export class VideoExporter {
 						this.config.videoUrl,
 						this.config.trimRegions,
 						this.config.speedRegions,
-						readEndSec,
+						videoInfo.duration,
 					);
 				}
 			}
@@ -419,7 +424,7 @@ export class VideoExporter {
 				})();
 
 				this.muxingPromises.push(muxingPromise);
-				this.encodeQueue--;
+				this.encodeQueue = Math.max(0, this.encodeQueue - 1);
 			},
 			error: (error) => {
 				console.error("[VideoExporter] Encoder error:", error);

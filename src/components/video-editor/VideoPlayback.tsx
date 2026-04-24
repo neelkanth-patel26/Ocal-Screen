@@ -24,6 +24,7 @@ import {
 	type Size,
 	type StyledRenderRect,
 	type WebcamLayoutPreset,
+	type WebcamSizePreset,
 } from "@/lib/compositeLayout";
 import { getCssClipPath } from "@/lib/webcamMaskShapes";
 import {
@@ -34,6 +35,7 @@ import {
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import {
 	type AnnotationRegion,
+	type BlurData,
 	type SpeedRegion,
 	type TrimRegion,
 	ZOOM_DEPTH_SCALES,
@@ -69,6 +71,7 @@ interface VideoPlaybackProps {
 	webcamVideoPath?: string;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
+	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	onWebcamPositionChange?: (position: { cx: number; cy: number }) => void;
 	onWebcamPositionDragEnd?: () => void;
@@ -99,6 +102,13 @@ interface VideoPlaybackProps {
 	onSelectAnnotation?: (id: string | null) => void;
 	onAnnotationPositionChange?: (id: string, position: { x: number; y: number }) => void;
 	onAnnotationSizeChange?: (id: string, size: { width: number; height: number }) => void;
+	blurRegions?: AnnotationRegion[];
+	selectedBlurId?: string | null;
+	onSelectBlur?: (id: string | null) => void;
+	onBlurPositionChange?: (id: string, position: { x: number; y: number }) => void;
+	onBlurSizeChange?: (id: string, size: { width: number; height: number }) => void;
+	onBlurDataChange?: (id: string, blurData: BlurData) => void;
+	onBlurDataCommit?: () => void;
 	cursorTelemetry?: import("./types").CursorTelemetryPoint[];
 }
 
@@ -119,6 +129,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			webcamVideoPath,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamSizePreset,
 			webcamPosition,
 			onWebcamPositionChange,
 			onWebcamPositionDragEnd,
@@ -149,6 +160,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onSelectAnnotation,
 			onAnnotationPositionChange,
 			onAnnotationSizeChange,
+			blurRegions = [],
+			selectedBlurId,
+			onSelectBlur,
+			onBlurPositionChange,
+			onBlurSizeChange,
+			onBlurDataChange,
+			onBlurDataCommit,
 			cursorTelemetry = [],
 		},
 		ref,
@@ -163,11 +181,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const timeUpdateAnimationRef = useRef<number | null>(null);
 		const [pixiReady, setPixiReady] = useState(false);
 		const [videoReady, setVideoReady] = useState(false);
+		const [overlaySize, setOverlaySize] = useState({ width: 800, height: 600 });
+		const [overlayElement, setOverlayElement] = useState<HTMLDivElement | null>(null);
 		const overlayRef = useRef<HTMLDivElement | null>(null);
-		const [containerSize, setContainerSize] = useState({
-			width: 800,
-			height: 600,
-		});
+
 		const focusIndicatorRef = useRef<HTMLDivElement | null>(null);
 		const [webcamLayout, setWebcamLayout] = useState<StyledRenderRect | null>(null);
 		const [webcamDimensions, setWebcamDimensions] = useState<Size | null>(null);
@@ -290,6 +307,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				padding,
 				webcamDimensions,
 				webcamLayoutPreset,
+				webcamSizePreset,
 				webcamPosition,
 				webcamMaskShape,
 			});
@@ -321,6 +339,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			padding,
 			webcamDimensions,
 			webcamLayoutPreset,
+			webcamSizePreset,
 			webcamPosition,
 			webcamMaskShape,
 		]);
@@ -328,6 +347,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		useEffect(() => {
 			layoutVideoContentRef.current = layoutVideoContent;
 		}, [layoutVideoContent]);
+
+		const setOverlayRefs = useCallback((node: HTMLDivElement | null) => {
+			overlayRef.current = node;
+			setOverlayElement(node);
+		}, []);
 
 		const selectedZoom = useMemo(() => {
 			if (!selectedZoomId) return null;
@@ -345,7 +369,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				if (!vid) return;
 				try {
 					allowPlaybackRef.current = true;
-					await vid.play();
+					await vid.play().catch((err) => console.log("PLAY ERROR:", err));
 				} catch (error) {
 					allowPlaybackRef.current = false;
 					throw error;
@@ -519,83 +543,22 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
 
-			const app = appRef.current;
-			const cameraContainer = cameraContainerRef.current;
-			const video = videoRef.current;
+			const el = overlayRef.current;
+			if (!el) return;
 
-			if (!app || !cameraContainer || !video) return;
+			const observer = new ResizeObserver((entries) => {
+				const { width, height } = entries[0].contentRect;
 
-			const tickerWasStarted = app.ticker?.started || false;
-			if (tickerWasStarted && app.ticker) {
-				app.ticker.stop();
-			}
-
-			const wasPlaying = !video.paused;
-			if (wasPlaying) {
-				video.pause();
-			}
-
-			animationStateRef.current = {
-				scale: 1,
-				focusX: DEFAULT_FOCUS.cx,
-				focusY: DEFAULT_FOCUS.cy,
-				progress: 0,
-				x: 0,
-				y: 0,
-				appliedScale: 1,
-			};
-
-			// Reset motion blur state for clean transitions
-			motionBlurStateRef.current = createMotionBlurState();
-
-			if (blurFilterRef.current) {
-				blurFilterRef.current.blur = 0;
-			}
-
-			requestAnimationFrame(() => {
-				const container = cameraContainerRef.current;
-				const videoStage = videoContainerRef.current;
-				const sprite = videoSpriteRef.current;
-				const currentApp = appRef.current;
-				if (!container || !videoStage || !sprite || !currentApp) {
-					return;
-				}
-
-				container.scale.set(1);
-				container.position.set(0, 0);
-				videoStage.scale.set(1);
-				videoStage.position.set(0, 0);
-				sprite.scale.set(1);
-				sprite.position.set(0, 0);
-
-				layoutVideoContent();
-
-				applyZoomTransform({
-					cameraContainer: container,
-					blurFilter: blurFilterRef.current,
-					stageSize: stageSizeRef.current,
-					baseMask: baseMaskRef.current,
-					zoomScale: 1,
-					focusX: DEFAULT_FOCUS.cx,
-					focusY: DEFAULT_FOCUS.cy,
-					motionIntensity: 0,
-					isPlaying: false,
-					motionBlurAmount: motionBlurAmountRef.current,
-				});
-
-				requestAnimationFrame(() => {
-					const finalApp = appRef.current;
-					if (wasPlaying && video) {
-						video.play().catch(() => {
-							// Ignore autoplay restoration failures.
-						});
-					}
-					if (tickerWasStarted && finalApp?.ticker) {
-						finalApp.ticker.start();
-					}
+				setOverlaySize({
+					width,
+					height,
 				});
 			});
-		}, [pixiReady, videoReady, layoutVideoContent]);
+
+			observer.observe(el);
+
+			return () => observer.disconnect();
+		}, [pixiReady, videoReady]);
 
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
@@ -622,7 +585,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [selectedZoom, pixiReady, videoReady, updateOverlayForRegion]);
 
 		useEffect(() => {
-			const overlayEl = overlayRef.current;
+			if (!pixiReady || !videoReady) return;
+			const overlayEl = overlayElement;
 			if (!overlayEl) return;
 			if (!selectedZoom) {
 				overlayEl.style.cursor = "default";
@@ -631,7 +595,34 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			}
 			overlayEl.style.cursor = isPlaying ? "not-allowed" : "grab";
 			overlayEl.style.pointerEvents = isPlaying ? "none" : "auto";
-		}, [selectedZoom, isPlaying]);
+		}, [selectedZoom, isPlaying, pixiReady, videoReady, overlayElement]);
+
+		useEffect(() => {
+			const overlayEl = overlayElement;
+			if (!overlayEl) return;
+
+			const updateOverlaySize = () => {
+				const width = overlayEl.clientWidth || 800;
+				const height = overlayEl.clientHeight || 600;
+				setOverlaySize((prev) => {
+					if (prev.width === width && prev.height === height) return prev;
+					return { width, height };
+				});
+			};
+
+			updateOverlaySize();
+
+			if (typeof ResizeObserver !== "undefined") {
+				const observer = new ResizeObserver(() => {
+					updateOverlaySize();
+				});
+				observer.observe(overlayEl);
+				return () => observer.disconnect();
+			}
+
+			window.addEventListener("resize", updateOverlaySize);
+			return () => window.removeEventListener("resize", updateOverlaySize);
+		}, [overlayElement]);
 
 		useEffect(() => {
 			const container = containerRef.current;
@@ -864,22 +855,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			};
 
 			const ticker = () => {
-				const bm = baseMaskRef.current;
-				const ss = stageSizeRef.current;
-				const viewportRatio =
-					bm.width > 0 && bm.height > 0
-						? {
-								widthRatio: ss.width / bm.width,
-								heightRatio: ss.height / bm.height,
-							}
-						: undefined;
 				const { region, strength, blendedScale, transition } = findDominantRegion(
 					zoomRegionsRef.current,
 					currentTimeRef.current,
 					{
 						connectZooms: true,
 						cursorTelemetry: cursorTelemetryRef.current,
-						viewportRatio,
 					},
 				);
 
@@ -1136,21 +1117,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [webcamVideoPath]);
 
 		useEffect(() => {
-			if (!overlayRef.current) return;
-
-			const observer = new ResizeObserver(() => {
-				setContainerSize({
-					width: overlayRef.current!.clientWidth,
-					height: overlayRef.current!.clientHeight,
-				});
-			});
-
-			observer.observe(overlayRef.current);
-
-			return () => observer.disconnect();
-		}, []);
-
-		useEffect(() => {
 			let mounted = true;
 			(async () => {
 				try {
@@ -1301,9 +1267,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				{/* Only render overlay after PIXI and video are fully initialized */}
 				{pixiReady && videoReady && (
 					<div
-						ref={overlayRef}
+						ref={setOverlayRefs}
 						className="absolute inset-0 select-none"
-						style={{ pointerEvents: "none", zIndex: 30 }}
+						style={{ pointerEvents: "auto", zIndex: 30 }}
 						onPointerDown={handleOverlayPointerDown}
 						onPointerMove={handleOverlayPointerMove}
 						onPointerUp={handleOverlayPointerUp}
@@ -1315,53 +1281,116 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							style={{ display: "none", pointerEvents: "none" }}
 						/>
 						{(() => {
-							const filtered = (annotationRegions || []).filter((annotation) => {
+							const filteredAnnotations = (annotationRegions || []).filter((annotation) => {
 								if (typeof annotation.startMs !== "number" || typeof annotation.endMs !== "number")
 									return false;
 
 								if (annotation.id === selectedAnnotationId) return true;
 
 								const timeMs = Math.round(currentTime * 1000);
-								return timeMs >= annotation.startMs && timeMs <= annotation.endMs;
+								return timeMs >= annotation.startMs && timeMs < annotation.endMs;
 							});
 
-							// Sort by z-index (lowest to highest) so higher z-index renders on top
-							const sorted = [...filtered].sort((a, b) => a.zIndex - b.zIndex);
+							const filteredBlurRegions = (blurRegions || []).filter((blurRegion) => {
+								if (typeof blurRegion.startMs !== "number" || typeof blurRegion.endMs !== "number")
+									return false;
+
+								if (blurRegion.id === selectedBlurId) return true;
+
+								const timeMs = Math.round(currentTime * 1000);
+								return timeMs >= blurRegion.startMs && timeMs < blurRegion.endMs;
+							});
+
+							const sorted = [
+								...filteredAnnotations.map((annotation) => ({
+									kind: "annotation" as const,
+									region: annotation,
+								})),
+								...filteredBlurRegions.map((blurRegion) => ({
+									kind: "blur" as const,
+									region: blurRegion,
+								})),
+							].sort((a, b) => a.region.zIndex - b.region.zIndex);
+							const previewSnapshotCanvas = (() => {
+								const app = appRef.current;
+								if (!app?.renderer?.extract) return null;
+								try {
+									return app.renderer.extract.canvas(app.stage);
+								} catch {
+									return null;
+								}
+							})();
 
 							// Handle click-through cycling: when clicking same annotation, cycle to next
 							const handleAnnotationClick = (clickedId: string) => {
 								if (!onSelectAnnotation) return;
 
 								// If clicking on already selected annotation and there are multiple overlapping
-								if (clickedId === selectedAnnotationId && sorted.length > 1) {
+								if (clickedId === selectedAnnotationId && filteredAnnotations.length > 1) {
 									// Find current index and cycle to next
-									const currentIndex = sorted.findIndex((a) => a.id === clickedId);
-									const nextIndex = (currentIndex + 1) % sorted.length;
-									onSelectAnnotation(sorted[nextIndex].id);
+									const currentIndex = filteredAnnotations.findIndex((a) => a.id === clickedId);
+									const nextIndex = (currentIndex + 1) % filteredAnnotations.length;
+									onSelectAnnotation(filteredAnnotations[nextIndex].id);
 								} else {
 									// First click or clicking different annotation
 									onSelectAnnotation(clickedId);
 								}
 							};
 
-							return sorted.map((annotation) => {
-								const containerWidth = containerSize.width;
-								const containerHeight = containerSize.height;
-								return (
-									<AnnotationOverlay
-										key={annotation.id}
-										annotation={annotation}
-										isSelected={annotation.id === selectedAnnotationId}
-										containerWidth={containerWidth}
-										containerHeight={containerHeight}
-										onPositionChange={(id, position) => onAnnotationPositionChange?.(id, position)}
-										onSizeChange={(id, size) => onAnnotationSizeChange?.(id, size)}
-										onClick={handleAnnotationClick}
-										zIndex={annotation.zIndex}
-										isSelectedBoost={annotation.id === selectedAnnotationId}
-									/>
-								);
-							});
+							const handleBlurClick = (clickedId: string) => {
+								if (!onSelectBlur) return;
+
+								if (clickedId === selectedBlurId && filteredBlurRegions.length > 1) {
+									const currentIndex = filteredBlurRegions.findIndex((a) => a.id === clickedId);
+									const nextIndex = (currentIndex + 1) % filteredBlurRegions.length;
+									onSelectBlur(filteredBlurRegions[nextIndex].id);
+								} else {
+									onSelectBlur(clickedId);
+								}
+							};
+
+							return sorted.map((item) => (
+								<AnnotationOverlay
+									key={
+										item.kind === "blur"
+											? `${item.region.id}-${overlaySize.width}-${overlaySize.height}-${item.region.blurData?.type ?? "blur"}-${item.region.blurData?.shape ?? "rectangle"}-${item.region.blurData?.color ?? "white"}-${Math.round(item.region.blurData?.blockSize ?? 0)}-${Math.round(item.region.blurData?.intensity ?? 0)}-${(item.region.blurData?.freehandPoints ?? []).map((p) => `${Math.round(p.x)}_${Math.round(p.y)}`).join("-")}`
+											: `${item.region.id}-${overlaySize.width}-${overlaySize.height}`
+									}
+									annotation={item.region}
+									isSelected={
+										item.kind === "blur"
+											? item.region.id === selectedBlurId
+											: item.region.id === selectedAnnotationId
+									}
+									containerWidth={overlaySize.width}
+									containerHeight={overlaySize.height}
+									onPositionChange={(id, position) =>
+										item.kind === "blur"
+											? onBlurPositionChange?.(id, position)
+											: onAnnotationPositionChange?.(id, position)
+									}
+									onSizeChange={(id, size) =>
+										item.kind === "blur"
+											? onBlurSizeChange?.(id, size)
+											: onAnnotationSizeChange?.(id, size)
+									}
+									onBlurDataChange={
+										item.kind === "blur"
+											? (id, blurData) => onBlurDataChange?.(id, blurData)
+											: undefined
+									}
+									onBlurDataCommit={item.kind === "blur" ? onBlurDataCommit : undefined}
+									onClick={item.kind === "blur" ? handleBlurClick : handleAnnotationClick}
+									zIndex={item.region.zIndex}
+									isSelectedBoost={
+										item.kind === "blur"
+											? item.region.id === selectedBlurId
+											: item.region.id === selectedAnnotationId
+									}
+									previewSourceCanvas={previewSnapshotCanvas}
+									previewFrameVersion={Math.round(currentTime * 1000)}
+								/>
+							));
 						})()}
 					</div>
 				)}

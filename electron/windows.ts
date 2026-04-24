@@ -17,6 +17,11 @@ ipcMain.on("hud-overlay-hide", () => {
 	}
 });
 
+/**
+ * Creates the always-on-top HUD overlay window centred at the bottom of the
+ * primary display. The window is frameless, transparent, and follows the user
+ * across macOS Spaces so it is never lost when switching virtual desktops.
+ */
 export function createHudOverlayWindow(): BrowserWindow {
 	const primaryDisplay = screen.getPrimaryDisplay();
 	const { workArea } = primaryDisplay;
@@ -51,6 +56,12 @@ export function createHudOverlayWindow(): BrowserWindow {
 		},
 	});
 
+	// Follow the user across macOS Spaces (virtual desktops).
+	// Without this the HUD stays pinned to the Space it was first opened on.
+	if (process.platform === "darwin") {
+		win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+	}
+
 	win.webContents.on("did-finish-load", () => {
 		win?.webContents.send("main-process-message", new Date().toLocaleString());
 	});
@@ -74,6 +85,10 @@ export function createHudOverlayWindow(): BrowserWindow {
 	return win;
 }
 
+/**
+ * Creates the main editor window. Starts maximised with a hidden title bar on
+ * macOS. This window is not always-on-top and appears in the taskbar/dock.
+ */
 export function createEditorWindow(): BrowserWindow {
 	const isMac = process.platform === "darwin";
 
@@ -120,6 +135,10 @@ export function createEditorWindow(): BrowserWindow {
 	return win;
 }
 
+/**
+ * Creates the floating source-selector window used to pick a screen or window
+ * to record. Frameless, transparent, and follows the user across macOS Spaces.
+ */
 export function createSourceSelectorWindow(): BrowserWindow {
 	const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
@@ -142,11 +161,69 @@ export function createSourceSelectorWindow(): BrowserWindow {
 		},
 	});
 
+	// Follow the user across macOS Spaces so the selector appears on the
+	// active desktop regardless of where the HUD was originally opened.
+	if (process.platform === "darwin") {
+		win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+	}
+
 	if (VITE_DEV_SERVER_URL) {
 		win.loadURL(VITE_DEV_SERVER_URL + "?windowType=source-selector");
 	} else {
 		win.loadFile(path.join(RENDERER_DIST, "index.html"), {
 			query: { windowType: "source-selector" },
+		});
+	}
+
+	return win;
+}
+
+/**
+ * Creates a centered transparent countdown overlay window that sits above the
+ * HUD while recording pre-roll is running.
+ */
+export function createCountdownOverlayWindow(): BrowserWindow {
+	const { workArea } = screen.getPrimaryDisplay();
+	const overlayWidth = 420;
+	const overlayHeight = 260;
+
+	const win = new BrowserWindow({
+		width: overlayWidth,
+		height: overlayHeight,
+		minWidth: overlayWidth,
+		maxWidth: overlayWidth,
+		minHeight: overlayHeight,
+		maxHeight: overlayHeight,
+		x: Math.round(workArea.x + (workArea.width - overlayWidth) / 2),
+		y: Math.round(workArea.y + (workArea.height - overlayHeight) / 2),
+		frame: false,
+		resizable: false,
+		alwaysOnTop: true,
+		skipTaskbar: true,
+		focusable: false,
+		transparent: true,
+		backgroundColor: "#00000000",
+		hasShadow: false,
+		show: false,
+		webPreferences: {
+			preload: path.join(__dirname, "preload.mjs"),
+			nodeIntegration: false,
+			contextIsolation: true,
+			backgroundThrottling: false,
+		},
+	});
+
+	win.setIgnoreMouseEvents(true);
+
+	if (process.platform === "darwin") {
+		win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+	}
+
+	if (VITE_DEV_SERVER_URL) {
+		win.loadURL(VITE_DEV_SERVER_URL + "?windowType=countdown-overlay");
+	} else {
+		win.loadFile(path.join(RENDERER_DIST, "index.html"), {
+			query: { windowType: "countdown-overlay" },
 		});
 	}
 
