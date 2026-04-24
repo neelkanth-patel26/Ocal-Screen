@@ -40,15 +40,20 @@ import {
 
 const VALID_BLUR_SHAPES = new Set(["rectangle", "oval", "freehand"] as const);
 
-// Pre-fix projects could persist resolved file:// URLs (machine-specific) instead
-// of the canonical `/wallpapers/wallpaperN.jpg` form. Rewrite those on load so
-// they resolve against the current install's resources directory.
-const LEGACY_FILE_WALLPAPER_RE = /^file:\/\/.*?\/(?:assets\/)?wallpapers\/(wallpaper\d+\.jpg)$/i;
+// Pre-fix projects could persist resolved file:// URLs (machine-specific) for
+// bundled wallpapers. Rewrite only paths that match a known install layout
+// (resources/[assets/]wallpapers for packaged, public/wallpapers for dev) so
+// a legitimate user file that happens to live in a folder named "wallpapers"
+// elsewhere is never silently replaced.
+const LEGACY_FILE_WALLPAPER_RE =
+	/^file:\/\/.*?\/(?:resources\/(?:assets\/)?|public\/)wallpapers\/(wallpaper\d+\.jpg)$/i;
+const CANONICAL_WALLPAPERS = new Set(WALLPAPER_PATHS);
 
 function normalizeWallpaperValue(value: string): string {
 	const match = LEGACY_FILE_WALLPAPER_RE.exec(value);
 	if (!match) return value;
-	return `/wallpapers/${match[1]}`;
+	const canonical = `/wallpapers/${match[1]}`;
+	return CANONICAL_WALLPAPERS.has(canonical) ? canonical : DEFAULT_WALLPAPER;
 }
 
 export { WALLPAPER_PATHS };

@@ -199,21 +199,21 @@ it("detects unsaved changes from differing snapshots", () => {
 });
 
 describe("wallpaper legacy normalization", () => {
-	it("rewrites resolved file:// resources paths from pre-fix projects", () => {
+	it("rewrites pre-fix packaged paths (resources/assets/wallpapers/…)", () => {
 		const normalized = normalizeProjectEditor({
 			wallpaper: "file:///opt/Openscreen/resources/assets/wallpapers/wallpaper5.jpg",
 		});
 		expect(normalized.wallpaper).toBe("/wallpapers/wallpaper5.jpg");
 	});
 
-	it("rewrites resolved file:// paths under the new resources/wallpapers layout", () => {
+	it("rewrites new packaged layout (resources/wallpapers/…)", () => {
 		const normalized = normalizeProjectEditor({
 			wallpaper: "file:///opt/Openscreen/resources/wallpapers/wallpaper3.jpg",
 		});
 		expect(normalized.wallpaper).toBe("/wallpapers/wallpaper3.jpg");
 	});
 
-	it("rewrites unpackaged dev paths (public/wallpapers/…)", () => {
+	it("rewrites unpackaged dev layout (public/wallpapers/…)", () => {
 		const normalized = normalizeProjectEditor({
 			wallpaper: "file:///home/user/project/public/wallpapers/wallpaper1.jpg",
 		});
@@ -235,5 +235,17 @@ describe("wallpaper legacy normalization", () => {
 		expect(
 			normalizeProjectEditor({ wallpaper: "linear-gradient(90deg, red, blue)" }).wallpaper,
 		).toBe("linear-gradient(90deg, red, blue)");
+	});
+
+	it("does NOT rewrite user files outside the known install layout", () => {
+		const userPath = "file:///home/user/Pictures/wallpapers/wallpaper1.jpg";
+		expect(normalizeProjectEditor({ wallpaper: userPath }).wallpaper).toBe(userPath);
+	});
+
+	it("falls back to default for bundled paths outside WALLPAPER_PATHS", () => {
+		const normalized = normalizeProjectEditor({
+			wallpaper: "file:///opt/Openscreen/resources/wallpapers/wallpaper99.jpg",
+		});
+		expect(normalized.wallpaper).toBe("/wallpapers/wallpaper1.jpg");
 	});
 });

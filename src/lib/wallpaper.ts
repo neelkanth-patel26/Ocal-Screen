@@ -56,6 +56,7 @@ export function resolveImageWallpaperUrl(imagePath: string): string {
 	try {
 		return getAssetPath(withLeadingSlash.slice(1));
 	} catch (cause) {
+		if (cause instanceof BackgroundLoadError) throw cause;
 		throw new BackgroundLoadError(imagePath, cause);
 	}
 }
