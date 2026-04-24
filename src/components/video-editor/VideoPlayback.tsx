@@ -542,21 +542,22 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
-
 			const el = overlayRef.current;
 			if (!el) return;
 
-			const observer = new ResizeObserver((entries) => {
-				const { width, height } = entries[0].contentRect;
+			// Seed immediately so overlays never start at 800×600
+			setOverlaySize({ width: el.clientWidth, height: el.clientHeight });
 
-				setOverlaySize({
-					width,
-					height,
+			const observer = new ResizeObserver((entries) => {
+				if (!entries[0]) return;
+				const { width, height } = entries[0].contentRect;
+				setOverlaySize((prev) => {
+					if (prev.width === width && prev.height === height) return prev;
+					return { width, height };
 				});
 			});
 
 			observer.observe(el);
-
 			return () => observer.disconnect();
 		}, [pixiReady, videoReady]);
 
