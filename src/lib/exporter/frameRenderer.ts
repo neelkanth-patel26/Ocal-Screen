@@ -394,8 +394,8 @@ export class FrameRenderer {
 			this.compositeCtx
 		) {
 			// Calculate scale factor based on export vs preview dimensions
-			const previewWidth = this.config.previewWidth || 1920;
-			const previewHeight = this.config.previewHeight || 1080;
+			const previewWidth = this.config.previewWidth ?? this.config.width;
+			const previewHeight = this.config.previewHeight ?? this.config.height;
 			const scaleX = this.config.width / previewWidth;
 			const scaleY = this.config.height / previewHeight;
 			const scaleFactor = (scaleX + scaleY) / 2;
@@ -480,8 +480,8 @@ export class FrameRenderer {
 		this.videoContainer.y = screenRect.y;
 
 		// scale border radius by export/preview canvas ratio
-		const previewWidth = this.config.previewWidth || 1920;
-		const previewHeight = this.config.previewHeight || 1080;
+		const previewWidth = this.config.previewWidth ?? this.config.width;
+		const previewHeight = this.config.previewHeight ?? this.config.height;
 		const canvasScaleFactor = Math.min(width / previewWidth, height / previewHeight);
 		const scaledBorderRadius =
 			compositeLayout.screenBorderRadius != null
