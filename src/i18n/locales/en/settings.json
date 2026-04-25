@@ -8,13 +8,6 @@
 			"manual": "Manual",
 			"auto": "Auto",
 			"autoDescription": "Camera follows the recorded cursor position"
-		},
-		"speed": {
-			"title": "Zoom Speed",
-			"instant": "Instant",
-			"fast": "Fast",
-			"smooth": "Smooth",
-			"lazy": "Lazy"
 		}
 	},
 	"speed": {

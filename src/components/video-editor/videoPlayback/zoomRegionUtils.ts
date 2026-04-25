@@ -7,6 +7,7 @@ import { clamp01, cubicBezier, easeOutScreenStudio } from "./mathUtils";
 
 const CHAINED_ZOOM_PAN_GAP_MS = 1500;
 const CONNECTED_ZOOM_PAN_DURATION_MS = 1000;
+const ZOOM_IN_OVERLAP_MS = 500;
 
 type DominantRegionOptions = {
 	connectZooms?: boolean;
@@ -37,49 +38,26 @@ function easeConnectedPan(value: number) {
 	return cubicBezier(0.1, 0.0, 0.2, 1.0, value);
 }
 
-export const DEFAULT_ZOOM_OUT_MS = TRANSITION_WINDOW_MS;
-export const DEFAULT_ZOOM_IN_MS = ZOOM_IN_TRANSITION_WINDOW_MS;
-
-export function getDurations(region: {
-	startMs: number;
-	endMs: number;
-	zoomInDurationMs?: number;
-	zoomOutDurationMs?: number;
-}) {
-	let zoomIn = region.zoomInDurationMs ?? DEFAULT_ZOOM_IN_MS;
-	let zoomOut = region.zoomOutDurationMs ?? DEFAULT_ZOOM_OUT_MS;
-
-	const duration = region.endMs - region.startMs;
-	if (zoomIn + zoomOut > duration) {
-		const scale = duration / (zoomIn + zoomOut);
-		zoomIn *= scale;
-		zoomOut *= scale;
-	}
-
-	return { zoomIn, zoomOut };
-}
-
 export function computeRegionStrength(region: ZoomRegion, timeMs: number) {
-	const { zoomIn, zoomOut } = getDurations(region);
+	const zoomInEnd = region.startMs + ZOOM_IN_OVERLAP_MS;
+	const leadInStart = zoomInEnd - ZOOM_IN_TRANSITION_WINDOW_MS;
+	const leadOutEnd = region.endMs + TRANSITION_WINDOW_MS;
 
-	if (timeMs < region.startMs || timeMs > region.endMs) {
+	if (timeMs < leadInStart || timeMs > leadOutEnd) {
 		return 0;
 	}
 
-	// Zooming in
-	if (timeMs < region.startMs + zoomIn) {
-		const progress = Math.max(0, Math.min(1, (timeMs - region.startMs) / zoomIn));
+	if (timeMs < zoomInEnd) {
+		const progress = (timeMs - leadInStart) / ZOOM_IN_TRANSITION_WINDOW_MS;
 		return easeOutScreenStudio(progress);
 	}
 
-	// Zooming out
-	if (timeMs > region.endMs - zoomOut) {
-		const progress = Math.max(0, Math.min(1, (region.endMs - timeMs) / zoomOut));
-		return easeOutScreenStudio(progress);
+	if (timeMs <= region.endMs) {
+		return 1;
 	}
 
-	// Full zoom
-	return 1;
+	const progress = clamp01((timeMs - region.endMs) / TRANSITION_WINDOW_MS);
+	return 1 - easeOutScreenStudio(progress);
 }
 
 function getLinearFocus(start: ZoomFocus, end: ZoomFocus, amount: number): ZoomFocus {

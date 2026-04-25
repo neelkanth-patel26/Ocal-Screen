@@ -33,8 +33,6 @@ export interface ZoomRegion {
 	depth: ZoomDepth;
 	focus: ZoomFocus;
 	focusMode?: ZoomFocusMode;
-	zoomInDurationMs?: number;
-	zoomOutDurationMs?: number;
 }
 
 export interface CursorTelemetryPoint {
