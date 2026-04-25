@@ -56,8 +56,6 @@ function normalizeWallpaperValue(value: string): string {
 	return CANONICAL_WALLPAPERS.has(canonical) ? canonical : DEFAULT_WALLPAPER;
 }
 
-export { WALLPAPER_PATHS };
-
 export const PROJECT_VERSION = 2;
 
 export interface ProjectEditorState {

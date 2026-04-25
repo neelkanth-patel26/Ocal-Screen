@@ -5,6 +5,7 @@ import {
 	classifyWallpaper,
 	DEFAULT_WALLPAPER,
 	resolveImageWallpaperUrl,
+	UnsafeImagePrefixError,
 	WALLPAPER_COUNT,
 	WALLPAPER_PATHS,
 } from "./wallpaper";
@@ -170,8 +171,14 @@ describe("resolveImageWallpaperUrl", () => {
 		expect(resolveImageWallpaperUrl("/wallpapers/my image.jpg")).toBe("/wallpapers/my%20image.jpg");
 	});
 
-	it("rejects image paths outside /wallpapers/", () => {
-		expect(() => resolveImageWallpaperUrl("/etc/passwd")).toThrow(BackgroundLoadError);
+	it("rejects image paths outside /wallpapers/ with UnsafeImagePrefixError as cause", () => {
+		try {
+			resolveImageWallpaperUrl("/etc/passwd");
+			expect.fail("should have thrown");
+		} catch (err) {
+			if (!(err instanceof BackgroundLoadError)) throw err;
+			expect(err.cause).toBeInstanceOf(UnsafeImagePrefixError);
+		}
 	});
 
 	it("wraps traversal attempts in BackgroundLoadError (preserves UnsafeAssetPathError as cause)", () => {
@@ -179,8 +186,8 @@ describe("resolveImageWallpaperUrl", () => {
 			resolveImageWallpaperUrl("/wallpapers/../etc/passwd");
 			expect.fail("should have thrown");
 		} catch (err) {
-			expect(err).toBeInstanceOf(BackgroundLoadError);
-			expect((err as BackgroundLoadError).cause).toBeInstanceOf(UnsafeAssetPathError);
+			if (!(err instanceof BackgroundLoadError)) throw err;
+			expect(err.cause).toBeInstanceOf(UnsafeAssetPathError);
 		}
 	});
 
@@ -189,8 +196,8 @@ describe("resolveImageWallpaperUrl", () => {
 			resolveImageWallpaperUrl("/wallpapers/%2e%2e/app.asar");
 			expect.fail("should have thrown");
 		} catch (err) {
-			expect(err).toBeInstanceOf(BackgroundLoadError);
-			expect((err as BackgroundLoadError).cause).toBeInstanceOf(UnsafeAssetPathError);
+			if (!(err instanceof BackgroundLoadError)) throw err;
+			expect(err.cause).toBeInstanceOf(UnsafeAssetPathError);
 		}
 	});
 
@@ -226,8 +233,8 @@ describe("resolveImageWallpaperUrl", () => {
 			resolveImageWallpaperUrl("/wallpapers/wallpaper1.jpg");
 			expect.fail("should have thrown");
 		} catch (err) {
-			expect(err).toBeInstanceOf(BackgroundLoadError);
-			expect((err as BackgroundLoadError).cause).toBeInstanceOf(AssetBaseUnavailableError);
+			if (!(err instanceof BackgroundLoadError)) throw err;
+			expect(err.cause).toBeInstanceOf(AssetBaseUnavailableError);
 		}
 	});
 });

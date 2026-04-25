@@ -37,6 +37,13 @@ export function classifyWallpaper(value: string): WallpaperClassification {
 
 const ALLOWED_IMAGE_PREFIX = "/wallpapers/";
 
+export class UnsafeImagePrefixError extends Error {
+	constructor(prefix: string) {
+		super(`Image wallpaper path must live under ${prefix}`);
+		this.name = "UnsafeImagePrefixError";
+	}
+}
+
 export function resolveImageWallpaperUrl(imagePath: string): string {
 	if (
 		imagePath.startsWith("http://") ||
@@ -48,10 +55,7 @@ export function resolveImageWallpaperUrl(imagePath: string): string {
 	}
 	const withLeadingSlash = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
 	if (!withLeadingSlash.startsWith(ALLOWED_IMAGE_PREFIX)) {
-		throw new BackgroundLoadError(
-			imagePath,
-			new Error(`Image wallpaper path must live under ${ALLOWED_IMAGE_PREFIX}`),
-		);
+		throw new BackgroundLoadError(imagePath, new UnsafeImagePrefixError(ALLOWED_IMAGE_PREFIX));
 	}
 	try {
 		return getAssetPath(withLeadingSlash.slice(1));
