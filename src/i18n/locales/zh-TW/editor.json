@@ -5,6 +5,7 @@
 		"cancel": "取消",
 		"confirm": "確認"
 	},
+	"loadingVideo": "正在載入影片...",
 	"errors": {
 		"noVideoLoaded": "未載入影片",
 		"videoNotReady": "影片未就緒",

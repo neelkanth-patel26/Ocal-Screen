@@ -2,6 +2,7 @@ import type { Span } from "dnd-timeline";
 import { useItem, useTimelineContext } from "dnd-timeline";
 import { Gauge, MessageSquare, Scissors, ZoomIn } from "lucide-react";
 import { useMemo } from "react";
+import { useScopedT } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
 import {
 	DEFAULT_ZOOM_IN_MS,
@@ -59,6 +60,7 @@ export default function Item({
 	children,
 	onZoomDurationChange,
 }: ItemProps) {
+	const t = useScopedT("timeline");
 	const { pixelsToValue } = useTimelineContext();
 	const { setNodeRef, attributes, listeners, itemStyle, itemContentStyle } = useItem({
 		id,
@@ -251,14 +253,14 @@ export default function Item({
 								<>
 									<Scissors className="w-3.5 h-3.5 shrink-0" />
 									<span className="text-[11px] font-semibold tracking-tight whitespace-nowrap">
-										Trim
+										{t("labels.trim")}
 									</span>
 								</>
 							) : isSpeed ? (
 								<>
 									<Gauge className="w-3.5 h-3.5 shrink-0" />
 									<span className="text-[11px] font-semibold tracking-tight whitespace-nowrap">
-										{speedValue !== undefined ? `${speedValue}×` : "Speed"}
+										{speedValue !== undefined ? `${speedValue}×` : t("labels.speed")}
 									</span>
 								</>
 							) : (
