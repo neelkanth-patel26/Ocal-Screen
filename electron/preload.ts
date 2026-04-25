@@ -1,18 +1,12 @@
-import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { contextBridge, ipcRenderer } from "electron";
 import type { RecordingSession, StoreRecordedSessionInput } from "../src/lib/recordingSession";
 
-// Asset base URL is a build-time constant per process; resolve once here so
-// the renderer can consume it synchronously. Packaged: electron-builder
-// extraResources copies public/wallpapers -> resources/wallpapers (see
-// electron-builder.json5). Unpackaged: wallpapers live at <appRoot>/public/,
-// and __dirname in dist-electron resolves to <appRoot>/dist-electron/.
-const isPackagedProcess = !process.defaultApp;
-const assetBaseDir = isPackagedProcess
-	? process.resourcesPath
-	: path.join(__dirname, "..", "public");
-const assetBaseUrl = pathToFileURL(`${assetBaseDir}${path.sep}`).toString();
+// Asset base URL is passed from the main process via webPreferences.additionalArguments
+// (see windows.ts). Sandboxed preloads cannot import node:path / node:url, so we
+// can't compute it here.
+const ASSET_BASE_URL_ARG_PREFIX = "--asset-base-url=";
+const assetBaseUrlArg = process.argv.find((arg) => arg.startsWith(ASSET_BASE_URL_ARG_PREFIX));
+const assetBaseUrl = assetBaseUrlArg ? assetBaseUrlArg.slice(ASSET_BASE_URL_ARG_PREFIX.length) : "";
 
 contextBridge.exposeInMainWorld("electronAPI", {
 	assetBaseUrl,
