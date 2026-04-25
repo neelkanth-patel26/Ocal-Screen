@@ -369,7 +369,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				if (!vid) return;
 				try {
 					allowPlaybackRef.current = true;
-					await vid.play().catch((err) => console.log("PLAY ERROR:", err));
+					await vid.play().catch((err) => {
+						console.log("PLAY ERROR:", err);
+						throw err;
+					});
 				} catch (error) {
 					allowPlaybackRef.current = false;
 					throw error;
