@@ -1290,15 +1290,18 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									region: blurRegion,
 								})),
 							].sort((a, b) => a.region.zIndex - b.region.zIndex);
-							const previewSnapshotCanvas = (() => {
-								const app = appRef.current;
-								if (!app?.renderer?.extract) return null;
-								try {
-									return app.renderer.extract.canvas(app.stage);
-								} catch {
-									return null;
-								}
-							})();
+							const previewSnapshotCanvas =
+								filteredBlurRegions.length > 0
+									? (() => {
+											const app = appRef.current;
+											if (!app?.renderer?.extract) return null;
+											try {
+												return app.renderer.extract.canvas(app.stage);
+											} catch {
+												return null;
+											}
+										})()
+									: null;
 
 							// Handle click-through cycling: when clicking same annotation, cycle to next
 							const handleAnnotationClick = (clickedId: string) => {
