@@ -103,6 +103,7 @@ interface TimelineRenderItem {
 	label: string;
 	zoomDepth?: number;
 	speedValue?: number;
+	isAutoFocus?: boolean;
 	variant: "zoom" | "trim" | "annotation" | "speed" | "blur";
 }
 
@@ -682,6 +683,7 @@ function Timeline({
 						isSelected={item.id === selectedZoomId}
 						onSelect={() => onSelectZoom?.(item.id)}
 						zoomDepth={item.zoomDepth}
+						isAutoFocus={item.isAutoFocus}
 						variant="zoom"
 					>
 						{item.label}
@@ -1337,6 +1339,7 @@ export default function TimelineEditor({
 			span: { start: region.startMs, end: region.endMs },
 			label: t("labels.zoomItem", { index: String(index + 1) }),
 			zoomDepth: region.depth,
+			isAutoFocus: region.focusMode === "auto",
 			variant: "zoom",
 		}));
 
