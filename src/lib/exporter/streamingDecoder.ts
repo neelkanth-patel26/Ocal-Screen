@@ -311,8 +311,16 @@ export class StreamingVideoDecoder {
 			);
 		}
 
+		if (/^vp08$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "vp8";
+		}
+		if (/^vp09$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "vp9";
+		}
+
 		const codec = decoderConfig.codec.toLowerCase();
-		const shouldPreferSoftwareDecode = codec.includes("av01") || codec.includes("av1");
+		const shouldPreferSoftwareDecode =
+			codec.includes("av01") || codec.includes("av1") || codec.includes("vp09");
 		const segments = this.splitBySpeed(
 			this.computeSegments(this.metadata.duration, trimRegions),
 			speedRegions,
