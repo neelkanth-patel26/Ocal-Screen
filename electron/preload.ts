@@ -51,11 +51,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getRecordedVideoPath: () => {
 		return ipcRenderer.invoke("get-recorded-video-path");
 	},
-	setRecordingState: (recording: boolean) => {
-		return ipcRenderer.invoke("set-recording-state", recording);
+	setRecordingState: (recording: boolean, recordingId?: number) => {
+		return ipcRenderer.invoke("set-recording-state", recording, recordingId);
 	},
 	getCursorTelemetry: (videoPath?: string) => {
 		return ipcRenderer.invoke("get-cursor-telemetry", videoPath);
+	},
+	discardCursorTelemetry: (recordingId: number) => {
+		return ipcRenderer.invoke("discard-cursor-telemetry", recordingId);
 	},
 	onStopRecordingFromTray: (callback: () => void) => {
 		const listener = () => callback();
