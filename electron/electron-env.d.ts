@@ -63,8 +63,8 @@ interface Window {
 			message?: string;
 			error?: string;
 		}>;
-		setRecordingState: (recording: boolean) => Promise<void>;
-		discardCursorTelemetry: () => Promise<void>;
+		setRecordingState: (recording: boolean, recordingId?: number) => Promise<void>;
+		discardCursorTelemetry: (recordingId: number) => Promise<void>;
 		getCursorTelemetry: (videoPath?: string) => Promise<{
 			success: boolean;
 			samples: CursorTelemetryPoint[];

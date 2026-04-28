@@ -279,16 +279,20 @@ async function storeRecordedSessionFiles(payload: StoreRecordedSessionInput) {
 	currentProjectPath = null;
 
 	const telemetryPath = `${screenVideoPath}.cursor.json`;
-	const pendingSamples: CursorTelemetryPoint[] = cursorTelemetryBuffer.takeNextBatch();
-	if (pendingSamples.length > 0) {
+	const pendingBatch = cursorTelemetryBuffer.takeNextBatch();
+	if (pendingBatch && pendingBatch.samples.length > 0) {
 		try {
 			await fs.writeFile(
 				telemetryPath,
-				JSON.stringify({ version: CURSOR_TELEMETRY_VERSION, samples: pendingSamples }, null, 2),
+				JSON.stringify(
+					{ version: CURSOR_TELEMETRY_VERSION, samples: pendingBatch.samples },
+					null,
+					2,
+				),
 				"utf-8",
 			);
 		} catch (err) {
-			cursorTelemetryBuffer.prependBatch(pendingSamples);
+			cursorTelemetryBuffer.prependBatch(pendingBatch);
 			throw err;
 		}
 	}
@@ -531,10 +535,15 @@ export function registerIpcHandlers(
 		}
 	});
 
-	ipcMain.handle("set-recording-state", (_, recording: boolean) => {
+	ipcMain.handle("set-recording-state", (_, recording: boolean, recordingId?: number) => {
 		if (recording) {
 			stopCursorCapture();
-			cursorTelemetryBuffer.startSession();
+			// The renderer is the source of truth for the recording id (it
+			// uses the same id as the saved fileName). Fall back to a
+			// timestamp only if the renderer didn't supply one, so the
+			// buffer always has a stable key per session.
+			const id = typeof recordingId === "number" ? recordingId : Date.now();
+			cursorTelemetryBuffer.startSession(id);
 			cursorCaptureStartTimeMs = Date.now();
 			sampleCursorPoint();
 			cursorCaptureInterval = setInterval(sampleCursorPoint, CURSOR_SAMPLE_INTERVAL_MS);
@@ -549,8 +558,8 @@ export function registerIpcHandlers(
 		}
 	});
 
-	ipcMain.handle("discard-cursor-telemetry", () => {
-		cursorTelemetryBuffer.discardLatestPending();
+	ipcMain.handle("discard-cursor-telemetry", (_, recordingId: number) => {
+		cursorTelemetryBuffer.discardBatch(recordingId);
 	});
 
 	ipcMain.handle("get-cursor-telemetry", async (_, videoPath?: string) => {

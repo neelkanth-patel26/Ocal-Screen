@@ -225,7 +225,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				try {
 					const screenBlob = await activeScreenRecorder.recordedBlobPromise;
 					if (discardRecordingId.current === activeRecordingId) {
-						window.electronAPI?.discardCursorTelemetry();
+						window.electronAPI?.discardCursorTelemetry(activeRecordingId);
 						return;
 					}
 					if (screenBlob.size === 0) {
@@ -554,7 +554,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			setRecording(true);
 			setPaused(false);
 			setElapsedSeconds(0);
-			window.electronAPI?.setRecordingState(true);
+			window.electronAPI?.setRecordingState(true, recordingId.current);
 
 			const activeScreenRecorder = screenRecorder.current;
 			const activeWebcamRecorder = webcamRecorder.current;
