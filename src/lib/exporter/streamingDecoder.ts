@@ -302,17 +302,38 @@ export class StreamingVideoDecoder {
 
 		const decoderConfig = await this.demuxer.getDecoderConfig("video");
 
-		// web-demuxer may return a bare "av01" for AV1 in WebM containers when the
-		// extradata isn't in the expected ISOBMFF format. WebCodecs requires the
-		// full parametrized form (e.g. "av01.0.05M.08").
+		console.log("[StreamingVideoDecoder] decoderConfig.codec:", decoderConfig.codec);
+		console.log("[StreamingVideoDecoder] decoderConfig.description:", decoderConfig.description);
+
+		// web-demuxer may return bare four-character code strings ("av01", "vp08",
+		// "vp09", "avc1") that WebCodecs rejects. Normalize them to the short or
+		// full parametrized forms that VideoDecoder accepts.
 		if (/^av01$/i.test(decoderConfig.codec)) {
 			decoderConfig.codec = buildAV1CodecString(
 				decoderConfig.description as BufferSource | undefined,
 			);
 		}
 
+		if (/^vp08$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "vp8";
+		}
+		if (/^vp09$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "vp9";
+		}
+
+		if (/^avc1$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "avc1.640033";
+		}
+		if (/^h264$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "avc1.640033";
+		}
+
 		const codec = decoderConfig.codec.toLowerCase();
-		const shouldPreferSoftwareDecode = codec.includes("av01") || codec.includes("av1");
+		const shouldPreferSoftwareDecode =
+			codec.includes("av01") ||
+			codec.includes("av1") ||
+			codec.includes("vp09") ||
+			codec.includes("vp9");
 		const segments = this.splitBySpeed(
 			this.computeSegments(this.metadata.duration, trimRegions),
 			speedRegions,
@@ -343,6 +364,10 @@ export class StreamingVideoDecoder {
 				}
 			},
 			error: (e: DOMException) => {
+				console.warn(
+					`[StreamingVideoDecoder] decoder error for codec "${decoderConfig.codec}":`,
+					e.message,
+				);
 				decodeError = new Error(`VideoDecoder error: ${e.message}`);
 				if (frameResolve) {
 					const resolve = frameResolve;
@@ -359,13 +384,28 @@ export class StreamingVideoDecoder {
 			: decoderConfig;
 
 		try {
+			const support = await VideoDecoder.isConfigSupported(preferredDecoderConfig);
+			console.log(
+				`[StreamingVideoDecoder] isConfigSupported for "${preferredDecoderConfig.codec}":`,
+				support.supported,
+			);
+			if (!support.supported) {
+				throw new Error(`Unsupported codec: ${preferredDecoderConfig.codec}`);
+			}
 			this.decoder.configure(preferredDecoderConfig);
 		} catch (error) {
-			if (!shouldPreferSoftwareDecode) {
+			if (shouldPreferSoftwareDecode) {
+				this.decoder.configure(decoderConfig);
+			} else if (/^avc1/i.test(codec)) {
+				const fallback = { ...decoderConfig, codec: "avc1.640033" };
+				console.warn(
+					`[StreamingVideoDecoder] codec "${codec}" unsupported, ` +
+						`falling back to "${fallback.codec}"`,
+				);
+				this.decoder.configure(fallback);
+			} else {
 				throw error;
 			}
-			// Fall back to default decoder config if software preference isn't supported.
-			this.decoder.configure(decoderConfig);
 		}
 
 		const getNextFrame = (): Promise<VideoFrame | null> => {
