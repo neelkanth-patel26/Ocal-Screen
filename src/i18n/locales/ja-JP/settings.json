@@ -52,7 +52,9 @@
 		"color": "色",
 		"gradient": "グラデーション",
 		"uploadCustom": "カスタムをアップロード",
-		"gradientLabel": "グラデーション {{index}}"
+		"gradientLabel": "グラデーション {{index}}",
+		"colorWheel": "カラーホイール",
+		"colorPalette": "カラーパレット"
 	},
 	"crop": {
 		"title": "クロップ",
@@ -120,6 +122,8 @@
 		"background": "背景",
 		"none": "なし",
 		"color": "色",
+		"colorWheel": "カラーホイール",
+		"colorPalette": "カラーパレット",
 		"clearBackground": "背景をクリア",
 		"uploadImage": "画像をアップロード",
 		"supportedFormats": "サポートされている形式: JPG, PNG, GIF, WebP",

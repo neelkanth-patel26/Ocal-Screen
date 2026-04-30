@@ -52,7 +52,9 @@
 		"color": "顏色",
 		"gradient": "漸層",
 		"uploadCustom": "上傳自訂",
-		"gradientLabel": "漸層 {{index}}"
+		"gradientLabel": "漸層 {{index}}",
+		"colorWheel": "色輪",
+		"colorPalette": "調色盤"
 	},
 	"crop": {
 		"title": "裁剪",
@@ -120,6 +122,8 @@
 		"background": "背景",
 		"none": "無",
 		"color": "顏色",
+		"colorWheel": "色輪",
+		"colorPalette": "調色盤",
 		"clearBackground": "清除背景",
 		"uploadImage": "上傳圖片",
 		"supportedFormats": "支援的格式：JPG、PNG、GIF、WebP",
