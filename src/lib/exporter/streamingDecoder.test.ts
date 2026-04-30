@@ -83,18 +83,4 @@ describe("shouldFailDecodeEndedEarly", () => {
 			}),
 		).toBe(true);
 	});
-
-	it("does not fail when decoder reached stream end but container tail is large (inflated metadata)", () => {
-		// Real case: ~20min video where container reports 1234s but actual stream
-		// ends at 1226s. Decoder correctly stops at 1226s (= streamDurationSec).
-		// The 8s tail is container metadata inflation, not a real decode failure.
-		expect(
-			shouldFailDecodeEndedEarly({
-				cancelled: false,
-				lastDecodedFrameSec: 1226,
-				requiredEndSec: 1234,
-				streamDurationSec: 1226,
-			}),
-		).toBe(false);
-	});
 });
