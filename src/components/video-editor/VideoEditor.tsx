@@ -1404,6 +1404,12 @@ export default function VideoEditor() {
 						const timestamp = Date.now();
 						const fileName = `export-${timestamp}.gif`;
 
+						if (result.warnings) {
+							for (const warning of result.warnings) {
+								toast.warning(warning);
+							}
+						}
+
 						const saveResult = await window.electronAPI.saveExportedVideo(arrayBuffer, fileName);
 
 						if (saveResult.canceled) {
@@ -1537,6 +1543,12 @@ export default function VideoEditor() {
 						const arrayBuffer = await result.blob.arrayBuffer();
 						const timestamp = Date.now();
 						const fileName = `export-${timestamp}.mp4`;
+
+						if (result.warnings) {
+							for (const warning of result.warnings) {
+								toast.warning(warning);
+							}
+						}
 
 						const saveResult = await window.electronAPI.saveExportedVideo(arrayBuffer, fileName);
 
