@@ -2,40 +2,26 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCameraDevices } from "./useCameraDevices";
 
-// Mock navigator.mediaDevices
 const mockDevices = [
 	{ kind: "videoinput", deviceId: "cam1", label: "Camera 1", groupId: "group1" },
 	{ kind: "videoinput", deviceId: "cam2", label: "Camera 2", groupId: "group1" },
 	{ kind: "audioinput", deviceId: "mic1", label: "Mic 1", groupId: "group2" },
 ];
 
-const mockGetUserMedia = vi.fn().mockResolvedValue({
-	getTracks: () => [{ stop: vi.fn() }],
-});
-
-const mockEnumerateDevices = vi.fn().mockResolvedValue(mockDevices);
-
-Object.defineProperty(global.navigator, "mediaDevices", {
-	value: {
-		enumerateDevices: mockEnumerateDevices,
-		getUserMedia: mockGetUserMedia,
-		addEventListener: vi.fn(),
-		removeEventListener: vi.fn(),
-	},
-	configurable: true,
-});
-
 describe("useCameraDevices", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
-		mockEnumerateDevices.mockResolvedValue(mockDevices);
-		mockGetUserMedia.mockResolvedValue({
+		vi.spyOn(navigator.mediaDevices, "enumerateDevices").mockResolvedValue(
+			mockDevices as MediaDeviceInfo[],
+		);
+		vi.spyOn(navigator.mediaDevices, "getUserMedia").mockResolvedValue({
 			getTracks: () => [{ stop: vi.fn() }],
-		});
+		} as unknown as MediaStream);
+		vi.spyOn(navigator.mediaDevices, "addEventListener");
+		vi.spyOn(navigator.mediaDevices, "removeEventListener");
 	});
 
 	afterEach(() => {
-		vi.resetAllMocks();
+		vi.restoreAllMocks();
 	});
 
 	it("should list video input devices", async () => {
@@ -58,9 +44,9 @@ describe("useCameraDevices", () => {
 	});
 
 	it("should use device ID as fallback label when label is missing", async () => {
-		mockEnumerateDevices.mockResolvedValueOnce([
+		vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValueOnce([
 			{ kind: "videoinput", deviceId: "cam1abc123456", label: "", groupId: "group1" },
-		]);
+		] as MediaDeviceInfo[]);
 
 		const { result } = renderHook(() => useCameraDevices(true));
 
@@ -68,11 +54,13 @@ describe("useCameraDevices", () => {
 			expect(result.current.devices[0]?.label).toBe("Camera cam1abc1");
 		});
 
-		expect(mockGetUserMedia).not.toHaveBeenCalled();
+		expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
 	});
 
 	it("should set error state when enumeration fails", async () => {
-		mockEnumerateDevices.mockRejectedValueOnce(new Error("Permission denied"));
+		vi.mocked(navigator.mediaDevices.enumerateDevices).mockRejectedValueOnce(
+			new Error("Permission denied"),
+		);
 
 		const { result } = renderHook(() => useCameraDevices(true));
 
@@ -91,13 +79,13 @@ describe("useCameraDevices", () => {
 			expect(result.current.selectedDeviceId).toBe("cam1");
 		});
 
-		// Simulate cam1 being unplugged — only cam2 remains
 		const cam2Only = [
 			{ kind: "videoinput", deviceId: "cam2", label: "Camera 2", groupId: "group1" },
 		];
-		mockEnumerateDevices.mockResolvedValueOnce(cam2Only);
+		vi.mocked(navigator.mediaDevices.enumerateDevices).mockResolvedValueOnce(
+			cam2Only as MediaDeviceInfo[],
+		);
 
-		// Trigger devicechange event via the registered handler
 		const devicechangeHandler = (
 			navigator.mediaDevices.addEventListener as ReturnType<typeof vi.fn>
 		).mock.calls[0]?.[1] as (() => void) | undefined;

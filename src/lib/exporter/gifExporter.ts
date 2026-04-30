@@ -117,6 +117,9 @@ export class GifExporter {
 	async export(): Promise<ExportResult> {
 		let webcamFrameQueue: AsyncVideoFrameQueue | null = null;
 
+		const warnings: string[] = [];
+		const onWarning = (message: string) => warnings.push(message);
+
 		try {
 			const platform = await getPlatform();
 
@@ -219,6 +222,7 @@ export class GifExporter {
 										}
 										queue.enqueue(webcamFrame);
 									},
+									onWarning,
 								)
 								.catch((error) => {
 									webcamDecodeError = error instanceof Error ? error : new Error(String(error));
@@ -278,6 +282,7 @@ export class GifExporter {
 						webcamFrame?.close();
 					}
 				},
+				onWarning,
 			);
 
 			if (this.cancelled) {
@@ -324,7 +329,7 @@ export class GifExporter {
 				this.gif!.render();
 			});
 
-			return { success: true, blob };
+			return { success: true, blob, warnings: warnings.length > 0 ? warnings : undefined };
 		} catch (error) {
 			console.error("GIF Export error:", error);
 			return {
