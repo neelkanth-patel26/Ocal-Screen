@@ -68,7 +68,7 @@ type EarlyDecodeEndCheck = {
 };
 
 const EARLY_DECODE_END_THRESHOLD_SEC = 1;
-const METADATA_TAIL_TOLERANCE_SEC = 1.5;
+const METADATA_TAIL_TOLERANCE_SEC = 2;
 const STREAM_DURATION_MATCH_TOLERANCE_SEC = 0.25;
 const DURATION_DIVERGENCE_THRESHOLD_SEC = 1.5;
 // Fallback upper bound for the packet scan when no reliable duration hint is
