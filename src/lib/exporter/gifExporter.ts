@@ -8,6 +8,8 @@ import type {
 	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { BackgroundLoadError } from "@/lib/wallpaper";
+import { getPlatform } from "@/utils/platformUtils";
 import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
 import { FrameRenderer } from "./frameRenderer";
 import { StreamingVideoDecoder } from "./streamingDecoder";
@@ -115,7 +117,13 @@ export class GifExporter {
 
 	async export(): Promise<ExportResult> {
 		let webcamFrameQueue: AsyncVideoFrameQueue | null = null;
+
+		const warnings: string[] = [];
+		const onWarning = (message: string) => warnings.push(message);
+
 		try {
+			const platform = await getPlatform();
+
 			this.cleanup();
 			this.cancelled = false;
 
@@ -153,6 +161,7 @@ export class GifExporter {
 				previewWidth: this.config.previewWidth,
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
+				platform,
 			});
 			await this.renderer.initialize();
 
@@ -174,11 +183,11 @@ export class GifExporter {
 			});
 
 			// Calculate effective duration and frame count (excluding trim regions)
-			const effectiveDuration = this.streamingDecoder.getEffectiveDuration(
+			const { effectiveDuration, totalFrames } = this.streamingDecoder.getExportMetrics(
+				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
 			);
-			const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
 
 			// Calculate frame delay in milliseconds (gif.js uses ms)
 			const frameDelay = Math.round(1000 / this.config.frameRate);
@@ -214,6 +223,7 @@ export class GifExporter {
 										}
 										queue.enqueue(webcamFrame);
 									},
+									onWarning,
 								)
 								.catch((error) => {
 									webcamDecodeError = error instanceof Error ? error : new Error(String(error));
@@ -273,6 +283,7 @@ export class GifExporter {
 						webcamFrame?.close();
 					}
 				},
+				onWarning,
 			);
 
 			if (this.cancelled) {
@@ -319,8 +330,11 @@ export class GifExporter {
 				this.gif!.render();
 			});
 
-			return { success: true, blob };
+			return { success: true, blob, warnings: warnings.length > 0 ? warnings : undefined };
 		} catch (error) {
+			if (error instanceof BackgroundLoadError) {
+				throw error;
+			}
 			console.error("GIF Export error:", error);
 			return {
 				success: false,

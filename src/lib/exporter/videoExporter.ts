@@ -7,6 +7,8 @@ import type {
 	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { BackgroundLoadError } from "@/lib/wallpaper";
+import { getPlatform } from "@/utils/platformUtils";
 import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
 import { AudioProcessor } from "./audioEncoder";
 import { FrameRenderer } from "./frameRenderer";
@@ -81,6 +83,10 @@ export class VideoExporter {
 					return { success: false, error: "Export cancelled" };
 				}
 
+				if (normalizedError instanceof BackgroundLoadError) {
+					throw normalizedError;
+				}
+
 				if (encoderPreferences.length > 1) {
 					console.warn(
 						`[VideoExporter] ${encoderPreference} export attempt failed:`,
@@ -106,12 +112,16 @@ export class VideoExporter {
 		let webcamDecodeError: Error | null = null;
 		let webcamDecodePromise: Promise<void> | null = null;
 		let webcamDecoder: StreamingVideoDecoder | null = null;
+		const warnings: string[] = [];
+		const onWarning = (message: string) => warnings.push(message);
 
 		this.cleanup();
 		this.cancelled = false;
 		this.fatalEncoderError = null;
 
 		try {
+			const platform = await getPlatform();
+
 			const streamingDecoder = new StreamingVideoDecoder();
 			this.streamingDecoder = streamingDecoder;
 			const videoInfo = await streamingDecoder.loadMetadata(this.config.videoUrl);
@@ -146,6 +156,7 @@ export class VideoExporter {
 				previewWidth: this.config.previewWidth,
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
+				platform,
 			});
 			this.renderer = renderer;
 			await renderer.initialize();
@@ -157,17 +168,11 @@ export class VideoExporter {
 			this.muxer = muxer;
 			await muxer.initialize();
 
-			const effectiveDuration = streamingDecoder.getEffectiveDuration(
+			const { totalFrames } = streamingDecoder.getExportMetrics(
+				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
 			);
-			const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
-			const readEndSec = Math.max(videoInfo.duration, videoInfo.streamDuration ?? 0) + 0.5;
-
-			console.log("[VideoExporter] Original duration:", videoInfo.duration, "s");
-			console.log("[VideoExporter] Effective duration:", effectiveDuration, "s");
-			console.log("[VideoExporter] Total frames to export:", totalFrames);
-			console.log("[VideoExporter] Using streaming decode (web-demuxer + VideoDecoder)");
 
 			const frameDuration = 1_000_000 / this.config.frameRate;
 			let frameIndex = 0;
@@ -196,6 +201,7 @@ export class VideoExporter {
 										}
 										queue.enqueue(webcamFrame);
 									},
+									onWarning,
 								)
 								.catch((error) => {
 									webcamDecodeError = error instanceof Error ? error : new Error(String(error));
@@ -237,25 +243,29 @@ export class VideoExporter {
 
 						const canvas = renderer.getCanvas();
 
-						// Read raw pixels from the canvas instead of passing
-						// the canvas directly to VideoFrame. On some Linux
-						// systems the GPU shared-image path (EGL/Ozone) fails
-						// silently, producing empty frames.
-						const canvasCtx = canvas.getContext("2d")!;
-						const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
-						const exportFrame = new VideoFrame(imageData.data.buffer, {
-							format: "RGBA",
-							codedWidth: canvas.width,
-							codedHeight: canvas.height,
-							timestamp,
-							duration: frameDuration,
-							colorSpace: {
-								primaries: "bt709",
-								transfer: "iec61966-2-1",
-								matrix: "rgb",
-								fullRange: true,
-							},
-						});
+						let exportFrame: VideoFrame;
+
+						// On some Linux systems the GPU shared-image path (EGL/Ozone) fails
+						// silently, producing empty frames, so we force a CPU readback instead.
+						if (platform === "linux") {
+							const canvasCtx = canvas.getContext("2d")!;
+							const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+							exportFrame = new VideoFrame(imageData.data.buffer, {
+								format: "RGBA",
+								codedWidth: canvas.width,
+								codedHeight: canvas.height,
+								timestamp,
+								duration: frameDuration,
+								colorSpace: {
+									primaries: "bt709",
+									transfer: "iec61966-2-1",
+									matrix: "rgb",
+									fullRange: true,
+								},
+							});
+						} else {
+							exportFrame = new VideoFrame(canvas, { timestamp, duration: frameDuration });
+						}
 
 						while (
 							this.encoder &&
@@ -296,6 +306,7 @@ export class VideoExporter {
 						webcamFrame?.close();
 					}
 				},
+				onWarning,
 			);
 
 			if (this.cancelled) {
@@ -346,13 +357,13 @@ export class VideoExporter {
 						this.config.videoUrl,
 						this.config.trimRegions,
 						this.config.speedRegions,
-						readEndSec,
+						videoInfo.duration,
 					);
 				}
 			}
 
 			const blob = await muxer.finalize();
-			return { success: true, blob };
+			return { success: true, blob, warnings: warnings.length > 0 ? warnings : undefined };
 		} finally {
 			stopWebcamDecode = true;
 			webcamFrameQueue?.destroy();
@@ -422,7 +433,7 @@ export class VideoExporter {
 				})();
 
 				this.muxingPromises.push(muxingPromise);
-				this.encodeQueue--;
+				this.encodeQueue = Math.max(0, this.encodeQueue - 1);
 			},
 			error: (error) => {
 				console.error("[VideoExporter] Encoder error:", error);

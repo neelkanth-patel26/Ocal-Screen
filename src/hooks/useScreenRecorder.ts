@@ -110,6 +110,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const allowAutoFinalize = useRef(false);
 	const discardRecordingId = useRef<number | null>(null);
 	const restarting = useRef(false);
+	const countdownRunId = useRef(0);
+	const [countdownActive, setCountdownActive] = useState(false);
+	const webcamReady = useRef(false);
+	const webcamAcquireId = useRef(0);
 
 	const getRecordingDurationMs = useCallback(() => {
 		const segmentDuration =
@@ -118,11 +122,15 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, []);
 
 	const selectMimeType = () => {
+		// H.264 first: hardware-accelerated on all modern devices, gives sharp
+		// real-time output. AV1/VP9 are great for distribution but too
+		// CPU-intensive for live 60 fps capture — they produce blurry frames
+		// when the software encoder can't keep up.
 		const preferred = [
-			"video/webm;codecs=av1",
 			"video/webm;codecs=h264",
-			"video/webm;codecs=vp9",
 			"video/webm;codecs=vp8",
+			"video/webm;codecs=vp9",
+			"video/webm;codecs=av1",
 			"video/webm",
 		];
 
@@ -158,10 +166,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			microphoneStream.current.getTracks().forEach((track) => track.stop());
 			microphoneStream.current = null;
 		}
-		if (webcamStream.current) {
-			webcamStream.current.getTracks().forEach((track) => track.stop());
-			webcamStream.current = null;
-		}
 		if (mixingContext.current) {
 			mixingContext.current.close().catch(() => {
 				// Ignore close errors during recorder teardown.
@@ -194,6 +198,85 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		[t],
 	);
 
+	useEffect(() => {
+		if (!webcamEnabled) return;
+
+		let cancelled = false;
+		let acquiredStream: MediaStream | null = null;
+		const thisAcquireId = ++webcamAcquireId.current;
+		webcamReady.current = false;
+
+		const acquire = async () => {
+			try {
+				const stream = await navigator.mediaDevices.getUserMedia({
+					audio: false,
+					video: webcamDeviceId
+						? {
+								deviceId: { exact: webcamDeviceId },
+								width: { ideal: WEBCAM_TARGET_WIDTH },
+								height: { ideal: WEBCAM_TARGET_HEIGHT },
+								frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
+							}
+						: {
+								width: { ideal: WEBCAM_TARGET_WIDTH },
+								height: { ideal: WEBCAM_TARGET_HEIGHT },
+								frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
+							},
+				});
+
+				if (cancelled || thisAcquireId !== webcamAcquireId.current) {
+					stream.getTracks().forEach((track) => {
+						track.onended = null;
+						track.stop();
+					});
+					return;
+				}
+
+				acquiredStream = stream;
+				stream.getVideoTracks().forEach((track) => {
+					track.onended = () => {
+						webcamStream.current = null;
+						if (!restarting.current) {
+							setWebcamEnabledState(false);
+							toast.error(t("recording.cameraDisconnected"));
+						}
+					};
+				});
+				webcamStream.current = stream;
+				webcamReady.current = true;
+			} catch (cameraError) {
+				if (!cancelled) {
+					console.warn("Failed to get webcam access:", cameraError);
+					setWebcamEnabledState(false);
+					const isDeviceError =
+						cameraError instanceof DOMException &&
+						[
+							"NotFoundError",
+							"DevicesNotFoundError",
+							"OverconstrainedError",
+							"NotReadableError",
+						].includes(cameraError.name);
+					toast.error(t(isDeviceError ? "recording.cameraNotFound" : "recording.cameraBlocked"));
+					webcamReady.current = true;
+				}
+			}
+		};
+
+		void acquire();
+
+		return () => {
+			cancelled = true;
+			webcamReady.current = false;
+			if (acquiredStream) {
+				acquiredStream.getTracks().forEach((track) => {
+					track.onended = null;
+					track.stop();
+				});
+				webcamStream.current = null;
+			}
+		};
+	}, [webcamEnabled, webcamDeviceId, t]);
+
 	const finalizeRecording = useCallback(
 		(
 			activeScreenRecorder: RecorderHandle,
@@ -225,6 +308,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				try {
 					const screenBlob = await activeScreenRecorder.recordedBlobPromise;
 					if (discardRecordingId.current === activeRecordingId) {
+						window.electronAPI?.discardCursorTelemetry(activeRecordingId);
 						return;
 					}
 					if (screenBlob.size === 0) {
@@ -334,7 +418,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		}
 
 		return () => {
+			const activeRunId = countdownRunId.current;
 			if (cleanup) cleanup();
+			countdownRunId.current += 1;
+			void safeHideCountdownOverlay(activeRunId);
 			allowAutoFinalize.current = false;
 			restarting.current = false;
 			discardRecordingId.current = null;
@@ -365,11 +452,126 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		};
 	}, [teardownMedia]);
 
-	const startRecording = async () => {
+	const safeShowCountdownOverlay = async (value: number, runId: number) => {
+		try {
+			await window.electronAPI.showCountdownOverlay(value, runId);
+			return true;
+		} catch (error) {
+			console.warn("Failed to show countdown overlay:", error);
+			return false;
+		}
+	};
+
+	const cancelCountdown = () => {
+		const activeRunId = countdownRunId.current;
+		countdownRunId.current += 1;
+		setCountdownActive(false);
+		void safeHideCountdownOverlay(activeRunId);
+	};
+
+	const safeSetCountdownOverlayValue = async (value: number, runId: number) => {
+		try {
+			await window.electronAPI.setCountdownOverlayValue(value, runId);
+		} catch (error) {
+			console.warn("Failed to update countdown overlay value:", error);
+		}
+	};
+
+	const safeHideCountdownOverlay = async (runId: number) => {
+		try {
+			await window.electronAPI.hideCountdownOverlay(runId);
+		} catch (error) {
+			console.warn("Failed to hide countdown overlay:", error);
+		}
+	};
+
+	const isCountdownRunActive = (runId?: number) =>
+		runId === undefined || countdownRunId.current === runId;
+
+	const startRecordCountdown = async () => {
+		if (countdownActive || recording) {
+			return;
+		}
+
+		const runId = countdownRunId.current + 1;
+		countdownRunId.current = runId;
+		setCountdownActive(true);
+
+		let selectedSource: ProcessedDesktopSource | null = null;
+		try {
+			selectedSource = await window.electronAPI.getSelectedSource();
+		} catch (error) {
+			console.warn("Failed to read selected source before countdown:", error);
+		}
+
+		if (!isCountdownRunActive(runId)) {
+			return;
+		}
+
+		if (!selectedSource) {
+			if (countdownRunId.current === runId) {
+				setCountdownActive(false);
+			}
+			alert(t("recording.selectSource"));
+			return;
+		}
+
+		let overlayHiddenBeforeStart = false;
+		try {
+			const values = [3, 2, 1];
+			const overlayShown = await safeShowCountdownOverlay(values[0], runId);
+
+			if (countdownRunId.current !== runId) {
+				return;
+			}
+
+			for (const value of values) {
+				if (countdownRunId.current !== runId) {
+					return;
+				}
+
+				if (overlayShown && value !== values[0]) {
+					await safeSetCountdownOverlayValue(value, runId);
+
+					if (countdownRunId.current !== runId) {
+						return;
+					}
+				}
+
+				await new Promise((resolve) => window.setTimeout(resolve, 1000));
+			}
+
+			if (countdownRunId.current !== runId) {
+				return;
+			}
+
+			setCountdownActive(false);
+			await safeHideCountdownOverlay(runId);
+			overlayHiddenBeforeStart = true;
+
+			if (countdownRunId.current !== runId) {
+				return;
+			}
+
+			await startRecording(runId);
+		} finally {
+			if (!overlayHiddenBeforeStart && countdownRunId.current === runId) {
+				setCountdownActive(false);
+				await safeHideCountdownOverlay(runId);
+			}
+		}
+	};
+
+	const startRecording = async (countdownRunToken?: number) => {
 		try {
 			const selectedSource = await window.electronAPI.getSelectedSource();
 			if (!selectedSource) {
 				alert(t("recording.selectSource"));
+				return;
+			}
+
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
 				return;
 			}
 
@@ -413,6 +615,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			}
 			screenStream.current = screenMediaStream;
 
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
+			}
+
 			if (microphoneEnabled) {
 				try {
 					microphoneStream.current = await navigator.mediaDevices.getUserMedia({
@@ -437,32 +644,35 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				}
 			}
 
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
+			}
+
 			if (webcamEnabled) {
-				try {
-					webcamStream.current = await navigator.mediaDevices.getUserMedia({
-						audio: false,
-						video: webcamDeviceId
-							? {
-									deviceId: { exact: webcamDeviceId },
-									width: { ideal: WEBCAM_TARGET_WIDTH },
-									height: { ideal: WEBCAM_TARGET_HEIGHT },
-									frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
-								}
-							: {
-									width: { ideal: WEBCAM_TARGET_WIDTH },
-									height: { ideal: WEBCAM_TARGET_HEIGHT },
-									frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
-								},
+				if (!webcamReady.current) {
+					await new Promise<void>((resolve) => {
+						const interval = setInterval(() => {
+							if (webcamReady.current) {
+								clearInterval(interval);
+								resolve();
+							}
+						}, 50);
+						setTimeout(() => {
+							clearInterval(interval);
+							resolve();
+						}, 5000);
 					});
-				} catch (cameraError) {
-					console.warn("Failed to get webcam access:", cameraError);
-					if (webcamStream.current) {
-						webcamStream.current.getTracks().forEach((track) => track.stop());
-						webcamStream.current = null;
-					}
-					setWebcamEnabledState(false);
-					toast.error(t("recording.cameraDenied"));
 				}
+				if (!webcamStream.current) {
+					webcamAcquireId.current++;
+					setWebcamEnabledState(false);
+				}
+			}
+
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
 			}
 
 			stream.current = new MediaStream();
@@ -505,6 +715,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				);
 			}
 
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
+			}
+
 			let {
 				width = DEFAULT_WIDTH,
 				height = DEFAULT_HEIGHT,
@@ -524,6 +739,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			);
 
 			const hasAudio = stream.current.getAudioTracks().length > 0;
+			if (!isCountdownRunActive(countdownRunToken)) {
+				teardownMedia();
+				return;
+			}
+
 			screenRecorder.current = createRecorderHandle(stream.current, {
 				mimeType,
 				videoBitsPerSecond,
@@ -553,7 +773,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			setRecording(true);
 			setPaused(false);
 			setElapsedSeconds(0);
-			window.electronAPI?.setRecordingState(true);
+			window.electronAPI?.setRecordingState(true, recordingId.current);
 
 			const activeScreenRecorder = screenRecorder.current;
 			const activeWebcamRecorder = webcamRecorder.current;
@@ -635,7 +855,17 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	};
 
 	const toggleRecording = () => {
-		recording ? stopRecording.current() : startRecording();
+		if (recording) {
+			stopRecording.current();
+			return;
+		}
+
+		if (countdownActive) {
+			cancelCountdown();
+			return;
+		}
+
+		void startRecordCountdown();
 	};
 
 	const restartRecording = async () => {
@@ -649,7 +879,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		restarting.current = true;
 		discardRecordingId.current = activeRecordingId;
-		allowAutoFinalize.current = false;
 
 		const stopPromises = [
 			new Promise<void>((resolve) => {
@@ -700,13 +929,22 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 	const cancelRecording = () => {
 		const activeScreenRecorder = screenRecorder.current;
-		if (!activeScreenRecorder || activeScreenRecorder.recorder.state !== "recording") return;
+		if (
+			activeScreenRecorder?.recorder.state === "recording" ||
+			activeScreenRecorder?.recorder.state === "paused"
+		) {
+			const activeRecordingId = recordingId.current;
+			discardRecordingId.current = activeRecordingId;
+			allowAutoFinalize.current = false;
 
-		const activeRecordingId = recordingId.current;
-		discardRecordingId.current = activeRecordingId;
-		allowAutoFinalize.current = false;
+			stopRecording.current();
+			return;
+		}
 
-		stopRecording.current();
+		if (countdownActive) {
+			cancelCountdown();
+			return;
+		}
 	};
 
 	return {

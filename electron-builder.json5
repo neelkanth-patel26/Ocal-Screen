@@ -20,16 +20,20 @@
     "!CONTRIBUTING.md",
     "!LICENSE"
   ],
+  // Asset layout contract: "wallpapers/" under resourcesPath must align with
+  // assetBaseDir in electron/preload.ts (packaged branch).
   "extraResources": [
     {
       "from": "public/wallpapers",
-      "to": "assets/wallpapers"
+      "to": "wallpapers"
     }
   ],
-  "publish": [{"provider": "github"}],
 
   "mac": {
-    "hardenedRuntime": false,
+    "notarize": false,
+    "hardenedRuntime": true,
+    "entitlements": "macos.entitlements",
+    "entitlementsInherit": "macos.entitlements",
     "target": [
       {
         "target": "dmg",

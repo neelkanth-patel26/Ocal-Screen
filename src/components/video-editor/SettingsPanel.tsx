@@ -13,7 +13,7 @@ import {
 	Upload,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	Accordion,
@@ -33,20 +33,22 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useScopedT } from "@/contexts/I18nContext";
-import { getAssetPath } from "@/lib/assetPath";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import { GIF_FRAME_RATES, GIF_SIZE_PRESETS } from "@/lib/exporter";
 import { cn } from "@/lib/utils";
+import { resolveImageWallpaperUrl, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
 import ColorPicker from "../ui/color-picker";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
+import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { CropControl } from "./CropControl";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
 	AnnotationType,
+	BlurData,
 	CropRegion,
 	FigureData,
 	PlaybackSpeed,
@@ -121,11 +123,6 @@ function CustomSpeedInput({
 	);
 }
 
-const WALLPAPER_COUNT = 18;
-const WALLPAPER_RELATIVE = Array.from(
-	{ length: WALLPAPER_COUNT },
-	(_, i) => `wallpapers/wallpaper${i + 1}.jpg`,
-);
 const GRADIENTS = [
 	"linear-gradient( 111.6deg,  rgba(114,167,232,1) 9.4%, rgba(253,129,82,1) 43.9%, rgba(253,129,82,1) 54.8%, rgba(249,202,86,1) 86.3% )",
 	"linear-gradient(120deg, #d4fc79 0%, #96e6a1 100%)",
@@ -208,7 +205,13 @@ interface SettingsPanelProps {
 	onAnnotationTypeChange?: (id: string, type: AnnotationType) => void;
 	onAnnotationStyleChange?: (id: string, style: Partial<AnnotationRegion["style"]>) => void;
 	onAnnotationFigureDataChange?: (id: string, figureData: FigureData) => void;
+	onAnnotationDuplicate?: (id: string) => void;
 	onAnnotationDelete?: (id: string) => void;
+	selectedBlurId?: string | null;
+	blurRegions?: AnnotationRegion[];
+	onBlurDataChange?: (id: string, blurData: BlurData) => void;
+	onBlurDataCommit?: () => void;
+	onBlurDelete?: (id: string) => void;
 	selectedSpeedId?: string | null;
 	selectedSpeedValue?: PlaybackSpeed | null;
 	onSpeedChange?: (speed: PlaybackSpeed) => void;
@@ -284,7 +287,13 @@ export function SettingsPanel({
 	onAnnotationTypeChange,
 	onAnnotationStyleChange,
 	onAnnotationFigureDataChange,
+	onAnnotationDuplicate,
 	onAnnotationDelete,
+	selectedBlurId,
+	blurRegions = [],
+	onBlurDataChange,
+	onBlurDataCommit,
+	onBlurDelete,
 	selectedSpeedId,
 	selectedSpeedValue,
 	onSpeedChange,
@@ -299,24 +308,12 @@ export function SettingsPanel({
 	onWebcamSizePresetCommit,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
-	const [wallpaperPaths, setWallpaperPaths] = useState<string[]>([]);
+	// Resolved URLs are for DOM rendering only (backgroundImage). The canonical
+	// `/wallpapers/wallpaperN.jpg` form in WALLPAPER_PATHS is what gets persisted
+	// on click — never the machine-specific file:// URL.
+	const wallpaperPreviewUrls = useMemo(() => WALLPAPER_PATHS.map(resolveImageWallpaperUrl), []);
 	const [customImages, setCustomImages] = useState<string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-
-	useEffect(() => {
-		let mounted = true;
-		(async () => {
-			try {
-				const resolved = await Promise.all(WALLPAPER_RELATIVE.map((p) => getAssetPath(p)));
-				if (mounted) setWallpaperPaths(resolved);
-			} catch (_err) {
-				if (mounted) setWallpaperPaths(WALLPAPER_RELATIVE.map((p) => `/${p}`));
-			}
-		})();
-		return () => {
-			mounted = false;
-		};
-	}, []);
 	const colorPalette = [
 		"#FF0000",
 		"#FFD700",
@@ -342,6 +339,7 @@ export function SettingsPanel({
 	const cropSnapshotRef = useRef<CropRegion | null>(null);
 	const [cropAspectLocked, setCropAspectLocked] = useState(false);
 	const [cropAspectRatio, setCropAspectRatio] = useState("");
+	const isPortraitCanvas = isPortraitAspectRatio(aspectRatio);
 
 	const videoWidth = videoElement?.videoWidth || 1920;
 	const videoHeight = videoElement?.videoHeight || 1080;
@@ -498,7 +496,7 @@ export function SettingsPanel({
 		setCustomImages((prev) => prev.filter((img) => img !== imageUrl));
 		// If the removed image was selected, clear selection
 		if (selected === imageUrl) {
-			onWallpaperChange(wallpaperPaths[0] || WALLPAPER_RELATIVE[0]);
+			onWallpaperChange(WALLPAPER_PATHS[0]);
 		}
 	};
 
@@ -520,6 +518,9 @@ export function SettingsPanel({
 	const selectedAnnotation = selectedAnnotationId
 		? annotationRegions.find((a) => a.id === selectedAnnotationId)
 		: null;
+	const selectedBlur = selectedBlurId
+		? blurRegions.find((region) => region.id === selectedBlurId)
+		: null;
 
 	// If an annotation is selected, show annotation settings instead
 	if (
@@ -540,7 +541,21 @@ export function SettingsPanel({
 						? (figureData) => onAnnotationFigureDataChange(selectedAnnotation.id, figureData)
 						: undefined
 				}
+				onDuplicate={
+					onAnnotationDuplicate ? () => onAnnotationDuplicate(selectedAnnotation.id) : undefined
+				}
 				onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
+			/>
+		);
+	}
+
+	if (selectedBlur && onBlurDataChange && onBlurDelete) {
+		return (
+			<BlurSettingsPanel
+				blurRegion={selectedBlur}
+				onBlurDataChange={(blurData) => onBlurDataChange(selectedBlur.id, blurData)}
+				onBlurDataCommit={onBlurDataCommit}
+				onDelete={() => onBlurDelete(selectedBlur.id)}
 			/>
 		);
 	}
@@ -753,15 +768,17 @@ export function SettingsPanel({
 											<SelectValue placeholder={t("layout.selectPreset")} />
 										</SelectTrigger>
 										<SelectContent>
-											{WEBCAM_LAYOUT_PRESETS.filter(
-												(preset) =>
-													preset.value === "picture-in-picture" ||
-													isPortraitAspectRatio(aspectRatio),
-											).map((preset) => (
+											{WEBCAM_LAYOUT_PRESETS.filter((preset) => {
+												if (preset.value === "picture-in-picture") return true;
+												if (preset.value === "vertical-stack") return isPortraitCanvas;
+												return !isPortraitCanvas;
+											}).map((preset) => (
 												<SelectItem key={preset.value} value={preset.value} className="text-xs">
 													{preset.value === "picture-in-picture"
 														? t("layout.pictureInPicture")
-														: t("layout.verticalStack")}
+														: preset.value === "vertical-stack"
+															? t("layout.verticalStack")
+															: t("layout.dualFrame")}
 												</SelectItem>
 											))}
 										</SelectContent>
@@ -1066,26 +1083,12 @@ export function SettingsPanel({
 												);
 											})}
 
-											{(wallpaperPaths.length > 0
-												? wallpaperPaths
-												: WALLPAPER_RELATIVE.map((p) => `/${p}`)
-											).map((path) => {
-												const isSelected = (() => {
-													if (!selected) return false;
-													if (selected === path) return true;
-													try {
-														const clean = (s: string) =>
-															s.replace(/^file:\/\//, "").replace(/^\//, "");
-														if (clean(selected).endsWith(clean(path))) return true;
-														if (clean(path).endsWith(clean(selected))) return true;
-													} catch {
-														// Best-effort comparison; fallback to strict match.
-													}
-													return false;
-												})();
+											{WALLPAPER_PATHS.map((canonicalPath, i) => {
+												const previewUrl = wallpaperPreviewUrls[i] ?? canonicalPath;
+												const isSelected = selected === canonicalPath;
 												return (
 													<div
-														key={path}
+														key={canonicalPath}
 														className={cn(
 															"aspect-square w-9 h-9 rounded-md border-2 overflow-hidden cursor-pointer transition-all duration-200 shadow-sm",
 															isSelected
@@ -1093,11 +1096,11 @@ export function SettingsPanel({
 																: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
 														)}
 														style={{
-															backgroundImage: `url(${path})`,
+															backgroundImage: `url(${previewUrl})`,
 															backgroundSize: "cover",
 															backgroundPosition: "center",
 														}}
-														onClick={() => onWallpaperChange(path)}
+														onClick={() => onWallpaperChange(canonicalPath)}
 														role="button"
 													/>
 												);

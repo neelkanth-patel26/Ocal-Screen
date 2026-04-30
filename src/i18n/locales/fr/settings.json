@@ -8,12 +8,21 @@
 			"manual": "Manuel",
 			"auto": "Auto",
 			"autoDescription": "La caméra suit la position du curseur enregistré"
+		},
+		"speed": {
+			"title": "Vitesse du zoom",
+			"instant": "Instantané",
+			"fast": "Rapide",
+			"smooth": "Fluide",
+			"lazy": "Lent"
 		}
 	},
 	"speed": {
 		"playbackSpeed": "Vitesse de lecture",
 		"selectRegion": "Sélectionnez une région de vitesse à ajuster",
-		"deleteRegion": "Supprimer la région de vitesse"
+		"deleteRegion": "Supprimer la région de vitesse",
+		"customPlaybackSpeed": "Vitesse de lecture personnalisée",
+		"maxSpeedError": "La vitesse ne peut pas dépasser 16×"
 	},
 	"trim": {
 		"deleteRegion": "Supprimer la région de coupe"
@@ -24,7 +33,9 @@
 		"selectPreset": "Choisir un préréglage",
 		"pictureInPicture": "Incrustation d'image",
 		"verticalStack": "Empilement vertical",
-		"webcamShape": "Forme de la caméra"
+		"dualFrame": "Double cadre",
+		"webcamShape": "Forme de la caméra",
+		"webcamSize": "Taille de la caméra"
 	},
 	"effects": {
 		"title": "Effets vidéo",
@@ -100,6 +111,7 @@
 		"typeText": "Texte",
 		"typeImage": "Image",
 		"typeArrow": "Flèche",
+		"typeBlur": "Flou",
 		"textContent": "Contenu du texte",
 		"textPlaceholder": "Saisissez votre texte...",
 		"fontStyle": "Style de police",
@@ -118,6 +130,18 @@
 		"arrowDirection": "Direction de la flèche",
 		"strokeWidth": "Épaisseur du trait : {{width}}px",
 		"arrowColor": "Couleur de la flèche",
+		"blurType": "Type de flou",
+		"blurTypeBlur": "Flou",
+		"blurTypeMosaic": "Flou mosaique",
+		"blurColor": "Couleur du flou",
+		"blurColorWhite": "Blanc",
+		"blurColorBlack": "Noir",
+		"blurShape": "Forme du flou",
+		"blurIntensity": "Intensité du flou",
+		"mosaicBlockSize": "Taille des blocs de mosaique",
+		"blurShapeRectangle": "Rectangle",
+		"blurShapeOval": "Ovale",
+		"blurShapeFreehand": "Main levée",
 		"deleteAnnotation": "Supprimer l'annotation",
 		"shortcutsAndTips": "Raccourcis & Astuces",
 		"tipMovePlayhead": "Déplacez la tête de lecture sur la section d'annotation et sélectionnez un élément.",

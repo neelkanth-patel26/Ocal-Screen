@@ -2,7 +2,7 @@ import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
 
 const SOURCE_LOAD_TIMEOUT_MS = 60_000;
-
+const EPSILON_SEC = 0.001;
 /**
  * Build a full WebCodecs-compatible AV1 codec string from the AV1CodecConfigurationRecord.
  * web-demuxer may return a bare "av01" when the WASM-side parser fails to read
@@ -68,8 +68,39 @@ type EarlyDecodeEndCheck = {
 };
 
 const EARLY_DECODE_END_THRESHOLD_SEC = 1;
-const METADATA_TAIL_TOLERANCE_SEC = 1.5;
+const METADATA_TAIL_TOLERANCE_SEC = 2;
 const STREAM_DURATION_MATCH_TOLERANCE_SEC = 0.25;
+const DURATION_DIVERGENCE_THRESHOLD_SEC = 1.5;
+// Fallback upper bound for the packet scan when no reliable duration hint is
+// available. Explicit end is required (some containers are truncated without
+// one), but the hint-derived bound would cap the scan prematurely when
+// container/stream duration are missing or corrupt.
+const SCAN_UNBOUNDED_FALLBACK_SEC = 24 * 60 * 60;
+
+/**
+ * Validate container duration against actual packet timestamps.
+ *
+ * Chrome/Electron's MediaRecorder writes WebM containers with unreliable
+ * Duration fields (often Infinity, 0, or inflated) — especially on Linux.
+ * This function picks the most trustworthy duration value.
+ *
+ * @param containerDuration  Duration from the container-level metadata
+ * @param scannedDuration    Duration derived from actual packet timestamps (ground truth)
+ */
+export function validateDuration(containerDuration: number, scannedDuration: number): number {
+	if (scannedDuration <= 0) {
+		// Zero scanned duration means corrupted/empty file — fall back to container
+		// (downstream shouldFailDecodeEndedEarly will catch truly empty files)
+		return Number.isFinite(containerDuration) ? Math.max(containerDuration, 0) : 0;
+	}
+	if (!Number.isFinite(containerDuration) || containerDuration <= 0) {
+		return scannedDuration;
+	}
+	if (Math.abs(containerDuration - scannedDuration) > DURATION_DIVERGENCE_THRESHOLD_SEC) {
+		return scannedDuration;
+	}
+	return containerDuration;
+}
 
 export function shouldFailDecodeEndedEarly({
 	cancelled,
@@ -98,11 +129,8 @@ export function shouldFailDecodeEndedEarly({
 	const decodedNearStreamEnd =
 		Math.abs(lastDecodedFrameSec - streamDurationSec) <= STREAM_DURATION_MATCH_TOLERANCE_SEC;
 
-	if (
-		decodedNearStreamEnd &&
-		metadataTailSec > 0 &&
-		metadataTailSec <= METADATA_TAIL_TOLERANCE_SEC
-	) {
+	const maxTailSec = Math.max(METADATA_TAIL_TOLERANCE_SEC, requiredEndSec * 0.01);
+	if (decodedNearStreamEnd && metadataTailSec > 0 && metadataTailSec <= maxTailSec) {
 		return false;
 	}
 
@@ -201,10 +229,43 @@ export class StreamingVideoDecoder {
 
 		const audioStream = mediaInfo.streams.find((s) => s.codec_type_string === "audio");
 
+		// Scan video packets to find the true content boundary.
+		// MediaRecorder (especially on Linux) writes unreliable container durations.
+		// Packet timestamps are ground truth — no decode needed, just timestamp reads.
+		// Pass explicit range because some containers are truncated without one.
+		// Sanitize because mediaInfo.duration can be NaN/Infinity (Chromium Linux bug),
+		// which would propagate into demuxer.read() as an invalid endpoint.
+		const containerDurationSec = Number.isFinite(mediaInfo.duration) ? mediaInfo.duration : 0;
+		const streamDurationSec =
+			typeof videoStream?.duration === "number" && Number.isFinite(videoStream.duration)
+				? videoStream.duration
+				: 0;
+		const hintedDurationSec = Math.max(containerDurationSec, streamDurationSec, 0);
+		const scanEndSec =
+			hintedDurationSec > 0 ? hintedDurationSec + 0.5 : SCAN_UNBOUNDED_FALLBACK_SEC;
+		let maxPacketEndUs = 0;
+		const scanReader = this.demuxer.read("video", 0, scanEndSec).getReader();
+		try {
+			while (true) {
+				const { done, value } = await scanReader.read();
+				if (done || !value) break;
+				const endUs = value.timestamp + (value.duration ?? 0);
+				if (endUs > maxPacketEndUs) maxPacketEndUs = endUs;
+			}
+		} finally {
+			try {
+				await scanReader.cancel();
+			} catch {
+				/* already closed */
+			}
+		}
+		const scannedDuration = maxPacketEndUs / 1_000_000;
+		const validatedDuration = validateDuration(mediaInfo.duration, scannedDuration);
+
 		this.metadata = {
 			width: videoStream?.width || 1920,
 			height: videoStream?.height || 1080,
-			duration: mediaInfo.duration,
+			duration: validatedDuration,
 			streamDuration:
 				typeof videoStream?.duration === "number" && Number.isFinite(videoStream.duration)
 					? videoStream.duration
@@ -217,12 +278,21 @@ export class StreamingVideoDecoder {
 
 		return this.metadata;
 	}
-
+	/**
+	 * Decodes all video frames from the loaded source and invokes a callback for each.
+	 * Handles trimming and speed adjustments, and resamples to the target frame rate.
+	 * On Windows, early decode termination is tolerated to work around driver quirks.
+	 * @param targetFrameRate - Desired output frame rate.
+	 * @param trimRegions - Array of time regions to keep (others discarded).
+	 * @param speedRegions - Array of speed adjustments for specific time ranges.
+	 * @param onFrame - Async callback receiving each decoded VideoFrame.
+	 */
 	async decodeAll(
 		targetFrameRate: number,
 		trimRegions: TrimRegion[] | undefined,
 		speedRegions: SpeedRegion[] | undefined,
 		onFrame: OnFrameCallback,
+		onWarning?: (message: string) => void,
 	): Promise<void> {
 		if (!this.demuxer || !this.metadata) {
 			throw new Error("Must call loadMetadata() before decodeAll()");
@@ -230,26 +300,50 @@ export class StreamingVideoDecoder {
 
 		const decoderConfig = await this.demuxer.getDecoderConfig("video");
 
-		// web-demuxer may return a bare "av01" for AV1 in WebM containers when the
-		// extradata isn't in the expected ISOBMFF format. WebCodecs requires the
-		// full parametrized form (e.g. "av01.0.05M.08").
+		console.log("[StreamingVideoDecoder] decoderConfig.codec:", decoderConfig.codec);
+		console.log("[StreamingVideoDecoder] decoderConfig.description:", decoderConfig.description);
+
+		// web-demuxer may return bare four-character code strings ("av01", "vp08",
+		// "vp09", "avc1") that WebCodecs rejects. Normalize them to the short or
+		// full parametrized forms that VideoDecoder accepts.
 		if (/^av01$/i.test(decoderConfig.codec)) {
 			decoderConfig.codec = buildAV1CodecString(
 				decoderConfig.description as BufferSource | undefined,
 			);
 		}
 
+		if (/^vp08$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "vp8";
+		}
+		if (/^vp09$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "vp9";
+		}
+
+		if (/^avc1$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "avc1.640033";
+		}
+		if (/^h264$/i.test(decoderConfig.codec)) {
+			decoderConfig.codec = "avc1.640033";
+		}
+
 		const codec = decoderConfig.codec.toLowerCase();
-		const shouldPreferSoftwareDecode = codec.includes("av01") || codec.includes("av1");
+		const shouldPreferSoftwareDecode =
+			codec.includes("av01") ||
+			codec.includes("av1") ||
+			codec.includes("vp09") ||
+			codec.includes("vp9");
 		const segments = this.splitBySpeed(
 			this.computeSegments(this.metadata.duration, trimRegions),
 			speedRegions,
 		);
+		const requiredEndSec = segments[segments.length - 1]?.endSec ?? 0;
+
 		const segmentOutputFrameCounts = segments.map((segment) =>
-			Math.ceil(((segment.endSec - segment.startSec) / segment.speed) * targetFrameRate),
+			Math.ceil(
+				((segment.endSec - segment.startSec - EPSILON_SEC) / segment.speed) * targetFrameRate,
+			),
 		);
 		const frameDurationUs = 1_000_000 / targetFrameRate;
-		const epsilonSec = 0.001;
 
 		// Async frame queue — decoder pushes, consumer pulls
 		const pendingFrames: VideoFrame[] = [];
@@ -268,6 +362,10 @@ export class StreamingVideoDecoder {
 				}
 			},
 			error: (e: DOMException) => {
+				console.warn(
+					`[StreamingVideoDecoder] decoder error for codec "${decoderConfig.codec}":`,
+					e.message,
+				);
 				decodeError = new Error(`VideoDecoder error: ${e.message}`);
 				if (frameResolve) {
 					const resolve = frameResolve;
@@ -284,13 +382,28 @@ export class StreamingVideoDecoder {
 			: decoderConfig;
 
 		try {
+			const support = await VideoDecoder.isConfigSupported(preferredDecoderConfig);
+			console.log(
+				`[StreamingVideoDecoder] isConfigSupported for "${preferredDecoderConfig.codec}":`,
+				support.supported,
+			);
+			if (!support.supported) {
+				throw new Error(`Unsupported codec: ${preferredDecoderConfig.codec}`);
+			}
 			this.decoder.configure(preferredDecoderConfig);
 		} catch (error) {
-			if (!shouldPreferSoftwareDecode) {
+			if (shouldPreferSoftwareDecode) {
+				this.decoder.configure(decoderConfig);
+			} else if (/^avc1/i.test(codec)) {
+				const fallback = { ...decoderConfig, codec: "avc1.640033" };
+				console.warn(
+					`[StreamingVideoDecoder] codec "${codec}" unsupported, ` +
+						`falling back to "${fallback.codec}"`,
+				);
+				this.decoder.configure(fallback);
+			} else {
 				throw error;
 			}
-			// Fall back to default decoder config if software preference isn't supported.
-			this.decoder.configure(decoderConfig);
 		}
 
 		const getNextFrame = (): Promise<VideoFrame | null> => {
@@ -304,7 +417,7 @@ export class StreamingVideoDecoder {
 
 		// One forward stream through the whole file.
 		// Pass explicit range because some containers are truncated when no end is provided.
-		const readEndSec = Math.max(this.metadata.duration, this.metadata.streamDuration ?? 0) + 0.5;
+		const readEndSec = this.metadata.duration + 0.5;
 		const reader = this.demuxer.read("video", 0, readEndSec).getReader();
 
 		// Feed chunks to decoder in background with backpressure
@@ -360,7 +473,7 @@ export class StreamingVideoDecoder {
 
 			const sourceTimeSec =
 				segment.startSec + (segmentFrameIndex / targetFrameRate) * segment.speed;
-			if (sourceTimeSec >= segment.endSec - epsilonSec) return false;
+			if (sourceTimeSec >= segment.endSec - EPSILON_SEC) return false;
 
 			const clone = new VideoFrame(heldFrame, { timestamp: heldFrame.timestamp });
 			await onFrame(clone, exportFrameIndex * frameDurationUs, sourceTimeSec * 1000);
@@ -379,7 +492,7 @@ export class StreamingVideoDecoder {
 			// Finalize completed segments before handling this frame.
 			while (
 				segmentIdx < segments.length &&
-				frameTimeSec >= segments[segmentIdx].endSec - epsilonSec
+				frameTimeSec >= segments[segmentIdx].endSec - EPSILON_SEC
 			) {
 				const segment = segments[segmentIdx];
 				while (!this.cancelled && (await emitHeldFrameForTarget(segment))) {
@@ -391,7 +504,7 @@ export class StreamingVideoDecoder {
 				if (
 					heldFrame &&
 					segmentIdx < segments.length &&
-					heldFrameSec < segments[segmentIdx].startSec - epsilonSec
+					heldFrameSec < segments[segmentIdx].startSec - EPSILON_SEC
 				) {
 					heldFrame.close();
 					heldFrame = null;
@@ -406,7 +519,7 @@ export class StreamingVideoDecoder {
 			const currentSegment = segments[segmentIdx];
 
 			// Before current segment (trimmed region or pre-roll).
-			if (frameTimeSec < currentSegment.startSec - epsilonSec) {
+			if (frameTimeSec < currentSegment.startSec - EPSILON_SEC) {
 				frame.close();
 				continue;
 			}
@@ -427,7 +540,7 @@ export class StreamingVideoDecoder {
 
 				const sourceTimeSec =
 					currentSegment.startSec + (segmentFrameIndex / targetFrameRate) * currentSegment.speed;
-				if (sourceTimeSec >= currentSegment.endSec - epsilonSec) {
+				if (sourceTimeSec >= currentSegment.endSec - EPSILON_SEC) {
 					break;
 				}
 				if (sourceTimeSec > handoffBoundarySec) {
@@ -449,7 +562,7 @@ export class StreamingVideoDecoder {
 		if (heldFrame && segmentIdx < segments.length) {
 			while (!this.cancelled && segmentIdx < segments.length) {
 				const segment = segments[segmentIdx];
-				if (heldFrameSec < segment.startSec - epsilonSec) {
+				if (heldFrameSec < segment.startSec - EPSILON_SEC) {
 					break;
 				}
 
@@ -461,7 +574,7 @@ export class StreamingVideoDecoder {
 				segmentFrameIndex = 0;
 				if (
 					segmentIdx < segments.length &&
-					heldFrameSec < segments[segmentIdx].startSec - epsilonSec
+					heldFrameSec < segments[segmentIdx].startSec - EPSILON_SEC
 				) {
 					break;
 				}
@@ -491,7 +604,6 @@ export class StreamingVideoDecoder {
 		}
 		this.decoder = null;
 
-		const requiredEndSec = segments.length > 0 ? segments[segments.length - 1].endSec : 0;
 		if (
 			shouldFailDecodeEndedEarly({
 				cancelled: this.cancelled,
@@ -502,9 +614,9 @@ export class StreamingVideoDecoder {
 		) {
 			const decodedAtLabel =
 				lastDecodedFrameSec === null ? "no decoded frame" : `${lastDecodedFrameSec.toFixed(3)}s`;
-			throw new Error(
-				`Video decode ended early at ${decodedAtLabel} (needed ${requiredEndSec.toFixed(3)}s).`,
-			);
+			const message = `Decode ended early at ${decodedAtLabel} (needed ${requiredEndSec.toFixed(3)}s) – export may be slightly shorter than expected.`;
+			console.warn(`[StreamingVideoDecoder] ${message}`);
+			onWarning?.(message);
 		}
 	}
 
@@ -536,11 +648,24 @@ export class StreamingVideoDecoder {
 		return segments;
 	}
 
-	getEffectiveDuration(trimRegions?: TrimRegion[], speedRegions?: SpeedRegion[]): number {
+	getExportMetrics(
+		targetFrameRate: number,
+		trimRegions?: TrimRegion[],
+		speedRegions?: SpeedRegion[],
+	): { effectiveDuration: number; totalFrames: number } {
 		if (!this.metadata) throw new Error("Must call loadMetadata() first");
 		const trimSegments = this.computeSegments(this.metadata.duration, trimRegions);
-		const speedSegments = this.splitBySpeed(trimSegments, speedRegions);
-		return speedSegments.reduce((sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed, 0);
+		const segments = this.splitBySpeed(trimSegments, speedRegions);
+		return {
+			effectiveDuration: segments.reduce(
+				(sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed,
+				0,
+			),
+			totalFrames: segments.reduce((sum, seg) => {
+				const segDur = seg.endSec - seg.startSec - EPSILON_SEC;
+				return sum + Math.max(0, Math.ceil((segDur / seg.speed) * targetFrameRate));
+			}, 0),
+		};
 	}
 
 	private splitBySpeed(

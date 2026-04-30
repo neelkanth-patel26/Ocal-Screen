@@ -37,7 +37,7 @@ interface Window {
 			status: string;
 			error?: string;
 		}>;
-		getAssetBasePath: () => Promise<string | null>;
+		assetBaseUrl: string;
 		storeRecordedVideo: (
 			videoData: ArrayBuffer,
 			fileName: string,
@@ -63,7 +63,8 @@ interface Window {
 			message?: string;
 			error?: string;
 		}>;
-		setRecordingState: (recording: boolean) => Promise<void>;
+		setRecordingState: (recording: boolean, recordingId?: number) => Promise<void>;
+		discardCursorTelemetry: (recordingId: number) => Promise<void>;
 		getCursorTelemetry: (videoPath?: string) => Promise<{
 			success: boolean;
 			samples: CursorTelemetryPoint[];
@@ -135,6 +136,10 @@ interface Window {
 		saveShortcuts: (shortcuts: unknown) => Promise<{ success: boolean; error?: string }>;
 		hudOverlayHide: () => void;
 		hudOverlayClose: () => void;
+		showCountdownOverlay: (value: number, runId: number) => Promise<void>;
+		setCountdownOverlayValue: (value: number, runId: number) => Promise<void>;
+		hideCountdownOverlay: (runId: number) => Promise<void>;
+		onCountdownOverlayValue: (callback: (value: number | null) => void) => () => void;
 		setMicrophoneExpanded: (expanded: boolean) => void;
 		setHasUnsavedChanges: (hasChanges: boolean) => void;
 		onRequestSaveBeforeClose: (callback: () => Promise<boolean> | boolean) => () => void;
