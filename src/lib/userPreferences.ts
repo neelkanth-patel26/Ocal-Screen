@@ -89,11 +89,26 @@ export function loadUserPreferences(): UserPreferences {
 /**
  * Extracts the parent directory from a saved file path. Handles both POSIX
  * and Windows separators since the path comes from the OS save dialog.
+ *
+ * Root directories are preserved with their trailing separator so that the
+ * value is still a valid directory path:
+ *   "/video.mp4"      -> "/"
+ *   "C:\\video.mp4"   -> "C:\\"
+ *
  * Returns null if no separator is found.
  */
 export function parentDirectoryOf(filePath: string): string | null {
 	const lastSep = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
-	if (lastSep <= 0) return null;
+	if (lastSep < 0) return null;
+
+	// POSIX root, e.g. "/video.mp4" -> "/"
+	if (lastSep === 0) return filePath[0];
+
+	// Windows drive root, e.g. "C:\\video.mp4" -> "C:\\"
+	if (lastSep === 2 && /^[A-Za-z]:[/\\]/.test(filePath)) {
+		return filePath.slice(0, lastSep + 1);
+	}
+
 	return filePath.slice(0, lastSep);
 }
 
