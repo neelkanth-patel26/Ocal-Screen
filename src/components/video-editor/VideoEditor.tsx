@@ -31,7 +31,7 @@ import {
 import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
-import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
+import { loadUserPreferences, parentDirectoryOf, saveUserPreferences } from "@/lib/userPreferences";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import {
 	getAspectRatioValue,
@@ -1285,6 +1285,10 @@ export default function VideoEditor() {
 	const handleExportSaved = useCallback(
 		(formatLabel: "GIF" | "Video", filePath: string) => {
 			setExportedFilePath(filePath);
+			const folder = parentDirectoryOf(filePath);
+			if (folder) {
+				saveUserPreferences({ exportFolder: folder });
+			}
 			toast.success(
 				t("export.exportedSuccessfully", {
 					format: formatLabel,
@@ -1309,6 +1313,7 @@ export default function VideoEditor() {
 			const saveResult = await window.electronAPI.saveExportedVideo(
 				unsavedExport.arrayBuffer,
 				unsavedExport.fileName,
+				loadUserPreferences().exportFolder ?? undefined,
 			);
 			if (saveResult.canceled) {
 				toast.info("Export canceled");
@@ -1410,7 +1415,11 @@ export default function VideoEditor() {
 							}
 						}
 
-						const saveResult = await window.electronAPI.saveExportedVideo(arrayBuffer, fileName);
+						const saveResult = await window.electronAPI.saveExportedVideo(
+							arrayBuffer,
+							fileName,
+							loadUserPreferences().exportFolder ?? undefined,
+						);
 
 						if (saveResult.canceled) {
 							setUnsavedExport({ arrayBuffer, fileName, format: "gif" });
@@ -1550,7 +1559,11 @@ export default function VideoEditor() {
 							}
 						}
 
-						const saveResult = await window.electronAPI.saveExportedVideo(arrayBuffer, fileName);
+						const saveResult = await window.electronAPI.saveExportedVideo(
+							arrayBuffer,
+							fileName,
+							loadUserPreferences().exportFolder ?? undefined,
+						);
 
 						if (saveResult.canceled) {
 							setUnsavedExport({ arrayBuffer, fileName, format: "mp4" });
