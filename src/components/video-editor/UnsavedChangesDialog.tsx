@@ -7,7 +7,6 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { useScopedT } from "@/contexts/I18nContext";
-import getAssetPath from "@/lib/assetPath";
 
 interface UnsavedChangesDialogProps {
 	isOpen: boolean;
@@ -31,7 +30,7 @@ export function UnsavedChangesDialog({
 				<DialogHeader className="mb-5">
 					<div className="flex items-center gap-3">
 						<img
-							src={getAssetPath("openscreen.png")}
+							src="./openscreen.png"
 							alt=""
 							aria-hidden="true"
 							className="w-9 h-9 rounded-xl flex-shrink-0"
