@@ -834,6 +834,7 @@ export default function VideoEditor() {
 						? {
 								...region,
 								depth,
+								customScale: undefined,
 								focus: clampFocusToDepth(region.focus, depth),
 							}
 						: region,
@@ -842,6 +843,24 @@ export default function VideoEditor() {
 		},
 		[selectedZoomId, pushState],
 	);
+
+	const handleZoomCustomScaleChange = useCallback(
+		(scale: number) => {
+			if (!selectedZoomId) return;
+			updateState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) =>
+					region.id === selectedZoomId
+						? { ...region, customScale: Math.round(scale * 100) / 100 }
+						: region,
+				),
+			}));
+		},
+		[selectedZoomId, updateState],
+	);
+
+	const handleZoomCustomScaleCommit = useCallback(() => {
+		commitState();
+	}, [commitState]);
 
 	const handleZoomFocusModeChange = useCallback(
 		(focusMode: ZoomFocusMode) => {
@@ -2060,6 +2079,13 @@ export default function VideoEditor() {
 							selectedZoomId ? zoomRegions.find((z) => z.id === selectedZoomId)?.depth : null
 						}
 						onZoomDepthChange={(depth) => selectedZoomId && handleZoomDepthChange(depth)}
+						selectedZoomCustomScale={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.customScale ?? null)
+								: null
+						}
+						onZoomCustomScaleChange={handleZoomCustomScaleChange}
+						onZoomCustomScaleCommit={handleZoomCustomScaleCommit}
 						selectedZoomFocusMode={
 							selectedZoomId
 								? (zoomRegions.find((z) => z.id === selectedZoomId)?.focusMode ?? "manual")
