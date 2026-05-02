@@ -252,6 +252,7 @@ function updateTrayMenu(recording: boolean = false) {
 
 let editorHasUnsavedChanges = false;
 let isForceClosing = false;
+let isCloseConfirmInFlight = false;
 
 ipcMain.on("set-has-unsaved-changes", (_, hasChanges: boolean) => {
 	editorHasUnsavedChanges = hasChanges;
@@ -283,9 +284,10 @@ function createEditorWindowWrapper() {
 	editorHasUnsavedChanges = false;
 
 	mainWindow.on("close", (event) => {
-		if (isForceClosing || !editorHasUnsavedChanges) return;
+		if (isForceClosing || !editorHasUnsavedChanges || isCloseConfirmInFlight) return;
 
 		event.preventDefault();
+		isCloseConfirmInFlight = true;
 
 		const windowToClose = mainWindow;
 		if (!windowToClose || windowToClose.isDestroyed()) return;
@@ -294,6 +296,7 @@ function createEditorWindowWrapper() {
 		windowToClose.webContents.send("request-close-confirm");
 
 		ipcMain.once("close-confirm-response", (_, choice: "save" | "discard" | "cancel") => {
+			isCloseConfirmInFlight = false;
 			if (!windowToClose || windowToClose.isDestroyed()) return;
 
 			if (choice === "save") {
@@ -306,7 +309,7 @@ function createEditorWindowWrapper() {
 			} else if (choice === "discard") {
 				forceCloseEditorWindow(windowToClose);
 			}
-			// "cancel": do nothing, window stays open
+			// "cancel": flag reset, window stays open
 		});
 	});
 }
