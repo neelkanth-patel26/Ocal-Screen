@@ -365,7 +365,11 @@ export const DEFAULT_ZOOM_DEPTH: ZoomDepth = 3;
 
 /** Returns the effective zoom scale for a region, preferring customScale over the preset. */
 export function getZoomScale(region: ZoomRegion): number {
-	return region.customScale ?? ZOOM_DEPTH_SCALES[region.depth];
+	if (region.customScale != null) {
+		const clamped = Math.max(MIN_ZOOM_SCALE, Math.min(MAX_ZOOM_SCALE, region.customScale));
+		if (Number.isFinite(clamped)) return clamped;
+	}
+	return ZOOM_DEPTH_SCALES[region.depth];
 }
 
 export function clampFocusToDepth(focus: ZoomFocus, _depth: ZoomDepth): ZoomFocus {
