@@ -295,14 +295,16 @@ function createEditorWindowWrapper() {
 		// Ask renderer to show the custom in-app dialog
 		windowToClose.webContents.send("request-close-confirm");
 
-		ipcMain.once("close-confirm-response", (_, choice: "save" | "discard" | "cancel") => {
+		ipcMain.once("close-confirm-response", (event, choice: "save" | "discard" | "cancel") => {
+			if (event.sender.id !== windowToClose?.webContents.id) return;
 			isCloseConfirmInFlight = false;
 			if (!windowToClose || windowToClose.isDestroyed()) return;
 
 			if (choice === "save") {
 				// Tell renderer to save the project, then close when done
 				windowToClose.webContents.send("request-save-before-close");
-				ipcMain.once("save-before-close-done", (_, shouldClose: boolean) => {
+				ipcMain.once("save-before-close-done", (event, shouldClose: boolean) => {
+					if (event.sender.id !== windowToClose?.webContents.id) return;
 					if (!shouldClose) return;
 					forceCloseEditorWindow(windowToClose);
 				});
