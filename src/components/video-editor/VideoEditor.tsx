@@ -850,11 +850,11 @@ export default function VideoEditor() {
 	const handleZoomCustomScaleChange = useCallback(
 		(scale: number) => {
 			if (!selectedZoomId) return;
+			const rounded = Math.round(scale * 100) / 100;
+			if (!Number.isFinite(rounded)) return;
 			updateState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
-					region.id === selectedZoomId
-						? { ...region, customScale: Math.round(scale * 100) / 100 }
-						: region,
+					region.id === selectedZoomId ? { ...region, customScale: rounded } : region,
 				),
 			}));
 		},
