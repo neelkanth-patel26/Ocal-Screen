@@ -473,9 +473,6 @@ export function SettingsPanel({
 	);
 
 	const zoomEnabled = Boolean(selectedZoomDepth);
-	const isCustomActive =
-		selectedZoomCustomScale != null &&
-		!Object.values(ZOOM_DEPTH_SCALES).some((s) => s === selectedZoomCustomScale);
 	const trimEnabled = Boolean(selectedTrimId);
 
 	const handleDeleteClick = () => {
@@ -647,7 +644,7 @@ export function SettingsPanel({
 								<span
 									className={cn(
 										"text-xs font-mono font-semibold tabular-nums",
-										isCustomActive ? "text-[#34B27B]" : "text-slate-400",
+										selectedZoomCustomScale != null ? "text-[#34B27B]" : "text-slate-400",
 									)}
 								>
 									{(
@@ -678,7 +675,7 @@ export function SettingsPanel({
 									<SliderPrimitive.Range
 										className={cn(
 											"absolute h-full transition-colors duration-150",
-											isCustomActive ? "bg-[#34B27B]" : "bg-white/20",
+											selectedZoomCustomScale != null ? "bg-[#34B27B]" : "bg-white/20",
 										)}
 									/>
 								</SliderPrimitive.Track>
@@ -687,7 +684,7 @@ export function SettingsPanel({
 										"block h-3.5 w-3.5 rounded-full border-2 shadow transition-all duration-150",
 										"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#34B27B]/50",
 										"disabled:pointer-events-none disabled:opacity-50 cursor-grab active:cursor-grabbing",
-										isCustomActive
+										selectedZoomCustomScale != null
 											? "border-[#34B27B] bg-[#34B27B] shadow-[0_0_6px_rgba(52,178,123,0.4)]"
 											: "border-white/20 bg-[#2a2a30] hover:border-white/40",
 									)}
