@@ -74,6 +74,7 @@ import {
 	type ZoomFocusMode,
 	type ZoomRegion,
 } from "./types";
+import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 
 export default function VideoEditor() {
@@ -144,6 +145,7 @@ export default function VideoEditor() {
 		format: string;
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [showCloseConfirmDialog, setShowCloseConfirmDialog] = useState(false);
 
 	const playerContainerRef = useRef<HTMLDivElement>(null);
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
@@ -523,6 +525,28 @@ export default function VideoEditor() {
 		});
 		return () => cleanup();
 	}, [saveProject]);
+
+	useEffect(() => {
+		const cleanup = window.electronAPI.onRequestCloseConfirm(() => {
+			setShowCloseConfirmDialog(true);
+		});
+		return () => cleanup();
+	}, []);
+
+	const handleCloseConfirmSave = useCallback(() => {
+		setShowCloseConfirmDialog(false);
+		window.electronAPI.sendCloseConfirmResponse("save");
+	}, []);
+
+	const handleCloseConfirmDiscard = useCallback(() => {
+		setShowCloseConfirmDialog(false);
+		window.electronAPI.sendCloseConfirmResponse("discard");
+	}, []);
+
+	const handleCloseConfirmCancel = useCallback(() => {
+		setShowCloseConfirmDialog(false);
+		window.electronAPI.sendCloseConfirmResponse("cancel");
+	}, []);
 
 	const handleSaveProject = useCallback(async () => {
 		await saveProject(false);
@@ -2065,6 +2089,13 @@ export default function VideoEditor() {
 				onShowInFolder={
 					exportedFilePath ? () => void handleShowExportedFile(exportedFilePath) : undefined
 				}
+			/>
+
+			<UnsavedChangesDialog
+				isOpen={showCloseConfirmDialog}
+				onSaveAndClose={handleCloseConfirmSave}
+				onDiscardAndClose={handleCloseConfirmDiscard}
+				onCancel={handleCloseConfirmCancel}
 			/>
 		</div>
 	);
