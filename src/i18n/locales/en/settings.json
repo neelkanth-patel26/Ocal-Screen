@@ -45,7 +45,9 @@
 		"color": "Color",
 		"gradient": "Gradient",
 		"uploadCustom": "Upload Custom",
-		"gradientLabel": "Gradient {{index}}"
+		"gradientLabel": "Gradient {{index}}",
+		"colorWheel": "Color Wheel",
+		"colorPalette": "Color Palette"
 	},
 	"crop": {
 		"title": "Crop",
@@ -113,6 +115,8 @@
 		"background": "Background",
 		"none": "None",
 		"color": "Color",
+		"colorWheel": "Color Wheel",
+		"colorPalette": "Color Palette",
 		"clearBackground": "Clear Background",
 		"uploadImage": "Upload Image",
 		"supportedFormats": "Supported formats: JPG, PNG, GIF, WebP",

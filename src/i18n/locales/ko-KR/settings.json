@@ -44,7 +44,9 @@
 		"color": "색상",
 		"gradient": "그라디언트",
 		"uploadCustom": "직접 업로드",
-		"gradientLabel": "그라디언트 {{index}}"
+		"gradientLabel": "그라디언트 {{index}}",
+		"colorWheel": "색상 휠",
+		"colorPalette": "색상 팔레트"
 	},
 	"crop": {
 		"title": "자르기",
@@ -111,6 +113,8 @@
 		"background": "배경",
 		"none": "없음",
 		"color": "색상",
+		"colorWheel": "색상 휠",
+		"colorPalette": "색상 팔레트",
 		"clearBackground": "배경 지우기",
 		"uploadImage": "이미지 업로드",
 		"supportedFormats": "지원 형식: JPG, PNG, GIF, WebP",
