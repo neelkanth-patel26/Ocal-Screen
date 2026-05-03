@@ -285,7 +285,9 @@ function updateTrayMenu(recording: boolean = false) {
 	if (!tray) return;
 	const trayIcon = recording ? recordingTrayIcon : defaultTrayIcon;
 	const trayToolTip = recording
-		? mainT("common", "actions.recordingStatus", { source: selectedSourceName })
+		? mainT("common", "actions.recordingStatus", {
+				source: selectedSourceName,
+			}) || `Recording: ${selectedSourceName}`
 		: "OpenScreen";
 	const menuTemplate = recording
 		? [

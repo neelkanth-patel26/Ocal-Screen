@@ -1079,8 +1079,9 @@ export function SettingsPanel({
 													const turningOn = !cursorHighlight.onlyOnClicks;
 													if (turningOn) {
 														try {
-															const result = await window.electronAPI.requestAccessibilityAccess();
-															if (!result.granted) {
+															const result =
+																await window.electronAPI?.requestAccessibilityAccess?.();
+															if (!result?.granted) {
 																toast.message(
 																	t("effects.cursorHighlight.accessibilityPermissionTitle"),
 																	{
@@ -1089,6 +1090,7 @@ export function SettingsPanel({
 																		),
 																	},
 																);
+																return;
 															}
 														} catch (err) {
 															console.warn("Accessibility request failed:", err);

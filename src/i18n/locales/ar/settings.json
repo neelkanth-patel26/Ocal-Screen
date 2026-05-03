@@ -173,7 +173,7 @@
 		"dialogTitle": "إضافة خط Google",
 		"urlLabel": "رابط استيراد خطوط Google",
 		"urlPlaceholder": "https://fonts.googleapis.com/css2?family=Roboto&display=swap",
-		"urlHelp": "احصل على هذا من خطوط Google: حدد خطًا → انقر على \"Get font\" → انسخ رابط @import",
+		"urlHelp": "احصل على هذا من خطوط Google: حدد خطًا → انقر على \"احصل على الخط\" → انسخ رابط `@import`",
 		"nameLabel": "اسم العرض",
 		"namePlaceholder": "خطي المخصص",
 		"nameHelp": "هكذا سيظهر الخط في محدد الخطوط",
