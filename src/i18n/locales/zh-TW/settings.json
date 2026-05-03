@@ -143,7 +143,14 @@
 		"invalidImageType": "無效的檔案類型",
 		"imageFormatsOnly": "請上傳 JPG、PNG、GIF 或 WebP 格式的圖片檔案。",
 		"imageUploadSuccess": "圖片上傳成功！",
-		"failedImageUpload": "上傳圖片失敗"
+		"failedImageUpload": "上傳圖片失敗",
+		"blurColor": "模糊顏色",
+		"blurColorBlack": "黑色",
+		"blurColorWhite": "白色",
+		"blurType": "模糊類型",
+		"blurTypeBlur": "模糊",
+		"blurTypeMosaic": "馬賽克模糊",
+		"mosaicBlockSize": "馬賽克區塊大小"
 	},
 	"fontStyles": {
 		"classic": "經典",

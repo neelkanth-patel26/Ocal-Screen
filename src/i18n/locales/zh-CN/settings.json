@@ -136,7 +136,14 @@
 		"invalidImageType": "无效的文件类型",
 		"imageFormatsOnly": "请上传 JPG、PNG、GIF 或 WebP 格式的图片文件。",
 		"imageUploadSuccess": "图片上传成功！",
-		"failedImageUpload": "上传图片失败"
+		"failedImageUpload": "上传图片失败",
+		"blurColor": "模糊颜色",
+		"blurColorBlack": "黑色",
+		"blurColorWhite": "白色",
+		"blurType": "模糊类型",
+		"blurTypeBlur": "模糊",
+		"blurTypeMosaic": "马赛克模糊",
+		"mosaicBlockSize": "马赛克块大小"
 	},
 	"fontStyles": {
 		"classic": "经典",

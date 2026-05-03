@@ -17,7 +17,8 @@
 		"exportFailedWithError": "エクスポートに失敗しました: {{error}}",
 		"failedToSaveExport": "エクスポートの保存に失敗しました",
 		"failedToSaveExportedVideo": "エクスポートしたビデオの保存に失敗しました",
-		"failedToRevealInFolder": "フォルダの表示に失敗しました: {{error}}"
+		"failedToRevealInFolder": "フォルダの表示に失敗しました: {{error}}",
+		"exportBackgroundLoadFailed": "エクスポートに失敗しました: 背景画像を読み込めませんでした ({{url}})"
 	},
 	"export": {
 		"canceled": "エクスポートがキャンセルされました",
@@ -37,6 +38,8 @@
 		"systemAudioUnavailable": "システムオーディオが利用できません。システムオーディオなしで録画します。",
 		"microphoneDenied": "マイクのアクセスが拒否されました。オーディオなしで録画を続行します。",
 		"cameraDenied": "カメラのアクセスが拒否されました。ウェブカメラなしで録画を続行します。",
-		"permissionDenied": "録画の権限が拒否されました。画面録画を許可してください。"
+		"permissionDenied": "録画の権限が拒否されました。画面録画を許可してください。",
+		"cameraDisconnected": "ウェブカメラが切断されました。",
+		"cameraNotFound": "カメラが見つかりません。"
 	}
 }
