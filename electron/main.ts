@@ -352,10 +352,11 @@ function createCountdownOverlayWindowWrapper() {
 	return countdownOverlayWindow;
 }
 
-// On macOS, applications and their menu bar stay active until the user quits
-// explicitly with Cmd + Q.
+// Closing every window quits the app entirely (tray icon goes too).
+// The in-app "Return to Recorder" button covers the editor → HUD round-trip,
+// so closing the last window is an explicit "I'm done" signal.
 app.on("window-all-closed", () => {
-	// Keep app running (macOS behavior)
+	app.quit();
 });
 
 app.on("activate", () => {
@@ -377,6 +378,13 @@ app.on("activate", () => {
 
 // Register all IPC handlers when app is ready
 app.whenReady().then(async () => {
+	// Force the app into "regular" activation policy so the Dock icon appears.
+	// The HUD overlay (transparent + frameless + skipTaskbar) is the first
+	// window we open, and AppKit otherwise classifies us as an accessory app.
+	if (process.platform === "darwin") {
+		app.dock?.show();
+	}
+
 	// Allow microphone/media permission checks
 	session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
 		const allowed = ["media", "audioCapture", "microphone", "videoCapture", "camera"];
