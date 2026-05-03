@@ -30,7 +30,7 @@
 		"test:browser:install": "playwright install --with-deps chromium-headless-shell",
 		"test:e2e": "playwright test",
 		"prepare": "husky",
-		"rebuild:native": "node ./node_modules/@electron/rebuild/lib/cli.js --force --only uiohook-napi",
+		"rebuild:native": "node ./scripts/rebuild-native.mjs",
 		"postinstall": "npm run rebuild:native"
 	},
 	"dependencies": {
