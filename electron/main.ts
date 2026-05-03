@@ -124,15 +124,30 @@ function setupApplicationMenu() {
 		template.push({
 			label: app.name,
 			submenu: [
-				{ role: "about" },
+				{
+					role: "about",
+					label: mainT("common", "actions.about") || "About OpenScreen",
+				},
 				{ type: "separator" },
-				{ role: "services" },
+				{
+					role: "services",
+					label: mainT("common", "actions.services") || "Services",
+				},
 				{ type: "separator" },
-				{ role: "hide" },
-				{ role: "hideOthers" },
-				{ role: "unhide" },
+				{
+					role: "hide",
+					label: mainT("common", "actions.hide") || "Hide OpenScreen",
+				},
+				{
+					role: "hideOthers",
+					label: mainT("common", "actions.hideOthers") || "Hide Others",
+				},
+				{
+					role: "unhide",
+					label: mainT("common", "actions.unhide") || "Show All",
+				},
 				{ type: "separator" },
-				{ role: "quit" },
+				{ role: "quit", label: mainT("common", "actions.quit") || "Quit" },
 			],
 		});
 	}
@@ -156,40 +171,89 @@ function setupApplicationMenu() {
 					accelerator: "CmdOrCtrl+Shift+S",
 					click: () => sendEditorMenuAction("menu-save-project-as"),
 				},
-				...(isMac ? [] : [{ type: "separator" as const }, { role: "quit" as const }]),
+				...(isMac
+					? []
+					: [
+							{ type: "separator" as const },
+							{
+								role: "quit" as const,
+								label: mainT("common", "actions.quit") || "Quit",
+							},
+						]),
 			],
 		},
 		{
 			label: mainT("common", "actions.edit") || "Edit",
 			submenu: [
-				{ role: "undo" },
-				{ role: "redo" },
+				{ role: "undo", label: mainT("common", "actions.undo") || "Undo" },
+				{ role: "redo", label: mainT("common", "actions.redo") || "Redo" },
 				{ type: "separator" },
-				{ role: "cut" },
-				{ role: "copy" },
-				{ role: "paste" },
-				{ role: "selectAll" },
+				{ role: "cut", label: mainT("common", "actions.cut") || "Cut" },
+				{ role: "copy", label: mainT("common", "actions.copy") || "Copy" },
+				{ role: "paste", label: mainT("common", "actions.paste") || "Paste" },
+				{
+					role: "selectAll",
+					label: mainT("common", "actions.selectAll") || "Select All",
+				},
 			],
 		},
 		{
 			label: mainT("common", "actions.view") || "View",
 			submenu: [
-				{ role: "reload" },
-				{ role: "forceReload" },
-				{ role: "toggleDevTools" },
+				{
+					role: "reload",
+					label: mainT("common", "actions.reload") || "Reload",
+				},
+				{
+					role: "forceReload",
+					label: mainT("common", "actions.forceReload") || "Force Reload",
+				},
+				{
+					role: "toggleDevTools",
+					label: mainT("common", "actions.toggleDevTools") || "Toggle Developer Tools",
+				},
 				{ type: "separator" },
-				{ role: "resetZoom" },
-				{ role: "zoomIn" },
-				{ role: "zoomOut" },
+				{
+					role: "resetZoom",
+					label: mainT("common", "actions.actualSize") || "Actual Size",
+				},
+				{
+					role: "zoomIn",
+					label: mainT("common", "actions.zoomIn") || "Zoom In",
+				},
+				{
+					role: "zoomOut",
+					label: mainT("common", "actions.zoomOut") || "Zoom Out",
+				},
 				{ type: "separator" },
-				{ role: "togglefullscreen" },
+				{
+					role: "togglefullscreen",
+					label: mainT("common", "actions.toggleFullScreen") || "Toggle Full Screen",
+				},
 			],
 		},
 		{
 			label: mainT("common", "actions.window") || "Window",
 			submenu: isMac
-				? [{ role: "minimize" }, { role: "zoom" }, { type: "separator" }, { role: "front" }]
-				: [{ role: "minimize" }, { role: "close" }],
+				? [
+						{
+							role: "minimize",
+							label: mainT("common", "actions.minimize") || "Minimize",
+						},
+						{ role: "zoom" },
+						{ type: "separator" },
+						{ role: "front" },
+					]
+				: [
+						{
+							role: "minimize",
+							label: mainT("common", "actions.minimize") || "Minimize",
+						},
+						{
+							role: "close",
+							label: mainT("common", "actions.close") || "Close",
+						},
+					],
 		},
 	);
 
@@ -220,7 +284,9 @@ function getTrayIcon(filename: string, size: number) {
 function updateTrayMenu(recording: boolean = false) {
 	if (!tray) return;
 	const trayIcon = recording ? recordingTrayIcon : defaultTrayIcon;
-	const trayToolTip = recording ? `Recording: ${selectedSourceName}` : "OpenScreen";
+	const trayToolTip = recording
+		? mainT("common", "actions.recordingStatus", { source: selectedSourceName })
+		: "OpenScreen";
 	const menuTemplate = recording
 		? [
 				{
