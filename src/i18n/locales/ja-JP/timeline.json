@@ -5,23 +5,23 @@
 		"addTrim": "トリムを追加 (T)",
 		"addAnnotation": "注釈を追加 (A)",
 		"addBlur": "ぼかしを追加 (B)",
-		"addSpeed": "速度を追加 (S)"
+		"addSpeed": "再生速度を追加 (S)"
 	},
 	"hints": {
 		"pressZoom": "Zキーを押してズームを追加",
 		"pressTrim": "Tキーを押してトリムを追加",
 		"pressAnnotation": "Aキーを押して注釈を追加",
 		"pressBlur": "Bキーを押してぼかしを追加",
-		"pressSpeed": "Sキーを押して速度を追加"
+		"pressSpeed": "Sキーを押して再生速度を追加"
 	},
 	"labels": {
 		"pan": "移動",
 		"zoom": "ズーム",
 		"trim": "トリム",
-		"speed": "速度",
+		"speed": "再生速度",
 		"zoomItem": "ズーム {{index}}",
 		"trimItem": "トリム {{index}}",
-		"speedItem": "速度 {{index}}",
+		"speedItem": "再生速度 {{index}}",
 		"annotationItem": "注釈",
 		"blurItem": "ぼかし {{index}}",
 		"imageItem": "画像",
@@ -36,17 +36,17 @@
 		"zoomExistsAtLocation": "この場所にはすでにズームが存在するか、十分なスペースがありません。",
 		"zoomSuggestionUnavailable": "ズームの自動提案機能が利用できません",
 		"noCursorTelemetry": "カーソルの動きが記録されていません",
-		"noCursorTelemetryDescription": "まず画面収録を行い、カーソルに基づく提案を生成してください。",
+		"noCursorTelemetryDescription": "まず画面録画を行い、カーソルに基づく提案を生成してください。",
 		"noUsableTelemetry": "使用可能なカーソルの動きデータがありません",
 		"noUsableTelemetryDescription": "録画には十分なカーソルの動きデータが含まれていません。",
 		"noDwellMoments": "カーソルが静止したポイントが見つかりません",
 		"noDwellMomentsDescription": "強調したい操作の際に、カーソルを一時停止させて録画してみてください。",
 		"noAutoZoomSlots": "自動ズームを適用できる箇所がありません",
 		"noAutoZoomSlotsDescription": "検出された滞留ポイントが既存のズーム領域と重なっています。",
-		"cannotPlaceTrim": "ここに切り取りを配置できません",
-		"trimExistsAtLocation": "この場所にはすでに切り取りが存在するか、十分なスペースがありません。",
-		"cannotPlaceSpeed": "ここに速度を配置できません",
-		"speedExistsAtLocation": "この場所にはすでに速度が存在するか、十分なスペースがありません。"
+		"cannotPlaceTrim": "ここにトリムを配置できません",
+		"trimExistsAtLocation": "この場所にはすでにトリムが存在するか、十分なスペースがありません。",
+		"cannotPlaceSpeed": "ここに再生速度を配置できません",
+		"speedExistsAtLocation": "この場所にはすでに再生速度の範囲が存在するか、十分なスペースがありません。"
 	},
 	"success": {
 		"addedZoomSuggestions": "カーソルに基づくズーム提案を {{count}} 件追加しました",

@@ -7,7 +7,7 @@
 		"share": "共有",
 		"done": "完了",
 		"open": "開く",
-		"upload": "アップロード",
+		"upload": "読み込む",
 		"export": "エクスポート",
 		"showInFolder": "フォルダに表示",
 		"file": "ファイル",
@@ -15,7 +15,7 @@
 		"view": "表示",
 		"window": "ウィンドウ",
 		"quit": "終了",
-		"stopRecording": "録画停止"
+		"stopRecording": "録画を停止"
 	},
 	"playback": {
 		"play": "再生",
