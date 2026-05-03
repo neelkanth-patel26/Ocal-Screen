@@ -526,14 +526,27 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("get-sources", async (_, opts) => {
+		const ownWindowSourceIds = new Set(
+			BrowserWindow.getAllWindows()
+				.map((win) => {
+					try {
+						return win.getMediaSourceId();
+					} catch {
+						return null;
+					}
+				})
+				.filter((id): id is string => Boolean(id)),
+		);
 		const sources = await desktopCapturer.getSources(opts);
-		return sources.map((source) => ({
-			id: source.id,
-			name: source.name,
-			display_id: source.display_id,
-			thumbnail: source.thumbnail ? source.thumbnail.toDataURL() : null,
-			appIcon: source.appIcon ? source.appIcon.toDataURL() : null,
-		}));
+		return sources
+			.filter((source) => !ownWindowSourceIds.has(source.id))
+			.map((source) => ({
+				id: source.id,
+				name: source.name,
+				display_id: source.display_id,
+				thumbnail: source.thumbnail ? source.thumbnail.toDataURL() : null,
+				appIcon: source.appIcon ? source.appIcon.toDataURL() : null,
+			}));
 	});
 
 	ipcMain.handle("select-source", (_, source: SelectedSource) => {
