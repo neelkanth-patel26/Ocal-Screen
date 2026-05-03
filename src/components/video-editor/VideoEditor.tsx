@@ -430,7 +430,7 @@ export default function VideoEditor() {
 				return false;
 			}
 
-			const projectData = createProjectData(currentProjectMedia, {
+			const editorState = {
 				wallpaper,
 				shadowIntensity,
 				showBlur,
@@ -452,14 +452,17 @@ export default function VideoEditor() {
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
-			});
+			};
+			const projectData = createProjectData(currentProjectMedia, editorState);
 
 			const fileNameBase =
 				currentProjectMedia.screenVideoPath
 					.split(/[\\/]/)
 					.pop()
 					?.replace(/\.[^.]+$/, "") || `project-${Date.now()}`;
-			const projectSnapshot = JSON.stringify(projectData);
+			// Match the normalization path used by `currentProjectSnapshot` so the
+			// post-save baseline compares equal and `hasUnsavedChanges` clears.
+			const projectSnapshot = createProjectSnapshot(currentProjectMedia, editorState);
 			const result = await window.electronAPI.saveProjectFile(
 				projectData,
 				fileNameBase,
