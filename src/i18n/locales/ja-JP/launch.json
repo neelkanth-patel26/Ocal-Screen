@@ -6,12 +6,12 @@
 		"cancelRecording": "録画をキャンセル",
 		"pauseRecording": "録画を一時停止",
 		"resumeRecording": "録画を再開",
-		"openVideoFile": "ビデオファイルを開く",
+		"openVideoFile": "動画ファイルを開く",
 		"openProject": "プロジェクトを開く"
 	},
 	"audio": {
-		"enableSystemAudio": "システムオーディオを有効にする",
-		"disableSystemAudio": "システムオーディオを無効にする",
+		"enableSystemAudio": "システム音声を有効にする",
+		"disableSystemAudio": "システム音声を無効にする",
 		"enableMicrophone": "マイクを有効にする",
 		"disableMicrophone": "マイクを無効にする",
 		"defaultMicrophone": "デフォルトのマイク"
