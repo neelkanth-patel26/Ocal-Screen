@@ -254,34 +254,79 @@ function getConnectedRegionTransition(
 	return null;
 }
 
-export function findDominantRegion(
-	regions: ZoomRegion[],
-	timeMs: number,
-	options: DominantRegionOptions = {},
-): {
+type DominantRegionResult = {
 	region: ZoomRegion | null;
 	strength: number;
 	blendedScale: number | null;
 	transition: ConnectedPanTransition | null;
-} {
-	const connectedPairs = options.connectZooms ? getConnectedRegionPairs(regions) : [];
+};
+
+// Single-slot cache: the ticker calls findDominantRegion at 60fps with mostly
+// unchanged inputs (especially while paused). Reusing the previous result when
+// inputs match avoids the per-frame O(N) region scan + allocations.
+let dominantRegionCache: {
+	regions: ZoomRegion[];
+	timeMsKey: number;
+	telemetry: CursorTelemetryPoint[] | undefined;
+	connectZooms: boolean;
+	viewportRatio: ViewportRatio | undefined;
+	result: DominantRegionResult;
+} | null = null;
+
+export function findDominantRegion(
+	regions: ZoomRegion[],
+	timeMs: number,
+	options: DominantRegionOptions = {},
+): DominantRegionResult {
+	const connectZooms = !!options.connectZooms;
 	const telemetry = options.cursorTelemetry;
 	const vr = options.viewportRatio;
+	const timeMsKey = Math.round(timeMs);
 
-	if (options.connectZooms) {
-		const connectedTransition = getConnectedRegionTransition(connectedPairs, timeMs, telemetry, vr);
-		if (connectedTransition) {
-			return connectedTransition;
-		}
-
-		const connectedHold = getConnectedRegionHold(timeMs, connectedPairs, telemetry, vr);
-		if (connectedHold) {
-			return { ...connectedHold, transition: null };
-		}
+	if (
+		dominantRegionCache &&
+		dominantRegionCache.regions === regions &&
+		dominantRegionCache.timeMsKey === timeMsKey &&
+		dominantRegionCache.telemetry === telemetry &&
+		dominantRegionCache.connectZooms === connectZooms &&
+		dominantRegionCache.viewportRatio === vr
+	) {
+		return dominantRegionCache.result;
 	}
 
-	const activeRegion = getActiveRegion(regions, timeMs, connectedPairs, telemetry, vr);
-	return activeRegion
-		? { ...activeRegion, transition: null }
-		: { region: null, strength: 0, blendedScale: null, transition: null };
+	const connectedPairs = connectZooms ? getConnectedRegionPairs(regions) : [];
+
+	let result: DominantRegionResult;
+	if (connectZooms) {
+		const connectedTransition = getConnectedRegionTransition(connectedPairs, timeMs, telemetry, vr);
+		if (connectedTransition) {
+			result = connectedTransition;
+		} else {
+			const connectedHold = getConnectedRegionHold(timeMs, connectedPairs, telemetry, vr);
+			if (connectedHold) {
+				result = { ...connectedHold, transition: null };
+			} else {
+				const activeRegion = getActiveRegion(regions, timeMs, connectedPairs, telemetry, vr);
+				result = activeRegion
+					? { ...activeRegion, transition: null }
+					: { region: null, strength: 0, blendedScale: null, transition: null };
+			}
+		}
+	} else {
+		const activeRegion = getActiveRegion(regions, timeMs, connectedPairs, telemetry, vr);
+		result = activeRegion
+			? { ...activeRegion, transition: null }
+			: { region: null, strength: 0, blendedScale: null, transition: null };
+	}
+
+	dominantRegionCache = {
+		regions,
+		timeMsKey,
+		telemetry,
+		connectZooms,
+		viewportRatio: vr,
+		result,
+	};
+
+	return result;
 }

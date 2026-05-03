@@ -232,6 +232,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const maskGraphicsRef = useRef<Graphics | null>(null);
 		const isPlayingRef = useRef(isPlaying);
 		const isSeekingRef = useRef(false);
+		const isScrubbingRef = useRef(false);
+		const scrubEndTimerRef = useRef<number | null>(null);
+		const [isScrubbing, setIsScrubbing] = useState(false);
 		const allowPlaybackRef = useRef(false);
 		const lockedVideoDimensionsRef = useRef<{
 			width: number;
@@ -611,6 +614,24 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			};
 		}, [pixiReady, videoReady, layoutVideoContent]);
 
+		// Drop the PIXI canvas resolution to 1.0 while scrubbing (the user is
+		// navigating, not previewing) and restore native DPR on play/idle so the
+		// preview stays faithful. Mutating renderer.resolution per-frame would
+		// thrash texture uploads; we only do it on scrub-state transitions.
+		useEffect(() => {
+			if (!pixiReady) return;
+			const app = appRef.current;
+			const container = containerRef.current;
+			if (!app || !container) return;
+
+			const targetResolution = isScrubbing ? 1 : window.devicePixelRatio || 1;
+			if (app.renderer.resolution === targetResolution) return;
+
+			app.renderer.resolution = targetResolution;
+			app.renderer.resize(container.clientWidth, container.clientHeight);
+			layoutVideoContentRef.current?.();
+		}, [isScrubbing, pixiReady]);
+
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
 			updateOverlayForRegion(selectedZoom);
@@ -804,6 +825,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				onTimeUpdate: (time) => onTimeUpdateRef.current(time),
 				trimRegionsRef,
 				speedRegionsRef,
+				isScrubbingRef,
+				scrubEndTimerRef,
+				onScrubChange: (scrubbing) => setIsScrubbing(scrubbing),
 			});
 
 			video.addEventListener("play", handlePlay);
@@ -1088,7 +1112,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					}
 				}
 
-				const isMotionBlurActive = (motionBlurAmountRef.current || 0) > 0 && isPlayingRef.current;
+				const isMotionBlurActive =
+					(motionBlurAmountRef.current || 0) > 0 && isPlayingRef.current && !isScrubbingRef.current;
 
 				if (isMotionBlurActive !== lastMotionBlurActive && videoContainerRef.current) {
 					if (isMotionBlurActive) {
@@ -1224,6 +1249,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				if (videoReadyRafRef.current) {
 					cancelAnimationFrame(videoReadyRafRef.current);
 					videoReadyRafRef.current = null;
+				}
+				if (scrubEndTimerRef.current !== null) {
+					window.clearTimeout(scrubEndTimerRef.current);
+					scrubEndTimerRef.current = null;
 				}
 			};
 		}, []);
