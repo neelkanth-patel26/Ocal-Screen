@@ -51,7 +51,17 @@ import {
 	ZOOM_SCALE_DEADZONE,
 	ZOOM_TRANSLATION_DEADZONE_PX,
 } from "./videoPlayback/constants";
-import { adaptiveSmoothFactor, smoothCursorFocus } from "./videoPlayback/cursorFollowUtils";
+import {
+	adaptiveSmoothFactor,
+	interpolateCursorAt,
+	smoothCursorFocus,
+} from "./videoPlayback/cursorFollowUtils";
+import {
+	type CursorHighlightConfig,
+	clickEmphasisAlpha,
+	DEFAULT_CURSOR_HIGHLIGHT,
+	drawCursorHighlightGraphics,
+} from "./videoPlayback/cursorHighlight";
 import { clampFocusToStage as clampFocusToStageUtil } from "./videoPlayback/focusUtils";
 import { layoutVideoContent as layoutVideoContentUtil } from "./videoPlayback/layoutUtils";
 import { clamp01 } from "./videoPlayback/mathUtils";
@@ -110,6 +120,8 @@ interface VideoPlaybackProps {
 	onBlurDataChange?: (id: string, blurData: BlurData) => void;
 	onBlurDataCommit?: () => void;
 	cursorTelemetry?: import("./types").CursorTelemetryPoint[];
+	cursorHighlight?: CursorHighlightConfig;
+	cursorClickTimestamps?: number[];
 }
 
 export interface VideoPlaybackRef {
@@ -168,6 +180,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onBlurDataChange,
 			onBlurDataCommit,
 			cursorTelemetry = [],
+			cursorHighlight = DEFAULT_CURSOR_HIGHLIGHT,
+			cursorClickTimestamps = [],
 		},
 		ref,
 	) => {
@@ -191,6 +205,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const currentTimeRef = useRef(0);
 		const zoomRegionsRef = useRef<ZoomRegion[]>([]);
 		const cursorTelemetryRef = useRef<import("./types").CursorTelemetryPoint[]>([]);
+		const cursorHighlightRef = useRef<CursorHighlightConfig>(DEFAULT_CURSOR_HIGHLIGHT);
+		const cursorClickTimestampsRef = useRef<number[]>([]);
+		const cursorHighlightGraphicsRef = useRef<Graphics | null>(null);
 		const selectedZoomIdRef = useRef<string | null>(null);
 		const animationStateRef = useRef({
 			scale: 1,
@@ -516,6 +533,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [cursorTelemetry]);
 
 		useEffect(() => {
+			cursorHighlightRef.current = cursorHighlight;
+			if (cursorHighlightGraphicsRef.current) {
+				drawCursorHighlightGraphics(cursorHighlightGraphicsRef.current, cursorHighlight);
+			}
+		}, [cursorHighlight]);
+
+		useEffect(() => {
+			cursorClickTimestampsRef.current = cursorClickTimestamps;
+		}, [cursorClickTimestamps]);
+
+		useEffect(() => {
 			selectedZoomIdRef.current = selectedZoomId;
 		}, [selectedZoomId]);
 
@@ -738,6 +766,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			videoContainer.mask = maskGraphics;
 			maskGraphicsRef.current = maskGraphics;
 
+			const cursorHighlightGraphics = new Graphics();
+			cursorHighlightGraphics.visible = false;
+			videoContainer.addChild(cursorHighlightGraphics);
+			cursorHighlightGraphicsRef.current = cursorHighlightGraphics;
+			drawCursorHighlightGraphics(cursorHighlightGraphics, cursorHighlightRef.current);
+
 			animationStateRef.current = {
 				scale: 1,
 				focusX: DEFAULT_FOCUS.cx,
@@ -796,6 +830,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				if (maskGraphics) {
 					videoContainer.removeChild(maskGraphics);
 					maskGraphics.destroy();
+				}
+				if (cursorHighlightGraphicsRef.current) {
+					videoContainer.removeChild(cursorHighlightGraphicsRef.current);
+					cursorHighlightGraphicsRef.current.destroy();
+					cursorHighlightGraphicsRef.current = null;
 				}
 				videoContainer.mask = null;
 				maskGraphicsRef.current = null;
@@ -1015,6 +1054,39 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					motionIntensity,
 					motionVector,
 				);
+
+				const cursorGraphics = cursorHighlightGraphicsRef.current;
+				const cursorConfig = cursorHighlightRef.current;
+				const lockedDims = lockedVideoDimensionsRef.current;
+				if (cursorGraphics) {
+					if (cursorConfig.enabled && lockedDims && cursorTelemetryRef.current.length > 0) {
+						const emphasisAlpha = clickEmphasisAlpha(
+							currentTimeRef.current,
+							cursorClickTimestampsRef.current,
+							cursorConfig,
+						);
+						const cursorPoint =
+							emphasisAlpha > 0
+								? interpolateCursorAt(cursorTelemetryRef.current, currentTimeRef.current)
+								: null;
+						if (cursorPoint) {
+							const baseScale = baseScaleRef.current;
+							const baseOffset = baseOffsetRef.current;
+							const cx = cursorPoint.cx + cursorConfig.offsetXNorm;
+							const cy = cursorPoint.cy + cursorConfig.offsetYNorm;
+							cursorGraphics.position.set(
+								baseOffset.x + cx * lockedDims.width * baseScale,
+								baseOffset.y + cy * lockedDims.height * baseScale,
+							);
+							cursorGraphics.alpha = emphasisAlpha;
+							cursorGraphics.visible = true;
+						} else {
+							cursorGraphics.visible = false;
+						}
+					} else {
+						cursorGraphics.visible = false;
+					}
+				}
 
 				const isMotionBlurActive = (motionBlurAmountRef.current || 0) > 0 && isPlayingRef.current;
 

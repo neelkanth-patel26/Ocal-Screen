@@ -1,6 +1,10 @@
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+const nodeRequire = createRequire(import.meta.url);
+
 import {
 	app,
 	BrowserWindow,
@@ -280,19 +284,24 @@ async function storeRecordedSessionFiles(payload: StoreRecordedSessionInput) {
 
 	const telemetryPath = `${screenVideoPath}.cursor.json`;
 	const pendingBatch = cursorTelemetryBuffer.takeNextBatch();
-	if (pendingBatch && pendingBatch.samples.length > 0) {
+	const pendingClicks = takeCursorClickTimestamps();
+	if ((pendingBatch && pendingBatch.samples.length > 0) || pendingClicks.length > 0) {
 		try {
 			await fs.writeFile(
 				telemetryPath,
 				JSON.stringify(
-					{ version: CURSOR_TELEMETRY_VERSION, samples: pendingBatch.samples },
+					{
+						version: CURSOR_TELEMETRY_VERSION,
+						samples: pendingBatch?.samples ?? [],
+						clicks: pendingClicks,
+					},
 					null,
 					2,
 				),
 				"utf-8",
 			);
 		} catch (err) {
-			cursorTelemetryBuffer.prependBatch(pendingBatch);
+			if (pendingBatch) cursorTelemetryBuffer.prependBatch(pendingBatch);
 			throw err;
 		}
 	}
@@ -321,8 +330,106 @@ const cursorTelemetryBuffer = createCursorTelemetryBuffer({
 	maxActiveSamples: MAX_CURSOR_SAMPLES,
 });
 
+// Mouse click timestamps (macOS only — uiohook-napi behind Accessibility).
+const MAX_CURSOR_CLICKS = 60 * 60 * 60; // ~1 click/sec for an hour
+let cursorClickTimestampsMs: number[] = [];
+let uioHookInstance: {
+	start: () => void;
+	stop: () => void;
+	on: (...a: unknown[]) => void;
+	off?: (...a: unknown[]) => void;
+	removeListener?: (...a: unknown[]) => void;
+} | null = null;
+let uioHookMouseDownHandler: ((event: { time?: number }) => void) | null = null;
+let uioHookFailureLogged = false;
+
 function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
+}
+
+function loadUioHookForClicks(): typeof uioHookInstance {
+	try {
+		// Dynamic require + try/catch so a broken native binary doesn't crash startup.
+		const mod = nodeRequire("uiohook-napi");
+		const candidate = mod.uIOhook ?? mod.default?.uIOhook ?? mod.uiohook ?? mod.default;
+		if (candidate && typeof candidate.start === "function" && typeof candidate.on === "function") {
+			return candidate;
+		}
+		return null;
+	} catch (error) {
+		if (!uioHookFailureLogged) {
+			uioHookFailureLogged = true;
+			console.warn("[clickCapture] uiohook-napi unavailable:", error);
+		}
+		return null;
+	}
+}
+
+function startClickCapture() {
+	if (process.platform !== "darwin") return;
+	if (uioHookInstance) return;
+
+	// Passive check — the prompt fires from the renderer when the user toggles
+	// "Only on clicks" so it doesn't stack with the screen-recording prompt.
+	try {
+		if (!systemPreferences.isTrustedAccessibilityClient(false)) {
+			if (!uioHookFailureLogged) {
+				uioHookFailureLogged = true;
+				console.warn(
+					"[clickCapture] Accessibility permission not granted — click capture disabled.",
+				);
+			}
+			return;
+		}
+	} catch {
+		// fall through; uiohook will fail defensively below
+	}
+
+	const hook = loadUioHookForClicks();
+	if (!hook) return;
+
+	uioHookMouseDownHandler = (event) => {
+		const elapsed = Math.max(0, Date.now() - cursorCaptureStartTimeMs);
+		void event;
+		if (cursorClickTimestampsMs.length >= MAX_CURSOR_CLICKS) return;
+		cursorClickTimestampsMs.push(elapsed);
+	};
+
+	try {
+		hook.on("mousedown", uioHookMouseDownHandler);
+		hook.start();
+		uioHookInstance = hook;
+	} catch (error) {
+		if (!uioHookFailureLogged) {
+			uioHookFailureLogged = true;
+			console.warn("[clickCapture] failed to start uiohook:", error);
+		}
+		uioHookMouseDownHandler = null;
+	}
+}
+
+function stopClickCapture() {
+	if (!uioHookInstance) return;
+	try {
+		if (uioHookMouseDownHandler) {
+			if (typeof uioHookInstance.off === "function") {
+				uioHookInstance.off("mousedown", uioHookMouseDownHandler);
+			} else if (typeof uioHookInstance.removeListener === "function") {
+				uioHookInstance.removeListener("mousedown", uioHookMouseDownHandler);
+			}
+		}
+		uioHookInstance.stop();
+	} catch (error) {
+		console.warn("[clickCapture] failed to stop uiohook:", error);
+	}
+	uioHookInstance = null;
+	uioHookMouseDownHandler = null;
+}
+
+function takeCursorClickTimestamps(): number[] {
+	const out = cursorClickTimestampsMs;
+	cursorClickTimestampsMs = [];
+	return out;
 }
 
 function stopCursorCapture() {
@@ -330,6 +437,7 @@ function stopCursorCapture() {
 		clearInterval(cursorCaptureInterval);
 		cursorCaptureInterval = null;
 	}
+	stopClickCapture();
 }
 
 function sampleCursorPoint() {
@@ -594,6 +702,22 @@ export function registerIpcHandlers(
 		}
 	});
 
+	// macOS Accessibility prompt for global click capture. First call shows the
+	// system dialog; the user has to toggle the app in System Settings (no
+	// programmatic grant exists for Accessibility).
+	ipcMain.handle("request-accessibility-access", () => {
+		if (process.platform !== "darwin") {
+			return { success: true, granted: true };
+		}
+		try {
+			const granted = systemPreferences.isTrustedAccessibilityClient(true);
+			return { success: true, granted };
+		} catch (error) {
+			console.error("Failed to request accessibility access:", error);
+			return { success: false, granted: false, error: String(error) };
+		}
+	});
+
 	ipcMain.handle("open-source-selector", () => {
 		const sourceSelectorWin = getSourceSelectorWindow();
 		if (sourceSelectorWin) {
@@ -723,6 +847,8 @@ export function registerIpcHandlers(
 			const id = typeof recordingId === "number" ? recordingId : Date.now();
 			cursorTelemetryBuffer.startSession(id);
 			cursorCaptureStartTimeMs = Date.now();
+			cursorClickTimestampsMs = [];
+			startClickCapture();
 			sampleCursorPoint();
 			cursorCaptureInterval = setInterval(sampleCursorPoint, CURSOR_SAMPLE_INTERVAL_MS);
 		} else {
@@ -787,11 +913,19 @@ export function registerIpcHandlers(
 				})
 				.sort((a: CursorTelemetryPoint, b: CursorTelemetryPoint) => a.timeMs - b.timeMs);
 
-			return { success: true, samples };
+			const rawClicks = Array.isArray(parsed?.clicks) ? parsed.clicks : [];
+			const clicks: number[] = rawClicks
+				.map((value: unknown) =>
+					typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : null,
+				)
+				.filter((v: number | null): v is number => v !== null)
+				.sort((a: number, b: number) => a - b);
+
+			return { success: true, samples, clicks };
 		} catch (error) {
 			const nodeError = error as NodeJS.ErrnoException;
 			if (nodeError.code === "ENOENT") {
-				return { success: true, samples: [] };
+				return { success: true, samples: [], clicks: [] };
 			}
 			console.error("Failed to load cursor telemetry:", error);
 			return {
@@ -799,6 +933,7 @@ export function registerIpcHandlers(
 				message: "Failed to load cursor telemetry",
 				error: String(error),
 				samples: [],
+				clicks: [],
 			};
 		}
 	});

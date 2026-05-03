@@ -29,7 +29,9 @@
 		"test:browser": "vitest --config vitest.browser.config.ts --run",
 		"test:browser:install": "playwright install --with-deps chromium-headless-shell",
 		"test:e2e": "playwright test",
-		"prepare": "husky"
+		"prepare": "husky",
+		"rebuild:native": "node ./node_modules/@electron/rebuild/lib/cli.js --force --only uiohook-napi",
+		"postinstall": "npm run rebuild:native"
 	},
 	"dependencies": {
 		"@fix-webm-duration/fix": "^1.0.1",
@@ -71,11 +73,13 @@
 		"sonner": "^2.0.7",
 		"tailwind-merge": "^3.5.0",
 		"tailwindcss-animate": "^1.0.7",
+		"uiohook-napi": "^1.5.5",
 		"uuid": "^13.0.0",
 		"web-demuxer": "^4.0.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.12",
+		"@electron/rebuild": "^4.0.4",
 		"@playwright/test": "^1.59.1",
 		"@testing-library/jest-dom": "^6.9.1",
 		"@testing-library/react": "^16.3.2",

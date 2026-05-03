@@ -103,6 +103,7 @@ export default function VideoEditor() {
 		webcamMaskShape,
 		webcamSizePreset,
 		webcamPosition,
+		cursorHighlight,
 	} = editorState;
 
 	// ── Non-undoable state
@@ -121,6 +122,7 @@ export default function VideoEditor() {
 	const durationRef = useRef(duration);
 	durationRef.current = duration;
 	const [cursorTelemetry, setCursorTelemetry] = useState<CursorTelemetryPoint[]>([]);
+	const [cursorClickTimestamps, setCursorClickTimestamps] = useState<number[]>([]);
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
@@ -153,6 +155,12 @@ export default function VideoEditor() {
 	const nextSpeedIdRef = useRef(1);
 
 	const { shortcuts, isMac } = useShortcuts();
+	// Off-Mac doesn't have click telemetry, so force `onlyOnClicks` off for
+	// renderers while keeping the persisted value intact for round-tripping.
+	const effectiveCursorHighlight = useMemo(
+		() => (isMac ? cursorHighlight : { ...cursorHighlight, onlyOnClicks: false }),
+		[cursorHighlight, isMac],
+	);
 	const { locale, setLocale, t: rawT } = useI18n();
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
@@ -452,6 +460,7 @@ export default function VideoEditor() {
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
+				cursorHighlight,
 			};
 			const projectData = createProjectData(currentProjectMedia, editorState);
 
@@ -513,6 +522,7 @@ export default function VideoEditor() {
 			videoPath,
 			t,
 			webcamSizePreset,
+			cursorHighlight,
 		],
 	);
 
@@ -587,6 +597,7 @@ export default function VideoEditor() {
 			if (!sourcePath) {
 				if (mounted) {
 					setCursorTelemetry([]);
+					setCursorClickTimestamps([]);
 				}
 				return;
 			}
@@ -595,11 +606,13 @@ export default function VideoEditor() {
 				const result = await window.electronAPI.getCursorTelemetry(sourcePath);
 				if (mounted) {
 					setCursorTelemetry(result.success ? result.samples : []);
+					setCursorClickTimestamps(result.success ? (result.clicks ?? []) : []);
 				}
 			} catch (telemetryError) {
 				console.warn("Unable to load cursor telemetry:", telemetryError);
 				if (mounted) {
 					setCursorTelemetry([]);
+					setCursorClickTimestamps([]);
 				}
 			}
 		}
@@ -1394,6 +1407,8 @@ export default function VideoEditor() {
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						cursorClickTimestamps,
+						cursorHighlight: effectiveCursorHighlight,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1534,6 +1549,8 @@ export default function VideoEditor() {
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						cursorClickTimestamps,
+						cursorHighlight: effectiveCursorHighlight,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1617,6 +1634,8 @@ export default function VideoEditor() {
 			exportQuality,
 			handleExportSaved,
 			cursorTelemetry,
+			cursorClickTimestamps,
+			effectiveCursorHighlight,
 			t,
 		],
 	);
@@ -1874,6 +1893,8 @@ export default function VideoEditor() {
 											onBlurDataChange={handleBlurDataPreviewChange}
 											onBlurDataCommit={commitState}
 											cursorTelemetry={cursorTelemetry}
+											cursorHighlight={effectiveCursorHighlight}
+											cursorClickTimestamps={cursorClickTimestamps}
 										/>
 									</div>
 								</div>
@@ -1957,6 +1978,9 @@ export default function VideoEditor() {
 				{/* Right section: settings panel */}
 				<div className="flex-[3] min-w-[280px] max-w-[420px] h-full">
 					<SettingsPanel
+						cursorHighlight={cursorHighlight}
+						onCursorHighlightChange={(next) => pushState({ cursorHighlight: next })}
+						cursorHighlightSupportsClicks={isMac}
 						selected={wallpaper}
 						onWallpaperChange={(w) => pushState({ wallpaper: w })}
 						selectedZoomDepth={

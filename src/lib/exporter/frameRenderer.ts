@@ -28,8 +28,14 @@ import {
 } from "@/components/video-editor/videoPlayback/constants";
 import {
 	adaptiveSmoothFactor,
+	interpolateCursorAt,
 	smoothCursorFocus,
 } from "@/components/video-editor/videoPlayback/cursorFollowUtils";
+import {
+	type CursorHighlightConfig,
+	clickEmphasisAlpha,
+	drawCursorHighlightCanvas,
+} from "@/components/video-editor/videoPlayback/cursorHighlight";
 import { clampFocusToStage as clampFocusToStageUtil } from "@/components/video-editor/videoPlayback/focusUtils";
 import { findDominantRegion } from "@/components/video-editor/videoPlayback/zoomRegionUtils";
 import {
@@ -79,6 +85,8 @@ interface FrameRenderConfig {
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
+	cursorHighlight?: CursorHighlightConfig;
+	cursorClickTimestamps?: number[];
 	platform: string;
 }
 
@@ -386,6 +394,46 @@ export class FrameRenderer {
 
 		// Composite with shadows to final output canvas
 		this.compositeWithShadows(webcamFrame);
+
+		// Cursor highlight overlay (rendered above video, below annotations)
+		if (
+			this.config.cursorHighlight?.enabled &&
+			this.config.cursorTelemetry &&
+			this.config.cursorTelemetry.length > 0 &&
+			this.compositeCtx
+		) {
+			const emphasisAlpha = clickEmphasisAlpha(
+				timeMs,
+				this.config.cursorClickTimestamps,
+				this.config.cursorHighlight,
+			);
+			const cursorPoint =
+				emphasisAlpha > 0 ? interpolateCursorAt(this.config.cursorTelemetry, timeMs) : null;
+			if (cursorPoint) {
+				const cx = cursorPoint.cx + this.config.cursorHighlight.offsetXNorm;
+				const cy = cursorPoint.cy + this.config.cursorHighlight.offsetYNorm;
+				const stageX =
+					layoutCache.baseOffset.x + cx * this.config.videoWidth * layoutCache.baseScale;
+				const stageY =
+					layoutCache.baseOffset.y + cy * this.config.videoHeight * layoutCache.baseScale;
+				const appliedScale = this.animationState.appliedScale;
+				const canvasX = stageX * appliedScale + this.animationState.x;
+				const canvasY = stageY * appliedScale + this.animationState.y;
+				const previewW = this.config.previewWidth ?? this.config.width;
+				const previewH = this.config.previewHeight ?? this.config.height;
+				const cursorScale = (this.config.width / previewW + this.config.height / previewH) / 2;
+				drawCursorHighlightCanvas(
+					this.compositeCtx,
+					canvasX,
+					canvasY,
+					{
+						...this.config.cursorHighlight,
+						opacity: this.config.cursorHighlight.opacity * emphasisAlpha,
+					},
+					appliedScale * cursorScale,
+				);
+			}
+		}
 
 		// Render annotations on top if present
 		if (
