@@ -93,7 +93,7 @@
 	},
 	"imageUpload": {
 		"invalidFileType": "Tipo de archivo no válido",
-		"jpgOnly": "Por favor sube un archivo de imagen JPG o JPEG.",
+		"jpgOnly": "Por favor sube un archivo de imagen JPG, JPEG o PNG.",
 		"uploadSuccess": "¡Imagen personalizada subida exitosamente!",
 		"failedToUpload": "Error al subir la imagen",
 		"errorReading": "Hubo un error al leer el archivo."

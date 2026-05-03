@@ -93,7 +93,7 @@
 	},
 	"imageUpload": {
 		"invalidFileType": "Geçersiz dosya türü",
-		"jpgOnly": "Lütfen bir JPG veya JPEG görüntü dosyası yükleyin.",
+		"jpgOnly": "Lütfen JPG, JPEG veya PNG görüntü dosyası yükleyin.",
 		"uploadSuccess": "Özel görüntü başarıyla yüklendi!",
 		"failedToUpload": "Görüntü yüklenemedi",
 		"errorReading": "Dosya okunurken bir hata oluştu."

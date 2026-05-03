@@ -43,6 +43,7 @@ import { getTestId } from "@/utils/getTestId";
 import ColorPicker from "../ui/color-picker";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
+import { BACKGROUND_IMAGE_ACCEPT, isSupportedBackgroundImageType } from "./backgroundImageUpload";
 import { CropControl } from "./CropControl";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
@@ -459,9 +460,7 @@ export function SettingsPanel({
 
 		const file = files[0];
 
-		// Validate file type - only allow JPG/JPEG
-		const validTypes = ["image/jpeg", "image/jpg"];
-		if (!validTypes.includes(file.type)) {
+		if (!isSupportedBackgroundImageType(file.type, file.name)) {
 			toast.error(t("imageUpload.invalidFileType"), {
 				description: t("imageUpload.jpgOnly"),
 			});
@@ -1041,7 +1040,7 @@ export function SettingsPanel({
 											type="file"
 											ref={fileInputRef}
 											onChange={handleImageUpload}
-											accept=".jpg,.jpeg,image/jpeg"
+											accept={BACKGROUND_IMAGE_ACCEPT}
 											className="hidden"
 										/>
 										<Button
