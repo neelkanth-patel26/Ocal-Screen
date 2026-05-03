@@ -1005,7 +1005,9 @@ export function SettingsPanel({
 							{cursorHighlight && onCursorHighlightChange && (
 								<div className="p-2 rounded-lg bg-white/5 border border-white/5 mt-2 space-y-2">
 									<div className="flex items-center justify-between">
-										<div className="text-[10px] font-medium text-slate-300">Cursor highlight</div>
+										<div className="text-[10px] font-medium text-slate-300">
+											{t("effects.cursorHighlight.title")}
+										</div>
 										<button
 											type="button"
 											onClick={() =>
@@ -1020,7 +1022,7 @@ export function SettingsPanel({
 													: "bg-white/5 border-white/10 text-slate-400"
 											}`}
 										>
-											{cursorHighlight.enabled ? "On" : "Off"}
+											{cursorHighlight.enabled ? t("effects.on") : t("effects.off")}
 										</button>
 									</div>
 									<div
@@ -1037,13 +1039,15 @@ export function SettingsPanel({
 														: "bg-white/5 border-white/10 text-slate-300 hover:border-white/20"
 												}`}
 											>
-												{style}
+												{t(`effects.cursorHighlight.${style}`)}
 											</button>
 										))}
 									</div>
 									<div className={cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}>
 										<div className="flex items-center justify-between mb-1">
-											<div className="text-[10px] text-slate-400">Size</div>
+											<div className="text-[10px] text-slate-400">
+												{t("effects.cursorHighlight.size")}
+											</div>
 											<span className="text-[10px] text-slate-500 font-mono">
 												{cursorHighlight.sizePx}px
 											</span>
@@ -1051,7 +1055,10 @@ export function SettingsPanel({
 										<Slider
 											value={[cursorHighlight.sizePx]}
 											onValueChange={(values) =>
-												onCursorHighlightChange({ ...cursorHighlight, sizePx: values[0] })
+												onCursorHighlightChange({
+													...cursorHighlight,
+													sizePx: values[0],
+												})
 											}
 											min={10}
 											max={36}
@@ -1063,7 +1070,9 @@ export function SettingsPanel({
 										<div
 											className={`flex items-center justify-between ${cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}`}
 										>
-											<div className="text-[10px] text-slate-400">Only on clicks</div>
+											<div className="text-[10px] text-slate-400">
+												{t("effects.cursorHighlight.onlyOnClicks")}
+											</div>
 											<button
 												type="button"
 												onClick={async () => {
@@ -1072,10 +1081,14 @@ export function SettingsPanel({
 														try {
 															const result = await window.electronAPI.requestAccessibilityAccess();
 															if (!result.granted) {
-																toast.message("Accessibility permission needed", {
-																	description:
-																		"Open System Settings → Privacy & Security → Accessibility, enable Openscreen, then restart the app.",
-																});
+																toast.message(
+																	t("effects.cursorHighlight.accessibilityPermissionTitle"),
+																	{
+																		description: t(
+																			"effects.cursorHighlight.accessibilityPermissionDescription",
+																		),
+																	},
+																);
 															}
 														} catch (err) {
 															console.warn("Accessibility request failed:", err);
@@ -1092,12 +1105,14 @@ export function SettingsPanel({
 														: "bg-white/5 border-white/10 text-slate-400"
 												}`}
 											>
-												{cursorHighlight.onlyOnClicks ? "On" : "Off"}
+												{cursorHighlight.onlyOnClicks ? t("effects.on") : t("effects.off")}
 											</button>
 										</div>
 									)}
 									<div className={cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}>
-										<div className="text-[10px] text-slate-400 mb-1">Color</div>
+										<div className="text-[10px] text-slate-400 mb-1">
+											{t("effects.cursorHighlight.color")}
+										</div>
 										<Popover>
 											<PopoverTrigger asChild>
 												<Button
@@ -1126,7 +1141,10 @@ export function SettingsPanel({
 														colorPalette: t("background.colorPalette"),
 													}}
 													onUpdateColor={(color) =>
-														onCursorHighlightChange({ ...cursorHighlight, color })
+														onCursorHighlightChange({
+															...cursorHighlight,
+															color,
+														})
 													}
 												/>
 											</PopoverContent>
@@ -1134,7 +1152,9 @@ export function SettingsPanel({
 									</div>
 									<div className={cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}>
 										<div className="flex items-center justify-between mb-1">
-											<div className="text-[10px] text-slate-400">Offset X (window recordings)</div>
+											<div className="text-[10px] text-slate-400">
+												{t("effects.cursorHighlight.offsetX")}
+											</div>
 											<span className="text-[10px] text-slate-500 font-mono">
 												{(cursorHighlight.offsetXNorm * 100).toFixed(1)}%
 											</span>
@@ -1155,7 +1175,9 @@ export function SettingsPanel({
 									</div>
 									<div className={cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}>
 										<div className="flex items-center justify-between mb-1">
-											<div className="text-[10px] text-slate-400">Offset Y</div>
+											<div className="text-[10px] text-slate-400">
+												{t("effects.cursorHighlight.offsetY")}
+											</div>
 											<span className="text-[10px] text-slate-500 font-mono">
 												{(cursorHighlight.offsetYNorm * 100).toFixed(1)}%
 											</span>

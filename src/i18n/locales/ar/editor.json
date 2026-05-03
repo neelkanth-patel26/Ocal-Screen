@@ -17,7 +17,7 @@
 		"exportFailedWithError": "فشل التصدير: {{error}}",
 		"exportBackgroundLoadFailed": "فشل التصدير: تعذر تحميل صورة الخلفية ({{url}})",
 		"failedToSaveExport": "فشل حفظ التصدير",
-		"failedToSaveExportedVideo": "فشل حفظ الفيديو المصدر",
+		"failedToSaveExportedVideo": "فشل حفظ الفيديو المُصدَّر",
 		"failedToRevealInFolder": "خطأ في الكشف في المجلد: {{error}}"
 	},
 	"export": {
