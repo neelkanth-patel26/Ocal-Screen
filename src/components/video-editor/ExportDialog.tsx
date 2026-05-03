@@ -161,7 +161,7 @@ export function ExportDialog({
 							<div className="p-1 bg-red-500/20 rounded-full">
 								<X className="w-3 h-3 text-red-400" />
 							</div>
-							<p className="text-sm text-red-400 leading-relaxed">{error}</p>
+							<p className="whitespace-pre-wrap text-sm text-red-400 leading-relaxed">{error}</p>
 						</div>
 					</div>
 				)}

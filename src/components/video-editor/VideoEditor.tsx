@@ -76,6 +76,53 @@ import {
 } from "./types";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 
+interface ExportDiagnostics {
+	formatLabel: "GIF" | "Video";
+	reason?: string;
+	sourcePath?: string | null;
+	width?: number;
+	height?: number;
+	frameRate?: number;
+	codec?: string;
+	bitrate?: number;
+}
+
+function getFileNameForDiagnostics(filePath?: string | null) {
+	if (!filePath) return "unknown";
+
+	try {
+		const url = new URL(filePath);
+		if (url.protocol === "file:") {
+			return decodeURIComponent(url.pathname).split(/[\\/]/).pop() || filePath;
+		}
+	} catch {
+		// Treat non-URL values as filesystem paths.
+	}
+
+	return filePath.split(/[\\/]/).pop() || filePath;
+}
+
+function buildExportDiagnosticMessage(diagnostics: ExportDiagnostics) {
+	const details = [
+		diagnostics.reason ? `Reason: ${diagnostics.reason}` : null,
+		`Source: ${getFileNameForDiagnostics(diagnostics.sourcePath)}`,
+		diagnostics.width && diagnostics.height
+			? `Output: ${diagnostics.width}x${diagnostics.height}${
+					diagnostics.frameRate ? ` @ ${diagnostics.frameRate} fps` : ""
+				}`
+			: null,
+		diagnostics.codec ? `Codec: ${diagnostics.codec}` : null,
+		diagnostics.bitrate ? `Bitrate: ${Math.round(diagnostics.bitrate / 1_000_000)} Mbps` : null,
+		`VideoEncoder: ${"VideoEncoder" in window ? "available" : "unavailable"}`,
+	].filter(Boolean);
+
+	return `${diagnostics.formatLabel} export failed\n${details.join("\n")}`;
+}
+
+function buildSaveDiagnosticMessage(formatLabel: "GIF" | "Video", reason?: string) {
+	return `${formatLabel} export save failed${reason ? `\nReason: ${reason}` : ""}`;
+}
+
 export default function VideoEditor() {
 	const {
 		state: editorState,
@@ -1332,11 +1379,21 @@ export default function VideoEditor() {
 				setUnsavedExport(null);
 				handleExportSaved(unsavedExport.format === "gif" ? "GIF" : "Video", saveResult.path);
 			} else {
-				toast.error(saveResult.message || "Failed to save export");
+				toast.error(
+					buildSaveDiagnosticMessage(
+						unsavedExport.format === "gif" ? "GIF" : "Video",
+						saveResult.message || "Failed to save export",
+					),
+				);
 			}
 		} catch (error) {
 			console.error("Error saving unsaved export:", error);
-			toast.error("Failed to save exported video");
+			toast.error(
+				buildSaveDiagnosticMessage(
+					unsavedExport.format === "gif" ? "GIF" : "Video",
+					error instanceof Error ? error.message : "Failed to save exported video",
+				),
+			);
 		}
 	}, [unsavedExport, handleExportSaved]);
 
@@ -1437,12 +1494,24 @@ export default function VideoEditor() {
 							setUnsavedExport(null);
 							handleExportSaved("GIF", saveResult.path);
 						} else {
-							setExportError(saveResult.message || "Failed to save GIF");
-							toast.error(saveResult.message || "Failed to save GIF");
+							const message = buildSaveDiagnosticMessage(
+								"GIF",
+								saveResult.message || "Failed to save GIF",
+							);
+							setExportError(message);
+							toast.error(message);
 						}
 					} else {
-						setExportError(result.error || "GIF export failed");
-						toast.error(result.error || "GIF export failed");
+						const message = buildExportDiagnosticMessage({
+							formatLabel: "GIF",
+							reason: result.error || "GIF export failed",
+							sourcePath: videoSourcePath ?? videoPath,
+							width: settings.gifConfig.width,
+							height: settings.gifConfig.height,
+							frameRate: settings.gifConfig.frameRate,
+						});
+						setExportError(message);
+						toast.error(message);
 					}
 				} else {
 					// MP4 Export
@@ -1579,12 +1648,26 @@ export default function VideoEditor() {
 							setUnsavedExport(null);
 							handleExportSaved("Video", saveResult.path);
 						} else {
-							setExportError(saveResult.message || "Failed to save video");
-							toast.error(saveResult.message || "Failed to save video");
+							const message = buildSaveDiagnosticMessage(
+								"Video",
+								saveResult.message || "Failed to save video",
+							);
+							setExportError(message);
+							toast.error(message);
 						}
 					} else {
-						setExportError(result.error || "Export failed");
-						toast.error(result.error || "Export failed");
+						const message = buildExportDiagnosticMessage({
+							formatLabel: "Video",
+							reason: result.error || "Export failed",
+							sourcePath: videoSourcePath ?? videoPath,
+							width: exportWidth,
+							height: exportHeight,
+							frameRate: 60,
+							codec: "avc1.640033",
+							bitrate,
+						});
+						setExportError(message);
+						toast.error(message);
 					}
 				}
 
@@ -1599,8 +1682,13 @@ export default function VideoEditor() {
 					toast.error(message);
 				} else {
 					const errorMessage = error instanceof Error ? error.message : "Unknown error";
-					setExportError(errorMessage);
-					toast.error(t("errors.exportFailedWithError", { error: errorMessage }));
+					const message = buildExportDiagnosticMessage({
+						formatLabel: settings.format === "gif" ? "GIF" : "Video",
+						reason: errorMessage,
+						sourcePath: videoSourcePath ?? videoPath,
+					});
+					setExportError(message);
+					toast.error(t("errors.exportFailedWithError", { error: message }));
 				}
 			} finally {
 				setIsExporting(false);
@@ -1613,6 +1701,7 @@ export default function VideoEditor() {
 		},
 		[
 			videoPath,
+			videoSourcePath,
 			webcamVideoPath,
 			wallpaper,
 			zoomRegions,
