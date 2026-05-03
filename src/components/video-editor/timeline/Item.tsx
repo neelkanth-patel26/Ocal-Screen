@@ -1,7 +1,8 @@
 import type { Span } from "dnd-timeline";
 import { useItem } from "dnd-timeline";
-import { Gauge, MessageSquare, Scissors, ZoomIn } from "lucide-react";
+import { Gauge, MessageSquare, MousePointer2, Scissors, ZoomIn } from "lucide-react";
 import { useMemo } from "react";
+import { useScopedT } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
 import glassStyles from "./ItemGlass.module.css";
 
@@ -14,7 +15,8 @@ interface ItemProps {
 	onSelect?: () => void;
 	zoomDepth?: number;
 	speedValue?: number;
-	variant?: "zoom" | "trim" | "annotation" | "speed";
+	isAutoFocus?: boolean;
+	variant?: "zoom" | "trim" | "annotation" | "speed" | "blur";
 }
 
 // Map zoom depth to multiplier labels
@@ -45,9 +47,11 @@ export default function Item({
 	onSelect,
 	zoomDepth = 1,
 	speedValue,
+	isAutoFocus = false,
 	variant = "zoom",
 	children,
 }: ItemProps) {
+	const t = useScopedT("timeline");
 	const { setNodeRef, attributes, listeners, itemStyle, itemContentStyle } = useItem({
 		id,
 		span,
@@ -132,19 +136,25 @@ export default function Item({
 									<span className="text-[11px] font-semibold tracking-tight whitespace-nowrap">
 										{ZOOM_LABELS[zoomDepth] || `${zoomDepth}×`}
 									</span>
+									{isAutoFocus && (
+										<MousePointer2
+											className="w-3 h-3 shrink-0 opacity-90"
+											aria-label="Cursor-follow"
+										/>
+									)}
 								</>
 							) : isTrim ? (
 								<>
 									<Scissors className="w-3.5 h-3.5 shrink-0" />
 									<span className="text-[11px] font-semibold tracking-tight whitespace-nowrap">
-										Trim
+										{t("labels.trim")}
 									</span>
 								</>
 							) : isSpeed ? (
 								<>
 									<Gauge className="w-3.5 h-3.5 shrink-0" />
 									<span className="text-[11px] font-semibold tracking-tight whitespace-nowrap">
-										{speedValue !== undefined ? `${speedValue}×` : "Speed"}
+										{speedValue !== undefined ? `${speedValue}×` : t("labels.speed")}
 									</span>
 								</>
 							) : (

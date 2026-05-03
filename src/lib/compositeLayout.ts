@@ -15,7 +15,9 @@ export interface Size {
 	height: number;
 }
 
-export type WebcamLayoutPreset = "picture-in-picture" | "vertical-stack";
+export type WebcamLayoutPreset = "picture-in-picture" | "vertical-stack" | "dual-frame";
+/** Webcam size as a percentage of the canvas reference dimension (10–50). */
+export type WebcamSizePreset = number;
 
 export interface WebcamLayoutShadow {
 	color: string;
@@ -32,7 +34,6 @@ interface BorderRadiusRule {
 
 interface OverlayTransform {
 	type: "overlay";
-	maxStageFraction: number;
 	marginFraction: number;
 	minMargin: number;
 	minSize: number;
@@ -43,9 +44,17 @@ interface StackTransform {
 	gap: number;
 }
 
+interface SplitTransform {
+	type: "split";
+	gapFraction: number;
+	minGap: number;
+	screenUnits: number;
+	webcamUnits: number;
+}
+
 export interface WebcamLayoutPresetDefinition {
 	label: string;
-	transform: OverlayTransform | StackTransform;
+	transform: OverlayTransform | StackTransform | SplitTransform;
 	borderRadius: BorderRadiusRule;
 	shadow: WebcamLayoutShadow | null;
 }
@@ -53,11 +62,18 @@ export interface WebcamLayoutPresetDefinition {
 export interface WebcamCompositeLayout {
 	screenRect: RenderRect;
 	webcamRect: StyledRenderRect | null;
+	screenBorderRadius?: number;
 	/** When true, the video should be scaled to cover screenRect (cropping overflow). */
 	screenCover?: boolean;
 }
 
-const MAX_STAGE_FRACTION = 0.18;
+/** Convert a webcam size percentage (10–50) to a fraction of the reference dimension. */
+function webcamSizeToFraction(percent: number): number {
+	const safe = Number.isFinite(percent) ? percent : 25;
+	const clamped = Math.max(10, Math.min(50, safe));
+	return clamped / 100;
+}
+
 const MARGIN_FRACTION = 0.02;
 const MAX_BORDER_RADIUS = 24;
 const WEBCAM_LAYOUT_PRESET_MAP: Record<WebcamLayoutPreset, WebcamLayoutPresetDefinition> = {
@@ -65,7 +81,6 @@ const WEBCAM_LAYOUT_PRESET_MAP: Record<WebcamLayoutPreset, WebcamLayoutPresetDef
 		label: "Picture in Picture",
 		transform: {
 			type: "overlay",
-			maxStageFraction: MAX_STAGE_FRACTION,
 			marginFraction: MARGIN_FRACTION,
 			minMargin: 0,
 			minSize: 0,
@@ -92,6 +107,22 @@ const WEBCAM_LAYOUT_PRESET_MAP: Record<WebcamLayoutPreset, WebcamLayoutPresetDef
 			max: 0,
 			min: 0,
 			fraction: 0,
+		},
+		shadow: null,
+	},
+	"dual-frame": {
+		label: "Dual Frame",
+		transform: {
+			type: "split",
+			gapFraction: 0.02,
+			minGap: 12,
+			screenUnits: 2,
+			webcamUnits: 1,
+		},
+		borderRadius: {
+			max: MAX_BORDER_RADIUS,
+			min: 12,
+			fraction: 0.06,
 		},
 		shadow: null,
 	},
@@ -125,6 +156,7 @@ export function computeCompositeLayout(params: {
 	screenSize: Size;
 	webcamSize?: Size | null;
 	layoutPreset?: WebcamLayoutPreset;
+	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
 }): WebcamCompositeLayout | null {
@@ -134,6 +166,7 @@ export function computeCompositeLayout(params: {
 		screenSize,
 		webcamSize,
 		layoutPreset = "picture-in-picture",
+		webcamSizePreset = 25,
 		webcamPosition,
 		webcamMaskShape = "rectangle",
 	} = params;
@@ -142,6 +175,8 @@ export function computeCompositeLayout(params: {
 	const webcamWidth = webcamSize?.width;
 	const webcamHeight = webcamSize?.height;
 	const preset = getWebcamLayoutPresetDefinition(layoutPreset);
+
+	const MAX_STAGE_FRACTION = webcamSizeToFraction(webcamSizePreset);
 
 	if (canvasWidth <= 0 || canvasHeight <= 0 || screenWidth <= 0 || screenHeight <= 0) {
 		return null;
@@ -183,6 +218,69 @@ export function computeCompositeLayout(params: {
 		};
 	}
 
+	if (preset.transform.type === "split") {
+		const screenRect = centerRect({
+			canvasSize,
+			size: screenSize,
+			maxSize: maxContentSize,
+		});
+
+		if (!webcamWidth || !webcamHeight || webcamWidth <= 0 || webcamHeight <= 0) {
+			return { screenRect, webcamRect: null };
+		}
+
+		const contentWidth = Math.min(canvasWidth, Math.max(1, Math.round(maxContentSize.width)));
+		const contentHeight = Math.min(canvasHeight, Math.max(1, Math.round(maxContentSize.height)));
+		const contentX = Math.max(0, Math.floor((canvasWidth - contentWidth) / 2));
+		const contentY = Math.max(0, Math.floor((canvasHeight - contentHeight) / 2));
+		const gap = Math.max(
+			preset.transform.minGap,
+			Math.round(contentWidth * preset.transform.gapFraction),
+		);
+		const totalUnits = preset.transform.screenUnits + preset.transform.webcamUnits;
+		const availableWidth = Math.max(1, contentWidth - gap);
+		const screenSlotWidth = Math.max(
+			1,
+			Math.round((availableWidth * preset.transform.screenUnits) / totalUnits),
+		);
+		const webcamSlotWidth = Math.max(1, availableWidth - screenSlotWidth);
+
+		const screenSlot = {
+			x: contentX,
+			y: contentY,
+			width: screenSlotWidth,
+			height: contentHeight,
+		};
+		const webcamSlot = {
+			x: contentX + screenSlotWidth + gap,
+			y: contentY,
+			width: webcamSlotWidth,
+			height: contentHeight,
+		};
+
+		const webcamBorderRadius = Math.min(
+			preset.borderRadius.max,
+			Math.max(
+				preset.borderRadius.min,
+				Math.round(Math.min(webcamSlot.width, webcamSlot.height) * preset.borderRadius.fraction),
+			),
+		);
+
+		return {
+			screenRect: screenSlot,
+			screenBorderRadius: webcamBorderRadius,
+			webcamRect: {
+				x: webcamSlot.x,
+				y: webcamSlot.y,
+				width: webcamSlot.width,
+				height: webcamSlot.height,
+				borderRadius: webcamBorderRadius,
+				maskShape: "rectangle",
+			},
+			screenCover: true,
+		};
+	}
+
 	const transform = preset.transform;
 	const screenRect = centerRect({
 		canvasSize,
@@ -198,8 +296,11 @@ export function computeCompositeLayout(params: {
 		transform.minMargin,
 		Math.round(Math.min(canvasWidth, canvasHeight) * transform.marginFraction),
 	);
-	const maxWidth = Math.max(transform.minSize, canvasWidth * transform.maxStageFraction);
-	const maxHeight = Math.max(transform.minSize, canvasHeight * transform.maxStageFraction);
+	// Use geometric mean so the webcam occupies a consistent visual proportion
+	// regardless of whether the canvas is portrait or landscape.
+	const referenceDim = Math.sqrt(canvasWidth * canvasHeight);
+	const maxWidth = Math.max(transform.minSize, referenceDim * MAX_STAGE_FRACTION);
+	const maxHeight = Math.max(transform.minSize, referenceDim * MAX_STAGE_FRACTION);
 	const scale = Math.min(maxWidth / webcamWidth, maxHeight / webcamHeight);
 	let width = Math.round(webcamWidth * scale);
 	let height = Math.round(webcamHeight * scale);
@@ -258,7 +359,16 @@ export function computeCompositeLayout(params: {
 
 function centerRect(params: { canvasSize: Size; size: Size; maxSize: Size }): RenderRect {
 	const { canvasSize, size, maxSize } = params;
-	const { width: canvasWidth, height: canvasHeight } = canvasSize;
+	return centerRectInBounds({
+		bounds: { x: 0, y: 0, width: canvasSize.width, height: canvasSize.height },
+		size,
+		maxSize,
+	});
+}
+
+function centerRectInBounds(params: { bounds: RenderRect; size: Size; maxSize: Size }): RenderRect {
+	const { bounds, size, maxSize } = params;
+	const { x: boundsX, y: boundsY, width: boundsWidth, height: boundsHeight } = bounds;
 	const { width, height } = size;
 	const { width: maxWidth, height: maxHeight } = maxSize;
 	const scale = Math.min(maxWidth / width, maxHeight / height, 1);
@@ -266,8 +376,8 @@ function centerRect(params: { canvasSize: Size; size: Size; maxSize: Size }): Re
 	const resolvedHeight = Math.round(height * scale);
 
 	return {
-		x: Math.max(0, Math.floor((canvasWidth - resolvedWidth) / 2)),
-		y: Math.max(0, Math.floor((canvasHeight - resolvedHeight) / 2)),
+		x: boundsX + Math.max(0, Math.floor((boundsWidth - resolvedWidth) / 2)),
+		y: boundsY + Math.max(0, Math.floor((boundsHeight - resolvedHeight) / 2)),
 		width: resolvedWidth,
 		height: resolvedHeight,
 	};

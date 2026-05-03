@@ -3,6 +3,11 @@
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.siddharthvaddem.openscreen",
   "asar": true,
+  // .node binaries can't be dlopen'd from inside an asar — must live unpacked.
+  "asarUnpack": [
+    "node_modules/uiohook-napi/**/*",
+    "**/*.node"
+  ],
   "productName": "Openscreen",
   "npmRebuild": true,
   "buildDependenciesFromSource": true,
@@ -20,16 +25,20 @@
     "!CONTRIBUTING.md",
     "!LICENSE"
   ],
+  // Asset layout contract: "wallpapers/" under resourcesPath must align with
+  // assetBaseDir in electron/preload.ts (packaged branch).
   "extraResources": [
     {
       "from": "public/wallpapers",
-      "to": "assets/wallpapers"
+      "to": "wallpapers"
     }
   ],
-  "publish": [{"provider": "github"}],
 
   "mac": {
-    "hardenedRuntime": false,
+    "notarize": false,
+    "hardenedRuntime": true,
+    "entitlements": "macos.entitlements",
+    "entitlementsInherit": "macos.entitlements",
     "target": [
       {
         "target": "dmg",

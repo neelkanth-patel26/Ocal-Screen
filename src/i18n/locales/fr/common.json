@@ -1,0 +1,30 @@
+{
+	"actions": {
+		"cancel": "Annuler",
+		"save": "Enregistrer",
+		"delete": "Supprimer",
+		"close": "Fermer",
+		"share": "Partager",
+		"done": "Terminer",
+		"open": "Ouvrir",
+		"upload": "Téléverser",
+		"export": "Exporter",
+		"showInFolder": "Afficher dans le dossier",
+		"file": "Fichier",
+		"edit": "Éditer",
+		"view": "Affichage",
+		"window": "Fenêtre",
+		"quit": "Quitter",
+		"stopRecording": "Arrêter l'enregistrement"
+	},
+	"playback": {
+		"play": "Lecture",
+		"pause": "Pause",
+		"fullscreen": "Plein écran",
+		"exitFullscreen": "Quitter le plein écran"
+	},
+	"locale": {
+		"name": "Français",
+		"short": "FR"
+	}
+}

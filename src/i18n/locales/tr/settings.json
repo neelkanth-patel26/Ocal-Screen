@@ -1,0 +1,191 @@
+{
+	"zoom": {
+		"level": "Yakınlaştırma Seviyesi",
+		"selectRegion": "Ayarlamak için bir yakınlaştırma bölgesi seçin",
+		"deleteZoom": "Yakınlaştırmayı Sil",
+		"focusMode": {
+			"title": "Odak Modu",
+			"manual": "Manuel",
+			"auto": "Otomatik",
+			"autoDescription": "Kamera kaydedilen imleç konumunu takip eder"
+		}
+	},
+	"speed": {
+		"playbackSpeed": "Oynatma Hızı",
+		"selectRegion": "Ayarlamak için bir hız bölgesi seçin",
+		"deleteRegion": "Hız Bölgesini Sil",
+		"customPlaybackSpeed": "Özel Oynatma Hızı",
+		"maxSpeedError": "Hız 16× değerinden yüksek olamaz"
+	},
+	"trim": {
+		"deleteRegion": "Kırpma Bölgesini Sil"
+	},
+	"layout": {
+		"title": "Düzen",
+		"preset": "Ön Ayar",
+		"selectPreset": "Ön ayar seçin",
+		"pictureInPicture": "Resim İçinde Resim",
+		"verticalStack": "Dikey Yığın",
+		"webcamShape": "Kamera Şekli",
+		"dualFrame": "Çift Kare",
+		"webcamSize": "Webcam Boyutu"
+	},
+	"effects": {
+		"title": "Video Efektleri",
+		"blurBg": "Arka Planı Bulanıklaştır",
+		"motionBlur": "Hareket Bulanıklığı",
+		"off": "kapalı",
+		"shadow": "Gölge",
+		"roundness": "Yuvarlaklık",
+		"padding": "Dolgu"
+	},
+	"background": {
+		"title": "Arka Plan",
+		"image": "Görüntü",
+		"color": "Renk",
+		"gradient": "Gradyan",
+		"uploadCustom": "Özel Yükle",
+		"gradientLabel": "Gradyan {{index}}",
+		"colorWheel": "Renk çarkı",
+		"colorPalette": "Renk paleti"
+	},
+	"crop": {
+		"title": "Kırpma",
+		"cropVideo": "Videoyu Kırp",
+		"dragInstruction": "Kırpma alanını ayarlamak için her kenarı sürükleyin",
+		"ratio": "Oran",
+		"free": "Serbest",
+		"done": "Tamam",
+		"lockAspectRatio": "En boy oranını kilitle",
+		"unlockAspectRatio": "En boy oranının kilidini aç"
+	},
+	"exportFormat": {
+		"mp4": "MP4",
+		"gif": "GIF",
+		"mp4Video": "MP4 Video",
+		"mp4Description": "Yüksek kaliteli video dosyası",
+		"gifAnimation": "GIF Animasyon",
+		"gifDescription": "Paylaşım için hareketli görüntü"
+	},
+	"exportQuality": {
+		"title": "Dışa Aktarım Kalitesi",
+		"low": "Düşük",
+		"medium": "Orta",
+		"high": "Yüksek"
+	},
+	"gifSettings": {
+		"frameRate": "GIF Kare Hızı",
+		"size": "GIF Boyutu",
+		"loop": "GIF Döngüsü"
+	},
+	"project": {
+		"save": "Projeyi Kaydet",
+		"load": "Proje Yükle"
+	},
+	"export": {
+		"videoButton": "Videoyu Dışa Aktar",
+		"gifButton": "GIF Olarak Dışa Aktar",
+		"chooseSaveLocation": "Kayıt Konumu Seç"
+	},
+	"links": {
+		"reportBug": "Hata Bildir",
+		"starOnGithub": "GitHub'da Yıldızla"
+	},
+	"imageUpload": {
+		"invalidFileType": "Geçersiz dosya türü",
+		"jpgOnly": "Lütfen bir JPG veya JPEG görüntü dosyası yükleyin.",
+		"uploadSuccess": "Özel görüntü başarıyla yüklendi!",
+		"failedToUpload": "Görüntü yüklenemedi",
+		"errorReading": "Dosya okunurken bir hata oluştu."
+	},
+	"annotation": {
+		"title": "Açıklama Ayarları",
+		"active": "Aktif",
+		"typeText": "Metin",
+		"typeImage": "Görüntü",
+		"typeArrow": "Ok",
+		"typeBlur": "Bulanık",
+		"textContent": "Metin İçeriği",
+		"textPlaceholder": "Metninizi girin...",
+		"fontStyle": "Yazı Tipi Stili",
+		"selectStyle": "Stil seçin",
+		"size": "Boyut",
+		"customFonts": "Özel Yazı Tipleri",
+		"textColor": "Metin Rengi",
+		"background": "Arka Plan",
+		"none": "Yok",
+		"color": "Renk",
+		"colorWheel": "Renk çarkı",
+		"colorPalette": "Renk paleti",
+		"clearBackground": "Arka Planı Temizle",
+		"uploadImage": "Görüntü Yükle",
+		"supportedFormats": "Desteklenen biçimler: JPG, PNG, GIF, WebP",
+		"arrowDirection": "Ok Yönü",
+		"strokeWidth": "Çizgi Kalınlığı: {{width}}px",
+		"arrowColor": "Ok Rengi",
+		"blurShape": "Bulanık Şekli",
+		"blurIntensity": "Bulanıklık Yoğunluğu",
+		"blurShapeRectangle": "Dikdörtgen",
+		"blurShapeOval": "Oval",
+		"blurShapeFreehand": "Serbest",
+		"deleteAnnotation": "Açıklamayı Sil",
+		"shortcutsAndTips": "Kısayollar ve İpuçları",
+		"tipMovePlayhead": "Oynatma imlecini çakışan açıklama bölümüne taşıyın ve bir öğe seçin.",
+		"tipTabCycle": "Çakışan öğeler arasında geçiş yapmak için Tab tuşunu kullanın.",
+		"tipShiftTabCycle": "Geriye doğru geçiş yapmak için Shift+Tab kullanın.",
+		"invalidImageType": "Geçersiz dosya türü",
+		"imageFormatsOnly": "Lütfen bir JPG, PNG, GIF veya WebP görüntü dosyası yükleyin.",
+		"imageUploadSuccess": "Görüntü başarıyla yüklendi!",
+		"failedImageUpload": "Görüntü yüklenemedi",
+		"blurColor": "Bulanıklık Rengi",
+		"blurColorBlack": "Siyah",
+		"blurColorWhite": "Beyaz",
+		"blurType": "Bulanıklık Türü",
+		"blurTypeBlur": "Bulanık",
+		"blurTypeMosaic": "Mozaik Bulanıklık",
+		"mosaicBlockSize": "Mozaik Blok Boyutu"
+	},
+	"fontStyles": {
+		"classic": "Klasik",
+		"editor": "Editör",
+		"strong": "Kalın",
+		"typewriter": "Daktilo",
+		"deco": "Dekoratif",
+		"simple": "Sade",
+		"modern": "Modern",
+		"clean": "Temiz"
+	},
+	"customFont": {
+		"dialogTitle": "Google Yazı Tipi Ekle",
+		"urlLabel": "Google Fonts İçe Aktarım URL'si",
+		"urlPlaceholder": "https://fonts.googleapis.com/css2?family=Roboto&display=swap",
+		"urlHelp": "Google Fonts'tan alabilirsiniz: Bir yazı tipi seçin → \"Get font\"a tıklayın → @import URL'sini kopyalayın",
+		"nameLabel": "Görünen Ad",
+		"namePlaceholder": "Özel Yazı Tipim",
+		"nameHelp": "Yazı tipinin seçicide nasıl görüneceğini belirler",
+		"addButton": "Yazı Tipi Ekle",
+		"addingButton": "Ekleniyor...",
+		"errorEmptyUrl": "Lütfen bir Google Fonts içe aktarım URL'si girin",
+		"errorInvalidUrl": "Lütfen geçerli bir Google Fonts URL'si girin",
+		"errorEmptyName": "Lütfen bir yazı tipi adı girin",
+		"errorExtractFailed": "URL'den yazı tipi ailesi çıkarılamadı",
+		"successMessage": "\"{{fontName}}\" yazı tipi başarıyla eklendi",
+		"failedToAdd": "Yazı tipi eklenemedi",
+		"errorTimeout": "Yazı tipinin yüklenmesi çok uzun sürdü. Lütfen URL'yi kontrol edip tekrar deneyin.",
+		"errorLoadFailed": "Yazı tipi yüklenemedi. Lütfen Google Fonts URL'sinin doğruluğunu kontrol edin."
+	},
+	"language": {
+		"title": "Dil"
+	},
+	"audio": {
+		"title": "Ses",
+		"noiseReduction": "Gürültü Azaltma",
+		"level": "Seviye",
+		"nrLevel": {
+			"light": "Hafif",
+			"moderate": "Orta",
+			"aggressive": "Güçlü"
+		},
+		"nrDescription": "Yapay zeka destekli gürültü azaltma arka plan gürültüsünü temizler. Daha yüksek seviyeler daha agresiftir ancak ses kalitesini etkileyebilir."
+	}
+}

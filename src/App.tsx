@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CountdownOverlay } from "./components/launch/CountdownOverlay.tsx";
 import { LaunchWindow } from "./components/launch/LaunchWindow";
 import { SourceSelector } from "./components/launch/SourceSelector";
 import { Toaster } from "./components/ui/sonner";
@@ -9,22 +10,24 @@ import { ShortcutsProvider } from "./contexts/ShortcutsContext";
 import { loadAllCustomFonts } from "./lib/customFonts";
 
 export default function App() {
-	const [windowType, setWindowType] = useState("");
+	const [windowType, setWindowType] = useState(
+		() => new URLSearchParams(window.location.search).get("windowType") || "",
+	);
 
 	useEffect(() => {
-		const params = new URLSearchParams(window.location.search);
-		const type = params.get("windowType") || "";
-		setWindowType(type);
-		if (type === "hud-overlay" || type === "source-selector") {
+		const type = new URLSearchParams(window.location.search).get("windowType") || "";
+		if (type !== windowType) {
+			setWindowType(type);
+		}
+
+		if (type === "hud-overlay" || type === "source-selector" || type === "countdown-overlay") {
 			document.body.style.background = "transparent";
 			document.documentElement.style.background = "transparent";
 			document.getElementById("root")?.style.setProperty("background", "transparent");
 		}
 
-		// HUD window is a small fixed-size BrowserWindow (`electron/windows.ts`), not a full-screen
-		// surface. Pin the document shell to that viewport and hide overflow so the renderer cannot
-		// introduce scrollbars. Without this, `h-full` in `LaunchWindow` has no definite height chain
-		// from `html`/`body`, and stray overflow can still appear on some hosts (see issue #305).
+		// HUD is a fixed-size BrowserWindow; pin the document shell and hide overflow
+		// so the renderer can't introduce scrollbars (see issue #305).
 		if (type === "hud-overlay") {
 			document.documentElement.style.height = "100%";
 			document.documentElement.style.overflow = "hidden";
@@ -36,7 +39,9 @@ export default function App() {
 			root?.style.setProperty("min-height", "0");
 			root?.style.setProperty("overflow", "hidden");
 		}
+	}, [windowType]);
 
+	useEffect(() => {
 		// Load custom fonts on app initialization
 		loadAllCustomFonts().catch((error) => {
 			console.error("Failed to load custom fonts:", error);
@@ -49,6 +54,8 @@ export default function App() {
 				return <LaunchWindow />;
 			case "source-selector":
 				return <SourceSelector />;
+			case "countdown-overlay":
+				return <CountdownOverlay />;
 			case "editor":
 				return (
 					<ShortcutsProvider>

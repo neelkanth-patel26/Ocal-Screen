@@ -13,7 +13,9 @@
 	"speed": {
 		"playbackSpeed": "Playback Speed",
 		"selectRegion": "Select a speed region to adjust",
-		"deleteRegion": "Delete Speed Region"
+		"deleteRegion": "Delete Speed Region",
+		"customPlaybackSpeed": "Custom Playback Speed",
+		"maxSpeedError": "Speed can't go higher than 16×"
 	},
 	"trim": {
 		"deleteRegion": "Delete Trim Region"
@@ -24,7 +26,9 @@
 		"selectPreset": "Select preset",
 		"pictureInPicture": "Picture in Picture",
 		"verticalStack": "Vertical Stack",
-		"webcamShape": "Camera Shape"
+		"dualFrame": "Dual Frame",
+		"webcamShape": "Camera Shape",
+		"webcamSize": "Webcam Size"
 	},
 	"effects": {
 		"title": "Video Effects",
@@ -41,7 +45,9 @@
 		"color": "Color",
 		"gradient": "Gradient",
 		"uploadCustom": "Upload Custom",
-		"gradientLabel": "Gradient {{index}}"
+		"gradientLabel": "Gradient {{index}}",
+		"colorWheel": "Color Wheel",
+		"colorPalette": "Color Palette"
 	},
 	"crop": {
 		"title": "Crop",
@@ -98,6 +104,7 @@
 		"typeText": "Text",
 		"typeImage": "Image",
 		"typeArrow": "Arrow",
+		"typeBlur": "Blur",
 		"textContent": "Text Content",
 		"textPlaceholder": "Enter your text...",
 		"fontStyle": "Font Style",
@@ -108,12 +115,26 @@
 		"background": "Background",
 		"none": "None",
 		"color": "Color",
+		"colorWheel": "Color Wheel",
+		"colorPalette": "Color Palette",
 		"clearBackground": "Clear Background",
 		"uploadImage": "Upload Image",
 		"supportedFormats": "Supported formats: JPG, PNG, GIF, WebP",
 		"arrowDirection": "Arrow Direction",
 		"strokeWidth": "Stroke Width: {{width}}px",
 		"arrowColor": "Arrow Color",
+		"blurType": "Blur Type",
+		"blurTypeBlur": "Blur",
+		"blurTypeMosaic": "Mosaic Blur",
+		"blurColor": "Blur Color",
+		"blurColorWhite": "White",
+		"blurColorBlack": "Black",
+		"blurShape": "Blur Shape",
+		"blurIntensity": "Blur Intensity",
+		"mosaicBlockSize": "Mosaic Block Size",
+		"blurShapeRectangle": "Rectangle",
+		"blurShapeOval": "Oval",
+		"blurShapeFreehand": "Freehand",
 		"deleteAnnotation": "Delete Annotation",
 		"shortcutsAndTips": "Shortcuts & Tips",
 		"tipMovePlayhead": "Move playhead to overlapping annotation section and select an item.",

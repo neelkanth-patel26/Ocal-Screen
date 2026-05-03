@@ -1,0 +1,30 @@
+{
+	"actions": {
+		"cancel": "İptal",
+		"save": "Kaydet",
+		"delete": "Sil",
+		"close": "Kapat",
+		"share": "Paylaş",
+		"done": "Tamam",
+		"open": "Aç",
+		"upload": "Yükle",
+		"export": "Dışa Aktar",
+		"showInFolder": "Klasörde Göster",
+		"file": "Dosya",
+		"edit": "Düzenle",
+		"view": "Görünüm",
+		"window": "Pencere",
+		"quit": "Çıkış",
+		"stopRecording": "Kaydı Durdur"
+	},
+	"playback": {
+		"play": "Oynat",
+		"pause": "Duraklat",
+		"fullscreen": "Tam Ekran",
+		"exitFullscreen": "Tam Ekrandan Çık"
+	},
+	"locale": {
+		"name": "Türkçe",
+		"short": "TR"
+	}
+}

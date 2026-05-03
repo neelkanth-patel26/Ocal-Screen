@@ -13,6 +13,7 @@ import type {
 	CropRegion,
 	SpeedRegion,
 	WebcamLayoutPreset,
+	WebcamSizePreset,
 	ZoomDepth,
 	ZoomRegion,
 } from "@/components/video-editor/types";
@@ -27,8 +28,14 @@ import {
 } from "@/components/video-editor/videoPlayback/constants";
 import {
 	adaptiveSmoothFactor,
+	interpolateCursorAt,
 	smoothCursorFocus,
 } from "@/components/video-editor/videoPlayback/cursorFollowUtils";
+import {
+	type CursorHighlightConfig,
+	clickEmphasisAlpha,
+	drawCursorHighlightCanvas,
+} from "@/components/video-editor/videoPlayback/cursorHighlight";
 import { clampFocusToStage as clampFocusToStageUtil } from "@/components/video-editor/videoPlayback/focusUtils";
 import { findDominantRegion } from "@/components/video-editor/videoPlayback/zoomRegionUtils";
 import {
@@ -44,6 +51,7 @@ import {
 	type Size,
 	type StyledRenderRect,
 } from "@/lib/compositeLayout";
+import { BackgroundLoadError, classifyWallpaper, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { drawCanvasClipPath } from "@/lib/webcamMaskShapes";
 import { renderAnnotations } from "./annotationRenderer";
 import {
@@ -70,12 +78,16 @@ interface FrameRenderConfig {
 	webcamSize?: Size | null;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
+	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	annotationRegions?: AnnotationRegion[];
 	speedRegions?: SpeedRegion[];
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
+	cursorHighlight?: CursorHighlightConfig;
+	cursorClickTimestamps?: number[];
+	platform: string;
 }
 
 interface AnimationState {
@@ -112,6 +124,8 @@ export class FrameRenderer {
 	private shadowCtx: CanvasRenderingContext2D | null = null;
 	private compositeCanvas: HTMLCanvasElement | null = null;
 	private compositeCtx: CanvasRenderingContext2D | null = null;
+	private rasterCanvas: HTMLCanvasElement | null = null;
+	private rasterCtx: CanvasRenderingContext2D | null = null;
 	private config: FrameRenderConfig;
 	private animationState: AnimationState;
 	private layoutCache: LayoutCache | null = null;
@@ -120,9 +134,11 @@ export class FrameRenderer {
 	private smoothedAutoFocus: { cx: number; cy: number } | null = null;
 	private prevAnimationTimeMs: number | null = null;
 	private prevTargetProgress = 0;
+	private isLinux = false;
 
 	constructor(config: FrameRenderConfig) {
 		this.config = config;
+		this.isLinux = config.platform === "linux";
 		this.animationState = {
 			scale: 1,
 			focusX: DEFAULT_FOCUS.cx,
@@ -183,12 +199,22 @@ export class FrameRenderer {
 		this.compositeCanvas = document.createElement("canvas");
 		this.compositeCanvas.width = this.config.width;
 		this.compositeCanvas.height = this.config.height;
+
+		// On Linux, getImageData() is called frequently causing frequent CPU readback
 		this.compositeCtx = this.compositeCanvas.getContext("2d", {
-			willReadFrequently: false,
+			willReadFrequently: this.isLinux,
 		});
 
 		if (!this.compositeCtx) {
 			throw new Error("Failed to get 2D context for composite canvas");
+		}
+
+		this.rasterCanvas = document.createElement("canvas");
+		this.rasterCanvas.width = this.config.width;
+		this.rasterCanvas.height = this.config.height;
+		this.rasterCtx = this.rasterCanvas.getContext("2d");
+		if (!this.rasterCtx) {
+			throw new Error("Failed to get 2D context for raster canvas");
 		}
 
 		// Setup shadow canvas if needed
@@ -214,123 +240,93 @@ export class FrameRenderer {
 	private async setupBackground(): Promise<void> {
 		const wallpaper = this.config.wallpaper;
 
-		// Create background canvas for separate rendering (not affected by zoom)
 		const bgCanvas = document.createElement("canvas");
 		bgCanvas.width = this.config.width;
 		bgCanvas.height = this.config.height;
 		const bgCtx = bgCanvas.getContext("2d")!;
 
-		try {
-			// Render background based on type
-			if (
-				wallpaper.startsWith("file://") ||
-				wallpaper.startsWith("data:") ||
-				wallpaper.startsWith("/") ||
-				wallpaper.startsWith("http")
-			) {
-				// Image background
-				const img = new Image();
-				// Don't set crossOrigin for same-origin images to avoid CORS taint
-				// Only set it for cross-origin URLs
-				let imageUrl: string;
-				if (wallpaper.startsWith("http")) {
-					imageUrl = wallpaper;
-					if (!imageUrl.startsWith(window.location.origin)) {
-						img.crossOrigin = "anonymous";
-					}
-				} else if (wallpaper.startsWith("file://") || wallpaper.startsWith("data:")) {
-					imageUrl = wallpaper;
-				} else {
-					imageUrl = window.location.origin + wallpaper;
-				}
+		const classified = classifyWallpaper(wallpaper);
 
+		if (classified.kind === "color") {
+			bgCtx.fillStyle = classified.value;
+			bgCtx.fillRect(0, 0, this.config.width, this.config.height);
+		} else if (classified.kind === "gradient") {
+			const parsedGradient = parseCssGradient(classified.value);
+			if (!parsedGradient) {
+				throw new BackgroundLoadError(classified.value);
+			}
+			const gradient =
+				parsedGradient.type === "linear"
+					? (() => {
+							const points = getLinearGradientPoints(
+								resolveLinearGradientAngle(parsedGradient.descriptor),
+								this.config.width,
+								this.config.height,
+							);
+							return bgCtx.createLinearGradient(points.x0, points.y0, points.x1, points.y1);
+						})()
+					: (() => {
+							const shape = getRadialGradientShape(
+								parsedGradient.descriptor,
+								this.config.width,
+								this.config.height,
+							);
+							return bgCtx.createRadialGradient(
+								shape.cx,
+								shape.cy,
+								0,
+								shape.cx,
+								shape.cy,
+								shape.radius,
+							);
+						})();
+
+			parsedGradient.stops.forEach((stop) => {
+				gradient.addColorStop(stop.offset, stop.color);
+			});
+
+			bgCtx.fillStyle = gradient;
+			bgCtx.fillRect(0, 0, this.config.width, this.config.height);
+		} else {
+			const imageUrl = resolveImageWallpaperUrl(classified.path);
+			const img = new Image();
+			if (imageUrl.startsWith("http") && !imageUrl.startsWith(window.location.origin)) {
+				img.crossOrigin = "anonymous";
+			}
+
+			try {
 				await new Promise<void>((resolve, reject) => {
 					img.onload = () => resolve();
-					img.onerror = (err) => {
-						console.error("[FrameRenderer] Failed to load background image:", imageUrl, err);
-						reject(new Error(`Failed to load background image: ${imageUrl}`));
-					};
+					img.onerror = (err) => reject(err);
 					img.src = imageUrl;
 				});
-
-				// Draw the image using cover and center positioning
-				const imgAspect = img.width / img.height;
-				const canvasAspect = this.config.width / this.config.height;
-
-				let drawWidth, drawHeight, drawX, drawY;
-
-				if (imgAspect > canvasAspect) {
-					drawHeight = this.config.height;
-					drawWidth = drawHeight * imgAspect;
-					drawX = (this.config.width - drawWidth) / 2;
-					drawY = 0;
-				} else {
-					drawWidth = this.config.width;
-					drawHeight = drawWidth / imgAspect;
-					drawX = 0;
-					drawY = (this.config.height - drawHeight) / 2;
-				}
-
-				bgCtx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-			} else if (wallpaper.startsWith("#")) {
-				bgCtx.fillStyle = wallpaper;
-				bgCtx.fillRect(0, 0, this.config.width, this.config.height);
-			} else if (
-				wallpaper.startsWith("linear-gradient") ||
-				wallpaper.startsWith("radial-gradient")
-			) {
-				const parsedGradient = parseCssGradient(wallpaper);
-				if (parsedGradient) {
-					const gradient =
-						parsedGradient.type === "linear"
-							? (() => {
-									const points = getLinearGradientPoints(
-										resolveLinearGradientAngle(parsedGradient.descriptor),
-										this.config.width,
-										this.config.height,
-									);
-
-									return bgCtx.createLinearGradient(points.x0, points.y0, points.x1, points.y1);
-								})()
-							: (() => {
-									const shape = getRadialGradientShape(
-										parsedGradient.descriptor,
-										this.config.width,
-										this.config.height,
-									);
-
-									return bgCtx.createRadialGradient(
-										shape.cx,
-										shape.cy,
-										0,
-										shape.cx,
-										shape.cy,
-										shape.radius,
-									);
-								})();
-
-					parsedGradient.stops.forEach((stop) => {
-						gradient.addColorStop(stop.offset, stop.color);
-					});
-
-					bgCtx.fillStyle = gradient;
-					bgCtx.fillRect(0, 0, this.config.width, this.config.height);
-				} else {
-					console.warn("[FrameRenderer] Could not parse gradient, using black fallback");
-					bgCtx.fillStyle = "#000000";
-					bgCtx.fillRect(0, 0, this.config.width, this.config.height);
-				}
-			} else {
-				bgCtx.fillStyle = wallpaper;
-				bgCtx.fillRect(0, 0, this.config.width, this.config.height);
+			} catch (err) {
+				throw new BackgroundLoadError(imageUrl, err);
 			}
-		} catch (error) {
-			console.error("[FrameRenderer] Error setting up background, using fallback:", error);
-			bgCtx.fillStyle = "#000000";
-			bgCtx.fillRect(0, 0, this.config.width, this.config.height);
+
+			const imgAspect = img.width / img.height;
+			const canvasAspect = this.config.width / this.config.height;
+
+			let drawWidth: number;
+			let drawHeight: number;
+			let drawX: number;
+			let drawY: number;
+
+			if (imgAspect > canvasAspect) {
+				drawHeight = this.config.height;
+				drawWidth = drawHeight * imgAspect;
+				drawX = (this.config.width - drawWidth) / 2;
+				drawY = 0;
+			} else {
+				drawWidth = this.config.width;
+				drawHeight = drawWidth / imgAspect;
+				drawX = 0;
+				drawY = (this.config.height - drawHeight) / 2;
+			}
+
+			bgCtx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 		}
 
-		// Store the background canvas for compositing
 		this.backgroundSprite = bgCanvas;
 	}
 
@@ -399,6 +395,46 @@ export class FrameRenderer {
 		// Composite with shadows to final output canvas
 		this.compositeWithShadows(webcamFrame);
 
+		// Cursor highlight overlay (rendered above video, below annotations)
+		if (
+			this.config.cursorHighlight?.enabled &&
+			this.config.cursorTelemetry &&
+			this.config.cursorTelemetry.length > 0 &&
+			this.compositeCtx
+		) {
+			const emphasisAlpha = clickEmphasisAlpha(
+				timeMs,
+				this.config.cursorClickTimestamps,
+				this.config.cursorHighlight,
+			);
+			const cursorPoint =
+				emphasisAlpha > 0 ? interpolateCursorAt(this.config.cursorTelemetry, timeMs) : null;
+			if (cursorPoint) {
+				const cx = cursorPoint.cx + this.config.cursorHighlight.offsetXNorm;
+				const cy = cursorPoint.cy + this.config.cursorHighlight.offsetYNorm;
+				const stageX =
+					layoutCache.baseOffset.x + cx * this.config.videoWidth * layoutCache.baseScale;
+				const stageY =
+					layoutCache.baseOffset.y + cy * this.config.videoHeight * layoutCache.baseScale;
+				const appliedScale = this.animationState.appliedScale;
+				const canvasX = stageX * appliedScale + this.animationState.x;
+				const canvasY = stageY * appliedScale + this.animationState.y;
+				const previewW = this.config.previewWidth ?? this.config.width;
+				const previewH = this.config.previewHeight ?? this.config.height;
+				const cursorScale = (this.config.width / previewW + this.config.height / previewH) / 2;
+				drawCursorHighlightCanvas(
+					this.compositeCtx,
+					canvasX,
+					canvasY,
+					{
+						...this.config.cursorHighlight,
+						opacity: this.config.cursorHighlight.opacity * emphasisAlpha,
+					},
+					appliedScale * cursorScale,
+				);
+			}
+		}
+
 		// Render annotations on top if present
 		if (
 			this.config.annotationRegions &&
@@ -406,8 +442,8 @@ export class FrameRenderer {
 			this.compositeCtx
 		) {
 			// Calculate scale factor based on export vs preview dimensions
-			const previewWidth = this.config.previewWidth || 1920;
-			const previewHeight = this.config.previewHeight || 1080;
+			const previewWidth = this.config.previewWidth ?? this.config.width;
+			const previewHeight = this.config.previewHeight ?? this.config.height;
 			const scaleX = this.config.width / previewWidth;
 			const scaleY = this.config.height / previewHeight;
 			const scaleFactor = (scaleX + scaleY) / 2;
@@ -453,6 +489,7 @@ export class FrameRenderer {
 			screenSize: { width: croppedVideoWidth, height: croppedVideoHeight },
 			webcamSize: webcamFrame ? this.config.webcamSize : null,
 			layoutPreset: this.config.webcamLayoutPreset,
+			webcamSizePreset: this.config.webcamSizePreset,
 			webcamPosition: this.config.webcamPosition,
 			webcamMaskShape: this.config.webcamMaskShape,
 		});
@@ -491,10 +528,15 @@ export class FrameRenderer {
 		this.videoContainer.y = screenRect.y;
 
 		// scale border radius by export/preview canvas ratio
-		const previewWidth = this.config.previewWidth || 1920;
-		const previewHeight = this.config.previewHeight || 1080;
+		const previewWidth = this.config.previewWidth ?? this.config.width;
+		const previewHeight = this.config.previewHeight ?? this.config.height;
 		const canvasScaleFactor = Math.min(width / previewWidth, height / previewHeight);
-		const scaledBorderRadius = compositeLayout.screenCover ? 0 : borderRadius * canvasScaleFactor;
+		const scaledBorderRadius =
+			compositeLayout.screenBorderRadius != null
+				? compositeLayout.screenBorderRadius
+				: compositeLayout.screenCover
+					? 0
+					: borderRadius * canvasScaleFactor;
 
 		this.maskGraphics.clear();
 		this.maskGraphics.roundRect(0, 0, screenRect.width, screenRect.height, scaledBorderRadius);
@@ -522,16 +564,10 @@ export class FrameRenderer {
 	private updateAnimationState(timeMs: number): number {
 		if (!this.cameraContainer || !this.layoutCache) return 0;
 
-		const bmEx = this.layoutCache.maskRect;
-		const ssEx = this.layoutCache.stageSize;
-		const viewportRatio =
-			bmEx.width > 0 && bmEx.height > 0
-				? { widthRatio: ssEx.width / bmEx.width, heightRatio: ssEx.height / bmEx.height }
-				: undefined;
 		const { region, strength, blendedScale, transition } = findDominantRegion(
 			this.config.zoomRegions,
 			timeMs,
-			{ connectZooms: true, cursorTelemetry: this.config.cursorTelemetry, viewportRatio },
+			{ connectZooms: true, cursorTelemetry: this.config.cursorTelemetry },
 		);
 
 		const defaultFocus = DEFAULT_FOCUS;
@@ -675,10 +711,49 @@ export class FrameRenderer {
 		);
 	}
 
+	// On Linux/Wayland the implicit GPU→2D texture-sharing path
+	// used by drawImage(webglCanvas) can fail silently (EGL/Ozone),
+	// producing green/empty frames. Explicit gl.readPixels always
+	// copies from GPU to CPU memory, bypassing that path.
+	private readbackVideoCanvas(): HTMLCanvasElement {
+		const glCanvas = this.app!.canvas as HTMLCanvasElement;
+		const gl =
+			(glCanvas.getContext("webgl2") as WebGL2RenderingContext | null) ??
+			(glCanvas.getContext("webgl") as WebGLRenderingContext | null);
+
+		if (!gl || !this.rasterCanvas || !this.rasterCtx) {
+			return glCanvas;
+		}
+
+		const w = glCanvas.width;
+		const h = glCanvas.height;
+		const buf = new Uint8Array(w * h * 4);
+		gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+
+		// readPixels returns rows bottom-to-top; flip vertically
+		const rowSize = w * 4;
+		const temp = new Uint8Array(rowSize);
+		for (let top = 0, bot = h - 1; top < bot; top++, bot--) {
+			const tOff = top * rowSize;
+			const bOff = bot * rowSize;
+			temp.set(buf.subarray(tOff, tOff + rowSize));
+			buf.copyWithin(tOff, bOff, bOff + rowSize);
+			buf.set(temp, bOff);
+		}
+
+		const imageData = new ImageData(new Uint8ClampedArray(buf.buffer), w, h);
+		this.rasterCtx.putImageData(imageData, 0, 0);
+
+		return this.rasterCanvas;
+	}
+
 	private compositeWithShadows(webcamFrame?: VideoFrame | null): void {
 		if (!this.compositeCanvas || !this.compositeCtx || !this.app) return;
 
-		const videoCanvas = this.app.canvas as HTMLCanvasElement;
+		const videoCanvas = this.isLinux
+			? this.readbackVideoCanvas()
+			: (this.app.canvas as HTMLCanvasElement);
+
 		const ctx = this.compositeCtx;
 		const w = this.compositeCanvas.width;
 		const h = this.compositeCanvas.height;
@@ -735,6 +810,22 @@ export class FrameRenderer {
 		if (webcamFrame && webcamRect) {
 			const preset = getWebcamLayoutPresetDefinition(this.config.webcamLayoutPreset);
 			const shape = webcamRect.maskShape ?? this.config.webcamMaskShape ?? "rectangle";
+			const sourceWidth =
+				("displayWidth" in webcamFrame && webcamFrame.displayWidth > 0
+					? webcamFrame.displayWidth
+					: webcamFrame.codedWidth) || webcamRect.width;
+			const sourceHeight =
+				("displayHeight" in webcamFrame && webcamFrame.displayHeight > 0
+					? webcamFrame.displayHeight
+					: webcamFrame.codedHeight) || webcamRect.height;
+			const sourceAspect = sourceWidth / sourceHeight;
+			const targetAspect = webcamRect.width / webcamRect.height;
+			const sourceCropWidth =
+				sourceAspect > targetAspect ? Math.round(sourceHeight * targetAspect) : sourceWidth;
+			const sourceCropHeight =
+				sourceAspect > targetAspect ? sourceHeight : Math.round(sourceWidth / targetAspect);
+			const sourceCropX = Math.max(0, Math.round((sourceWidth - sourceCropWidth) / 2));
+			const sourceCropY = Math.max(0, Math.round((sourceHeight - sourceCropHeight) / 2));
 			ctx.save();
 			drawCanvasClipPath(
 				ctx,
@@ -756,6 +847,10 @@ export class FrameRenderer {
 			ctx.clip();
 			ctx.drawImage(
 				webcamFrame as unknown as CanvasImageSource,
+				sourceCropX,
+				sourceCropY,
+				sourceCropWidth,
+				sourceCropHeight,
 				webcamRect.x,
 				webcamRect.y,
 				webcamRect.width,
@@ -795,5 +890,7 @@ export class FrameRenderer {
 		this.shadowCtx = null;
 		this.compositeCanvas = null;
 		this.compositeCtx = null;
+		this.rasterCanvas = null;
+		this.rasterCtx = null;
 	}
 }

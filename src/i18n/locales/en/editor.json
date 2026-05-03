@@ -1,4 +1,11 @@
 {
+	"newRecording": {
+		"title": "Return to Recorder",
+		"description": "Your current session has been saved.",
+		"cancel": "Cancel",
+		"confirm": "Confirm"
+	},
+	"loadingVideo": "Loading video...",
 	"errors": {
 		"noVideoLoaded": "No video loaded",
 		"videoNotReady": "Video not ready",
@@ -8,6 +15,7 @@
 		"failedToSaveVideo": "Failed to save video",
 		"exportFailed": "Export failed",
 		"exportFailedWithError": "Export failed: {{error}}",
+		"exportBackgroundLoadFailed": "Export failed: could not load background image ({{url}})",
 		"failedToSaveExport": "Failed to save export",
 		"failedToSaveExportedVideo": "Failed to save exported video",
 		"failedToRevealInFolder": "Error revealing in folder: {{error}}"
@@ -30,6 +38,8 @@
 		"systemAudioUnavailable": "System audio not available. Recording without system audio.",
 		"microphoneDenied": "Microphone access denied. Recording will continue without audio.",
 		"cameraDenied": "Camera access denied. Recording will continue without webcam.",
+		"cameraDisconnected": "Webcam disconnected.",
+		"cameraNotFound": "Camera not found.",
 		"permissionDenied": "Recording permission denied. Please allow screen recording."
 	}
 }

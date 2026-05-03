@@ -5,6 +5,7 @@ import {
 	AlignRight,
 	Bold,
 	ChevronDown,
+	Copy,
 	Image as ImageIcon,
 	Info,
 	Italic,
@@ -30,9 +31,15 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useScopedT } from "@/contexts/I18nContext";
 import { type CustomFont, getCustomFonts } from "@/lib/customFonts";
 import { cn } from "@/lib/utils";
+import ColorPicker from "../ui/color-picker";
 import { AddCustomFontDialog } from "./AddCustomFontDialog";
 import { getArrowComponent } from "./ArrowSvgs";
-import type { AnnotationRegion, AnnotationType, ArrowDirection, FigureData } from "./types";
+import {
+	type AnnotationRegion,
+	type AnnotationType,
+	type ArrowDirection,
+	type FigureData,
+} from "./types";
 
 interface AnnotationSettingsPanelProps {
 	annotation: AnnotationRegion;
@@ -40,6 +47,7 @@ interface AnnotationSettingsPanelProps {
 	onTypeChange: (type: AnnotationType) => void;
 	onStyleChange: (style: Partial<AnnotationRegion["style"]>) => void;
 	onFigureDataChange?: (figureData: FigureData) => void;
+	onDuplicate?: () => void;
 	onDelete: () => void;
 }
 
@@ -62,12 +70,12 @@ export function AnnotationSettingsPanel({
 	onTypeChange,
 	onStyleChange,
 	onFigureDataChange,
+	onDuplicate,
 	onDelete,
 }: AnnotationSettingsPanelProps) {
 	const t = useScopedT("settings");
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
-
 	const fontStyleLabels: Record<string, string> = {
 		classic: t("fontStyles.classic"),
 		editor: t("fontStyles.editor"),
@@ -380,15 +388,19 @@ export function AnnotationSettingsPanel({
 												<ChevronDown className="h-3 w-3 opacity-50" />
 											</Button>
 										</PopoverTrigger>
-										<PopoverContent className="w-[260px] p-3 bg-[#1a1a1c] border border-white/10 rounded-xl shadow-xl">
-											<Block
-												color={annotation.style.color}
-												colors={colorPalette}
-												onChange={(color) => {
-													onStyleChange({ color: color.hex });
+										<PopoverContent
+											side="top"
+											className="w-[260px] p-3 bg-[#1a1a1c] border border-white/10 rounded-xl shadow-xl"
+										>
+											<ColorPicker
+												selectedColor={annotation.style.color}
+												colorPalette={colorPalette}
+												translations={{
+													colorWheel: t("annotation.colorWheel"),
+													colorPalette: t("annotation.colorPalette"),
 												}}
-												style={{
-													borderRadius: "8px",
+												onUpdateColor={(color) => {
+													onStyleChange({ color: color });
 												}}
 											/>
 										</PopoverContent>
@@ -419,31 +431,23 @@ export function AnnotationSettingsPanel({
 												<ChevronDown className="h-3 w-3 opacity-50" />
 											</Button>
 										</PopoverTrigger>
-										<PopoverContent className="w-[260px] p-3 bg-[#1a1a1c] border border-white/10 rounded-xl shadow-xl">
-											<Block
-												color={
-													annotation.style.backgroundColor === "transparent"
-														? "#000000"
-														: annotation.style.backgroundColor
-												}
-												colors={colorPalette}
-												onChange={(color) => {
-													onStyleChange({ backgroundColor: color.hex });
+										<PopoverContent
+											side="top"
+											className="w-[260px] p-3 bg-[#1a1a1c] border border-white/10 rounded-xl shadow-xl"
+										>
+											<ColorPicker
+												selectedColor={annotation.style.backgroundColor}
+												colorPalette={colorPalette}
+												translations={{
+													colorWheel: t("annotation.colorWheel"),
+													colorPalette: t("annotation.colorPalette"),
+													clearBackground: t("annotation.clearBackground"),
 												}}
-												style={{
-													borderRadius: "8px",
+												clearBackgroundOption={true}
+												onUpdateColor={(color) => {
+													onStyleChange({ backgroundColor: color });
 												}}
 											/>
-											<Button
-												variant="ghost"
-												size="sm"
-												className="w-full mt-2 text-xs h-7 hover:bg-white/5 text-slate-400"
-												onClick={() => {
-													onStyleChange({ backgroundColor: "transparent" });
-												}}
-											>
-												{t("annotation.clearBackground")}
-											</Button>
 										</PopoverContent>
 									</Popover>
 								</div>
@@ -597,15 +601,28 @@ export function AnnotationSettingsPanel({
 					</TabsContent>
 				</Tabs>
 
-				<Button
-					onClick={onDelete}
-					variant="destructive"
-					size="sm"
-					className="w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all mt-4"
-				>
-					<Trash2 className="w-4 h-4" />
-					{t("annotation.deleteAnnotation")}
-				</Button>
+				<div className="mt-4 grid grid-cols-2 gap-2">
+					<Button
+						onClick={() => onDuplicate?.()}
+						variant="outline"
+						size="sm"
+						disabled={!onDuplicate}
+						className="w-full gap-2 bg-white/5 text-slate-200 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+					>
+						<Copy className="w-4 h-4" />
+						Duplicate
+					</Button>
+
+					<Button
+						onClick={onDelete}
+						variant="destructive"
+						size="sm"
+						className="w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all"
+					>
+						<Trash2 className="w-4 h-4" />
+						{t("annotation.deleteAnnotation")}
+					</Button>
+				</div>
 
 				<div className="mt-6 p-3 bg-white/5 rounded-lg border border-white/5">
 					<div className="flex items-center gap-2 mb-2 text-slate-300">

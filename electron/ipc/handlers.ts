@@ -1,6 +1,10 @@
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+const nodeRequire = createRequire(import.meta.url);
+
 import {
 	app,
 	BrowserWindow,
@@ -12,8 +16,13 @@ import {
 	systemPreferences,
 } from "electron";
 import {
+	type CursorTelemetryPoint,
+	createCursorTelemetryBuffer,
+} from "../../src/lib/cursorTelemetryBuffer";
+import {
 	normalizeProjectMedia,
 	normalizeRecordingSession,
+	type ProjectMedia,
 	type RecordingSession,
 	type StoreRecordedSessionInput,
 } from "../../src/lib/recordingSession";
@@ -23,6 +32,143 @@ import { RECORDINGS_DIR } from "../main";
 const PROJECT_FILE_EXTENSION = "openscreen";
 const SHORTCUTS_FILE = path.join(app.getPath("userData"), "shortcuts.json");
 const RECORDING_SESSION_SUFFIX = ".session.json";
+const ALLOWED_IMPORT_VIDEO_EXTENSIONS = new Set([".webm", ".mp4", ".mov", ".avi", ".mkv"]);
+
+/**
+ * Paths explicitly approved by the user via file picker dialogs or project loads.
+ * These are added at runtime when the user selects files from outside the default directories.
+ */
+const approvedPaths = new Set<string>();
+
+function approveFilePath(filePath: string): void {
+	approvedPaths.add(path.resolve(filePath));
+}
+
+function getAllowedReadDirs(): string[] {
+	return [RECORDINGS_DIR];
+}
+
+function isPathWithinDir(filePath: string, dirPath: string): boolean {
+	const resolved = path.resolve(filePath);
+	const resolvedDir = path.resolve(dirPath);
+	return resolved === resolvedDir || resolved.startsWith(resolvedDir + path.sep);
+}
+
+function isPathAllowed(filePath: string): boolean {
+	const resolved = path.resolve(filePath);
+	if (approvedPaths.has(resolved)) return true;
+	return getAllowedReadDirs().some((dir) => isPathWithinDir(resolved, dir));
+}
+
+function hasAllowedImportVideoExtension(filePath: string): boolean {
+	return ALLOWED_IMPORT_VIDEO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
+}
+
+async function approveReadableVideoPath(
+	filePath?: string | null,
+	trustedDirs?: string[],
+): Promise<string | null> {
+	const normalizedPath = normalizeVideoSourcePath(filePath);
+	if (!normalizedPath) {
+		return null;
+	}
+
+	if (isPathAllowed(normalizedPath)) {
+		return normalizedPath;
+	}
+
+	if (!hasAllowedImportVideoExtension(normalizedPath)) {
+		return null;
+	}
+
+	// When called with trustedDirs (e.g. from project load), only auto-approve
+	// paths within those directories. This prevents malicious project files from
+	// approving reads to arbitrary filesystem locations.
+	if (trustedDirs) {
+		const resolved = path.resolve(normalizedPath);
+		const withinTrusted = trustedDirs.some((dir) => isPathWithinDir(resolved, dir));
+		if (!withinTrusted) {
+			return null;
+		}
+	}
+
+	try {
+		const stats = await fs.stat(normalizedPath);
+		if (!stats.isFile()) {
+			return null;
+		}
+	} catch {
+		return null;
+	}
+
+	approveFilePath(normalizedPath);
+	return normalizedPath;
+}
+
+function resolveRecordingOutputPath(fileName: string): string {
+	const trimmed = fileName.trim();
+	if (!trimmed) {
+		throw new Error("Invalid recording file name");
+	}
+
+	const parsedPath = path.parse(trimmed);
+	const hasTraversalSegments = trimmed.split(/[\\/]+/).some((segment) => segment === "..");
+	const isNestedPath =
+		parsedPath.dir !== "" ||
+		path.isAbsolute(trimmed) ||
+		trimmed.includes("/") ||
+		trimmed.includes("\\");
+	if (hasTraversalSegments || isNestedPath || parsedPath.base !== trimmed) {
+		throw new Error("Recording file name must not contain path segments");
+	}
+
+	return path.join(RECORDINGS_DIR, parsedPath.base);
+}
+
+async function getApprovedProjectSession(
+	project: unknown,
+	projectFilePath?: string,
+): Promise<RecordingSession | null> {
+	if (!project || typeof project !== "object") {
+		return null;
+	}
+
+	const rawProject = project as { media?: unknown; videoPath?: unknown };
+	const media: ProjectMedia | null =
+		normalizeProjectMedia(rawProject.media) ??
+		(typeof rawProject.videoPath === "string"
+			? {
+					screenVideoPath: normalizeVideoSourcePath(rawProject.videoPath) ?? rawProject.videoPath,
+				}
+			: null);
+
+	if (!media) {
+		return null;
+	}
+
+	// Only auto-approve media paths within the project's directory or RECORDINGS_DIR.
+	// This prevents crafted project files from approving reads to arbitrary locations.
+	const trustedDirs = [RECORDINGS_DIR];
+	if (projectFilePath) {
+		trustedDirs.push(path.dirname(path.resolve(projectFilePath)));
+	}
+
+	const screenVideoPath = await approveReadableVideoPath(media.screenVideoPath, trustedDirs);
+	if (!screenVideoPath) {
+		throw new Error("Project references an invalid or unsupported screen video path");
+	}
+
+	const webcamVideoPath = media.webcamVideoPath
+		? await approveReadableVideoPath(media.webcamVideoPath, trustedDirs)
+		: undefined;
+	if (media.webcamVideoPath && !webcamVideoPath) {
+		throw new Error("Project references an invalid or unsupported webcam video path");
+	}
+
+	return webcamVideoPath
+		? { screenVideoPath, webcamVideoPath, createdAt: Date.now() }
+		: { screenVideoPath, createdAt: Date.now() };
+}
 
 type SelectedSource = {
 	name: string;
@@ -121,12 +267,12 @@ async function storeRecordedSessionFiles(payload: StoreRecordedSessionInput) {
 		typeof payload.createdAt === "number" && Number.isFinite(payload.createdAt)
 			? payload.createdAt
 			: Date.now();
-	const screenVideoPath = path.join(RECORDINGS_DIR, payload.screen.fileName);
+	const screenVideoPath = resolveRecordingOutputPath(payload.screen.fileName);
 	await fs.writeFile(screenVideoPath, Buffer.from(payload.screen.videoData));
 
 	let webcamVideoPath: string | undefined;
 	if (payload.webcam) {
-		webcamVideoPath = path.join(RECORDINGS_DIR, payload.webcam.fileName);
+		webcamVideoPath = resolveRecordingOutputPath(payload.webcam.fileName);
 		await fs.writeFile(webcamVideoPath, Buffer.from(payload.webcam.videoData));
 	}
 
@@ -137,14 +283,28 @@ async function storeRecordedSessionFiles(payload: StoreRecordedSessionInput) {
 	currentProjectPath = null;
 
 	const telemetryPath = `${screenVideoPath}.cursor.json`;
-	if (pendingCursorSamples.length > 0) {
-		await fs.writeFile(
-			telemetryPath,
-			JSON.stringify({ version: CURSOR_TELEMETRY_VERSION, samples: pendingCursorSamples }, null, 2),
-			"utf-8",
-		);
+	const pendingBatch = cursorTelemetryBuffer.takeNextBatch();
+	const pendingClicks = takeCursorClickTimestamps();
+	if ((pendingBatch && pendingBatch.samples.length > 0) || pendingClicks.length > 0) {
+		try {
+			await fs.writeFile(
+				telemetryPath,
+				JSON.stringify(
+					{
+						version: CURSOR_TELEMETRY_VERSION,
+						samples: pendingBatch?.samples ?? [],
+						clicks: pendingClicks,
+					},
+					null,
+					2,
+				),
+				"utf-8",
+			);
+		} catch (err) {
+			if (pendingBatch) cursorTelemetryBuffer.prependBatch(pendingBatch);
+			throw err;
+		}
 	}
-	pendingCursorSamples = [];
 
 	const sessionManifestPath = path.join(
 		RECORDINGS_DIR,
@@ -164,19 +324,112 @@ const CURSOR_TELEMETRY_VERSION = 1;
 const CURSOR_SAMPLE_INTERVAL_MS = 100;
 const MAX_CURSOR_SAMPLES = 60 * 60 * 10; // 1 hour @ 10Hz
 
-interface CursorTelemetryPoint {
-	timeMs: number;
-	cx: number;
-	cy: number;
-}
-
 let cursorCaptureInterval: NodeJS.Timeout | null = null;
 let cursorCaptureStartTimeMs = 0;
-let activeCursorSamples: CursorTelemetryPoint[] = [];
-let pendingCursorSamples: CursorTelemetryPoint[] = [];
+const cursorTelemetryBuffer = createCursorTelemetryBuffer({
+	maxActiveSamples: MAX_CURSOR_SAMPLES,
+});
+
+// Mouse click timestamps (macOS only — uiohook-napi behind Accessibility).
+const MAX_CURSOR_CLICKS = 60 * 60 * 60; // ~1 click/sec for an hour
+let cursorClickTimestampsMs: number[] = [];
+let uioHookInstance: {
+	start: () => void;
+	stop: () => void;
+	on: (...a: unknown[]) => void;
+	off?: (...a: unknown[]) => void;
+	removeListener?: (...a: unknown[]) => void;
+} | null = null;
+let uioHookMouseDownHandler: ((event: { time?: number }) => void) | null = null;
+let uioHookFailureLogged = false;
 
 function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
+}
+
+function loadUioHookForClicks(): typeof uioHookInstance {
+	try {
+		// Dynamic require + try/catch so a broken native binary doesn't crash startup.
+		const mod = nodeRequire("uiohook-napi");
+		const candidate = mod.uIOhook ?? mod.default?.uIOhook ?? mod.uiohook ?? mod.default;
+		if (candidate && typeof candidate.start === "function" && typeof candidate.on === "function") {
+			return candidate;
+		}
+		return null;
+	} catch (error) {
+		if (!uioHookFailureLogged) {
+			uioHookFailureLogged = true;
+			console.warn("[clickCapture] uiohook-napi unavailable:", error);
+		}
+		return null;
+	}
+}
+
+function startClickCapture() {
+	if (process.platform !== "darwin") return;
+	if (uioHookInstance) return;
+
+	// Passive check — the prompt fires from the renderer when the user toggles
+	// "Only on clicks" so it doesn't stack with the screen-recording prompt.
+	try {
+		if (!systemPreferences.isTrustedAccessibilityClient(false)) {
+			if (!uioHookFailureLogged) {
+				uioHookFailureLogged = true;
+				console.warn(
+					"[clickCapture] Accessibility permission not granted — click capture disabled.",
+				);
+			}
+			return;
+		}
+	} catch {
+		// fall through; uiohook will fail defensively below
+	}
+
+	const hook = loadUioHookForClicks();
+	if (!hook) return;
+
+	uioHookMouseDownHandler = (event) => {
+		const elapsed = Math.max(0, Date.now() - cursorCaptureStartTimeMs);
+		void event;
+		if (cursorClickTimestampsMs.length >= MAX_CURSOR_CLICKS) return;
+		cursorClickTimestampsMs.push(elapsed);
+	};
+
+	try {
+		hook.on("mousedown", uioHookMouseDownHandler);
+		hook.start();
+		uioHookInstance = hook;
+	} catch (error) {
+		if (!uioHookFailureLogged) {
+			uioHookFailureLogged = true;
+			console.warn("[clickCapture] failed to start uiohook:", error);
+		}
+		uioHookMouseDownHandler = null;
+	}
+}
+
+function stopClickCapture() {
+	if (!uioHookInstance) return;
+	try {
+		if (uioHookMouseDownHandler) {
+			if (typeof uioHookInstance.off === "function") {
+				uioHookInstance.off("mousedown", uioHookMouseDownHandler);
+			} else if (typeof uioHookInstance.removeListener === "function") {
+				uioHookInstance.removeListener("mousedown", uioHookMouseDownHandler);
+			}
+		}
+		uioHookInstance.stop();
+	} catch (error) {
+		console.warn("[clickCapture] failed to stop uiohook:", error);
+	}
+	uioHookInstance = null;
+	uioHookMouseDownHandler = null;
+}
+
+function takeCursorClickTimestamps(): number[] {
+	const out = cursorClickTimestampsMs;
+	cursorClickTimestampsMs = [];
+	return out;
 }
 
 function stopCursorCapture() {
@@ -184,6 +437,7 @@ function stopCursorCapture() {
 		clearInterval(cursorCaptureInterval);
 		cursorCaptureInterval = null;
 	}
+	stopClickCapture();
 }
 
 function sampleCursorPoint() {
@@ -200,33 +454,207 @@ function sampleCursorPoint() {
 	const cx = clamp((cursor.x - bounds.x) / width, 0, 1);
 	const cy = clamp((cursor.y - bounds.y) / height, 0, 1);
 
-	activeCursorSamples.push({
+	cursorTelemetryBuffer.push({
 		timeMs: Math.max(0, Date.now() - cursorCaptureStartTimeMs),
 		cx,
 		cy,
 	});
-
-	if (activeCursorSamples.length > MAX_CURSOR_SAMPLES) {
-		activeCursorSamples.shift();
-	}
 }
 
 export function registerIpcHandlers(
 	createEditorWindow: () => void,
 	createSourceSelectorWindow: () => BrowserWindow,
+	createCountdownOverlayWindow: () => BrowserWindow,
 	getMainWindow: () => BrowserWindow | null,
 	getSourceSelectorWindow: () => BrowserWindow | null,
+	getCountdownOverlayWindow: () => BrowserWindow | null,
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
+	switchToHud?: () => void,
 ) {
+	const supportsWindowOpacity = process.platform !== "linux";
+	const countdownOverlayState = {
+		visible: false,
+		value: null as number | null,
+		activeRunId: null as number | null,
+		hideCommitId: 0,
+		hideCommitTimer: null as ReturnType<typeof setTimeout> | null,
+	};
+	const COUNTDOWN_OVERLAY_HIDE_DEBOUNCE_MS = 1200;
+
+	const clearCountdownOverlayHideCommit = () => {
+		if (countdownOverlayState.hideCommitTimer) {
+			clearTimeout(countdownOverlayState.hideCommitTimer);
+			countdownOverlayState.hideCommitTimer = null;
+		}
+	};
+
+	const commitCountdownOverlayHide = (win: BrowserWindow, hideCommitId: number) => {
+		if (win.isDestroyed()) {
+			return;
+		}
+
+		if (countdownOverlayState.visible || countdownOverlayState.hideCommitId !== hideCommitId) {
+			return;
+		}
+
+		win.hide();
+		if (supportsWindowOpacity) {
+			// Reset baseline opacity for the next show cycle.
+			win.setOpacity(1);
+		}
+	};
+
+	const flushCountdownOverlayState = (win: BrowserWindow) => {
+		if (win.isDestroyed()) {
+			return;
+		}
+
+		clearCountdownOverlayHideCommit();
+		win.webContents.send("countdown-overlay-value", countdownOverlayState.value);
+		if (!countdownOverlayState.visible) {
+			return;
+		}
+
+		if (win.isVisible()) {
+			if (supportsWindowOpacity) {
+				win.setOpacity(1);
+			}
+			return;
+		}
+
+		setTimeout(() => {
+			if (!win.isDestroyed() && countdownOverlayState.visible && !win.isVisible()) {
+				if (supportsWindowOpacity) {
+					win.setOpacity(0);
+				}
+				win.showInactive();
+
+				if (supportsWindowOpacity) {
+					setTimeout(() => {
+						if (!win.isDestroyed() && countdownOverlayState.visible && win.isVisible()) {
+							win.setOpacity(1);
+						}
+					}, 0);
+				}
+			}
+		}, 16);
+	};
+
+	ipcMain.handle("countdown-overlay-show", (_, value: number, runId: number) => {
+		countdownOverlayState.activeRunId = runId;
+		countdownOverlayState.visible = true;
+		countdownOverlayState.value = value;
+
+		const win = getCountdownOverlayWindow() ?? createCountdownOverlayWindow();
+		if (win.isDestroyed()) {
+			return;
+		}
+
+		if (win.webContents.isLoading()) {
+			win.webContents.once("did-finish-load", () => {
+				if (!win.isDestroyed()) {
+					flushCountdownOverlayState(win);
+				}
+			});
+		} else {
+			flushCountdownOverlayState(win);
+		}
+	});
+
+	ipcMain.handle("countdown-overlay-set-value", (_, value: number, runId: number) => {
+		if (countdownOverlayState.activeRunId !== runId || !countdownOverlayState.visible) {
+			return;
+		}
+
+		countdownOverlayState.value = value;
+
+		const win = getCountdownOverlayWindow();
+		if (!win || win.isDestroyed()) {
+			return;
+		}
+
+		if (win.webContents.isLoading()) {
+			return;
+		}
+
+		win.webContents.send("countdown-overlay-value", value);
+	});
+
+	ipcMain.handle("countdown-overlay-hide", (_, runId: number) => {
+		if (countdownOverlayState.activeRunId !== runId) {
+			return;
+		}
+
+		countdownOverlayState.visible = false;
+		countdownOverlayState.hideCommitId += 1;
+		const hideCommitId = countdownOverlayState.hideCommitId;
+		clearCountdownOverlayHideCommit();
+
+		const win = getCountdownOverlayWindow();
+		if (!win || win.isDestroyed()) {
+			countdownOverlayState.value = null;
+			return;
+		}
+
+		if (supportsWindowOpacity) {
+			// Hide visually immediately to avoid hide/show compositor flashes on rapid restart.
+			win.setOpacity(0);
+		}
+
+		countdownOverlayState.value = null;
+		if (!win.webContents.isLoading()) {
+			win.webContents.send("countdown-overlay-value", countdownOverlayState.value);
+		}
+
+		if (!supportsWindowOpacity) {
+			win.hide();
+			return;
+		}
+
+		countdownOverlayState.hideCommitTimer = setTimeout(() => {
+			countdownOverlayState.hideCommitTimer = null;
+			commitCountdownOverlayHide(win, hideCommitId);
+		}, COUNTDOWN_OVERLAY_HIDE_DEBOUNCE_MS);
+	});
+
+	ipcMain.handle("switch-to-hud", () => {
+		if (switchToHud) switchToHud();
+	});
+	ipcMain.handle("start-new-recording", () => {
+		try {
+			setCurrentRecordingSessionState(null);
+			if (switchToHud) {
+				switchToHud();
+			}
+			return { success: true };
+		} catch (error) {
+			console.error("Failed to start new recording:", error);
+			return { success: false, error: String(error) };
+		}
+	});
+
 	ipcMain.handle("get-sources", async (_, opts) => {
+		const ownWindowSourceIds = new Set(
+			BrowserWindow.getAllWindows()
+				.map((win) => {
+					try {
+						return win.getMediaSourceId();
+					} catch {
+						return null;
+					}
+				})
+				.filter((id): id is string => Boolean(id)),
+		);
 		const sources = await desktopCapturer.getSources(opts);
-		return sources.map((source) => ({
-			id: source.id,
-			name: source.name,
-			display_id: source.display_id,
-			thumbnail: source.thumbnail ? source.thumbnail.toDataURL() : null,
-			appIcon: source.appIcon ? source.appIcon.toDataURL() : null,
-		}));
+		return sources
+			.filter((source) => !ownWindowSourceIds.has(source.id))
+			.map((source) => ({
+				id: source.id,
+				name: source.name,
+				display_id: source.display_id,
+				thumbnail: source.thumbnail ? source.thumbnail.toDataURL() : null,
+				appIcon: source.appIcon ? source.appIcon.toDataURL() : null,
+			}));
 	});
 
 	ipcMain.handle("select-source", (_, source: SelectedSource) => {
@@ -271,6 +699,22 @@ export function registerIpcHandlers(
 				status: "unknown",
 				error: String(error),
 			};
+		}
+	});
+
+	// macOS Accessibility prompt for global click capture. First call shows the
+	// system dialog; the user has to toggle the app in System Settings (no
+	// programmatic grant exists for Accessibility).
+	ipcMain.handle("request-accessibility-access", () => {
+		if (process.platform !== "darwin") {
+			return { success: true, granted: true };
+		}
+		try {
+			const granted = systemPreferences.isTrustedAccessibilityClient(true);
+			return { success: true, granted };
+		} catch (error) {
+			console.error("Failed to request accessibility access:", error);
+			return { success: false, granted: false, error: String(error) };
 		}
 	});
 
@@ -335,7 +779,24 @@ export function registerIpcHandlers(
 				return { success: false, message: "No recorded video found" };
 			}
 
-			const latestVideo = videoFiles.sort().reverse()[0];
+			// Sort by most recently modified to reliably get the latest recording.
+			// Lexicographic sort is unreliable (e.g. recording-9.webm > recording-10.webm).
+			let latestVideo: string | null = null;
+			let latestMtimeMs = 0;
+			for (const file of videoFiles) {
+				try {
+					const stat = await fs.stat(path.join(RECORDINGS_DIR, file));
+					if (stat.mtimeMs > latestMtimeMs) {
+						latestMtimeMs = stat.mtimeMs;
+						latestVideo = file;
+					}
+				} catch {
+					// Skip inaccessible files.
+				}
+			}
+			if (!latestVideo) {
+				return { success: false, message: "No recorded video found" };
+			}
 			const videoPath = path.join(RECORDINGS_DIR, latestVideo);
 
 			return { success: true, path: videoPath };
@@ -350,6 +811,14 @@ export function registerIpcHandlers(
 			const normalizedPath = normalizeVideoSourcePath(inputPath);
 			if (!normalizedPath) {
 				return { success: false, message: "Invalid file path" };
+			}
+
+			if (!isPathAllowed(normalizedPath)) {
+				console.warn(
+					"[read-binary-file] Rejected path outside allowed directories:",
+					normalizedPath,
+				);
+				return { success: false, message: "Access denied: path outside allowed directories" };
 			}
 
 			const data = await fs.readFile(normalizedPath);
@@ -368,18 +837,23 @@ export function registerIpcHandlers(
 		}
 	});
 
-	ipcMain.handle("set-recording-state", (_, recording: boolean) => {
+	ipcMain.handle("set-recording-state", (_, recording: boolean, recordingId?: number) => {
 		if (recording) {
 			stopCursorCapture();
-			activeCursorSamples = [];
-			pendingCursorSamples = [];
+			// The renderer is the source of truth for the recording id (it
+			// uses the same id as the saved fileName). Fall back to a
+			// timestamp only if the renderer didn't supply one, so the
+			// buffer always has a stable key per session.
+			const id = typeof recordingId === "number" ? recordingId : Date.now();
+			cursorTelemetryBuffer.startSession(id);
 			cursorCaptureStartTimeMs = Date.now();
+			cursorClickTimestampsMs = [];
+			startClickCapture();
 			sampleCursorPoint();
 			cursorCaptureInterval = setInterval(sampleCursorPoint, CURSOR_SAMPLE_INTERVAL_MS);
 		} else {
 			stopCursorCapture();
-			pendingCursorSamples = [...activeCursorSamples];
-			activeCursorSamples = [];
+			cursorTelemetryBuffer.endSession();
 		}
 
 		const source = selectedSource || { name: "Screen" };
@@ -388,11 +862,23 @@ export function registerIpcHandlers(
 		}
 	});
 
+	ipcMain.handle("discard-cursor-telemetry", (_, recordingId: number) => {
+		cursorTelemetryBuffer.discardBatch(recordingId);
+	});
+
 	ipcMain.handle("get-cursor-telemetry", async (_, videoPath?: string) => {
 		const targetVideoPath = normalizeVideoSourcePath(
 			videoPath ?? currentRecordingSession?.screenVideoPath,
 		);
 		if (!targetVideoPath) {
+			return { success: true, samples: [] };
+		}
+
+		if (!isPathAllowed(targetVideoPath)) {
+			console.warn(
+				"[get-cursor-telemetry] Rejected path outside allowed directories:",
+				targetVideoPath,
+			);
 			return { success: true, samples: [] };
 		}
 
@@ -427,11 +913,19 @@ export function registerIpcHandlers(
 				})
 				.sort((a: CursorTelemetryPoint, b: CursorTelemetryPoint) => a.timeMs - b.timeMs);
 
-			return { success: true, samples };
+			const rawClicks = Array.isArray(parsed?.clicks) ? parsed.clicks : [];
+			const clicks: number[] = rawClicks
+				.map((value: unknown) =>
+					typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : null,
+				)
+				.filter((v: number | null): v is number => v !== null)
+				.sort((a: number, b: number) => a - b);
+
+			return { success: true, samples, clicks };
 		} catch (error) {
 			const nodeError = error as NodeJS.ErrnoException;
 			if (nodeError.code === "ENOENT") {
-				return { success: true, samples: [] };
+				return { success: true, samples: [], clicks: [] };
 			}
 			console.error("Failed to load cursor telemetry:", error);
 			return {
@@ -439,13 +933,26 @@ export function registerIpcHandlers(
 				message: "Failed to load cursor telemetry",
 				error: String(error),
 				samples: [],
+				clicks: [],
 			};
 		}
 	});
 
 	ipcMain.handle("open-external-url", async (_, url: string) => {
 		try {
-			await shell.openExternal(url);
+			const ALLOWED_SCHEMES = ["http:", "https:", "mailto:"];
+			let parsed: URL;
+			try {
+				parsed = new URL(url);
+			} catch {
+				return { success: false, error: "Invalid URL" };
+			}
+
+			if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
+				return { success: false, error: `Unsupported URL scheme: ${parsed.protocol}` };
+			}
+
+			await shell.openExternal(parsed.toString());
 			return { success: true };
 		} catch (error) {
 			console.error("Failed to open URL:", error);
@@ -453,20 +960,15 @@ export function registerIpcHandlers(
 		}
 	});
 
-	// Return base path for assets so renderer can resolve file:// paths in production
-	ipcMain.handle("get-asset-base-path", () => {
-		try {
-			if (app.isPackaged) {
-				const assetPath = path.join(process.resourcesPath, "assets");
-				return pathToFileURL(`${assetPath}${path.sep}`).toString();
-			}
-			const assetPath = path.join(app.getAppPath(), "public", "assets");
-			return pathToFileURL(`${assetPath}${path.sep}`).toString();
-		} catch (err) {
-			console.error("Failed to resolve asset base path:", err);
-			return null;
-		}
-	});
+	/**
+	 * Handles saving an exported video file.
+	 * Shows a save dialog, normalizes the file path for the current OS,
+	 * ensures the directory exists, and writes the video data.
+	 * @param _ - Unused event parameter.
+	 * @param videoData - The exported video as an ArrayBuffer.
+	 * @param fileName - Suggested filename for the save dialog.
+	 * @returns Object with success status, optional file path, and error details.
+	 */
 
 	ipcMain.handle("save-exported-video", async (_, videoData: ArrayBuffer, fileName: string) => {
 		try {
@@ -493,11 +995,18 @@ export function registerIpcHandlers(
 				};
 			}
 
-			await fs.writeFile(result.filePath, Buffer.from(videoData));
+			// --- FIX: Normalize the path for Windows compatibility ---
+			const normalizedPath = path.normalize(result.filePath);
+
+			// Ensure the parent directory exists (Windows may fail if the folder is missing)
+			await fs.mkdir(path.dirname(normalizedPath), { recursive: true });
+			// --- END FIX ---
+
+			await fs.writeFile(normalizedPath, Buffer.from(videoData));
 
 			return {
 				success: true,
-				path: result.filePath,
+				path: normalizedPath,
 				message: "Video exported successfully",
 			};
 		} catch (error) {
@@ -509,7 +1018,6 @@ export function registerIpcHandlers(
 			};
 		}
 	});
-
 	ipcMain.handle("open-video-file-picker", async () => {
 		try {
 			const result = await dialog.showOpenDialog({
@@ -529,10 +1037,17 @@ export function registerIpcHandlers(
 				return { success: false, canceled: true };
 			}
 
+			const approvedPath = await approveReadableVideoPath(result.filePaths[0]);
+			if (!approvedPath) {
+				return {
+					success: false,
+					message: "Selected file is not a supported video",
+				};
+			}
 			currentProjectPath = null;
 			return {
 				success: true,
-				path: result.filePaths[0],
+				path: approvedPath,
 			};
 		} catch (error) {
 			console.error("Failed to open file picker:", error);
@@ -658,19 +1173,9 @@ export function registerIpcHandlers(
 			const filePath = result.filePaths[0];
 			const content = await fs.readFile(filePath, "utf-8");
 			const project = JSON.parse(content);
+			const session = await getApprovedProjectSession(project, filePath);
 			currentProjectPath = filePath;
-			if (project && typeof project === "object") {
-				const rawProject = project as { media?: unknown; videoPath?: unknown };
-				const media =
-					normalizeProjectMedia(rawProject.media) ??
-					(typeof rawProject.videoPath === "string"
-						? {
-								screenVideoPath:
-									normalizeVideoSourcePath(rawProject.videoPath) ?? rawProject.videoPath,
-							}
-						: null);
-				setCurrentRecordingSessionState(media ? { ...media, createdAt: Date.now() } : null);
-			}
+			setCurrentRecordingSessionState(session);
 
 			return {
 				success: true,
@@ -695,18 +1200,8 @@ export function registerIpcHandlers(
 
 			const content = await fs.readFile(currentProjectPath, "utf-8");
 			const project = JSON.parse(content);
-			if (project && typeof project === "object") {
-				const rawProject = project as { media?: unknown; videoPath?: unknown };
-				const media =
-					normalizeProjectMedia(rawProject.media) ??
-					(typeof rawProject.videoPath === "string"
-						? {
-								screenVideoPath:
-									normalizeVideoSourcePath(rawProject.videoPath) ?? rawProject.videoPath,
-							}
-						: null);
-				setCurrentRecordingSessionState(media ? { ...media, createdAt: Date.now() } : null);
-			}
+			const session = await getApprovedProjectSession(project, currentProjectPath);
+			setCurrentRecordingSessionState(session);
 			return {
 				success: true,
 				path: currentProjectPath,
@@ -735,12 +1230,22 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("set-current-video-path", async (_, path: string) => {
-		const restoredSession = await loadRecordedSessionForVideoPath(path);
+		const normalizedPath = normalizeVideoSourcePath(path);
+		if (!normalizedPath || !isPathAllowed(normalizedPath)) {
+			return { success: false, message: "Video path has not been approved" };
+		}
+
+		const restoredSession = await loadRecordedSessionForVideoPath(normalizedPath);
 		if (restoredSession) {
+			// Approve all media paths from the restored session so they can be read later
+			approveFilePath(restoredSession.screenVideoPath);
+			if (restoredSession.webcamVideoPath) {
+				approveFilePath(restoredSession.webcamVideoPath);
+			}
 			setCurrentRecordingSessionState(restoredSession);
 		} else {
 			setCurrentRecordingSessionState({
-				screenVideoPath: normalizeVideoSourcePath(path) ?? path,
+				screenVideoPath: normalizedPath,
 				createdAt: Date.now(),
 			});
 		}
