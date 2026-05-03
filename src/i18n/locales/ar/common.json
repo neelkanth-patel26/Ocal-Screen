@@ -1,0 +1,30 @@
+{
+	"actions": {
+		"cancel": "الغاء",
+		"save": "حفظ",
+		"delete": "حذف",
+		"close": "اغلاق",
+		"share": "مشاركة",
+		"done": "تم",
+		"open": "فتح",
+		"upload": "رفع",
+		"export": "تصدير",
+		"showInFolder": "عرض في المجلد",
+		"file": "ملف",
+		"edit": "تعديل",
+		"view": "عرض",
+		"window": "نافذة",
+		"quit": "خروج",
+		"stopRecording": "ايقاف التسجيل"
+	},
+	"playback": {
+		"play": "تشغيل",
+		"pause": "ايقاف مؤقت",
+		"fullscreen": "ملء الشاشة",
+		"exitFullscreen": "خروج من ملء الشاشة"
+	},
+	"locale": {
+		"name": "عربي",
+		"short": "AR"
+	}
+}
