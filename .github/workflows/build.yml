@@ -250,4 +250,5 @@ jobs:
             release/**/*.AppImage
             release/**/*.zsync
             release/**/*.deb
+            release/**/*.pacman
           retention-days: 30

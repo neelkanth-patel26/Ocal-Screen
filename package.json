@@ -22,7 +22,7 @@
 		"preview": "vite preview",
 		"build:mac": "tsc && vite build && electron-builder --mac",
 		"build:win": "tsc && vite build && electron-builder --win",
-		"build:linux": "tsc && vite build && electron-builder --linux AppImage deb",
+		"build:linux": "tsc && vite build && electron-builder --linux AppImage deb pacman",
 		"test": "vitest --run",
 		"test:watch": "vitest",
 		"build-vite": "tsc && vite build",

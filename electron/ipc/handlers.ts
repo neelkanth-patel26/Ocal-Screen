@@ -60,6 +60,21 @@ function isPathAllowed(filePath: string): boolean {
 	return getAllowedReadDirs().some((dir) => isPathWithinDir(resolved, dir));
 }
 
+/**
+ * Helper function to build dialog options with a parent window only when it's valid.
+ * This prevents passing stale or destroyed BrowserWindow references to dialog calls.
+ */
+function buildDialogOptions<T extends Electron.OpenDialogOptions | Electron.SaveDialogOptions>(
+	baseOptions: T,
+	parentWindow: BrowserWindow | null,
+): T & { parent?: BrowserWindow } {
+	const mainWindow = parentWindow;
+	if (mainWindow && !mainWindow.isDestroyed()) {
+		return { ...baseOptions, parent: mainWindow };
+	}
+	return baseOptions;
+}
+
 function hasAllowedImportVideoExtension(filePath: string): boolean {
 	return ALLOWED_IMPORT_VIDEO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
@@ -978,14 +993,18 @@ export function registerIpcHandlers(
 				? [{ name: mainT("dialogs", "fileDialogs.gifImage"), extensions: ["gif"] }]
 				: [{ name: mainT("dialogs", "fileDialogs.mp4Video"), extensions: ["mp4"] }];
 
-			const result = await dialog.showSaveDialog({
-				title: isGif
-					? mainT("dialogs", "fileDialogs.saveGif")
-					: mainT("dialogs", "fileDialogs.saveVideo"),
-				defaultPath: path.join(app.getPath("downloads"), fileName),
-				filters,
-				properties: ["createDirectory", "showOverwriteConfirmation"],
-			});
+			const dialogOptions = buildDialogOptions(
+				{
+					title: isGif
+						? mainT("dialogs", "fileDialogs.saveGif")
+						: mainT("dialogs", "fileDialogs.saveVideo"),
+					defaultPath: path.join(app.getPath("downloads"), fileName),
+					filters,
+					properties: ["createDirectory", "showOverwriteConfirmation"],
+				},
+				getMainWindow(),
+			);
+			const result = await dialog.showSaveDialog(dialogOptions);
 
 			if (result.canceled || !result.filePath) {
 				return {
@@ -1020,18 +1039,22 @@ export function registerIpcHandlers(
 	});
 	ipcMain.handle("open-video-file-picker", async () => {
 		try {
-			const result = await dialog.showOpenDialog({
-				title: mainT("dialogs", "fileDialogs.selectVideo"),
-				defaultPath: RECORDINGS_DIR,
-				filters: [
-					{
-						name: mainT("dialogs", "fileDialogs.videoFiles"),
-						extensions: ["webm", "mp4", "mov", "avi", "mkv"],
-					},
-					{ name: mainT("dialogs", "fileDialogs.allFiles"), extensions: ["*"] },
-				],
-				properties: ["openFile"],
-			});
+			const dialogOptions = buildDialogOptions(
+				{
+					title: mainT("dialogs", "fileDialogs.selectVideo"),
+					defaultPath: RECORDINGS_DIR,
+					filters: [
+						{
+							name: mainT("dialogs", "fileDialogs.videoFiles"),
+							extensions: ["webm", "mp4", "mov", "avi", "mkv"],
+						},
+						{ name: mainT("dialogs", "fileDialogs.allFiles"), extensions: ["*"] },
+					],
+					properties: ["openFile"],
+				},
+				getMainWindow(),
+			);
+			const result = await dialog.showOpenDialog(dialogOptions);
 
 			if (result.canceled || result.filePaths.length === 0) {
 				return { success: false, canceled: true };
@@ -1110,18 +1133,22 @@ export function registerIpcHandlers(
 					? safeName
 					: `${safeName}.${PROJECT_FILE_EXTENSION}`;
 
-				const result = await dialog.showSaveDialog({
-					title: mainT("dialogs", "fileDialogs.saveProject"),
-					defaultPath: path.join(RECORDINGS_DIR, defaultName),
-					filters: [
-						{
-							name: mainT("dialogs", "fileDialogs.openscreenProject"),
-							extensions: [PROJECT_FILE_EXTENSION],
-						},
-						{ name: "JSON", extensions: ["json"] },
-					],
-					properties: ["createDirectory", "showOverwriteConfirmation"],
-				});
+				const dialogOptions = buildDialogOptions(
+					{
+						title: mainT("dialogs", "fileDialogs.saveProject"),
+						defaultPath: path.join(RECORDINGS_DIR, defaultName),
+						filters: [
+							{
+								name: mainT("dialogs", "fileDialogs.openscreenProject"),
+								extensions: [PROJECT_FILE_EXTENSION],
+							},
+							{ name: "JSON", extensions: ["json"] },
+						],
+						properties: ["createDirectory", "showOverwriteConfirmation"],
+					},
+					getMainWindow(),
+				);
+				const result = await dialog.showSaveDialog(dialogOptions);
 
 				if (result.canceled || !result.filePath) {
 					return {
@@ -1152,19 +1179,23 @@ export function registerIpcHandlers(
 
 	ipcMain.handle("load-project-file", async () => {
 		try {
-			const result = await dialog.showOpenDialog({
-				title: mainT("dialogs", "fileDialogs.openProject"),
-				defaultPath: RECORDINGS_DIR,
-				filters: [
-					{
-						name: mainT("dialogs", "fileDialogs.openscreenProject"),
-						extensions: [PROJECT_FILE_EXTENSION],
-					},
-					{ name: "JSON", extensions: ["json"] },
-					{ name: mainT("dialogs", "fileDialogs.allFiles"), extensions: ["*"] },
-				],
-				properties: ["openFile"],
-			});
+			const dialogOptions = buildDialogOptions(
+				{
+					title: mainT("dialogs", "fileDialogs.openProject"),
+					defaultPath: RECORDINGS_DIR,
+					filters: [
+						{
+							name: mainT("dialogs", "fileDialogs.openscreenProject"),
+							extensions: [PROJECT_FILE_EXTENSION],
+						},
+						{ name: "JSON", extensions: ["json"] },
+						{ name: mainT("dialogs", "fileDialogs.allFiles"), extensions: ["*"] },
+					],
+					properties: ["openFile"],
+				},
+				getMainWindow(),
+			);
+			const result = await dialog.showOpenDialog(dialogOptions);
 
 			if (result.canceled || result.filePaths.length === 0) {
 				return { success: false, canceled: true, message: "Open project canceled" };
