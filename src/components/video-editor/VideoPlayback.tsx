@@ -36,6 +36,11 @@ import { AnnotationOverlay } from "./AnnotationOverlay";
 import {
 	type AnnotationRegion,
 	type BlurData,
+	computeRotation3DContainScale,
+	DEFAULT_ROTATION_3D,
+	isRotation3DIdentity,
+	lerpRotation3D,
+	rotation3DPerspective,
 	type SpeedRegion,
 	type TrimRegion,
 	ZOOM_DEPTH_SCALES,
@@ -200,6 +205,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const overlayRef = useRef<HTMLDivElement | null>(null);
 
 		const focusIndicatorRef = useRef<HTMLDivElement | null>(null);
+		const composite3DRef = useRef<HTMLDivElement | null>(null);
+		const outerWrapperRef = useRef<HTMLDivElement | null>(null);
 		const [webcamLayout, setWebcamLayout] = useState<StyledRenderRect | null>(null);
 		const [webcamDimensions, setWebcamDimensions] = useState<Size | null>(null);
 		const currentTimeRef = useRef(0);
@@ -921,8 +928,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			};
 
 			let lastMotionBlurActive: boolean | null = null;
+			let lastTransformIsIdentity = true;
+			let lastPerspectiveValue = 0;
 			const ticker = () => {
-				const { region, strength, blendedScale, transition } = findDominantRegion(
+				const { region, strength, blendedScale, rotation3D, transition } = findDominantRegion(
 					zoomRegionsRef.current,
 					currentTimeRef.current,
 					{
@@ -1129,6 +1138,44 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						lastMotionBlurActive = false;
 					}
 				}
+
+				const composite3D = composite3DRef.current;
+				const outerWrapper = outerWrapperRef.current;
+				if (composite3D && outerWrapper) {
+					const effectiveRotation =
+						region && targetProgress > 0 && !shouldShowUnzoomedView
+							? lerpRotation3D(DEFAULT_ROTATION_3D, rotation3D, targetProgress)
+							: DEFAULT_ROTATION_3D;
+					const isIdentity = isRotation3DIdentity(effectiveRotation);
+					if (isIdentity) {
+						if (!lastTransformIsIdentity) {
+							composite3D.style.transform = "";
+							composite3D.style.willChange = "auto";
+							lastTransformIsIdentity = true;
+						}
+						if (lastPerspectiveValue !== 0) {
+							outerWrapper.style.perspective = "";
+							lastPerspectiveValue = 0;
+						}
+					} else {
+						const wrapperW = outerWrapper.clientWidth || 1;
+						const wrapperH = outerWrapper.clientHeight || 1;
+						const persp = rotation3DPerspective(wrapperW, wrapperH);
+						const containScale = computeRotation3DContainScale(
+							effectiveRotation,
+							wrapperW,
+							wrapperH,
+							persp,
+						);
+						composite3D.style.transform = `scale(${containScale}) rotateX(${effectiveRotation.rotationX}deg) rotateY(${effectiveRotation.rotationY}deg) rotateZ(${effectiveRotation.rotationZ}deg)`;
+						composite3D.style.willChange = "transform";
+						lastTransformIsIdentity = false;
+						if (persp !== lastPerspectiveValue) {
+							outerWrapper.style.perspective = `${persp}px`;
+							lastPerspectiveValue = persp;
+						}
+					}
+				}
 			};
 
 			app.ticker.add(ticker);
@@ -1270,6 +1317,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		return (
 			<div
+				ref={outerWrapperRef}
 				className="relative rounded-sm overflow-hidden"
 				style={{
 					width: "100%",
@@ -1294,189 +1342,204 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					}}
 				/>
 				<div
-					ref={containerRef}
+					ref={composite3DRef}
 					className="absolute inset-0"
 					style={{
-						filter:
-							showShadow && shadowIntensity > 0
-								? `drop-shadow(0 ${shadowIntensity * 12}px ${shadowIntensity * 48}px rgba(0,0,0,${shadowIntensity * 0.7})) drop-shadow(0 ${shadowIntensity * 4}px ${shadowIntensity * 16}px rgba(0,0,0,${shadowIntensity * 0.5})) drop-shadow(0 ${shadowIntensity * 2}px ${shadowIntensity * 8}px rgba(0,0,0,${shadowIntensity * 0.3}))`
-								: "none",
+						transformStyle: "preserve-3d",
+						transformOrigin: "center center",
 					}}
-				/>
-				{webcamVideoPath &&
-					(() => {
-						const clipPath = getCssClipPath(webcamLayout?.maskShape ?? "rectangle");
-						const useClipPath = !!clipPath;
-						return (
-							<div
-								className="absolute"
-								style={{
-									left: webcamLayout?.x ?? 0,
-									top: webcamLayout?.y ?? 0,
-									width: webcamLayout?.width ?? 0,
-									height: webcamLayout?.height ?? 0,
-									zIndex: 20,
-									opacity: webcamLayout ? 1 : 0,
-									filter:
-										useClipPath && webcamCssBoxShadow !== "none"
-											? `drop-shadow(${webcamCssBoxShadow})`
-											: undefined,
-								}}
-							>
-								<video
-									ref={webcamVideoRef}
-									src={webcamVideoPath}
-									className={`w-full h-full object-cover ${webcamLayoutPreset === "picture-in-picture" ? "cursor-grab active:cursor-grabbing" : "pointer-events-none"}`}
-									style={{
-										borderRadius: useClipPath ? 0 : (webcamLayout?.borderRadius ?? 0),
-										clipPath: clipPath ?? undefined,
-										boxShadow: useClipPath ? "none" : webcamCssBoxShadow,
-										backgroundColor: "#000",
-									}}
-									onPointerDown={handleWebcamPointerDown}
-									onPointerMove={handleWebcamPointerMove}
-									onPointerUp={handleWebcamPointerUp}
-									onPointerLeave={handleWebcamPointerUp}
-									muted
-									preload="metadata"
-									playsInline
-								/>
-							</div>
-						);
-					})()}
-				{/* Only render overlay after PIXI and video are fully initialized */}
-				{pixiReady && videoReady && (
+				>
 					<div
-						ref={setOverlayRefs}
-						className="absolute inset-0 select-none"
-						style={{ pointerEvents: "auto", zIndex: 30 }}
-						onPointerDown={handleOverlayPointerDown}
-						onPointerMove={handleOverlayPointerMove}
-						onPointerUp={handleOverlayPointerUp}
-						onPointerLeave={handleOverlayPointerLeave}
-					>
-						<div
-							ref={focusIndicatorRef}
-							className="absolute rounded-md border border-[#34B27B]/80 bg-[#34B27B]/20 shadow-[0_0_0_1px_rgba(52,178,123,0.35)]"
-							style={{ display: "none", pointerEvents: "none" }}
-						/>
-						{(() => {
-							const filteredAnnotations = (annotationRegions || []).filter((annotation) => {
-								if (typeof annotation.startMs !== "number" || typeof annotation.endMs !== "number")
-									return false;
-
-								if (annotation.id === selectedAnnotationId) return true;
-
-								const timeMs = Math.round(currentTime * 1000);
-								return timeMs >= annotation.startMs && timeMs < annotation.endMs;
-							});
-
-							const filteredBlurRegions = (blurRegions || []).filter((blurRegion) => {
-								if (typeof blurRegion.startMs !== "number" || typeof blurRegion.endMs !== "number")
-									return false;
-
-								if (blurRegion.id === selectedBlurId) return true;
-
-								const timeMs = Math.round(currentTime * 1000);
-								return timeMs >= blurRegion.startMs && timeMs < blurRegion.endMs;
-							});
-
-							const sorted = [
-								...filteredAnnotations.map((annotation) => ({
-									kind: "annotation" as const,
-									region: annotation,
-								})),
-								...filteredBlurRegions.map((blurRegion) => ({
-									kind: "blur" as const,
-									region: blurRegion,
-								})),
-							].sort((a, b) => a.region.zIndex - b.region.zIndex);
-							const previewSnapshotCanvas =
-								filteredBlurRegions.length > 0
-									? (() => {
-											const app = appRef.current;
-											if (!app?.renderer?.extract) return null;
-											try {
-												return app.renderer.extract.canvas(app.stage);
-											} catch {
-												return null;
-											}
-										})()
-									: null;
-
-							// Handle click-through cycling: when clicking same annotation, cycle to next
-							const handleAnnotationClick = (clickedId: string) => {
-								if (!onSelectAnnotation) return;
-
-								// If clicking on already selected annotation and there are multiple overlapping
-								if (clickedId === selectedAnnotationId && filteredAnnotations.length > 1) {
-									// Find current index and cycle to next
-									const currentIndex = filteredAnnotations.findIndex((a) => a.id === clickedId);
-									const nextIndex = (currentIndex + 1) % filteredAnnotations.length;
-									onSelectAnnotation(filteredAnnotations[nextIndex].id);
-								} else {
-									// First click or clicking different annotation
-									onSelectAnnotation(clickedId);
-								}
-							};
-
-							const handleBlurClick = (clickedId: string) => {
-								if (!onSelectBlur) return;
-
-								if (clickedId === selectedBlurId && filteredBlurRegions.length > 1) {
-									const currentIndex = filteredBlurRegions.findIndex((a) => a.id === clickedId);
-									const nextIndex = (currentIndex + 1) % filteredBlurRegions.length;
-									onSelectBlur(filteredBlurRegions[nextIndex].id);
-								} else {
-									onSelectBlur(clickedId);
-								}
-							};
-
-							return sorted.map((item) => (
-								<AnnotationOverlay
-									key={
-										item.kind === "blur"
-											? `${item.region.id}-${overlaySize.width}-${overlaySize.height}-${item.region.blurData?.type ?? "blur"}-${item.region.blurData?.shape ?? "rectangle"}-${item.region.blurData?.color ?? "white"}-${Math.round(item.region.blurData?.blockSize ?? 0)}-${Math.round(item.region.blurData?.intensity ?? 0)}-${(item.region.blurData?.freehandPoints ?? []).map((p) => `${Math.round(p.x)}_${Math.round(p.y)}`).join("-")}`
-											: `${item.region.id}-${overlaySize.width}-${overlaySize.height}`
-									}
-									annotation={item.region}
-									isSelected={
-										item.kind === "blur"
-											? item.region.id === selectedBlurId
-											: item.region.id === selectedAnnotationId
-									}
-									containerWidth={overlaySize.width}
-									containerHeight={overlaySize.height}
-									onPositionChange={(id, position) =>
-										item.kind === "blur"
-											? onBlurPositionChange?.(id, position)
-											: onAnnotationPositionChange?.(id, position)
-									}
-									onSizeChange={(id, size) =>
-										item.kind === "blur"
-											? onBlurSizeChange?.(id, size)
-											: onAnnotationSizeChange?.(id, size)
-									}
-									onBlurDataChange={
-										item.kind === "blur"
-											? (id, blurData) => onBlurDataChange?.(id, blurData)
-											: undefined
-									}
-									onBlurDataCommit={item.kind === "blur" ? onBlurDataCommit : undefined}
-									onClick={item.kind === "blur" ? handleBlurClick : handleAnnotationClick}
-									zIndex={item.region.zIndex}
-									isSelectedBoost={
-										item.kind === "blur"
-											? item.region.id === selectedBlurId
-											: item.region.id === selectedAnnotationId
-									}
-									previewSourceCanvas={previewSnapshotCanvas}
-									previewFrameVersion={Math.round(currentTime * 1000)}
-								/>
-							));
+						ref={containerRef}
+						className="absolute inset-0"
+						style={{
+							filter:
+								showShadow && shadowIntensity > 0
+									? `drop-shadow(0 ${shadowIntensity * 12}px ${shadowIntensity * 48}px rgba(0,0,0,${shadowIntensity * 0.7})) drop-shadow(0 ${shadowIntensity * 4}px ${shadowIntensity * 16}px rgba(0,0,0,${shadowIntensity * 0.5})) drop-shadow(0 ${shadowIntensity * 2}px ${shadowIntensity * 8}px rgba(0,0,0,${shadowIntensity * 0.3}))`
+									: "none",
+						}}
+					/>
+					{webcamVideoPath &&
+						(() => {
+							const clipPath = getCssClipPath(webcamLayout?.maskShape ?? "rectangle");
+							const useClipPath = !!clipPath;
+							return (
+								<div
+									className="absolute"
+									style={{
+										left: webcamLayout?.x ?? 0,
+										top: webcamLayout?.y ?? 0,
+										width: webcamLayout?.width ?? 0,
+										height: webcamLayout?.height ?? 0,
+										zIndex: 20,
+										opacity: webcamLayout ? 1 : 0,
+										filter:
+											useClipPath && webcamCssBoxShadow !== "none"
+												? `drop-shadow(${webcamCssBoxShadow})`
+												: undefined,
+									}}
+								>
+									<video
+										ref={webcamVideoRef}
+										src={webcamVideoPath}
+										className={`w-full h-full object-cover ${webcamLayoutPreset === "picture-in-picture" ? "cursor-grab active:cursor-grabbing" : "pointer-events-none"}`}
+										style={{
+											borderRadius: useClipPath ? 0 : (webcamLayout?.borderRadius ?? 0),
+											clipPath: clipPath ?? undefined,
+											boxShadow: useClipPath ? "none" : webcamCssBoxShadow,
+											backgroundColor: "#000",
+										}}
+										onPointerDown={handleWebcamPointerDown}
+										onPointerMove={handleWebcamPointerMove}
+										onPointerUp={handleWebcamPointerUp}
+										onPointerLeave={handleWebcamPointerUp}
+										muted
+										preload="metadata"
+										playsInline
+									/>
+								</div>
+							);
 						})()}
-					</div>
-				)}
+					{/* Only render overlay after PIXI and video are fully initialized */}
+					{pixiReady && videoReady && (
+						<div
+							ref={setOverlayRefs}
+							className="absolute inset-0 select-none"
+							style={{ pointerEvents: "auto", zIndex: 30 }}
+							onPointerDown={handleOverlayPointerDown}
+							onPointerMove={handleOverlayPointerMove}
+							onPointerUp={handleOverlayPointerUp}
+							onPointerLeave={handleOverlayPointerLeave}
+						>
+							<div
+								ref={focusIndicatorRef}
+								className="absolute rounded-md border border-[#34B27B]/80 bg-[#34B27B]/20 shadow-[0_0_0_1px_rgba(52,178,123,0.35)]"
+								style={{ display: "none", pointerEvents: "none" }}
+							/>
+							{(() => {
+								const filteredAnnotations = (annotationRegions || []).filter((annotation) => {
+									if (
+										typeof annotation.startMs !== "number" ||
+										typeof annotation.endMs !== "number"
+									)
+										return false;
+
+									if (annotation.id === selectedAnnotationId) return true;
+
+									const timeMs = Math.round(currentTime * 1000);
+									return timeMs >= annotation.startMs && timeMs < annotation.endMs;
+								});
+
+								const filteredBlurRegions = (blurRegions || []).filter((blurRegion) => {
+									if (
+										typeof blurRegion.startMs !== "number" ||
+										typeof blurRegion.endMs !== "number"
+									)
+										return false;
+
+									if (blurRegion.id === selectedBlurId) return true;
+
+									const timeMs = Math.round(currentTime * 1000);
+									return timeMs >= blurRegion.startMs && timeMs < blurRegion.endMs;
+								});
+
+								const sorted = [
+									...filteredAnnotations.map((annotation) => ({
+										kind: "annotation" as const,
+										region: annotation,
+									})),
+									...filteredBlurRegions.map((blurRegion) => ({
+										kind: "blur" as const,
+										region: blurRegion,
+									})),
+								].sort((a, b) => a.region.zIndex - b.region.zIndex);
+								const previewSnapshotCanvas =
+									filteredBlurRegions.length > 0
+										? (() => {
+												const app = appRef.current;
+												if (!app?.renderer?.extract) return null;
+												try {
+													return app.renderer.extract.canvas(app.stage);
+												} catch {
+													return null;
+												}
+											})()
+										: null;
+
+								// Handle click-through cycling: when clicking same annotation, cycle to next
+								const handleAnnotationClick = (clickedId: string) => {
+									if (!onSelectAnnotation) return;
+
+									// If clicking on already selected annotation and there are multiple overlapping
+									if (clickedId === selectedAnnotationId && filteredAnnotations.length > 1) {
+										// Find current index and cycle to next
+										const currentIndex = filteredAnnotations.findIndex((a) => a.id === clickedId);
+										const nextIndex = (currentIndex + 1) % filteredAnnotations.length;
+										onSelectAnnotation(filteredAnnotations[nextIndex].id);
+									} else {
+										// First click or clicking different annotation
+										onSelectAnnotation(clickedId);
+									}
+								};
+
+								const handleBlurClick = (clickedId: string) => {
+									if (!onSelectBlur) return;
+
+									if (clickedId === selectedBlurId && filteredBlurRegions.length > 1) {
+										const currentIndex = filteredBlurRegions.findIndex((a) => a.id === clickedId);
+										const nextIndex = (currentIndex + 1) % filteredBlurRegions.length;
+										onSelectBlur(filteredBlurRegions[nextIndex].id);
+									} else {
+										onSelectBlur(clickedId);
+									}
+								};
+
+								return sorted.map((item) => (
+									<AnnotationOverlay
+										key={
+											item.kind === "blur"
+												? `${item.region.id}-${overlaySize.width}-${overlaySize.height}-${item.region.blurData?.type ?? "blur"}-${item.region.blurData?.shape ?? "rectangle"}-${item.region.blurData?.color ?? "white"}-${Math.round(item.region.blurData?.blockSize ?? 0)}-${Math.round(item.region.blurData?.intensity ?? 0)}-${(item.region.blurData?.freehandPoints ?? []).map((p) => `${Math.round(p.x)}_${Math.round(p.y)}`).join("-")}`
+												: `${item.region.id}-${overlaySize.width}-${overlaySize.height}`
+										}
+										annotation={item.region}
+										isSelected={
+											item.kind === "blur"
+												? item.region.id === selectedBlurId
+												: item.region.id === selectedAnnotationId
+										}
+										containerWidth={overlaySize.width}
+										containerHeight={overlaySize.height}
+										onPositionChange={(id, position) =>
+											item.kind === "blur"
+												? onBlurPositionChange?.(id, position)
+												: onAnnotationPositionChange?.(id, position)
+										}
+										onSizeChange={(id, size) =>
+											item.kind === "blur"
+												? onBlurSizeChange?.(id, size)
+												: onAnnotationSizeChange?.(id, size)
+										}
+										onBlurDataChange={
+											item.kind === "blur"
+												? (id, blurData) => onBlurDataChange?.(id, blurData)
+												: undefined
+										}
+										onBlurDataCommit={item.kind === "blur" ? onBlurDataCommit : undefined}
+										onClick={item.kind === "blur" ? handleBlurClick : handleAnnotationClick}
+										zIndex={item.region.zIndex}
+										isSelectedBoost={
+											item.kind === "blur"
+												? item.region.id === selectedBlurId
+												: item.region.id === selectedAnnotationId
+										}
+										previewSourceCanvas={previewSnapshotCanvas}
+										previewFrameVersion={Math.round(currentTime * 1000)}
+									/>
+								));
+							})()}
+						</div>
+					)}
+				</div>
 				<video
 					ref={videoRef}
 					src={videoPath}

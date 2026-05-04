@@ -1,5 +1,5 @@
-import type { CursorTelemetryPoint, ZoomFocus, ZoomRegion } from "../types";
-import { ZOOM_DEPTH_SCALES } from "../types";
+import type { CursorTelemetryPoint, Rotation3D, ZoomFocus, ZoomRegion } from "../types";
+import { DEFAULT_ROTATION_3D, getRotation3D, lerpRotation3D, ZOOM_DEPTH_SCALES } from "../types";
 import { TRANSITION_WINDOW_MS, ZOOM_IN_TRANSITION_WINDOW_MS } from "./constants";
 import { interpolateCursorAt } from "./cursorFollowUtils";
 import { clampFocusToScale } from "./focusUtils";
@@ -164,6 +164,7 @@ function getActiveRegion(
 		},
 		strength: activeRegions[0].strength,
 		blendedScale: null,
+		rotation3D: getRotation3D(activeRegion),
 	};
 }
 
@@ -189,6 +190,7 @@ function getConnectedRegionHold(
 				},
 				strength: 1,
 				blendedScale: null,
+				rotation3D: getRotation3D(pair.nextRegion),
 			};
 		}
 	}
@@ -233,6 +235,11 @@ function getConnectedRegionTransition(
 			viewportRatio,
 		);
 		const transitionFocus = getLinearFocus(currentFocus, nextFocus, transitionProgress);
+		const transitionRotation = lerpRotation3D(
+			getRotation3D(currentRegion),
+			getRotation3D(nextRegion),
+			transitionProgress,
+		);
 
 		return {
 			region: {
@@ -241,6 +248,7 @@ function getConnectedRegionTransition(
 			},
 			strength: 1,
 			blendedScale: transitionScale,
+			rotation3D: transitionRotation,
 			transition: {
 				progress: transitionProgress,
 				startFocus: currentFocus,
@@ -258,6 +266,7 @@ type DominantRegionResult = {
 	region: ZoomRegion | null;
 	strength: number;
 	blendedScale: number | null;
+	rotation3D: Rotation3D;
 	transition: ConnectedPanTransition | null;
 };
 
@@ -309,14 +318,26 @@ export function findDominantRegion(
 				const activeRegion = getActiveRegion(regions, timeMs, connectedPairs, telemetry, vr);
 				result = activeRegion
 					? { ...activeRegion, transition: null }
-					: { region: null, strength: 0, blendedScale: null, transition: null };
+					: {
+							region: null,
+							strength: 0,
+							blendedScale: null,
+							rotation3D: DEFAULT_ROTATION_3D,
+							transition: null,
+						};
 			}
 		}
 	} else {
 		const activeRegion = getActiveRegion(regions, timeMs, connectedPairs, telemetry, vr);
 		result = activeRegion
 			? { ...activeRegion, transition: null }
-			: { region: null, strength: 0, blendedScale: null, transition: null };
+			: {
+					region: null,
+					strength: 0,
+					blendedScale: null,
+					rotation3D: DEFAULT_ROTATION_3D,
+					transition: null,
+				};
 	}
 
 	dominantRegionCache = {

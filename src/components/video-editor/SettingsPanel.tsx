@@ -54,13 +54,19 @@ import type {
 	CropRegion,
 	FigureData,
 	PlaybackSpeed,
+	Rotation3DPreset,
 	WebcamLayoutPreset,
 	WebcamMaskShape,
 	WebcamSizePreset,
 	ZoomDepth,
 	ZoomFocusMode,
 } from "./types";
-import { DEFAULT_WEBCAM_SIZE_PRESET, MAX_PLAYBACK_SPEED, SPEED_OPTIONS } from "./types";
+import {
+	DEFAULT_WEBCAM_SIZE_PRESET,
+	MAX_PLAYBACK_SPEED,
+	ROTATION_3D_PRESET_ORDER,
+	SPEED_OPTIONS,
+} from "./types";
 
 function CustomSpeedInput({
 	value,
@@ -168,6 +174,8 @@ interface SettingsPanelProps {
 	hasCursorTelemetry?: boolean;
 	selectedZoomId?: string | null;
 	onZoomDelete?: (id: string) => void;
+	selectedZoomRotationPreset?: Rotation3DPreset | null;
+	onZoomRotationPresetChange?: (preset: Rotation3DPreset | null) => void;
 	selectedTrimId?: string | null;
 	onTrimDelete?: (id: string) => void;
 	shadowIntensity?: number;
@@ -258,6 +266,8 @@ export function SettingsPanel({
 	hasCursorTelemetry = false,
 	selectedZoomId,
 	onZoomDelete,
+	selectedZoomRotationPreset,
+	onZoomRotationPresetChange,
 	selectedTrimId,
 	onTrimDelete,
 	shadowIntensity = 0,
@@ -647,6 +657,36 @@ export function SettingsPanel({
 							)}
 						</div>
 					)}
+					{zoomEnabled && (
+						<div className="mt-4">
+							<span className="text-sm font-medium text-slate-200 mb-2 block">
+								{t("zoom.threeD.title")}
+							</span>
+							<div className="grid grid-cols-3 gap-1.5">
+								{ROTATION_3D_PRESET_ORDER.map((preset) => {
+									const isActive = selectedZoomRotationPreset === preset;
+									return (
+										<Button
+											key={preset}
+											type="button"
+											onClick={() => onZoomRotationPresetChange?.(isActive ? null : preset)}
+											className={cn(
+												"h-auto w-full rounded-lg border px-1 py-2 text-center shadow-sm transition-all duration-200 ease-out cursor-pointer",
+												isActive
+													? "border-[#34B27B] bg-[#34B27B] text-white shadow-[#34B27B]/20"
+													: "border-white/5 bg-white/5 text-slate-400 hover:bg-white/10 hover:border-white/10 hover:text-slate-200",
+											)}
+										>
+											<span className="text-xs font-semibold capitalize">
+												{t(`zoom.threeD.preset.${preset}`)}
+											</span>
+										</Button>
+									);
+								})}
+							</div>
+						</div>
+					)}
+
 					{zoomEnabled && (
 						<Button
 							onClick={handleDeleteClick}

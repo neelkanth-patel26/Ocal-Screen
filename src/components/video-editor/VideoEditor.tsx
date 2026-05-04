@@ -67,6 +67,7 @@ import {
 	DEFAULT_ZOOM_DEPTH,
 	type FigureData,
 	type PlaybackSpeed,
+	type Rotation3DPreset,
 	type SpeedRegion,
 	type TrimRegion,
 	type ZoomDepth,
@@ -833,6 +834,23 @@ export default function VideoEditor() {
 			if (selectedZoomId === id) {
 				setSelectedZoomId(null);
 			}
+		},
+		[selectedZoomId, pushState],
+	);
+
+	const handleZoomRotationPresetChange = useCallback(
+		(preset: Rotation3DPreset | null) => {
+			if (!selectedZoomId) return;
+			pushState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) => {
+					if (region.id !== selectedZoomId) return region;
+					if (preset === null) {
+						const { rotationPreset: _p, ...rest } = region;
+						return rest;
+					}
+					return { ...region, rotationPreset: preset };
+				}),
+			}));
 		},
 		[selectedZoomId, pushState],
 	);
@@ -1996,6 +2014,12 @@ export default function VideoEditor() {
 						hasCursorTelemetry={cursorTelemetry.length > 0}
 						selectedZoomId={selectedZoomId}
 						onZoomDelete={handleZoomDelete}
+						selectedZoomRotationPreset={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.rotationPreset ?? null)
+								: null
+						}
+						onZoomRotationPresetChange={handleZoomRotationPresetChange}
 						selectedTrimId={selectedTrimId}
 						onTrimDelete={handleTrimDelete}
 						shadowIntensity={shadowIntensity}
