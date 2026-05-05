@@ -171,6 +171,9 @@ See the documentation here:
 [OpenScreen Docs](https://deepwiki.com/siddharthvaddem/openscreen)
 Refresh if outdated.
 
+Developer notes:
+- [Windows native cursor test pipeline](docs/testing/windows-native-cursor.md)
+
 ## Contributing
 
 Contributions are welcome - please **include screenshots or a short video** for any UI change or new user-facing feature. If it touches what users see or do, show it. Skip only when it genuinely doesn't apply. PRs that don't follow this will be closed.
