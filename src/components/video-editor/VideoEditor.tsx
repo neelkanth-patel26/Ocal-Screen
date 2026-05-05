@@ -89,6 +89,15 @@ import {
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 
+function isClickInteractionType(interactionType: string | null | undefined) {
+	return (
+		interactionType === "click" ||
+		interactionType === "double-click" ||
+		interactionType === "right-click" ||
+		interactionType === "middle-click"
+	);
+}
+
 export default function VideoEditor() {
 	const {
 		state: editorState,
