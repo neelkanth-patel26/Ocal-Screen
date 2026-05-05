@@ -8,6 +8,14 @@
 			"manual": "수동",
 			"auto": "자동",
 			"autoDescription": "녹화된 커서 위치를 따라 카메라가 이동합니다"
+		},
+		"threeD": {
+			"title": "3D 회전",
+			"preset": {
+				"iso": "Iso",
+				"left": "왼쪽",
+				"right": "오른쪽"
+			}
 		}
 	},
 	"speed": {
