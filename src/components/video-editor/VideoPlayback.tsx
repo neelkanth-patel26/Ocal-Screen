@@ -1832,7 +1832,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					src={videoPath}
 					className="hidden"
 					preload="auto"
-					muted
 					playsInline
 					onLoadedMetadata={handleLoadedMetadata}
 					onDurationChange={(e) => {
