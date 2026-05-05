@@ -39,6 +39,7 @@ import {
 } from "@/lib/userPreferences";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import { nativeBridgeClient, useCursorRecordingData, useCursorTelemetry } from "@/native";
+import type { NativePlatform } from "@/native/contracts";
 import {
 	getAspectRatioValue,
 	getNativeAspectRatioValue,
@@ -164,6 +165,7 @@ export default function VideoEditor() {
 	const [cursorSmoothing, setCursorSmoothing] = useState(DEFAULT_CURSOR_SMOOTHING);
 	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_CURSOR_MOTION_BLUR);
 	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_CURSOR_CLICK_BOUNCE);
+	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
 
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
 
@@ -172,6 +174,7 @@ export default function VideoEditor() {
 	const nextSpeedIdRef = useRef(1);
 
 	const { shortcuts, isMac } = useShortcuts();
+	const showCursorSettings = nativePlatform === "win32";
 	// Off-Mac doesn't have click telemetry, so force `onlyOnClicks` off for
 	// renderers while keeping the persisted value intact for round-tripping.
 	const effectiveCursorHighlight = useMemo(
@@ -630,6 +633,27 @@ export default function VideoEditor() {
 			removeSaveAsListener?.();
 		};
 	}, [handleLoadProject, handleSaveProject, handleSaveProjectAs]);
+
+	useEffect(() => {
+		let canceled = false;
+		nativeBridgeClient.system
+			.getPlatform()
+			.then((platform) => {
+				if (!canceled) {
+					setNativePlatform(platform);
+				}
+			})
+			.catch((error) => {
+				console.warn("Unable to resolve native platform for cursor settings:", error);
+				if (!canceled) {
+					setNativePlatform(null);
+				}
+			});
+
+		return () => {
+			canceled = true;
+		};
+	}, []);
 
 	useEffect(() => {
 		if (cursorTelemetryError) {
@@ -1718,6 +1742,8 @@ export default function VideoEditor() {
 			cursorTelemetry,
 			cursorClickTimestamps,
 			effectiveCursorHighlight,
+			showCursor,
+			cursorSize,
 			t,
 		],
 	);
