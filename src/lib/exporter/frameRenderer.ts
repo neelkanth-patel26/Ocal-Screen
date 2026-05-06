@@ -627,12 +627,19 @@ export class FrameRenderer {
 		this.maskGraphics.roundRect(0, 0, screenRect.width, screenRect.height, scaledBorderRadius);
 		this.maskGraphics.fill({ color: 0xffffff });
 
-		// Cache layout info
+		// Cache layout info. baseOffset is the stage position of the FULL
+		// (uncropped) video sprite's top-left — matches preview semantics so
+		// downstream consumers (e.g. cursor highlight) can map normalized
+		// recording-space coordinates to stage coordinates uniformly:
+		//   stagePos = baseOffset + (cx, cy) * (videoWidth, videoHeight) * baseScale
 		this.layoutCache = {
 			stageSize: { width, height },
 			videoSize: { width: croppedVideoWidth, height: croppedVideoHeight },
 			baseScale: scale,
-			baseOffset: { x: compositeLayout.screenRect.x, y: compositeLayout.screenRect.y },
+			baseOffset: {
+				x: compositeLayout.screenRect.x + coverOffsetX - cropPixelX,
+				y: compositeLayout.screenRect.y + coverOffsetY - cropPixelY,
+			},
 			maskRect: compositeLayout.screenRect,
 			webcamRect: compositeLayout.webcamRect,
 		};
