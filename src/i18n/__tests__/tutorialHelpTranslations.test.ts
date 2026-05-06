@@ -4,9 +4,9 @@ import enDialogs from "@/i18n/locales/en/dialogs.json";
 import esDialogs from "@/i18n/locales/es/dialogs.json";
 import frDialogs from "@/i18n/locales/fr/dialogs.json";
 import koKRDialogs from "@/i18n/locales/ko-KR/dialogs.json";
+import ruDialogs from "@/i18n/locales/ru/dialogs.json";
 import trDialogs from "@/i18n/locales/tr/dialogs.json";
 import zhCNDialogs from "@/i18n/locales/zh-CN/dialogs.json";
-import ruDialogs from "@/i18n/locales/ru/dialogs.json";
 
 const tutorialHelpKeys = [
 	"triggerLabel",
