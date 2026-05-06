@@ -9,6 +9,7 @@ export const SUPPORTED_LOCALES = [
 	"ko-KR",
 	"ja-JP",
 	"ar",
+	"ru",
 ] as const;
 export const I18N_NAMESPACES = [
 	"common",

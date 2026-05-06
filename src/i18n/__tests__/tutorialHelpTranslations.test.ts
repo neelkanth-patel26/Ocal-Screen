@@ -6,6 +6,7 @@ import frDialogs from "@/i18n/locales/fr/dialogs.json";
 import koKRDialogs from "@/i18n/locales/ko-KR/dialogs.json";
 import trDialogs from "@/i18n/locales/tr/dialogs.json";
 import zhCNDialogs from "@/i18n/locales/zh-CN/dialogs.json";
+import ruDialogs from "@/i18n/locales/ru/dialogs.json";
 
 const tutorialHelpKeys = [
 	"triggerLabel",
@@ -39,6 +40,7 @@ const dialogsByLocale = {
 	fr: frDialogs,
 	tr: trDialogs,
 	"ko-KR": koKRDialogs,
+	ru: ruDialogs,
 } satisfies Record<Locale, { tutorial: Record<string, unknown> }>;
 
 describe("TutorialHelp translations", () => {
