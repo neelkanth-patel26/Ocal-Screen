@@ -16,6 +16,7 @@ import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { INITIAL_EDITOR_STATE, useEditorHistory } from "@/hooks/useEditorHistory";
 import { type Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
+import { hasNativeCursorRecordingData } from "@/lib/cursor/nativeCursor";
 import {
 	calculateOutputDimensions,
 	type ExportFormat,
@@ -29,7 +30,7 @@ import {
 	VideoExporter,
 } from "@/lib/exporter";
 import { computeFrameStepTime } from "@/lib/frameStep";
-import type { ProjectMedia } from "@/lib/recordingSession";
+import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
 	getExportFolder,
@@ -175,6 +176,8 @@ export default function VideoEditor() {
 	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_CURSOR_MOTION_BLUR);
 	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_CURSOR_CLICK_BOUNCE);
 	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
+	const [recordingCursorCaptureMode, setRecordingCursorCaptureMode] =
+		useState<CursorCaptureMode | null>(null);
 
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
 
@@ -183,7 +186,11 @@ export default function VideoEditor() {
 	const nextSpeedIdRef = useRef(1);
 
 	const { shortcuts, isMac } = useShortcuts();
-	const showCursorSettings = nativePlatform === "win32";
+	const hasEditableCursorRecording =
+		recordingCursorCaptureMode === "editable-overlay" ||
+		(recordingCursorCaptureMode === null && hasNativeCursorRecordingData(cursorRecordingData));
+	const effectiveShowCursor = showCursor && hasEditableCursorRecording;
+	const showCursorSettings = nativePlatform === "win32" && hasEditableCursorRecording;
 	// Off-Mac doesn't have click telemetry, so force `onlyOnClicks` off for
 	// renderers while keeping the persisted value intact for round-tripping.
 	const effectiveCursorHighlight = useMemo(
@@ -216,10 +223,18 @@ export default function VideoEditor() {
 
 		const webcamSourcePath =
 			webcamVideoSourcePath ?? (webcamVideoPath ? fromFileUrl(webcamVideoPath) : null);
-		return webcamSourcePath
-			? { screenVideoPath, webcamVideoPath: webcamSourcePath }
-			: { screenVideoPath };
-	}, [videoPath, videoSourcePath, webcamVideoPath, webcamVideoSourcePath]);
+		return {
+			screenVideoPath,
+			...(webcamSourcePath ? { webcamVideoPath: webcamSourcePath } : {}),
+			...(recordingCursorCaptureMode ? { cursorCaptureMode: recordingCursorCaptureMode } : {}),
+		};
+	}, [
+		videoPath,
+		videoSourcePath,
+		webcamVideoPath,
+		webcamVideoSourcePath,
+		recordingCursorCaptureMode,
+	]);
 
 	const applyLoadedProject = useCallback(
 		async (candidate: unknown, path?: string | null) => {
@@ -234,6 +249,7 @@ export default function VideoEditor() {
 			}
 			const sourcePath = projectMedia.screenVideoPath;
 			const webcamSourcePath = projectMedia.webcamVideoPath ?? null;
+			const projectCursorCaptureMode = projectMedia.cursorCaptureMode ?? null;
 			const normalizedEditor = normalizeProjectEditor(project.editor);
 			const inferredDurationMs = Math.max(
 				0,
@@ -257,6 +273,7 @@ export default function VideoEditor() {
 			setVideoPath(toFileUrl(sourcePath));
 			setWebcamVideoSourcePath(webcamSourcePath);
 			setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
+			setRecordingCursorCaptureMode(projectCursorCaptureMode);
 			setCurrentProjectPath(path ?? null);
 
 			pushState({
@@ -313,9 +330,11 @@ export default function VideoEditor() {
 
 			setLastSavedSnapshot(
 				createProjectSnapshot(
-					webcamSourcePath
-						? { screenVideoPath: sourcePath, webcamVideoPath: webcamSourcePath }
-						: { screenVideoPath: sourcePath },
+					{
+						screenVideoPath: sourcePath,
+						...(webcamSourcePath ? { webcamVideoPath: webcamSourcePath } : {}),
+						...(projectCursorCaptureMode ? { cursorCaptureMode: projectCursorCaptureMode } : {}),
+					},
 					normalizedEditor,
 				),
 			);
@@ -401,15 +420,17 @@ export default function VideoEditor() {
 					setVideoPath(toFileUrl(sourcePath));
 					setWebcamVideoSourcePath(webcamSourcePath);
 					setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
+					setRecordingCursorCaptureMode(session.cursorCaptureMode ?? null);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(
 						createProjectSnapshot(
-							webcamSourcePath
-								? {
-										screenVideoPath: sourcePath,
-										webcamVideoPath: webcamSourcePath,
-									}
-								: { screenVideoPath: sourcePath },
+							{
+								screenVideoPath: sourcePath,
+								...(webcamSourcePath ? { webcamVideoPath: webcamSourcePath } : {}),
+								...(session.cursorCaptureMode
+									? { cursorCaptureMode: session.cursorCaptureMode }
+									: {}),
+							},
 							INITIAL_EDITOR_STATE,
 						),
 					);
@@ -420,6 +441,7 @@ export default function VideoEditor() {
 				if (result.success && result.path) {
 					setVideoSourcePath(result.path);
 					setVideoPath(toFileUrl(result.path));
+					setRecordingCursorCaptureMode(null);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(
 						createProjectSnapshot({ screenVideoPath: result.path }, INITIAL_EDITOR_STATE),
@@ -1515,7 +1537,7 @@ export default function VideoEditor() {
 						videoPadding: padding,
 						cropRegion,
 						cursorRecordingData,
-						cursorScale: showCursor ? cursorSize : 0,
+						cursorScale: effectiveShowCursor ? cursorSize : 0,
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
@@ -1661,7 +1683,7 @@ export default function VideoEditor() {
 						padding,
 						cropRegion,
 						cursorRecordingData,
-						cursorScale: showCursor ? cursorSize : 0,
+						cursorScale: effectiveShowCursor ? cursorSize : 0,
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
@@ -1757,7 +1779,7 @@ export default function VideoEditor() {
 			cursorTelemetry,
 			cursorClickTimestamps,
 			effectiveCursorHighlight,
-			showCursor,
+			effectiveShowCursor,
 			cursorSize,
 			cursorSmoothing,
 			cursorMotionBlur,
