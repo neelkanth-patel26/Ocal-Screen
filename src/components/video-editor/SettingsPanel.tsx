@@ -821,6 +821,7 @@ export function SettingsPanel({
 										<SelectContent>
 											{WEBCAM_LAYOUT_PRESETS.filter((preset) => {
 												if (preset.value === "picture-in-picture") return true;
+												if (preset.value === "no-webcam") return true;
 												if (preset.value === "vertical-stack") return isPortraitCanvas;
 												return !isPortraitCanvas;
 											}).map((preset) => (
@@ -829,7 +830,9 @@ export function SettingsPanel({
 														? t("layout.pictureInPicture")
 														: preset.value === "vertical-stack"
 															? t("layout.verticalStack")
-															: t("layout.dualFrame")}
+															: preset.value === "no-webcam"
+																? t("layout.noWebcam")
+																: t("layout.dualFrame")}
 												</SelectItem>
 											))}
 										</SelectContent>

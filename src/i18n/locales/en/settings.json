@@ -35,6 +35,7 @@
 		"pictureInPicture": "Picture in Picture",
 		"verticalStack": "Vertical Stack",
 		"dualFrame": "Dual Frame",
+		"noWebcam": "No Webcam",
 		"webcamShape": "Camera Shape",
 		"webcamSize": "Webcam Size"
 	},
