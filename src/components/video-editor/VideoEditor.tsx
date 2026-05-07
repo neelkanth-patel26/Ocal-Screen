@@ -31,7 +31,12 @@ import {
 import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
-import { loadUserPreferences, parentDirectoryOf, saveUserPreferences } from "@/lib/userPreferences";
+import {
+	getExportFolder,
+	loadUserPreferences,
+	parentDirectoryOf,
+	saveUserPreferences,
+} from "@/lib/userPreferences";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import {
 	getAspectRatioValue,
@@ -1313,7 +1318,7 @@ export default function VideoEditor() {
 			const saveResult = await window.electronAPI.saveExportedVideo(
 				unsavedExport.arrayBuffer,
 				unsavedExport.fileName,
-				loadUserPreferences().exportFolder ?? undefined,
+				getExportFolder(),
 			);
 			if (saveResult.canceled) {
 				toast.info("Export canceled");
@@ -1418,7 +1423,7 @@ export default function VideoEditor() {
 						const saveResult = await window.electronAPI.saveExportedVideo(
 							arrayBuffer,
 							fileName,
-							loadUserPreferences().exportFolder ?? undefined,
+							getExportFolder(),
 						);
 
 						if (saveResult.canceled) {
@@ -1562,7 +1567,7 @@ export default function VideoEditor() {
 						const saveResult = await window.electronAPI.saveExportedVideo(
 							arrayBuffer,
 							fileName,
-							loadUserPreferences().exportFolder ?? undefined,
+							getExportFolder(),
 						);
 
 						if (saveResult.canceled) {

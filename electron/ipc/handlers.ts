@@ -842,8 +842,14 @@ export function registerIpcHandlers(
 						if (stats.isDirectory()) {
 							defaultDir = exportFolder;
 						}
-					} catch {
-						// Folder was moved or deleted since the last export; keep Downloads.
+					} catch (err) {
+						// Stat can fail because the folder was moved/deleted (expected) or
+						// because of a permission error (worth surfacing). Either way we
+						// fall back to Downloads, but log so debugging isn't blind.
+						console.warn(
+							`Could not access remembered export folder "${exportFolder}", falling back to Downloads:`,
+							err,
+						);
 					}
 				}
 

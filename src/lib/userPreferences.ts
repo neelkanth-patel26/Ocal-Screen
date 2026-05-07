@@ -113,6 +113,14 @@ export function parentDirectoryOf(filePath: string): string | null {
 }
 
 /**
+ * Returns the remembered export folder as `string | undefined`, suitable for
+ * passing directly to IPC handlers that treat absence as "use the default".
+ */
+export function getExportFolder(): string | undefined {
+	return loadUserPreferences().exportFolder ?? undefined;
+}
+
+/**
  * Persist user preferences to localStorage.
  * Only the explicitly provided fields are updated.
  */
