@@ -72,6 +72,7 @@ import {
 	DEFAULT_ZOOM_DEPTH,
 	type FigureData,
 	type PlaybackSpeed,
+	type Rotation3DPreset,
 	type SpeedRegion,
 	type TrimRegion,
 	type ZoomDepth,
@@ -108,6 +109,7 @@ export default function VideoEditor() {
 		webcamMaskShape,
 		webcamSizePreset,
 		webcamPosition,
+		cursorHighlight,
 	} = editorState;
 
 	// ── Non-undoable state
@@ -126,6 +128,7 @@ export default function VideoEditor() {
 	const durationRef = useRef(duration);
 	durationRef.current = duration;
 	const [cursorTelemetry, setCursorTelemetry] = useState<CursorTelemetryPoint[]>([]);
+	const [cursorClickTimestamps, setCursorClickTimestamps] = useState<number[]>([]);
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
@@ -158,6 +161,12 @@ export default function VideoEditor() {
 	const nextSpeedIdRef = useRef(1);
 
 	const { shortcuts, isMac } = useShortcuts();
+	// Off-Mac doesn't have click telemetry, so force `onlyOnClicks` off for
+	// renderers while keeping the persisted value intact for round-tripping.
+	const effectiveCursorHighlight = useMemo(
+		() => (isMac ? cursorHighlight : { ...cursorHighlight, onlyOnClicks: false }),
+		[cursorHighlight, isMac],
+	);
 	const { locale, setLocale, t: rawT } = useI18n();
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
@@ -435,7 +444,7 @@ export default function VideoEditor() {
 				return false;
 			}
 
-			const projectData = createProjectData(currentProjectMedia, {
+			const editorState = {
 				wallpaper,
 				shadowIntensity,
 				showBlur,
@@ -457,14 +466,18 @@ export default function VideoEditor() {
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
-			});
+				cursorHighlight,
+			};
+			const projectData = createProjectData(currentProjectMedia, editorState);
 
 			const fileNameBase =
 				currentProjectMedia.screenVideoPath
 					.split(/[\\/]/)
 					.pop()
 					?.replace(/\.[^.]+$/, "") || `project-${Date.now()}`;
-			const projectSnapshot = JSON.stringify(projectData);
+			// Match the normalization path used by `currentProjectSnapshot` so the
+			// post-save baseline compares equal and `hasUnsavedChanges` clears.
+			const projectSnapshot = createProjectSnapshot(currentProjectMedia, editorState);
 			const result = await window.electronAPI.saveProjectFile(
 				projectData,
 				fileNameBase,
@@ -515,6 +528,7 @@ export default function VideoEditor() {
 			videoPath,
 			t,
 			webcamSizePreset,
+			cursorHighlight,
 		],
 	);
 
@@ -589,6 +603,7 @@ export default function VideoEditor() {
 			if (!sourcePath) {
 				if (mounted) {
 					setCursorTelemetry([]);
+					setCursorClickTimestamps([]);
 				}
 				return;
 			}
@@ -597,11 +612,13 @@ export default function VideoEditor() {
 				const result = await window.electronAPI.getCursorTelemetry(sourcePath);
 				if (mounted) {
 					setCursorTelemetry(result.success ? result.samples : []);
+					setCursorClickTimestamps(result.success ? (result.clicks ?? []) : []);
 				}
 			} catch (telemetryError) {
 				console.warn("Unable to load cursor telemetry:", telemetryError);
 				if (mounted) {
 					setCursorTelemetry([]);
+					setCursorClickTimestamps([]);
 				}
 			}
 		}
@@ -822,6 +839,23 @@ export default function VideoEditor() {
 			if (selectedZoomId === id) {
 				setSelectedZoomId(null);
 			}
+		},
+		[selectedZoomId, pushState],
+	);
+
+	const handleZoomRotationPresetChange = useCallback(
+		(preset: Rotation3DPreset | null) => {
+			if (!selectedZoomId) return;
+			pushState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) => {
+					if (region.id !== selectedZoomId) return region;
+					if (preset === null) {
+						const { rotationPreset: _p, ...rest } = region;
+						return rest;
+					}
+					return { ...region, rotationPreset: preset };
+				}),
+			}));
 		},
 		[selectedZoomId, pushState],
 	);
@@ -1401,6 +1435,8 @@ export default function VideoEditor() {
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						cursorClickTimestamps,
+						cursorHighlight: effectiveCursorHighlight,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1545,6 +1581,8 @@ export default function VideoEditor() {
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						cursorClickTimestamps,
+						cursorHighlight: effectiveCursorHighlight,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1632,6 +1670,8 @@ export default function VideoEditor() {
 			exportQuality,
 			handleExportSaved,
 			cursorTelemetry,
+			cursorClickTimestamps,
+			effectiveCursorHighlight,
 			t,
 		],
 	);
@@ -1889,6 +1929,8 @@ export default function VideoEditor() {
 											onBlurDataChange={handleBlurDataPreviewChange}
 											onBlurDataCommit={commitState}
 											cursorTelemetry={cursorTelemetry}
+											cursorHighlight={effectiveCursorHighlight}
+											cursorClickTimestamps={cursorClickTimestamps}
 										/>
 									</div>
 								</div>
@@ -1972,6 +2014,9 @@ export default function VideoEditor() {
 				{/* Right section: settings panel */}
 				<div className="flex-[3] min-w-[280px] max-w-[420px] h-full">
 					<SettingsPanel
+						cursorHighlight={cursorHighlight}
+						onCursorHighlightChange={(next) => pushState({ cursorHighlight: next })}
+						cursorHighlightSupportsClicks={isMac}
 						selected={wallpaper}
 						onWallpaperChange={(w) => pushState({ wallpaper: w })}
 						selectedZoomDepth={
@@ -1987,6 +2032,12 @@ export default function VideoEditor() {
 						hasCursorTelemetry={cursorTelemetry.length > 0}
 						selectedZoomId={selectedZoomId}
 						onZoomDelete={handleZoomDelete}
+						selectedZoomRotationPreset={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.rotationPreset ?? null)
+								: null
+						}
+						onZoomRotationPresetChange={handleZoomRotationPresetChange}
 						selectedTrimId={selectedTrimId}
 						onTrimDelete={handleTrimDelete}
 						shadowIntensity={shadowIntensity}

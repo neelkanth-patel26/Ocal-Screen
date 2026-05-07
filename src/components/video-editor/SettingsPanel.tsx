@@ -1,6 +1,6 @@
-import Block from "@uiw/react-color-block";
 import {
 	Bug,
+	ChevronDown,
 	Crop,
 	Download,
 	Film,
@@ -23,6 +23,7 @@ import {
 	AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -41,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { resolveImageWallpaperUrl, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
+import ColorPicker from "../ui/color-picker";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { CropControl } from "./CropControl";
@@ -52,13 +54,19 @@ import type {
 	CropRegion,
 	FigureData,
 	PlaybackSpeed,
+	Rotation3DPreset,
 	WebcamLayoutPreset,
 	WebcamMaskShape,
 	WebcamSizePreset,
 	ZoomDepth,
 	ZoomFocusMode,
 } from "./types";
-import { DEFAULT_WEBCAM_SIZE_PRESET, MAX_PLAYBACK_SPEED, SPEED_OPTIONS } from "./types";
+import {
+	DEFAULT_WEBCAM_SIZE_PRESET,
+	MAX_PLAYBACK_SPEED,
+	ROTATION_3D_PRESET_ORDER,
+	SPEED_OPTIONS,
+} from "./types";
 
 function CustomSpeedInput({
 	value,
@@ -151,6 +159,12 @@ const GRADIENTS = [
 ];
 
 interface SettingsPanelProps {
+	cursorHighlight?: import("./videoPlayback/cursorHighlight").CursorHighlightConfig;
+	onCursorHighlightChange?: (
+		next: import("./videoPlayback/cursorHighlight").CursorHighlightConfig,
+	) => void;
+	// macOS only — gates the "Only on clicks" toggle (needs uiohook).
+	cursorHighlightSupportsClicks?: boolean;
 	selected: string;
 	onWallpaperChange: (path: string) => void;
 	selectedZoomDepth?: ZoomDepth | null;
@@ -160,6 +174,8 @@ interface SettingsPanelProps {
 	hasCursorTelemetry?: boolean;
 	selectedZoomId?: string | null;
 	onZoomDelete?: (id: string) => void;
+	selectedZoomRotationPreset?: Rotation3DPreset | null;
+	onZoomRotationPresetChange?: (preset: Rotation3DPreset | null) => void;
 	selectedTrimId?: string | null;
 	onTrimDelete?: (id: string) => void;
 	shadowIntensity?: number;
@@ -238,6 +254,9 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 ];
 
 export function SettingsPanel({
+	cursorHighlight,
+	onCursorHighlightChange,
+	cursorHighlightSupportsClicks = false,
 	selected,
 	onWallpaperChange,
 	selectedZoomDepth,
@@ -247,6 +266,8 @@ export function SettingsPanel({
 	hasCursorTelemetry = false,
 	selectedZoomId,
 	onZoomDelete,
+	selectedZoomRotationPreset,
+	onZoomRotationPresetChange,
 	selectedTrimId,
 	onTrimDelete,
 	shadowIntensity = 0,
@@ -637,6 +658,36 @@ export function SettingsPanel({
 						</div>
 					)}
 					{zoomEnabled && (
+						<div className="mt-4">
+							<span className="text-sm font-medium text-slate-200 mb-2 block">
+								{t("zoom.threeD.title")}
+							</span>
+							<div className="grid grid-cols-3 gap-1.5">
+								{ROTATION_3D_PRESET_ORDER.map((preset) => {
+									const isActive = selectedZoomRotationPreset === preset;
+									return (
+										<Button
+											key={preset}
+											type="button"
+											onClick={() => onZoomRotationPresetChange?.(isActive ? null : preset)}
+											className={cn(
+												"h-auto w-full rounded-lg border px-1 py-2 text-center shadow-sm transition-all duration-200 ease-out cursor-pointer",
+												isActive
+													? "border-[#34B27B] bg-[#34B27B] text-white shadow-[#34B27B]/20"
+													: "border-white/5 bg-white/5 text-slate-400 hover:bg-white/10 hover:border-white/10 hover:text-slate-200",
+											)}
+										>
+											<span className="text-xs font-semibold capitalize">
+												{t(`zoom.threeD.preset.${preset}`)}
+											</span>
+										</Button>
+									);
+								})}
+							</div>
+						</div>
+					)}
+
+					{zoomEnabled && (
 						<Button
 							onClick={handleDeleteClick}
 							variant="destructive"
@@ -991,6 +1042,205 @@ export function SettingsPanel({
 								</div>
 							</div>
 
+							{cursorHighlight && onCursorHighlightChange && (
+								<div className="p-2 rounded-lg bg-white/5 border border-white/5 mt-2 space-y-2">
+									<div className="flex items-center justify-between">
+										<div className="text-[10px] font-medium text-slate-300">
+											{t("effects.cursorHighlight.title")}
+										</div>
+										<button
+											type="button"
+											onClick={() =>
+												onCursorHighlightChange({
+													...cursorHighlight,
+													enabled: !cursorHighlight.enabled,
+												})
+											}
+											className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+												cursorHighlight.enabled
+													? "bg-[#34B27B]/20 border-[#34B27B]/50 text-[#34B27B]"
+													: "bg-white/5 border-white/10 text-slate-400"
+											}`}
+										>
+											{cursorHighlight.enabled ? t("effects.on") : t("effects.off")}
+										</button>
+									</div>
+									<div
+										className={`grid grid-cols-2 gap-1 ${cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}`}
+									>
+										{(["dot", "ring"] as const).map((style) => (
+											<button
+												key={style}
+												type="button"
+												onClick={() => onCursorHighlightChange({ ...cursorHighlight, style })}
+												className={`text-[10px] px-2 py-1 rounded border capitalize transition-colors ${
+													cursorHighlight.style === style
+														? "bg-[#34B27B]/20 border-[#34B27B]/50 text-[#34B27B]"
+														: "bg-white/5 border-white/10 text-slate-300 hover:border-white/20"
+												}`}
+											>
+												{t(`effects.cursorHighlight.${style}`)}
+											</button>
+										))}
+									</div>
+									<div className={cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}>
+										<div className="flex items-center justify-between mb-1">
+											<div className="text-[10px] text-slate-400">
+												{t("effects.cursorHighlight.size")}
+											</div>
+											<span className="text-[10px] text-slate-500 font-mono">
+												{cursorHighlight.sizePx}px
+											</span>
+										</div>
+										<Slider
+											value={[cursorHighlight.sizePx]}
+											onValueChange={(values) =>
+												onCursorHighlightChange({
+													...cursorHighlight,
+													sizePx: values[0],
+												})
+											}
+											min={10}
+											max={36}
+											step={1}
+											className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+										/>
+									</div>
+									{cursorHighlightSupportsClicks && (
+										<div
+											className={`flex items-center justify-between ${cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}`}
+										>
+											<div className="text-[10px] text-slate-400">
+												{t("effects.cursorHighlight.onlyOnClicks")}
+											</div>
+											<button
+												type="button"
+												onClick={async () => {
+													const turningOn = !cursorHighlight.onlyOnClicks;
+													if (turningOn) {
+														try {
+															const result =
+																await window.electronAPI?.requestAccessibilityAccess?.();
+															if (!result?.granted) {
+																toast.message(
+																	t("effects.cursorHighlight.accessibilityPermissionTitle"),
+																	{
+																		description: t(
+																			"effects.cursorHighlight.accessibilityPermissionDescription",
+																		),
+																	},
+																);
+																return;
+															}
+														} catch (err) {
+															console.warn("Accessibility request failed:", err);
+														}
+													}
+													onCursorHighlightChange({
+														...cursorHighlight,
+														onlyOnClicks: turningOn,
+													});
+												}}
+												className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+													cursorHighlight.onlyOnClicks
+														? "bg-[#34B27B]/20 border-[#34B27B]/50 text-[#34B27B]"
+														: "bg-white/5 border-white/10 text-slate-400"
+												}`}
+											>
+												{cursorHighlight.onlyOnClicks ? t("effects.on") : t("effects.off")}
+											</button>
+										</div>
+									)}
+									<div className={cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}>
+										<div className="text-[10px] text-slate-400 mb-1">
+											{t("effects.cursorHighlight.color")}
+										</div>
+										<Popover>
+											<PopoverTrigger asChild>
+												<Button
+													variant="outline"
+													className="w-full h-8 justify-start gap-2 bg-white/5 border-white/10 hover:bg-white/10 px-2"
+												>
+													<div
+														className="w-4 h-4 rounded-full border border-white/20"
+														style={{ backgroundColor: cursorHighlight.color }}
+													/>
+													<span className="text-[10px] text-slate-300 truncate flex-1 text-left font-mono">
+														{cursorHighlight.color}
+													</span>
+													<ChevronDown className="h-3 w-3 opacity-50" />
+												</Button>
+											</PopoverTrigger>
+											<PopoverContent
+												side="top"
+												className="w-[260px] p-3 bg-[#1a1a1c] border border-white/10 rounded-xl shadow-xl"
+											>
+												<ColorPicker
+													selectedColor={cursorHighlight.color}
+													colorPalette={colorPalette}
+													translations={{
+														colorWheel: t("background.colorWheel"),
+														colorPalette: t("background.colorPalette"),
+													}}
+													onUpdateColor={(color) =>
+														onCursorHighlightChange({
+															...cursorHighlight,
+															color,
+														})
+													}
+												/>
+											</PopoverContent>
+										</Popover>
+									</div>
+									<div className={cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}>
+										<div className="flex items-center justify-between mb-1">
+											<div className="text-[10px] text-slate-400">
+												{t("effects.cursorHighlight.offsetX")}
+											</div>
+											<span className="text-[10px] text-slate-500 font-mono">
+												{(cursorHighlight.offsetXNorm * 100).toFixed(1)}%
+											</span>
+										</div>
+										<Slider
+											value={[cursorHighlight.offsetXNorm]}
+											onValueChange={(values) =>
+												onCursorHighlightChange({
+													...cursorHighlight,
+													offsetXNorm: values[0],
+												})
+											}
+											min={-0.25}
+											max={0.25}
+											step={0.005}
+											className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+										/>
+									</div>
+									<div className={cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}>
+										<div className="flex items-center justify-between mb-1">
+											<div className="text-[10px] text-slate-400">
+												{t("effects.cursorHighlight.offsetY")}
+											</div>
+											<span className="text-[10px] text-slate-500 font-mono">
+												{(cursorHighlight.offsetYNorm * 100).toFixed(1)}%
+											</span>
+										</div>
+										<Slider
+											value={[cursorHighlight.offsetYNorm]}
+											onValueChange={(values) =>
+												onCursorHighlightChange({
+													...cursorHighlight,
+													offsetYNorm: values[0],
+												})
+											}
+											min={-0.25}
+											max={0.25}
+											step={0.005}
+											className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+										/>
+									</div>
+								</div>
+							)}
+
 							<Button
 								onClick={handleCropToggle}
 								variant="outline"
@@ -1035,7 +1285,7 @@ export function SettingsPanel({
 									</TabsTrigger>
 								</TabsList>
 
-								<div className="max-h-[min(200px,25vh)] overflow-y-auto custom-scrollbar">
+								<div className="overflow-y-auto custom-scrollbar">
 									<TabsContent value="image" className="mt-0 space-y-2">
 										<input
 											type="file"
@@ -1109,20 +1359,18 @@ export function SettingsPanel({
 									</TabsContent>
 
 									<TabsContent value="color" className="mt-0">
-										<div className="p-1">
-											<Block
-												color={selectedColor}
-												colors={colorPalette}
-												onChange={(color) => {
-													setSelectedColor(color.hex);
-													onWallpaperChange(color.hex);
-												}}
-												style={{
-													width: "100%",
-													borderRadius: "8px",
-												}}
-											/>
-										</div>
+										<ColorPicker
+											selectedColor={selectedColor}
+											colorPalette={colorPalette}
+											translations={{
+												colorWheel: t("background.colorWheel"),
+												colorPalette: t("background.colorPalette"),
+											}}
+											onUpdateColor={(color) => {
+												setSelectedColor(color);
+												onWallpaperChange(color);
+											}}
+										/>
 									</TabsContent>
 
 									<TabsContent value="gradient" className="mt-0">
