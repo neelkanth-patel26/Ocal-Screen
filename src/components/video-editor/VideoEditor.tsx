@@ -2102,6 +2102,15 @@ export default function VideoEditor() {
 								: null
 						}
 						onZoomFocusModeChange={(mode) => selectedZoomId && handleZoomFocusModeChange(mode)}
+						selectedZoomFocus={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.focus ?? null)
+								: null
+						}
+						onZoomFocusCoordinateChange={(focus) =>
+							selectedZoomId && handleZoomFocusChange(selectedZoomId, focus)
+						}
+						onZoomFocusCoordinateCommit={commitState}
 						hasCursorTelemetry={cursorTelemetry.length > 0}
 						selectedZoomId={selectedZoomId}
 						onZoomDelete={handleZoomDelete}

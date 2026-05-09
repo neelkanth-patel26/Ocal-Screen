@@ -61,6 +61,7 @@ import type {
 	WebcamMaskShape,
 	WebcamSizePreset,
 	ZoomDepth,
+	ZoomFocus,
 	ZoomFocusMode,
 } from "./types";
 import {
@@ -72,6 +73,7 @@ import {
 	SPEED_OPTIONS,
 	ZOOM_DEPTH_SCALES,
 } from "./types";
+import { getFocusBoundsForScale } from "./videoPlayback/focusUtils";
 
 function CustomSpeedInput({
 	value,
@@ -136,6 +138,58 @@ function CustomSpeedInput({
 	);
 }
 
+function ZoomFocusCoordInput({
+	percent,
+	onChange,
+	onCommit,
+	disabled,
+	ariaLabel,
+}: {
+	percent: number;
+	onChange: (nextPercent: number) => void;
+	onCommit?: () => void;
+	disabled?: boolean;
+	ariaLabel: string;
+}) {
+	// While the input is focused (user is editing), show their draft text
+	// so partial entries like "5" or "" don't get overwritten by re-renders.
+	// When not focused, mirror the live prop value so external changes
+	// (dragging the overlay on the preview) update the displayed number in real time.
+	const [draft, setDraft] = useState<string | null>(null);
+	const display = percent.toFixed(1);
+
+	return (
+		<input
+			type="number"
+			inputMode="decimal"
+			min={0}
+			max={100}
+			step={0.1}
+			value={draft ?? display}
+			disabled={disabled}
+			aria-label={ariaLabel}
+			onFocus={() => setDraft(display)}
+			onChange={(e) => {
+				const next = e.target.value;
+				setDraft(next);
+				const parsed = Number(next);
+				if (next !== "" && Number.isFinite(parsed)) {
+					const clamped = Math.min(100, Math.max(0, parsed));
+					onChange(clamped);
+				}
+			}}
+			onBlur={() => {
+				setDraft(null);
+				onCommit?.();
+			}}
+			onKeyDown={(e) => {
+				if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+			}}
+			className="w-[90px] h-8 rounded-md border border-white/10 bg-white/5 px-2 text-xs text-slate-200 outline-none focus:border-[#34B27B]/50 focus:ring-1 focus:ring-[#34B27B]/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+		/>
+	);
+}
+
 const GRADIENTS = [
 	"linear-gradient( 111.6deg,  rgba(114,167,232,1) 9.4%, rgba(253,129,82,1) 43.9%, rgba(253,129,82,1) 54.8%, rgba(249,202,86,1) 86.3% )",
 	"linear-gradient(120deg, #d4fc79 0%, #96e6a1 100%)",
@@ -179,6 +233,9 @@ interface SettingsPanelProps {
 	onZoomCustomScaleCommit?: () => void;
 	selectedZoomFocusMode?: ZoomFocusMode | null;
 	onZoomFocusModeChange?: (mode: ZoomFocusMode) => void;
+	selectedZoomFocus?: ZoomFocus | null;
+	onZoomFocusCoordinateChange?: (focus: ZoomFocus) => void;
+	onZoomFocusCoordinateCommit?: () => void;
 	hasCursorTelemetry?: boolean;
 	selectedZoomId?: string | null;
 	onZoomDelete?: (id: string) => void;
@@ -275,6 +332,9 @@ export function SettingsPanel({
 	onZoomCustomScaleCommit,
 	selectedZoomFocusMode,
 	onZoomFocusModeChange,
+	selectedZoomFocus,
+	onZoomFocusCoordinateChange,
+	onZoomFocusCoordinateCommit,
 	hasCursorTelemetry = false,
 	selectedZoomId,
 	onZoomDelete,
@@ -734,6 +794,70 @@ export function SettingsPanel({
 							)}
 						</div>
 					)}
+					{zoomEnabled &&
+						selectedZoomFocusMode !== "auto" &&
+						selectedZoomFocus &&
+						onZoomFocusCoordinateChange &&
+						(() => {
+							const effectiveZoomScale =
+								selectedZoomCustomScale ??
+								(selectedZoomDepth != null ? ZOOM_DEPTH_SCALES[selectedZoomDepth] : MIN_ZOOM_SCALE);
+							const bounds = getFocusBoundsForScale(effectiveZoomScale);
+							const xRange = bounds.maxX - bounds.minX;
+							const yRange = bounds.maxY - bounds.minY;
+							const focusToPercentX = (cx: number) =>
+								xRange <= 0 ? 50 : Math.max(0, Math.min(100, ((cx - bounds.minX) / xRange) * 100));
+							const focusToPercentY = (cy: number) =>
+								yRange <= 0 ? 50 : Math.max(0, Math.min(100, ((cy - bounds.minY) / yRange) * 100));
+							const percentToFocusX = (p: number) =>
+								xRange <= 0 ? bounds.minX : bounds.minX + (p / 100) * xRange;
+							const percentToFocusY = (p: number) =>
+								yRange <= 0 ? bounds.minY : bounds.minY + (p / 100) * yRange;
+							return (
+								<div className="mt-4">
+									<span className="text-sm font-medium text-slate-200 mb-2 block">
+										{t("zoom.position.title")}
+									</span>
+									<div className="flex items-end gap-3">
+										<div className="flex flex-col gap-1">
+											<label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+												{t("zoom.position.x")}
+											</label>
+											<ZoomFocusCoordInput
+												ariaLabel={t("zoom.position.x")}
+												percent={focusToPercentX(selectedZoomFocus.cx)}
+												onChange={(p) =>
+													onZoomFocusCoordinateChange({
+														cx: percentToFocusX(p),
+														cy: selectedZoomFocus.cy,
+													})
+												}
+												onCommit={onZoomFocusCoordinateCommit}
+											/>
+										</div>
+										<div className="flex flex-col gap-1">
+											<label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+												{t("zoom.position.y")}
+											</label>
+											<ZoomFocusCoordInput
+												ariaLabel={t("zoom.position.y")}
+												percent={focusToPercentY(selectedZoomFocus.cy)}
+												onChange={(p) =>
+													onZoomFocusCoordinateChange({
+														cx: selectedZoomFocus.cx,
+														cy: percentToFocusY(p),
+													})
+												}
+												onCommit={onZoomFocusCoordinateCommit}
+											/>
+										</div>
+										<span className="text-[10px] text-slate-500 pb-2">
+											{t("zoom.position.hint")}
+										</span>
+									</div>
+								</div>
+							);
+						})()}
 					{zoomEnabled && (
 						<div className="mt-4">
 							<span className="text-sm font-medium text-slate-200 mb-2 block">

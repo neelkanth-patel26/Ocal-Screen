@@ -17,6 +17,12 @@
 				"left": "Left",
 				"right": "Right"
 			}
+		},
+		"position": {
+			"title": "Focus Position",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = leftmost / topmost, 100 = rightmost / bottommost"
 		}
 	},
 	"speed": {
