@@ -112,18 +112,24 @@ jobs:
           mkdir -p tap/Casks
           BASE="https://github.com/${REPO}/releases/download/${TAG}"
 
+          # #{version} is Ruby interpolation written literally to the cask
+          # file (bash heredoc leaves "#{...}" alone). \${VERSION}, \${ARM_SHA},
+          # etc. are bash variables expanded by the heredoc. The literal
+          # #{version} fixes Homebrew's "URL is unversioned" audit warning by
+          # making the version string statically detectable.
           cat > "tap/Casks/${CASK_NAME}.rb" <<EOF
           cask "${CASK_NAME}" do
             version "${VERSION}"
 
             on_arm do
               sha256 "${ARM_SHA}"
-              url "${BASE}/${ARM_NAME}"
+              url "https://github.com/${REPO}/releases/download/v#{version}/${ARM_NAME}",
+                  verified: "github.com/${REPO}/"
             end
-
             on_intel do
               sha256 "${X64_SHA}"
-              url "${BASE}/${X64_NAME}"
+              url "https://github.com/${REPO}/releases/download/v#{version}/${X64_NAME}",
+                  verified: "github.com/${REPO}/"
             end
 
             name "Openscreen"
@@ -137,9 +143,9 @@ jobs:
 
             zap trash: [
               "~/Library/Application Support/Openscreen",
-              "~/Library/Preferences/com.siddharthvaddem.openscreen.plist",
-              "~/Library/Logs/Openscreen",
               "~/Library/Caches/com.siddharthvaddem.openscreen",
+              "~/Library/Logs/Openscreen",
+              "~/Library/Preferences/com.siddharthvaddem.openscreen.plist",
               "~/Library/Saved Application State/com.siddharthvaddem.openscreen.savedState",
             ]
           end
