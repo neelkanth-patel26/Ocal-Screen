@@ -79,8 +79,7 @@ interface Window {
 		}>;
 		onStopRecordingFromTray: (callback: () => void) => () => void;
 		openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>;
-		saveExportedVideo: (
-			videoData: ArrayBuffer,
+		pickExportSavePath: (
 			fileName: string,
 			exportFolder?: string,
 		) => Promise<{
@@ -88,6 +87,15 @@ interface Window {
 			path?: string;
 			message?: string;
 			canceled?: boolean;
+			error?: string;
+		}>;
+		writeExportToPath: (
+			videoData: ArrayBuffer,
+			filePath: string,
+		) => Promise<{
+			success: boolean;
+			path?: string;
+			message?: string;
 			error?: string;
 		}>;
 		openVideoFilePicker: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>;

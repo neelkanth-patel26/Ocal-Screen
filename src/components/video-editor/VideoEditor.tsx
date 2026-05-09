@@ -1395,14 +1395,19 @@ export default function VideoEditor() {
 	const handleSaveUnsavedExport = useCallback(async () => {
 		if (!unsavedExport) return;
 		try {
-			const saveResult = await window.electronAPI.saveExportedVideo(
-				unsavedExport.arrayBuffer,
+			const pickResult = await window.electronAPI.pickExportSavePath(
 				unsavedExport.fileName,
 				getExportFolder(),
 			);
-			if (saveResult.canceled) {
+			if (pickResult.canceled || !pickResult.success || !pickResult.path) {
 				toast.info("Export canceled");
-			} else if (saveResult.success && saveResult.path) {
+				return;
+			}
+			const saveResult = await window.electronAPI.writeExportToPath(
+				unsavedExport.arrayBuffer,
+				pickResult.path,
+			);
+			if (saveResult.success && saveResult.path) {
 				setUnsavedExport(null);
 				handleExportSaved(unsavedExport.format === "gif" ? "GIF" : "Video", saveResult.path);
 			} else {
@@ -1426,6 +1431,21 @@ export default function VideoEditor() {
 				toast.error("Video not ready");
 				return;
 			}
+
+			// Ask the user where to save BEFORE starting the export. This avoids the
+			// post-export save dialog getting hidden behind other windows after a
+			// long-running export.
+			const isGifFormat = settings.format === "gif";
+			const targetFileName = `export-${Date.now()}.${isGifFormat ? "gif" : "mp4"}`;
+			const pickResult = await window.electronAPI.pickExportSavePath(
+				targetFileName,
+				getExportFolder(),
+			);
+			if (pickResult.canceled || !pickResult.success || !pickResult.path) {
+				setShowExportDialog(false);
+				return;
+			}
+			const targetPath = pickResult.path;
 
 			setIsExporting(true);
 			setExportProgress(null);
@@ -1493,8 +1513,6 @@ export default function VideoEditor() {
 
 					if (result.success && result.blob) {
 						const arrayBuffer = await result.blob.arrayBuffer();
-						const timestamp = Date.now();
-						const fileName = `export-${timestamp}.gif`;
 
 						if (result.warnings) {
 							for (const warning of result.warnings) {
@@ -1502,19 +1520,13 @@ export default function VideoEditor() {
 							}
 						}
 
-						const saveResult = await window.electronAPI.saveExportedVideo(
-							arrayBuffer,
-							fileName,
-							getExportFolder(),
-						);
+						const saveResult = await window.electronAPI.writeExportToPath(arrayBuffer, targetPath);
 
-						if (saveResult.canceled) {
-							setUnsavedExport({ arrayBuffer, fileName, format: "gif" });
-							toast.info("Export canceled");
-						} else if (saveResult.success && saveResult.path) {
+						if (saveResult.success && saveResult.path) {
 							setUnsavedExport(null);
 							handleExportSaved("GIF", saveResult.path);
 						} else {
+							setUnsavedExport({ arrayBuffer, fileName: targetFileName, format: "gif" });
 							setExportError(saveResult.message || "Failed to save GIF");
 							toast.error(saveResult.message || "Failed to save GIF");
 						}
@@ -1642,8 +1654,6 @@ export default function VideoEditor() {
 
 					if (result.success && result.blob) {
 						const arrayBuffer = await result.blob.arrayBuffer();
-						const timestamp = Date.now();
-						const fileName = `export-${timestamp}.mp4`;
 
 						if (result.warnings) {
 							for (const warning of result.warnings) {
@@ -1651,19 +1661,13 @@ export default function VideoEditor() {
 							}
 						}
 
-						const saveResult = await window.electronAPI.saveExportedVideo(
-							arrayBuffer,
-							fileName,
-							getExportFolder(),
-						);
+						const saveResult = await window.electronAPI.writeExportToPath(arrayBuffer, targetPath);
 
-						if (saveResult.canceled) {
-							setUnsavedExport({ arrayBuffer, fileName, format: "mp4" });
-							toast.info("Export canceled");
-						} else if (saveResult.success && saveResult.path) {
+						if (saveResult.success && saveResult.path) {
 							setUnsavedExport(null);
 							handleExportSaved("Video", saveResult.path);
 						} else {
+							setUnsavedExport({ arrayBuffer, fileName: targetFileName, format: "mp4" });
 							setExportError(saveResult.message || "Failed to save video");
 							toast.error(saveResult.message || "Failed to save video");
 						}
