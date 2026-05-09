@@ -71,8 +71,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	openExternalUrl: (url: string) => {
 		return ipcRenderer.invoke("open-external-url", url);
 	},
-	saveExportedVideo: (videoData: ArrayBuffer, fileName: string) => {
-		return ipcRenderer.invoke("save-exported-video", videoData, fileName);
+	saveExportedVideo: (videoData: ArrayBuffer, fileName: string, exportFolder?: string) => {
+		return ipcRenderer.invoke("save-exported-video", videoData, fileName, exportFolder);
 	},
 	openVideoFilePicker: () => {
 		return ipcRenderer.invoke("open-video-file-picker");
@@ -134,6 +134,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	setLocale: (locale: string) => {
 		return ipcRenderer.invoke("set-locale", locale);
 	},
+	saveDiagnostic: (payload: {
+		error: string;
+		stack?: string;
+		projectState: unknown;
+		logs: string[];
+	}) => {
+		return ipcRenderer.invoke("save-diagnostic", payload);
+	},
 	setMicrophoneExpanded: (expanded: boolean) => {
 		ipcRenderer.send("hud:setMicrophoneExpanded", expanded);
 	},
@@ -165,5 +173,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		};
 		ipcRenderer.on("request-save-before-close", listener);
 		return () => ipcRenderer.removeListener("request-save-before-close", listener);
+	},
+	onRequestCloseConfirm: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("request-close-confirm", listener);
+		return () => ipcRenderer.removeListener("request-close-confirm", listener);
+	},
+	sendCloseConfirmResponse: (choice: "save" | "discard" | "cancel") => {
+		ipcRenderer.send("close-confirm-response", choice);
 	},
 });

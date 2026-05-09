@@ -82,7 +82,14 @@ interface Window {
 		saveExportedVideo: (
 			videoData: ArrayBuffer,
 			fileName: string,
-		) => Promise<{ success: boolean; path?: string; message?: string; canceled?: boolean }>;
+			exportFolder?: string,
+		) => Promise<{
+			success: boolean;
+			path?: string;
+			message?: string;
+			canceled?: boolean;
+			error?: string;
+		}>;
 		openVideoFilePicker: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>;
 		setCurrentVideoPath: (path: string) => Promise<{ success: boolean }>;
 		setCurrentRecordingSession: (
@@ -149,7 +156,15 @@ interface Window {
 		setMicrophoneExpanded: (expanded: boolean) => void;
 		setHasUnsavedChanges: (hasChanges: boolean) => void;
 		onRequestSaveBeforeClose: (callback: () => Promise<boolean> | boolean) => () => void;
+		onRequestCloseConfirm: (callback: () => void) => () => void;
+		sendCloseConfirmResponse: (choice: "save" | "discard" | "cancel") => void;
 		setLocale: (locale: string) => Promise<void>;
+		saveDiagnostic: (payload: {
+			error: string;
+			stack?: string;
+			projectState: unknown;
+			logs: string[];
+		}) => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
 	};
 }
 

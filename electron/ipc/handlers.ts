@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -985,58 +986,81 @@ export function registerIpcHandlers(
 	 * @returns Object with success status, optional file path, and error details.
 	 */
 
-	ipcMain.handle("save-exported-video", async (_, videoData: ArrayBuffer, fileName: string) => {
-		try {
-			// Determine file type from extension
-			const isGif = fileName.toLowerCase().endsWith(".gif");
-			const filters = isGif
-				? [{ name: mainT("dialogs", "fileDialogs.gifImage"), extensions: ["gif"] }]
-				: [{ name: mainT("dialogs", "fileDialogs.mp4Video"), extensions: ["mp4"] }];
+	ipcMain.handle(
+		"save-exported-video",
+		async (_, videoData: ArrayBuffer, fileName: string, exportFolder?: string) => {
+			try {
+				// Determine file type from extension
+				const isGif = fileName.toLowerCase().endsWith(".gif");
+				const filters = isGif
+					? [{ name: mainT("dialogs", "fileDialogs.gifImage"), extensions: ["gif"] }]
+					: [{ name: mainT("dialogs", "fileDialogs.mp4Video"), extensions: ["mp4"] }];
 
-			const dialogOptions = buildDialogOptions(
-				{
-					title: isGif
-						? mainT("dialogs", "fileDialogs.saveGif")
-						: mainT("dialogs", "fileDialogs.saveVideo"),
-					defaultPath: path.join(app.getPath("downloads"), fileName),
-					filters,
-					properties: ["createDirectory", "showOverwriteConfirmation"],
-				},
-				getMainWindow(),
-			);
-			const result = await dialog.showSaveDialog(dialogOptions);
+				// Prefer the user's last export folder if it still exists, otherwise fall
+				// back to ~/Downloads. Validation must happen here because the renderer
+				// can't stat the filesystem.
+				let defaultDir = app.getPath("downloads");
+				if (exportFolder) {
+					try {
+						const stats = await fs.stat(exportFolder);
+						if (stats.isDirectory()) {
+							defaultDir = exportFolder;
+						}
+					} catch (err) {
+						// Stat can fail because the folder was moved/deleted (expected) or
+						// because of a permission error (worth surfacing). Either way we
+						// fall back to Downloads, but log so debugging isn't blind.
+						console.warn(
+							`Could not access remembered export folder "${exportFolder}", falling back to Downloads:`,
+							err,
+						);
+					}
+				}
+				const dialogOptions = buildDialogOptions(
+					{
+						title: isGif
+							? mainT("dialogs", "fileDialogs.saveGif")
+							: mainT("dialogs", "fileDialogs.saveVideo"),
+						defaultPath: path.join(defaultDir, fileName),
+						filters,
+						properties: ["createDirectory", "showOverwriteConfirmation"],
+					},
+					getMainWindow(),
+				);
+				const result = await dialog.showSaveDialog(dialogOptions);
 
-			if (result.canceled || !result.filePath) {
+				if (result.canceled || !result.filePath) {
+					return {
+						success: false,
+						canceled: true,
+						message: "Export canceled",
+					};
+				}
+
+				// --- FIX: Normalize the path for Windows compatibility ---
+				const normalizedPath = path.normalize(result.filePath);
+
+				// Ensure the parent directory exists (Windows may fail if the folder is missing)
+				await fs.mkdir(path.dirname(normalizedPath), { recursive: true });
+				// --- END FIX ---
+
+				await fs.writeFile(normalizedPath, Buffer.from(videoData));
+
+				return {
+					success: true,
+					path: normalizedPath,
+					message: "Video exported successfully",
+				};
+			} catch (error) {
+				console.error("Failed to save exported video:", error);
 				return {
 					success: false,
-					canceled: true,
-					message: "Export canceled",
+					message: "Failed to save exported video",
+					error: String(error),
 				};
 			}
-
-			// --- FIX: Normalize the path for Windows compatibility ---
-			const normalizedPath = path.normalize(result.filePath);
-
-			// Ensure the parent directory exists (Windows may fail if the folder is missing)
-			await fs.mkdir(path.dirname(normalizedPath), { recursive: true });
-			// --- END FIX ---
-
-			await fs.writeFile(normalizedPath, Buffer.from(videoData));
-
-			return {
-				success: true,
-				path: normalizedPath,
-				message: "Video exported successfully",
-			};
-		} catch (error) {
-			console.error("Failed to save exported video:", error);
-			return {
-				success: false,
-				message: "Failed to save exported video",
-				error: String(error),
-			};
-		}
-	});
+		},
+	);
 	ipcMain.handle("open-video-file-picker", async () => {
 		try {
 			const dialogOptions = buildDialogOptions(
@@ -1317,4 +1341,45 @@ export function registerIpcHandlers(
 			return { success: false, error: String(error) };
 		}
 	});
+
+	ipcMain.handle(
+		"save-diagnostic",
+		async (
+			_,
+			payload: { error: string; stack?: string; projectState: unknown; logs: string[] },
+		) => {
+			const { filePath, canceled } = await dialog.showSaveDialog({
+				title: "Save Diagnostic File",
+				defaultPath: `openscreen-diagnostic-${Date.now()}.json`,
+				filters: [{ name: "JSON", extensions: ["json"] }],
+			});
+
+			if (canceled || !filePath) return { success: false, canceled: true };
+
+			const diagnostic = {
+				timestamp: new Date().toISOString(),
+				appVersion: app.getVersion(),
+				platform: process.platform,
+				arch: process.arch,
+				osRelease: os.release(),
+				osVersion: os.version(),
+				totalMemoryMB: Math.round(os.totalmem() / 1024 / 1024),
+				nodeVersion: process.versions.node,
+				electronVersion: process.versions.electron,
+				chromeVersion: process.versions.chrome,
+				error: payload.error,
+				stack: payload.stack,
+				projectState: payload.projectState,
+				recentLogs: payload.logs,
+			};
+
+			try {
+				await fs.writeFile(filePath, JSON.stringify(diagnostic, null, 2), "utf-8");
+				return { success: true, path: filePath };
+			} catch (error) {
+				console.error("Failed to write diagnostic file:", error);
+				return { success: false, error: String(error) };
+			}
+		},
+	);
 }

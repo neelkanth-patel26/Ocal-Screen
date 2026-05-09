@@ -31,7 +31,12 @@ import {
 import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
-import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
+import {
+	getExportFolder,
+	loadUserPreferences,
+	parentDirectoryOf,
+	saveUserPreferences,
+} from "@/lib/userPreferences";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import {
 	getAspectRatioValue,
@@ -75,6 +80,7 @@ import {
 	type ZoomFocusMode,
 	type ZoomRegion,
 } from "./types";
+import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 
 export default function VideoEditor() {
@@ -147,6 +153,7 @@ export default function VideoEditor() {
 		format: string;
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [showCloseConfirmDialog, setShowCloseConfirmDialog] = useState(false);
 
 	const playerContainerRef = useRef<HTMLDivElement>(null);
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
@@ -537,6 +544,28 @@ export default function VideoEditor() {
 		});
 		return () => cleanup();
 	}, [saveProject]);
+
+	useEffect(() => {
+		const cleanup = window.electronAPI.onRequestCloseConfirm(() => {
+			setShowCloseConfirmDialog(true);
+		});
+		return () => cleanup();
+	}, []);
+
+	const handleCloseConfirmSave = useCallback(() => {
+		setShowCloseConfirmDialog(false);
+		window.electronAPI.sendCloseConfirmResponse("save");
+	}, []);
+
+	const handleCloseConfirmDiscard = useCallback(() => {
+		setShowCloseConfirmDialog(false);
+		window.electronAPI.sendCloseConfirmResponse("discard");
+	}, []);
+
+	const handleCloseConfirmCancel = useCallback(() => {
+		setShowCloseConfirmDialog(false);
+		window.electronAPI.sendCloseConfirmResponse("cancel");
+	}, []);
 
 	const handleSaveProject = useCallback(async () => {
 		await saveProject(false);
@@ -1319,6 +1348,10 @@ export default function VideoEditor() {
 	const handleExportSaved = useCallback(
 		(formatLabel: "GIF" | "Video", filePath: string) => {
 			setExportedFilePath(filePath);
+			const folder = parentDirectoryOf(filePath);
+			if (folder) {
+				saveUserPreferences({ exportFolder: folder });
+			}
 			toast.success(
 				t("export.exportedSuccessfully", {
 					format: formatLabel,
@@ -1343,6 +1376,7 @@ export default function VideoEditor() {
 			const saveResult = await window.electronAPI.saveExportedVideo(
 				unsavedExport.arrayBuffer,
 				unsavedExport.fileName,
+				getExportFolder(),
 			);
 			if (saveResult.canceled) {
 				toast.info("Export canceled");
@@ -1446,7 +1480,11 @@ export default function VideoEditor() {
 							}
 						}
 
-						const saveResult = await window.electronAPI.saveExportedVideo(arrayBuffer, fileName);
+						const saveResult = await window.electronAPI.saveExportedVideo(
+							arrayBuffer,
+							fileName,
+							getExportFolder(),
+						);
 
 						if (saveResult.canceled) {
 							setUnsavedExport({ arrayBuffer, fileName, format: "gif" });
@@ -1588,7 +1626,11 @@ export default function VideoEditor() {
 							}
 						}
 
-						const saveResult = await window.electronAPI.saveExportedVideo(arrayBuffer, fileName);
+						const saveResult = await window.electronAPI.saveExportedVideo(
+							arrayBuffer,
+							fileName,
+							getExportFolder(),
+						);
 
 						if (saveResult.canceled) {
 							setUnsavedExport({ arrayBuffer, fileName, format: "mp4" });
@@ -1729,6 +1771,19 @@ export default function VideoEditor() {
 			setExportedFilePath(null);
 		}
 	}, []);
+
+	const handleSaveDiagnostic = useCallback(async () => {
+		const result = await window.electronAPI.saveDiagnostic({
+			error: exportError ?? "Manual diagnostic export",
+			projectState: editorState,
+			logs: [],
+		});
+		if (result.success) {
+			toast.success("Diagnostic file saved");
+		} else if (!result.canceled) {
+			toast.error("Failed to save diagnostic file");
+		}
+	}, [exportError, editorState]);
 
 	if (loading) {
 		return (
@@ -2100,6 +2155,7 @@ export default function VideoEditor() {
 						onSpeedDelete={handleSpeedDelete}
 						unsavedExport={unsavedExport}
 						onSaveUnsavedExport={handleSaveUnsavedExport}
+						onSaveDiagnostic={handleSaveDiagnostic}
 					/>
 				</div>
 			</div>
@@ -2116,6 +2172,13 @@ export default function VideoEditor() {
 				onShowInFolder={
 					exportedFilePath ? () => void handleShowExportedFile(exportedFilePath) : undefined
 				}
+			/>
+
+			<UnsavedChangesDialog
+				isOpen={showCloseConfirmDialog}
+				onSaveAndClose={handleCloseConfirmSave}
+				onDiscardAndClose={handleCloseConfirmDiscard}
+				onCancel={handleCloseConfirmCancel}
 			/>
 		</div>
 	);
