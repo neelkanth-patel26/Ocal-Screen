@@ -31,7 +31,12 @@ import {
 import { computeFrameStepTime } from "@/lib/frameStep";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
-import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
+import {
+	getExportFolder,
+	loadUserPreferences,
+	parentDirectoryOf,
+	saveUserPreferences,
+} from "@/lib/userPreferences";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import {
 	getAspectRatioValue,
@@ -67,13 +72,16 @@ import {
 	DEFAULT_ZOOM_DEPTH,
 	type FigureData,
 	type PlaybackSpeed,
+	type Rotation3DPreset,
 	type SpeedRegion,
 	type TrimRegion,
+	ZOOM_DEPTH_SCALES,
 	type ZoomDepth,
 	type ZoomFocus,
 	type ZoomFocusMode,
 	type ZoomRegion,
 } from "./types";
+import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 
 export default function VideoEditor() {
@@ -103,6 +111,7 @@ export default function VideoEditor() {
 		webcamMaskShape,
 		webcamSizePreset,
 		webcamPosition,
+		cursorHighlight,
 	} = editorState;
 
 	// ── Non-undoable state
@@ -121,6 +130,7 @@ export default function VideoEditor() {
 	const durationRef = useRef(duration);
 	durationRef.current = duration;
 	const [cursorTelemetry, setCursorTelemetry] = useState<CursorTelemetryPoint[]>([]);
+	const [cursorClickTimestamps, setCursorClickTimestamps] = useState<number[]>([]);
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
@@ -144,6 +154,7 @@ export default function VideoEditor() {
 		format: string;
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [showCloseConfirmDialog, setShowCloseConfirmDialog] = useState(false);
 
 	const playerContainerRef = useRef<HTMLDivElement>(null);
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
@@ -153,6 +164,12 @@ export default function VideoEditor() {
 	const nextSpeedIdRef = useRef(1);
 
 	const { shortcuts, isMac } = useShortcuts();
+	// Off-Mac doesn't have click telemetry, so force `onlyOnClicks` off for
+	// renderers while keeping the persisted value intact for round-tripping.
+	const effectiveCursorHighlight = useMemo(
+		() => (isMac ? cursorHighlight : { ...cursorHighlight, onlyOnClicks: false }),
+		[cursorHighlight, isMac],
+	);
 	const { locale, setLocale, t: rawT } = useI18n();
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
@@ -430,7 +447,7 @@ export default function VideoEditor() {
 				return false;
 			}
 
-			const projectData = createProjectData(currentProjectMedia, {
+			const editorState = {
 				wallpaper,
 				shadowIntensity,
 				showBlur,
@@ -452,14 +469,18 @@ export default function VideoEditor() {
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
-			});
+				cursorHighlight,
+			};
+			const projectData = createProjectData(currentProjectMedia, editorState);
 
 			const fileNameBase =
 				currentProjectMedia.screenVideoPath
 					.split(/[\\/]/)
 					.pop()
 					?.replace(/\.[^.]+$/, "") || `project-${Date.now()}`;
-			const projectSnapshot = JSON.stringify(projectData);
+			// Match the normalization path used by `currentProjectSnapshot` so the
+			// post-save baseline compares equal and `hasUnsavedChanges` clears.
+			const projectSnapshot = createProjectSnapshot(currentProjectMedia, editorState);
 			const result = await window.electronAPI.saveProjectFile(
 				projectData,
 				fileNameBase,
@@ -510,6 +531,7 @@ export default function VideoEditor() {
 			videoPath,
 			t,
 			webcamSizePreset,
+			cursorHighlight,
 		],
 	);
 
@@ -523,6 +545,28 @@ export default function VideoEditor() {
 		});
 		return () => cleanup();
 	}, [saveProject]);
+
+	useEffect(() => {
+		const cleanup = window.electronAPI.onRequestCloseConfirm(() => {
+			setShowCloseConfirmDialog(true);
+		});
+		return () => cleanup();
+	}, []);
+
+	const handleCloseConfirmSave = useCallback(() => {
+		setShowCloseConfirmDialog(false);
+		window.electronAPI.sendCloseConfirmResponse("save");
+	}, []);
+
+	const handleCloseConfirmDiscard = useCallback(() => {
+		setShowCloseConfirmDialog(false);
+		window.electronAPI.sendCloseConfirmResponse("discard");
+	}, []);
+
+	const handleCloseConfirmCancel = useCallback(() => {
+		setShowCloseConfirmDialog(false);
+		window.electronAPI.sendCloseConfirmResponse("cancel");
+	}, []);
 
 	const handleSaveProject = useCallback(async () => {
 		await saveProject(false);
@@ -584,6 +628,7 @@ export default function VideoEditor() {
 			if (!sourcePath) {
 				if (mounted) {
 					setCursorTelemetry([]);
+					setCursorClickTimestamps([]);
 				}
 				return;
 			}
@@ -592,11 +637,13 @@ export default function VideoEditor() {
 				const result = await window.electronAPI.getCursorTelemetry(sourcePath);
 				if (mounted) {
 					setCursorTelemetry(result.success ? result.samples : []);
+					setCursorClickTimestamps(result.success ? (result.clicks ?? []) : []);
 				}
 			} catch (telemetryError) {
 				console.warn("Unable to load cursor telemetry:", telemetryError);
 				if (mounted) {
 					setCursorTelemetry([]);
+					setCursorClickTimestamps([]);
 				}
 			}
 		}
@@ -686,6 +733,7 @@ export default function VideoEditor() {
 				startMs: Math.round(span.start),
 				endMs: Math.round(span.end),
 				depth: DEFAULT_ZOOM_DEPTH,
+				customScale: ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH],
 				focus: { cx: 0.5, cy: 0.5 },
 			};
 			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
@@ -705,6 +753,7 @@ export default function VideoEditor() {
 				startMs: Math.round(span.start),
 				endMs: Math.round(span.end),
 				depth: DEFAULT_ZOOM_DEPTH,
+				customScale: ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH],
 				focus: clampFocusToDepth(focus, DEFAULT_ZOOM_DEPTH),
 			};
 			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
@@ -788,6 +837,7 @@ export default function VideoEditor() {
 						? {
 								...region,
 								depth,
+								customScale: ZOOM_DEPTH_SCALES[depth],
 								focus: clampFocusToDepth(region.focus, depth),
 							}
 						: region,
@@ -796,6 +846,24 @@ export default function VideoEditor() {
 		},
 		[selectedZoomId, pushState],
 	);
+
+	const handleZoomCustomScaleChange = useCallback(
+		(scale: number) => {
+			if (!selectedZoomId) return;
+			const rounded = Math.round(scale * 100) / 100;
+			if (!Number.isFinite(rounded)) return;
+			updateState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) =>
+					region.id === selectedZoomId ? { ...region, customScale: rounded } : region,
+				),
+			}));
+		},
+		[selectedZoomId, updateState],
+	);
+
+	const handleZoomCustomScaleCommit = useCallback(() => {
+		commitState();
+	}, [commitState]);
 
 	const handleZoomFocusModeChange = useCallback(
 		(focusMode: ZoomFocusMode) => {
@@ -817,6 +885,23 @@ export default function VideoEditor() {
 			if (selectedZoomId === id) {
 				setSelectedZoomId(null);
 			}
+		},
+		[selectedZoomId, pushState],
+	);
+
+	const handleZoomRotationPresetChange = useCallback(
+		(preset: Rotation3DPreset | null) => {
+			if (!selectedZoomId) return;
+			pushState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) => {
+					if (region.id !== selectedZoomId) return region;
+					if (preset === null) {
+						const { rotationPreset: _p, ...rest } = region;
+						return rest;
+					}
+					return { ...region, rotationPreset: preset };
+				}),
+			}));
 		},
 		[selectedZoomId, pushState],
 	);
@@ -1285,6 +1370,10 @@ export default function VideoEditor() {
 	const handleExportSaved = useCallback(
 		(formatLabel: "GIF" | "Video", filePath: string) => {
 			setExportedFilePath(filePath);
+			const folder = parentDirectoryOf(filePath);
+			if (folder) {
+				saveUserPreferences({ exportFolder: folder });
+			}
 			toast.success(
 				t("export.exportedSuccessfully", {
 					format: formatLabel,
@@ -1306,13 +1395,19 @@ export default function VideoEditor() {
 	const handleSaveUnsavedExport = useCallback(async () => {
 		if (!unsavedExport) return;
 		try {
-			const saveResult = await window.electronAPI.saveExportedVideo(
-				unsavedExport.arrayBuffer,
+			const pickResult = await window.electronAPI.pickExportSavePath(
 				unsavedExport.fileName,
+				getExportFolder(),
 			);
-			if (saveResult.canceled) {
+			if (pickResult.canceled || !pickResult.success || !pickResult.path) {
 				toast.info("Export canceled");
-			} else if (saveResult.success && saveResult.path) {
+				return;
+			}
+			const saveResult = await window.electronAPI.writeExportToPath(
+				unsavedExport.arrayBuffer,
+				pickResult.path,
+			);
+			if (saveResult.success && saveResult.path) {
 				setUnsavedExport(null);
 				handleExportSaved(unsavedExport.format === "gif" ? "GIF" : "Video", saveResult.path);
 			} else {
@@ -1336,6 +1431,21 @@ export default function VideoEditor() {
 				toast.error("Video not ready");
 				return;
 			}
+
+			// Ask the user where to save BEFORE starting the export. This avoids the
+			// post-export save dialog getting hidden behind other windows after a
+			// long-running export.
+			const isGifFormat = settings.format === "gif";
+			const targetFileName = `export-${Date.now()}.${isGifFormat ? "gif" : "mp4"}`;
+			const pickResult = await window.electronAPI.pickExportSavePath(
+				targetFileName,
+				getExportFolder(),
+			);
+			if (pickResult.canceled || !pickResult.success || !pickResult.path) {
+				setShowExportDialog(false);
+				return;
+			}
+			const targetPath = pickResult.path;
 
 			setIsExporting(true);
 			setExportProgress(null);
@@ -1391,6 +1501,8 @@ export default function VideoEditor() {
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						cursorClickTimestamps,
+						cursorHighlight: effectiveCursorHighlight,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1401,8 +1513,6 @@ export default function VideoEditor() {
 
 					if (result.success && result.blob) {
 						const arrayBuffer = await result.blob.arrayBuffer();
-						const timestamp = Date.now();
-						const fileName = `export-${timestamp}.gif`;
 
 						if (result.warnings) {
 							for (const warning of result.warnings) {
@@ -1410,15 +1520,13 @@ export default function VideoEditor() {
 							}
 						}
 
-						const saveResult = await window.electronAPI.saveExportedVideo(arrayBuffer, fileName);
+						const saveResult = await window.electronAPI.writeExportToPath(arrayBuffer, targetPath);
 
-						if (saveResult.canceled) {
-							setUnsavedExport({ arrayBuffer, fileName, format: "gif" });
-							toast.info("Export canceled");
-						} else if (saveResult.success && saveResult.path) {
+						if (saveResult.success && saveResult.path) {
 							setUnsavedExport(null);
 							handleExportSaved("GIF", saveResult.path);
 						} else {
+							setUnsavedExport({ arrayBuffer, fileName: targetFileName, format: "gif" });
 							setExportError(saveResult.message || "Failed to save GIF");
 							toast.error(saveResult.message || "Failed to save GIF");
 						}
@@ -1434,18 +1542,19 @@ export default function VideoEditor() {
 					let bitrate: number;
 
 					if (quality === "source") {
-						// Use source resolution
 						exportWidth = sourceWidth;
 						exportHeight = sourceHeight;
 
+						// Use the source's longer dimension as the long axis of the export so
+						// a landscape recording can still fill a portrait target (and vice versa).
+						const sourceLongDim = Math.max(sourceWidth, sourceHeight);
+
 						if (aspectRatioValue === 1) {
-							// Square (1:1): use smaller dimension to avoid codec limits
 							const baseDimension = Math.floor(Math.min(sourceWidth, sourceHeight) / 2) * 2;
 							exportWidth = baseDimension;
 							exportHeight = baseDimension;
 						} else if (aspectRatioValue > 1) {
-							// Landscape: find largest even dimensions that exactly match aspect ratio
-							const baseWidth = Math.floor(sourceWidth / 2) * 2;
+							const baseWidth = Math.floor(sourceLongDim / 2) * 2;
 							let found = false;
 							for (let w = baseWidth; w >= 100 && !found; w -= 2) {
 								const h = Math.round(w / aspectRatioValue);
@@ -1460,8 +1569,7 @@ export default function VideoEditor() {
 								exportHeight = Math.floor(baseWidth / aspectRatioValue / 2) * 2;
 							}
 						} else {
-							// Portrait: find largest even dimensions that exactly match aspect ratio
-							const baseHeight = Math.floor(sourceHeight / 2) * 2;
+							const baseHeight = Math.floor(sourceLongDim / 2) * 2;
 							let found = false;
 							for (let h = baseHeight; h >= 100 && !found; h -= 2) {
 								const w = Math.round(h * aspectRatioValue);
@@ -1477,7 +1585,6 @@ export default function VideoEditor() {
 							}
 						}
 
-						// Calculate visually lossless bitrate matching screen recording optimization
 						const totalPixels = exportWidth * exportHeight;
 						bitrate = 30_000_000;
 						if (totalPixels > 1920 * 1080 && totalPixels <= 2560 * 1440) {
@@ -1486,14 +1593,18 @@ export default function VideoEditor() {
 							bitrate = 80_000_000;
 						}
 					} else {
-						// Use quality-based target resolution
-						const targetHeight = quality === "medium" ? 720 : 1080;
+						// Quality presets target the SHORT side; the long side derives from the
+						// aspect ratio. This keeps 1080p portrait at 1080×1920 instead of 607×1080.
+						const targetShortDim = quality === "medium" ? 720 : 1080;
 
-						// Calculate dimensions maintaining aspect ratio
-						exportHeight = Math.floor(targetHeight / 2) * 2;
-						exportWidth = Math.floor((exportHeight * aspectRatioValue) / 2) * 2;
+						if (aspectRatioValue >= 1) {
+							exportHeight = Math.floor(targetShortDim / 2) * 2;
+							exportWidth = Math.floor((exportHeight * aspectRatioValue) / 2) * 2;
+						} else {
+							exportWidth = Math.floor(targetShortDim / 2) * 2;
+							exportHeight = Math.floor(exportWidth / aspectRatioValue / 2) * 2;
+						}
 
-						// Adjust bitrate for lower resolutions
 						const totalPixels = exportWidth * exportHeight;
 						if (totalPixels <= 1280 * 720) {
 							bitrate = 10_000_000;
@@ -1531,6 +1642,8 @@ export default function VideoEditor() {
 						previewWidth,
 						previewHeight,
 						cursorTelemetry,
+						cursorClickTimestamps,
+						cursorHighlight: effectiveCursorHighlight,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1541,8 +1654,6 @@ export default function VideoEditor() {
 
 					if (result.success && result.blob) {
 						const arrayBuffer = await result.blob.arrayBuffer();
-						const timestamp = Date.now();
-						const fileName = `export-${timestamp}.mp4`;
 
 						if (result.warnings) {
 							for (const warning of result.warnings) {
@@ -1550,15 +1661,13 @@ export default function VideoEditor() {
 							}
 						}
 
-						const saveResult = await window.electronAPI.saveExportedVideo(arrayBuffer, fileName);
+						const saveResult = await window.electronAPI.writeExportToPath(arrayBuffer, targetPath);
 
-						if (saveResult.canceled) {
-							setUnsavedExport({ arrayBuffer, fileName, format: "mp4" });
-							toast.info("Export canceled");
-						} else if (saveResult.success && saveResult.path) {
+						if (saveResult.success && saveResult.path) {
 							setUnsavedExport(null);
 							handleExportSaved("Video", saveResult.path);
 						} else {
+							setUnsavedExport({ arrayBuffer, fileName: targetFileName, format: "mp4" });
 							setExportError(saveResult.message || "Failed to save video");
 							toast.error(saveResult.message || "Failed to save video");
 						}
@@ -1614,6 +1723,8 @@ export default function VideoEditor() {
 			exportQuality,
 			handleExportSaved,
 			cursorTelemetry,
+			cursorClickTimestamps,
+			effectiveCursorHighlight,
 			t,
 		],
 	);
@@ -1689,6 +1800,19 @@ export default function VideoEditor() {
 			setExportedFilePath(null);
 		}
 	}, []);
+
+	const handleSaveDiagnostic = useCallback(async () => {
+		const result = await window.electronAPI.saveDiagnostic({
+			error: exportError ?? "Manual diagnostic export",
+			projectState: editorState,
+			logs: [],
+		});
+		if (result.success) {
+			toast.success("Diagnostic file saved");
+		} else if (!result.canceled) {
+			toast.error("Failed to save diagnostic file");
+		}
+	}, [exportError, editorState]);
 
 	if (loading) {
 		return (
@@ -1871,6 +1995,8 @@ export default function VideoEditor() {
 											onBlurDataChange={handleBlurDataPreviewChange}
 											onBlurDataCommit={commitState}
 											cursorTelemetry={cursorTelemetry}
+											cursorHighlight={effectiveCursorHighlight}
+											cursorClickTimestamps={cursorClickTimestamps}
 										/>
 									</div>
 								</div>
@@ -1954,21 +2080,46 @@ export default function VideoEditor() {
 				{/* Right section: settings panel */}
 				<div className="flex-[3] min-w-[280px] max-w-[420px] h-full">
 					<SettingsPanel
+						cursorHighlight={cursorHighlight}
+						onCursorHighlightChange={(next) => pushState({ cursorHighlight: next })}
+						cursorHighlightSupportsClicks={isMac}
 						selected={wallpaper}
 						onWallpaperChange={(w) => pushState({ wallpaper: w })}
 						selectedZoomDepth={
 							selectedZoomId ? zoomRegions.find((z) => z.id === selectedZoomId)?.depth : null
 						}
 						onZoomDepthChange={(depth) => selectedZoomId && handleZoomDepthChange(depth)}
+						selectedZoomCustomScale={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.customScale ?? null)
+								: null
+						}
+						onZoomCustomScaleChange={handleZoomCustomScaleChange}
+						onZoomCustomScaleCommit={handleZoomCustomScaleCommit}
 						selectedZoomFocusMode={
 							selectedZoomId
 								? (zoomRegions.find((z) => z.id === selectedZoomId)?.focusMode ?? "manual")
 								: null
 						}
 						onZoomFocusModeChange={(mode) => selectedZoomId && handleZoomFocusModeChange(mode)}
+						selectedZoomFocus={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.focus ?? null)
+								: null
+						}
+						onZoomFocusCoordinateChange={(focus) =>
+							selectedZoomId && handleZoomFocusChange(selectedZoomId, focus)
+						}
+						onZoomFocusCoordinateCommit={commitState}
 						hasCursorTelemetry={cursorTelemetry.length > 0}
 						selectedZoomId={selectedZoomId}
 						onZoomDelete={handleZoomDelete}
+						selectedZoomRotationPreset={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.rotationPreset ?? null)
+								: null
+						}
+						onZoomRotationPresetChange={handleZoomRotationPresetChange}
 						selectedTrimId={selectedTrimId}
 						onTrimDelete={handleTrimDelete}
 						shadowIntensity={shadowIntensity}
@@ -2049,6 +2200,7 @@ export default function VideoEditor() {
 						onSpeedDelete={handleSpeedDelete}
 						unsavedExport={unsavedExport}
 						onSaveUnsavedExport={handleSaveUnsavedExport}
+						onSaveDiagnostic={handleSaveDiagnostic}
 					/>
 				</div>
 			</div>
@@ -2065,6 +2217,13 @@ export default function VideoEditor() {
 				onShowInFolder={
 					exportedFilePath ? () => void handleShowExportedFile(exportedFilePath) : undefined
 				}
+			/>
+
+			<UnsavedChangesDialog
+				isOpen={showCloseConfirmDialog}
+				onSaveAndClose={handleCloseConfirmSave}
+				onDiscardAndClose={handleCloseConfirmDiscard}
+				onCancel={handleCloseConfirmCancel}
 			/>
 		</div>
 	);

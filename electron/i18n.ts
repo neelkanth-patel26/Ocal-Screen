@@ -1,6 +1,8 @@
 // Lightweight i18n for the Electron main process.
 // Imports the same JSON translation files used by the renderer.
 
+import commonAr from "../src/i18n/locales/ar/common.json";
+import dialogsAr from "../src/i18n/locales/ar/dialogs.json";
 import commonEn from "../src/i18n/locales/en/common.json";
 import dialogsEn from "../src/i18n/locales/en/dialogs.json";
 import commonEs from "../src/i18n/locales/es/common.json";
@@ -20,7 +22,7 @@ import dialogsZh from "../src/i18n/locales/zh-CN/dialogs.json";
 import commonZhTw from "../src/i18n/locales/zh-TW/common.json";
 import dialogsZhTw from "../src/i18n/locales/zh-TW/dialogs.json";
 
-type Locale = "en" | "zh-CN" | "zh-TW" | "es" | "fr" | "ja-JP" | "ko-KR" | "tr" | "vi";
+type Locale = "en" | "zh-CN" | "zh-TW" | "es" | "fr" | "ja-JP" | "ko-KR" | "tr" | "ar" | "vi";
 type Namespace = "common" | "dialogs";
 type MessageMap = Record<string, unknown>;
 
@@ -33,6 +35,7 @@ const messages: Record<Locale, Record<Namespace, MessageMap>> = {
 	"ja-JP": { common: commonJa, dialogs: dialogsJa },
 	"ko-KR": { common: commonKo, dialogs: dialogsKo },
 	tr: { common: commonTr, dialogs: dialogsTr },
+	ar: { common: commonAr, dialogs: dialogsAr },
 	vi: { common: commonVi, dialogs: dialogsVi },
 };
 
@@ -48,6 +51,7 @@ export function setMainLocale(locale: string) {
 		locale === "ja-JP" ||
 		locale === "ko-KR" ||
 		locale === "tr" ||
+		locale === "ar" ||
 		locale === "vi"
 	) {
 		currentLocale = locale;

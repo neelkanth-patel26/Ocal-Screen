@@ -40,6 +40,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	requestCameraAccess: () => {
 		return ipcRenderer.invoke("request-camera-access");
 	},
+	requestAccessibilityAccess: () => {
+		return ipcRenderer.invoke("request-accessibility-access");
+	},
 
 	storeRecordedVideo: (videoData: ArrayBuffer, fileName: string) => {
 		return ipcRenderer.invoke("store-recorded-video", videoData, fileName);
@@ -68,8 +71,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	openExternalUrl: (url: string) => {
 		return ipcRenderer.invoke("open-external-url", url);
 	},
-	saveExportedVideo: (videoData: ArrayBuffer, fileName: string) => {
-		return ipcRenderer.invoke("save-exported-video", videoData, fileName);
+	pickExportSavePath: (fileName: string, exportFolder?: string) => {
+		return ipcRenderer.invoke("pick-export-save-path", fileName, exportFolder);
+	},
+	writeExportToPath: (videoData: ArrayBuffer, filePath: string) => {
+		return ipcRenderer.invoke("write-export-to-path", videoData, filePath);
 	},
 	openVideoFilePicker: () => {
 		return ipcRenderer.invoke("open-video-file-picker");
@@ -131,6 +137,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	setLocale: (locale: string) => {
 		return ipcRenderer.invoke("set-locale", locale);
 	},
+	saveDiagnostic: (payload: {
+		error: string;
+		stack?: string;
+		projectState: unknown;
+		logs: string[];
+	}) => {
+		return ipcRenderer.invoke("save-diagnostic", payload);
+	},
 	setMicrophoneExpanded: (expanded: boolean) => {
 		ipcRenderer.send("hud:setMicrophoneExpanded", expanded);
 	},
@@ -162,5 +176,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		};
 		ipcRenderer.on("request-save-before-close", listener);
 		return () => ipcRenderer.removeListener("request-save-before-close", listener);
+	},
+	onRequestCloseConfirm: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("request-close-confirm", listener);
+		return () => ipcRenderer.removeListener("request-close-confirm", listener);
+	},
+	sendCloseConfirmResponse: (choice: "save" | "discard" | "cancel") => {
+		ipcRenderer.send("close-confirm-response", choice);
 	},
 });
