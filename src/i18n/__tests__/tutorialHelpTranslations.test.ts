@@ -6,6 +6,7 @@ import esDialogs from "@/i18n/locales/es/dialogs.json";
 import frDialogs from "@/i18n/locales/fr/dialogs.json";
 import jaJPDialogs from "@/i18n/locales/ja-JP/dialogs.json";
 import koKRDialogs from "@/i18n/locales/ko-KR/dialogs.json";
+import ruDialogs from "@/i18n/locales/ru/dialogs.json";
 import trDialogs from "@/i18n/locales/tr/dialogs.json";
 import zhCNDialogs from "@/i18n/locales/zh-CN/dialogs.json";
 import zhTWDialogs from "@/i18n/locales/zh-TW/dialogs.json";
@@ -43,6 +44,7 @@ const dialogsByLocale = {
 	fr: frDialogs,
 	tr: trDialogs,
 	"ko-KR": koKRDialogs,
+	ru: ruDialogs,
 	"ja-JP": jaJPDialogs,
 	ar: arDialogs,
 } satisfies Record<Locale, { tutorial: Record<string, unknown> }>;
