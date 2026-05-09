@@ -449,14 +449,30 @@ app.whenReady().then(async () => {
 		app.dock?.show();
 	}
 
-	// Allow microphone/media permission checks
+	// Allow microphone/media/screen permission checks
 	session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-		const allowed = ["media", "audioCapture", "microphone", "videoCapture", "camera"];
+		const allowed = [
+			"media",
+			"audioCapture",
+			"microphone",
+			"videoCapture",
+			"camera",
+			"screen",
+			"display-capture",
+		];
 		return allowed.includes(permission);
 	});
 
 	session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-		const allowed = ["media", "audioCapture", "microphone", "videoCapture", "camera"];
+		const allowed = [
+			"media",
+			"audioCapture",
+			"microphone",
+			"videoCapture",
+			"camera",
+			"screen",
+			"display-capture",
+		];
 		callback(allowed.includes(permission));
 	});
 
