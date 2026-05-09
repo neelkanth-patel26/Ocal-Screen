@@ -123,13 +123,13 @@ jobs:
 
             on_arm do
               sha256 "${ARM_SHA}"
-              url "https://github.com/${REPO}/releases/download/v#{version}/${ARM_NAME}",
-                  verified: "github.com/${REPO}/"
+
+              url "https://github.com/${REPO}/releases/download/v#{version}/${ARM_NAME}"
             end
             on_intel do
               sha256 "${X64_SHA}"
-              url "https://github.com/${REPO}/releases/download/v#{version}/${X64_NAME}",
-                  verified: "github.com/${REPO}/"
+
+              url "https://github.com/${REPO}/releases/download/v#{version}/${X64_NAME}"
             end
 
             name "Openscreen"
