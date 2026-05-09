@@ -718,6 +718,32 @@ export function registerIpcHandlers(
 		}
 	});
 
+	ipcMain.handle("request-screen-access", async () => {
+		if (process.platform !== "darwin") {
+			return { success: true, granted: true, status: "granted" };
+		}
+
+		try {
+			const status = systemPreferences.getMediaAccessStatus("screen");
+			if (status === "granted") {
+				return { success: true, granted: true, status };
+			}
+
+			// Screen recording has no askForMediaAccess equivalent — the TCC prompt
+			// is triggered by desktopCapturer.getSources(). Fire it and return so
+			// the renderer can re-check status after the user responds.
+			if (status === "not-determined") {
+				desktopCapturer.getSources({ types: ["screen"] }).catch(() => {});
+				return { success: true, granted: false, status: "not-determined" };
+			}
+
+			return { success: true, granted: false, status };
+		} catch (error) {
+			console.error("Failed to request screen access:", error);
+			return { success: false, granted: false, status: "unknown", error: String(error) };
+		}
+	});
+
 	// macOS Accessibility prompt for global click capture. First call shows the
 	// system dialog; the user has to toggle the app in System Settings (no
 	// programmatic grant exists for Accessibility).
