@@ -1,6 +1,7 @@
 {
 	"zoom": {
 		"level": "Zoom Level",
+		"customScale": "Custom Zoom",
 		"selectRegion": "Select a zoom region to adjust",
 		"deleteZoom": "Delete Zoom",
 		"focusMode": {

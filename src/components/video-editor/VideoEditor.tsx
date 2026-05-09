@@ -75,6 +75,7 @@ import {
 	type Rotation3DPreset,
 	type SpeedRegion,
 	type TrimRegion,
+	ZOOM_DEPTH_SCALES,
 	type ZoomDepth,
 	type ZoomFocus,
 	type ZoomFocusMode,
@@ -732,6 +733,7 @@ export default function VideoEditor() {
 				startMs: Math.round(span.start),
 				endMs: Math.round(span.end),
 				depth: DEFAULT_ZOOM_DEPTH,
+				customScale: ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH],
 				focus: { cx: 0.5, cy: 0.5 },
 			};
 			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
@@ -751,6 +753,7 @@ export default function VideoEditor() {
 				startMs: Math.round(span.start),
 				endMs: Math.round(span.end),
 				depth: DEFAULT_ZOOM_DEPTH,
+				customScale: ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH],
 				focus: clampFocusToDepth(focus, DEFAULT_ZOOM_DEPTH),
 			};
 			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
@@ -834,6 +837,7 @@ export default function VideoEditor() {
 						? {
 								...region,
 								depth,
+								customScale: ZOOM_DEPTH_SCALES[depth],
 								focus: clampFocusToDepth(region.focus, depth),
 							}
 						: region,
@@ -842,6 +846,24 @@ export default function VideoEditor() {
 		},
 		[selectedZoomId, pushState],
 	);
+
+	const handleZoomCustomScaleChange = useCallback(
+		(scale: number) => {
+			if (!selectedZoomId) return;
+			const rounded = Math.round(scale * 100) / 100;
+			if (!Number.isFinite(rounded)) return;
+			updateState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) =>
+					region.id === selectedZoomId ? { ...region, customScale: rounded } : region,
+				),
+			}));
+		},
+		[selectedZoomId, updateState],
+	);
+
+	const handleZoomCustomScaleCommit = useCallback(() => {
+		commitState();
+	}, [commitState]);
 
 	const handleZoomFocusModeChange = useCallback(
 		(focusMode: ZoomFocusMode) => {
@@ -2060,6 +2082,13 @@ export default function VideoEditor() {
 							selectedZoomId ? zoomRegions.find((z) => z.id === selectedZoomId)?.depth : null
 						}
 						onZoomDepthChange={(depth) => selectedZoomId && handleZoomDepthChange(depth)}
+						selectedZoomCustomScale={
+							selectedZoomId
+								? (zoomRegions.find((z) => z.id === selectedZoomId)?.customScale ?? null)
+								: null
+						}
+						onZoomCustomScaleChange={handleZoomCustomScaleChange}
+						onZoomCustomScaleCommit={handleZoomCustomScaleCommit}
 						selectedZoomFocusMode={
 							selectedZoomId
 								? (zoomRegions.find((z) => z.id === selectedZoomId)?.focusMode ?? "manual")

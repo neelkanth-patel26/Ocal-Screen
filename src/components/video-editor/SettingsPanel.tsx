@@ -1,3 +1,4 @@
+import * as SliderPrimitive from "@radix-ui/react-slider";
 import {
 	Bug,
 	ChevronDown,
@@ -65,8 +66,11 @@ import type {
 import {
 	DEFAULT_WEBCAM_SIZE_PRESET,
 	MAX_PLAYBACK_SPEED,
+	MAX_ZOOM_SCALE,
+	MIN_ZOOM_SCALE,
 	ROTATION_3D_PRESET_ORDER,
 	SPEED_OPTIONS,
+	ZOOM_DEPTH_SCALES,
 } from "./types";
 
 function CustomSpeedInput({
@@ -170,6 +174,9 @@ interface SettingsPanelProps {
 	onWallpaperChange: (path: string) => void;
 	selectedZoomDepth?: ZoomDepth | null;
 	onZoomDepthChange?: (depth: ZoomDepth) => void;
+	selectedZoomCustomScale?: number | null;
+	onZoomCustomScaleChange?: (scale: number) => void;
+	onZoomCustomScaleCommit?: () => void;
 	selectedZoomFocusMode?: ZoomFocusMode | null;
 	onZoomFocusModeChange?: (mode: ZoomFocusMode) => void;
 	hasCursorTelemetry?: boolean;
@@ -263,6 +270,9 @@ export function SettingsPanel({
 	onWallpaperChange,
 	selectedZoomDepth,
 	onZoomDepthChange,
+	selectedZoomCustomScale,
+	onZoomCustomScaleChange,
+	onZoomCustomScaleCommit,
 	selectedZoomFocusMode,
 	onZoomFocusModeChange,
 	hasCursorTelemetry = false,
@@ -593,7 +603,9 @@ export function SettingsPanel({
 						<div className="flex items-center gap-2">
 							{zoomEnabled && selectedZoomDepth && (
 								<span className="text-[10px] uppercase tracking-wider font-medium text-[#34B27B] bg-[#34B27B]/10 px-2 py-0.5 rounded-full">
-									{ZOOM_DEPTH_OPTIONS.find((o) => o.depth === selectedZoomDepth)?.label}
+									{selectedZoomCustomScale != null
+										? `${selectedZoomCustomScale.toFixed(2)}×`
+										: ZOOM_DEPTH_OPTIONS.find((o) => o.depth === selectedZoomDepth)?.label}
 								</span>
 							)}
 							<KeyboardShortcutsHelp />
@@ -601,7 +613,10 @@ export function SettingsPanel({
 					</div>
 					<div className="grid grid-cols-6 gap-1.5">
 						{ZOOM_DEPTH_OPTIONS.map((option) => {
-							const isActive = selectedZoomDepth === option.depth;
+							const effectiveScale =
+								selectedZoomCustomScale ??
+								(selectedZoomDepth != null ? ZOOM_DEPTH_SCALES[selectedZoomDepth] : null);
+							const isActive = effectiveScale === ZOOM_DEPTH_SCALES[option.depth];
 							return (
 								<Button
 									key={option.depth}
@@ -622,6 +637,65 @@ export function SettingsPanel({
 							);
 						})}
 					</div>
+					{zoomEnabled && (
+						<div className="mt-3">
+							<div className="flex items-center justify-between mb-2">
+								<span className="text-xs text-slate-400">{t("zoom.customScale")}</span>
+								<span
+									className={cn(
+										"text-xs font-mono font-semibold tabular-nums",
+										selectedZoomCustomScale != null ? "text-[#34B27B]" : "text-slate-400",
+									)}
+								>
+									{(
+										selectedZoomCustomScale ??
+										(selectedZoomDepth != null
+											? ZOOM_DEPTH_SCALES[selectedZoomDepth]
+											: MIN_ZOOM_SCALE)
+									).toFixed(2)}
+									×
+								</span>
+							</div>
+							<SliderPrimitive.Root
+								min={MIN_ZOOM_SCALE}
+								max={MAX_ZOOM_SCALE}
+								step={0.01}
+								value={[
+									selectedZoomCustomScale ??
+										(selectedZoomDepth != null
+											? ZOOM_DEPTH_SCALES[selectedZoomDepth]
+											: MIN_ZOOM_SCALE),
+								]}
+								onValueChange={(values) => onZoomCustomScaleChange?.(values[0])}
+								onValueCommit={() => onZoomCustomScaleCommit?.()}
+								disabled={!zoomEnabled}
+								className="relative flex w-full touch-none select-none items-center py-1"
+							>
+								<SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full border border-white/10 bg-white/5">
+									<SliderPrimitive.Range
+										className={cn(
+											"absolute h-full transition-colors duration-150",
+											selectedZoomCustomScale != null ? "bg-[#34B27B]" : "bg-white/20",
+										)}
+									/>
+								</SliderPrimitive.Track>
+								<SliderPrimitive.Thumb
+									className={cn(
+										"block h-3.5 w-3.5 rounded-full border-2 shadow transition-all duration-150",
+										"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#34B27B]/50",
+										"disabled:pointer-events-none disabled:opacity-50 cursor-grab active:cursor-grabbing",
+										selectedZoomCustomScale != null
+											? "border-[#34B27B] bg-[#34B27B] shadow-[0_0_6px_rgba(52,178,123,0.4)]"
+											: "border-white/20 bg-[#2a2a30] hover:border-white/40",
+									)}
+								/>
+							</SliderPrimitive.Root>
+							<div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
+								<span>{MIN_ZOOM_SCALE.toFixed(1)}×</span>
+								<span>{MAX_ZOOM_SCALE.toFixed(1)}×</span>
+							</div>
+						</div>
+					)}
 					{!zoomEnabled && (
 						<p className="text-[10px] text-slate-500 mt-2 text-center">{t("zoom.selectRegion")}</p>
 					)}
