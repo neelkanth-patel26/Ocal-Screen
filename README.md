@@ -50,7 +50,20 @@ Download the latest installer for your platform from the [GitHub Releases](https
 
 ### macOS
 
-If you encounter issues with macOS Gatekeeper blocking the app (since it does not come with a developer certificate), you can bypass this by running the following command in your terminal after installation:
+The easiest way to install on macOS is via [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask siddharthvaddem/openscreen/openscreen
+```
+
+Brew automatically picks the right build for Apple Silicon or Intel, and verifies the download against a notarized signature so Gatekeeper won't block it.
+
+To update later: `brew upgrade --cask openscreen`
+To uninstall: `brew uninstall --cask openscreen` (add `--zap` to also remove app data)
+
+#### Manual install (if you prefer)
+
+If you'd rather grab the `.dmg` directly from the [Releases page](https://github.com/siddharthvaddem/openscreen/releases) and encounter Gatekeeper blocking the app, you can bypass it by running the following command in your terminal after installation:
 
 ```bash
 xattr -rd com.apple.quarantine /Applications/Openscreen.app
