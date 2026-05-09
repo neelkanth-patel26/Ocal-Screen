@@ -174,4 +174,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("request-save-before-close", listener);
 		return () => ipcRenderer.removeListener("request-save-before-close", listener);
 	},
+	onRequestCloseConfirm: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("request-close-confirm", listener);
+		return () => ipcRenderer.removeListener("request-close-confirm", listener);
+	},
+	sendCloseConfirmResponse: (choice: "save" | "discard" | "cancel") => {
+		ipcRenderer.send("close-confirm-response", choice);
+	},
 });

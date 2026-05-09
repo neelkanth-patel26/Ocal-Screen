@@ -156,6 +156,8 @@ interface Window {
 		setMicrophoneExpanded: (expanded: boolean) => void;
 		setHasUnsavedChanges: (hasChanges: boolean) => void;
 		onRequestSaveBeforeClose: (callback: () => Promise<boolean> | boolean) => () => void;
+		onRequestCloseConfirm: (callback: () => void) => () => void;
+		sendCloseConfirmResponse: (choice: "save" | "discard" | "cancel") => void;
 		setLocale: (locale: string) => Promise<void>;
 		saveDiagnostic: (payload: {
 			error: string;
