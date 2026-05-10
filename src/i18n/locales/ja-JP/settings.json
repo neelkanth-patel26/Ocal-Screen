@@ -8,6 +8,14 @@
 			"manual": "手動",
 			"auto": "自動",
 			"autoDescription": "表示範囲が録画中のカーソル位置に追従します"
+		},
+		"threeD": {
+			"title": "3D回転",
+			"preset": {
+				"iso": "Iso",
+				"left": "左",
+				"right": "右"
+			}
 		}
 	},
 	"speed": {

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
 	app,
 	BrowserWindow,
-	dialog,
+	desktopCapturer,
 	ipcMain,
 	Menu,
 	nativeImage,
@@ -136,15 +136,30 @@ function setupApplicationMenu() {
 		template.push({
 			label: app.name,
 			submenu: [
-				{ role: "about" },
+				{
+					role: "about",
+					label: mainT("common", "actions.about") || "About OpenScreen",
+				},
 				{ type: "separator" },
-				{ role: "services" },
+				{
+					role: "services",
+					label: mainT("common", "actions.services") || "Services",
+				},
 				{ type: "separator" },
-				{ role: "hide" },
-				{ role: "hideOthers" },
-				{ role: "unhide" },
+				{
+					role: "hide",
+					label: mainT("common", "actions.hide") || "Hide OpenScreen",
+				},
+				{
+					role: "hideOthers",
+					label: mainT("common", "actions.hideOthers") || "Hide Others",
+				},
+				{
+					role: "unhide",
+					label: mainT("common", "actions.unhide") || "Show All",
+				},
 				{ type: "separator" },
-				{ role: "quit" },
+				{ role: "quit", label: mainT("common", "actions.quit") || "Quit" },
 			],
 		});
 	}
@@ -168,40 +183,89 @@ function setupApplicationMenu() {
 					accelerator: "CmdOrCtrl+Shift+S",
 					click: () => sendEditorMenuAction("menu-save-project-as"),
 				},
-				...(isMac ? [] : [{ type: "separator" as const }, { role: "quit" as const }]),
+				...(isMac
+					? []
+					: [
+							{ type: "separator" as const },
+							{
+								role: "quit" as const,
+								label: mainT("common", "actions.quit") || "Quit",
+							},
+						]),
 			],
 		},
 		{
 			label: mainT("common", "actions.edit") || "Edit",
 			submenu: [
-				{ role: "undo" },
-				{ role: "redo" },
+				{ role: "undo", label: mainT("common", "actions.undo") || "Undo" },
+				{ role: "redo", label: mainT("common", "actions.redo") || "Redo" },
 				{ type: "separator" },
-				{ role: "cut" },
-				{ role: "copy" },
-				{ role: "paste" },
-				{ role: "selectAll" },
+				{ role: "cut", label: mainT("common", "actions.cut") || "Cut" },
+				{ role: "copy", label: mainT("common", "actions.copy") || "Copy" },
+				{ role: "paste", label: mainT("common", "actions.paste") || "Paste" },
+				{
+					role: "selectAll",
+					label: mainT("common", "actions.selectAll") || "Select All",
+				},
 			],
 		},
 		{
 			label: mainT("common", "actions.view") || "View",
 			submenu: [
-				{ role: "reload" },
-				{ role: "forceReload" },
-				{ role: "toggleDevTools" },
+				{
+					role: "reload",
+					label: mainT("common", "actions.reload") || "Reload",
+				},
+				{
+					role: "forceReload",
+					label: mainT("common", "actions.forceReload") || "Force Reload",
+				},
+				{
+					role: "toggleDevTools",
+					label: mainT("common", "actions.toggleDevTools") || "Toggle Developer Tools",
+				},
 				{ type: "separator" },
-				{ role: "resetZoom" },
-				{ role: "zoomIn" },
-				{ role: "zoomOut" },
+				{
+					role: "resetZoom",
+					label: mainT("common", "actions.actualSize") || "Actual Size",
+				},
+				{
+					role: "zoomIn",
+					label: mainT("common", "actions.zoomIn") || "Zoom In",
+				},
+				{
+					role: "zoomOut",
+					label: mainT("common", "actions.zoomOut") || "Zoom Out",
+				},
 				{ type: "separator" },
-				{ role: "togglefullscreen" },
+				{
+					role: "togglefullscreen",
+					label: mainT("common", "actions.toggleFullScreen") || "Toggle Full Screen",
+				},
 			],
 		},
 		{
 			label: mainT("common", "actions.window") || "Window",
 			submenu: isMac
-				? [{ role: "minimize" }, { role: "zoom" }, { type: "separator" }, { role: "front" }]
-				: [{ role: "minimize" }, { role: "close" }],
+				? [
+						{
+							role: "minimize",
+							label: mainT("common", "actions.minimize") || "Minimize",
+						},
+						{ role: "zoom" },
+						{ type: "separator" },
+						{ role: "front" },
+					]
+				: [
+						{
+							role: "minimize",
+							label: mainT("common", "actions.minimize") || "Minimize",
+						},
+						{
+							role: "close",
+							label: mainT("common", "actions.close") || "Close",
+						},
+					],
 		},
 	);
 
@@ -232,7 +296,11 @@ function getTrayIcon(filename: string, size: number) {
 function updateTrayMenu(recording: boolean = false) {
 	if (!tray) return;
 	const trayIcon = recording ? recordingTrayIcon : defaultTrayIcon;
-	const trayToolTip = recording ? `Recording: ${selectedSourceName}` : "OpenScreen";
+	const trayToolTip = recording
+		? mainT("common", "actions.recordingStatus", {
+				source: selectedSourceName,
+			}) || `Recording: ${selectedSourceName}`
+		: "OpenScreen";
 	const menuTemplate = recording
 		? [
 				{
@@ -265,6 +333,7 @@ function updateTrayMenu(recording: boolean = false) {
 
 let editorHasUnsavedChanges = false;
 let isForceClosing = false;
+let isCloseConfirmInFlight = false;
 
 ipcMain.on("set-has-unsaved-changes", (_, hasChanges: boolean) => {
 	editorHasUnsavedChanges = hasChanges;
@@ -296,39 +365,35 @@ function createEditorWindowWrapper() {
 	editorHasUnsavedChanges = false;
 
 	mainWindow.on("close", (event) => {
-		if (isForceClosing || !editorHasUnsavedChanges) return;
+		if (isForceClosing || !editorHasUnsavedChanges || isCloseConfirmInFlight) return;
 
 		event.preventDefault();
-
-		const choice = dialog.showMessageBoxSync(mainWindow!, {
-			type: "warning",
-			buttons: [
-				mainT("dialogs", "unsavedChanges.saveAndClose"),
-				mainT("dialogs", "unsavedChanges.discardAndClose"),
-				mainT("common", "actions.cancel"),
-			],
-			defaultId: 0,
-			cancelId: 2,
-			title: mainT("dialogs", "unsavedChanges.title"),
-			message: mainT("dialogs", "unsavedChanges.message"),
-			detail: mainT("dialogs", "unsavedChanges.detail"),
-		});
+		isCloseConfirmInFlight = true;
 
 		const windowToClose = mainWindow;
 		if (!windowToClose || windowToClose.isDestroyed()) return;
 
-		if (choice === 0) {
-			// Save & Close — tell renderer to save, then close
-			windowToClose.webContents.send("request-save-before-close");
-			ipcMain.once("save-before-close-done", (_, shouldClose: boolean) => {
-				if (!shouldClose) return;
+		// Ask renderer to show the custom in-app dialog
+		windowToClose.webContents.send("request-close-confirm");
+
+		ipcMain.once("close-confirm-response", (event, choice: "save" | "discard" | "cancel") => {
+			if (event.sender.id !== windowToClose?.webContents.id) return;
+			isCloseConfirmInFlight = false;
+			if (!windowToClose || windowToClose.isDestroyed()) return;
+
+			if (choice === "save") {
+				// Tell renderer to save the project, then close when done
+				windowToClose.webContents.send("request-save-before-close");
+				ipcMain.once("save-before-close-done", (event, shouldClose: boolean) => {
+					if (event.sender.id !== windowToClose?.webContents.id) return;
+					if (!shouldClose) return;
+					forceCloseEditorWindow(windowToClose);
+				});
+			} else if (choice === "discard") {
 				forceCloseEditorWindow(windowToClose);
-			});
-		} else if (choice === 1) {
-			// Discard & Close
-			forceCloseEditorWindow(windowToClose);
-		}
-		// choice === 2: Cancel — do nothing, window stays open
+			}
+			// "cancel": flag reset, window stays open
+		});
 	});
 }
 
@@ -352,10 +417,11 @@ function createCountdownOverlayWindowWrapper() {
 	return countdownOverlayWindow;
 }
 
-// On macOS, applications and their menu bar stay active until the user quits
-// explicitly with Cmd + Q.
+// Closing every window quits the app entirely (tray icon goes too).
+// The in-app "Return to Recorder" button covers the editor → HUD round-trip,
+// so closing the last window is an explicit "I'm done" signal.
 app.on("window-all-closed", () => {
-	// Keep app running (macOS behavior)
+	app.quit();
 });
 
 app.on("activate", () => {
@@ -377,22 +443,54 @@ app.on("activate", () => {
 
 // Register all IPC handlers when app is ready
 app.whenReady().then(async () => {
-	// Allow microphone/media permission checks
+	// Force the app into "regular" activation policy so the Dock icon appears.
+	// The HUD overlay (transparent + frameless + skipTaskbar) is the first
+	// window we open, and AppKit otherwise classifies us as an accessory app.
+	if (process.platform === "darwin") {
+		app.dock?.show();
+	}
+
+	// Allow microphone/media/screen permission checks
 	session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-		const allowed = ["media", "audioCapture", "microphone", "videoCapture", "camera"];
+		const allowed = [
+			"media",
+			"audioCapture",
+			"microphone",
+			"videoCapture",
+			"camera",
+			"screen",
+			"display-capture",
+		];
 		return allowed.includes(permission);
 	});
 
 	session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-		const allowed = ["media", "audioCapture", "microphone", "videoCapture", "camera"];
+		const allowed = [
+			"media",
+			"audioCapture",
+			"microphone",
+			"videoCapture",
+			"camera",
+			"screen",
+			"display-capture",
+		];
 		callback(allowed.includes(permission));
 	});
 
-	// Request microphone permission from macOS
+	// Request microphone and screen recording permissions from macOS
 	if (process.platform === "darwin") {
 		const micStatus = systemPreferences.getMediaAccessStatus("microphone");
 		if (micStatus !== "granted") {
 			await systemPreferences.askForMediaAccess("microphone");
+		}
+
+		// Screen recording has no askForMediaAccess equivalent — the TCC prompt is
+		// triggered by the first desktopCapturer.getSources() call. Firing it here
+		// at startup settles the permission state early and prevents repeated prompts
+		// driven by later getSources() calls (fixes repeated permission dialog).
+		const screenStatus = systemPreferences.getMediaAccessStatus("screen");
+		if (screenStatus === "not-determined") {
+			desktopCapturer.getSources({ types: ["screen"] }).catch(() => {});
 		}
 	}
 

@@ -100,6 +100,7 @@ function computeNormalizedWebcamLayoutPreset(
 ): WebcamLayoutPreset {
 	switch (webcamLayoutPreset) {
 		case "picture-in-picture":
+		case "no-webcam":
 			return webcamLayoutPreset;
 		case "vertical-stack":
 			return isPortraitAspectRatio(normalizedAspectRatio)
@@ -251,6 +252,12 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 
+					const validPreset =
+						region.rotationPreset === "iso" ||
+						region.rotationPreset === "left" ||
+						region.rotationPreset === "right"
+							? region.rotationPreset
+							: undefined;
 					return {
 						id: region.id,
 						startMs,
@@ -261,6 +268,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 							cy: clamp(isFiniteNumber(region.focus?.cy) ? region.focus.cy : 0.5, 0, 1),
 						},
 						focusMode: region.focusMode === "auto" ? "auto" : "manual",
+						...(validPreset ? { rotationPreset: validPreset } : {}),
 					};
 				})
 		: [];
