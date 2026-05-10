@@ -168,6 +168,25 @@ export default function VideoEditor() {
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [showCloseConfirmDialog, setShowCloseConfirmDialog] = useState(false);
+	const playerContainerRef = useRef<HTMLDivElement | null>(null);
+	const cursorTelemetrySourcePath = videoSourcePath ?? (videoPath ? fromFileUrl(videoPath) : null);
+	const { samples: cursorTelemetry, error: cursorTelemetryError } =
+		useCursorTelemetry(cursorTelemetrySourcePath);
+	const { data: cursorRecordingData, error: cursorRecordingDataError } =
+		useCursorRecordingData(cursorTelemetrySourcePath);
+	const cursorClickTimestamps = useMemo<number[]>(() => {
+		const recordingClicks =
+			cursorRecordingData?.samples
+				.filter((sample) => isClickInteractionType(sample.interactionType))
+				.map((sample) => sample.timeMs) ?? [];
+		if (recordingClicks.length > 0) {
+			return recordingClicks;
+		}
+
+		return cursorTelemetry
+			.filter((sample) => isClickInteractionType(sample.interactionType))
+			.map((sample) => sample.timeMs);
+	}, [cursorRecordingData, cursorTelemetry]);
 
 	// Cursor & motion blur visual settings (non-undoable preferences)
 	const [showCursor, setShowCursor] = useState(true);
@@ -2039,6 +2058,7 @@ export default function VideoEditor() {
 												borderRadius={borderRadius}
 												padding={padding}
 												cropRegion={cropRegion}
+												cursorRecordingData={cursorRecordingData}
 												trimRegions={trimRegions}
 												speedRegions={speedRegions}
 												annotationRegions={annotationOnlyRegions}
@@ -2056,6 +2076,11 @@ export default function VideoEditor() {
 												cursorTelemetry={cursorTelemetry}
 												cursorHighlight={effectiveCursorHighlight}
 												cursorClickTimestamps={cursorClickTimestamps}
+												showCursor={effectiveShowCursor}
+												cursorSize={cursorSize}
+												cursorSmoothing={cursorSmoothing}
+												cursorMotionBlur={cursorMotionBlur}
+												cursorClickBounce={cursorClickBounce}
 											/>
 										</div>
 									</div>
@@ -2201,6 +2226,21 @@ export default function VideoEditor() {
 									unsavedExport={unsavedExport}
 									onSaveUnsavedExport={handleSaveUnsavedExport}
 									onSaveDiagnostic={handleSaveDiagnostic}
+									showCursor={showCursor}
+									onShowCursorChange={setShowCursor}
+									cursorSize={cursorSize}
+									onCursorSizeChange={setCursorSize}
+									cursorSmoothing={cursorSmoothing}
+									onCursorSmoothingChange={setCursorSmoothing}
+									cursorMotionBlur={cursorMotionBlur}
+									onCursorMotionBlurChange={setCursorMotionBlur}
+									cursorClickBounce={cursorClickBounce}
+									onCursorClickBounceChange={setCursorClickBounce}
+									hasCursorData={
+										cursorTelemetry.length > 0 || hasNativeCursorRecordingData(cursorRecordingData)
+									}
+									showCursorSettings={showCursorSettings}
+									showCursorHighlightSettings={isMac}
 								/>
 							</div>
 						</div>

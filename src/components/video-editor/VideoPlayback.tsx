@@ -59,12 +59,13 @@ import {
 	DEFAULT_CURSOR_SIZE,
 	DEFAULT_CURSOR_SMOOTHING,
 	DEFAULT_ROTATION_3D,
-	getZoomScale,
 	isRotation3DIdentity,
 	lerpRotation3D,
 	rotation3DPerspective,
 	type SpeedRegion,
 	type TrimRegion,
+	ZOOM_DEPTH_SCALES,
+	type ZoomDepth,
 	type ZoomFocus,
 	type ZoomRegion,
 } from "./types";
@@ -87,7 +88,12 @@ import {
 	DEFAULT_CURSOR_HIGHLIGHT,
 	drawCursorHighlightGraphics,
 } from "./videoPlayback/cursorHighlight";
-import { clampFocusToScale } from "./videoPlayback/focusUtils";
+import {
+	DEFAULT_CURSOR_CONFIG,
+	PixiCursorOverlay,
+	preloadCursorAssets,
+} from "./videoPlayback/cursorRenderer";
+import { clampFocusToStage as clampFocusToStageUtil } from "./videoPlayback/focusUtils";
 import { layoutVideoContent as layoutVideoContentUtil } from "./videoPlayback/layoutUtils";
 import { clamp01 } from "./videoPlayback/mathUtils";
 import { updateOverlayIndicator } from "./videoPlayback/overlayUtils";
@@ -100,13 +106,6 @@ import {
 	createMotionBlurState,
 	type MotionBlurState,
 } from "./videoPlayback/zoomTransform";
-
-type BlurPreviewCanvasSource = {
-	clientHeight?: number;
-	clientWidth?: number;
-	height: number;
-	width: number;
-};
 
 interface VideoPlaybackProps {
 	videoPath: string;
@@ -337,12 +336,131 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const videoReadyRafRef = useRef<number | null>(null);
 		const smoothedAutoFocusRef = useRef<ZoomFocus | null>(null);
 		const prevTargetProgressRef = useRef(0);
-		const blurPreviewSnapshotRef = useRef<{
-			bucket: number;
-			canvas: BlurPreviewCanvasSource | null;
-			height: number;
-			width: number;
-		}>({ bucket: -1, canvas: null, height: 0, width: 0 });
+		const durationResolutionTimeoutRef = useRef<number | null>(null);
+		const lastResolvedDurationRef = useRef<number | null>(null);
+		const isResolvingDurationRef = useRef(false);
+		const hasNativeCursorRecordingRef = useRef(false);
+		const cursorRecordingDataRef = useRef(cursorRecordingData);
+		const cropRegionRef = useRef(cropRegion);
+		const nativeCursorSpriteRef = useRef<Sprite | null>(null);
+		const nativeCursorTextureIdRef = useRef<string | null>(null);
+		const nativeCursorImageRef = useRef<HTMLImageElement | null>(null);
+		const nativeCursorImageIdRef = useRef<string | null>(null);
+		const nativeCursorSmoothingStateRef = useRef(createNativeCursorSmoothingState());
+		const nativeCursorMotionBlurStateRef = useRef(createNativeCursorMotionBlurState());
+
+		const hasNativeCursorRecording = useMemo(
+			() => hasNativeCursorRecordingData(cursorRecordingData),
+			[cursorRecordingData],
+		);
+
+		const syncResolvedDuration = useCallback(
+			(video: HTMLVideoElement) => {
+				const resolvedDuration = getResolvedVideoDuration(video);
+				if (!resolvedDuration) {
+					return false;
+				}
+
+				const normalizedDuration = Math.round(resolvedDuration * 1000) / 1000;
+				if (lastResolvedDurationRef.current !== normalizedDuration) {
+					lastResolvedDurationRef.current = normalizedDuration;
+					onDurationChange(normalizedDuration);
+				}
+
+				return true;
+			},
+			[onDurationChange],
+		);
+
+		const forceResolveDuration = useCallback(
+			(video: HTMLVideoElement) => {
+				if (isResolvingDurationRef.current) {
+					return;
+				}
+
+				if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+					return;
+				}
+
+				isResolvingDurationRef.current = true;
+				const previousMuted = video.muted;
+
+				const finalize = () => {
+					video.removeEventListener("durationchange", handleProgress);
+					video.removeEventListener("timeupdate", handleProgress);
+					video.removeEventListener("loadeddata", handleProgress);
+					video.removeEventListener("ended", handleProgress);
+					if (durationResolutionTimeoutRef.current) {
+						clearTimeout(durationResolutionTimeoutRef.current);
+						durationResolutionTimeoutRef.current = null;
+					}
+					video.muted = previousMuted;
+					isResolvingDurationRef.current = false;
+				};
+
+				const resolveCurrentDuration = () => {
+					if (syncResolvedDuration(video)) {
+						return true;
+					}
+
+					const endedDuration = getEndedVideoDuration(video);
+					if (endedDuration) {
+						lastResolvedDurationRef.current = null;
+						onDurationChange(Math.round(endedDuration * 1000) / 1000);
+						return true;
+					}
+
+					return false;
+				};
+
+				const handleProgress = () => {
+					if (!resolveCurrentDuration()) {
+						return;
+					}
+
+					try {
+						video.pause();
+						video.currentTime = 0;
+					} catch {
+						// no-op
+					}
+					currentTimeRef.current = 0;
+					finalize();
+				};
+
+				video.addEventListener("durationchange", handleProgress);
+				video.addEventListener("timeupdate", handleProgress);
+				video.addEventListener("loadeddata", handleProgress);
+				video.addEventListener("ended", handleProgress);
+				durationResolutionTimeoutRef.current = window.setTimeout(() => {
+					handleProgress();
+					finalize();
+				}, 1500);
+				video.muted = true;
+
+				const playAttempt = video.play();
+				if (playAttempt && typeof playAttempt.catch === "function") {
+					playAttempt.catch(() => {
+						try {
+							video.currentTime = Math.max(video.currentTime, 0.1);
+						} catch {
+							finalize();
+						}
+					});
+				}
+
+				try {
+					video.currentTime = Math.max(video.currentTime, 0.1);
+				} catch {
+					finalize();
+				}
+			},
+			[onDurationChange, syncResolvedDuration],
+		);
+
+		const clampFocusToStage = useCallback((focus: ZoomFocus, depth: ZoomDepth) => {
+			return clampFocusToStageUtil(focus, depth, stageSizeRef.current);
+		}, []);
 
 		const updateOverlayForRegion = useCallback(
 			(region: ZoomRegion | null, focusOverride?: ZoomFocus) => {
@@ -524,7 +642,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				cx: clamp01(localX / stageWidth),
 				cy: clamp01(localY / stageHeight),
 			};
-			const clampedFocus = clampFocusToScale(unclampedFocus, getZoomScale(region));
+			const clampedFocus = clampFocusToStage(unclampedFocus, region.depth);
 
 			onZoomFocusChange(region.id, clampedFocus);
 			updateOverlayForRegion({ ...region, focus: clampedFocus }, clampedFocus);
@@ -1130,7 +1248,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const shouldShowUnzoomedView = hasSelectedZoom && !isPlayingRef.current;
 
 				if (region && strength > 0 && !shouldShowUnzoomedView) {
-					const zoomScale = blendedScale ?? getZoomScale(region);
+					const zoomScale = blendedScale ?? ZOOM_DEPTH_SCALES[region.depth];
 					const regionFocus = region.focus;
 
 					targetScaleFactor = zoomScale;
@@ -1779,32 +1897,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										region: blurRegion,
 									})),
 								].sort((a, b) => a.region.zIndex - b.region.zIndex);
-								const previewSnapshotBucket = Math.floor(currentTime * 10);
 								const previewSnapshotCanvas =
 									filteredBlurRegions.length > 0
 										? (() => {
-												const cached = blurPreviewSnapshotRef.current;
-												if (
-													cached.bucket === previewSnapshotBucket &&
-													cached.width === overlaySize.width &&
-													cached.height === overlaySize.height
-												) {
-													return cached.canvas;
-												}
-
 												const app = appRef.current;
-												if (!app?.renderer?.extract) return cached.canvas;
+												if (!app?.renderer?.extract) return null;
 												try {
-													const canvas = app.renderer.extract.canvas(app.stage);
-													blurPreviewSnapshotRef.current = {
-														bucket: previewSnapshotBucket,
-														canvas,
-														height: overlaySize.height,
-														width: overlaySize.width,
-													};
-													return canvas;
+													return app.renderer.extract.canvas(app.stage);
 												} catch {
-													return cached.canvas;
+													return null;
 												}
 											})()
 										: null;
@@ -1876,7 +1977,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 												: item.region.id === selectedAnnotationId
 										}
 										previewSourceCanvas={previewSnapshotCanvas}
-										previewFrameVersion={previewSnapshotBucket}
+										previewFrameVersion={Math.round(currentTime * 1000)}
 									/>
 								));
 							})()}

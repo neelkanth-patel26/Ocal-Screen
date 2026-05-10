@@ -290,7 +290,6 @@ export function LaunchWindow() {
 
 	const [selectedSource, setSelectedSource] = useState("Screen");
 	const [hasSelectedSource, setHasSelectedSource] = useState(false);
-	const [, setHudPointerDownCount] = useState(0);
 	const [, setRecordPointerDownCount] = useState(0);
 
 	useEffect(() => {

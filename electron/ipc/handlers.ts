@@ -1,7 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
-import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -963,7 +962,9 @@ export function registerIpcHandlers(
 			// is triggered by desktopCapturer.getSources(). Fire it and return so
 			// the renderer can re-check status after the user responds.
 			if (status === "not-determined") {
-				desktopCapturer.getSources({ types: ["screen"] }).catch(() => {});
+				desktopCapturer.getSources({ types: ["screen"] }).catch(() => {
+					// Permission probing failure is reported by the explicit status check below.
+				});
 				return { success: true, granted: false, status: "not-determined" };
 			}
 
@@ -1526,7 +1527,7 @@ export function registerIpcHandlers(
 
 			return {
 				success: true,
-				path: result.filePath,
+				path: normalizedPath,
 				message: "Video exported successfully",
 			};
 		} catch (error) {
@@ -1911,4 +1912,21 @@ export function registerIpcHandlers(
 			}
 		},
 	);
+
+	registerNativeBridgeHandlers({
+		getPlatform: () => process.platform,
+		getCurrentProjectPath: () => currentProjectPath,
+		getCurrentVideoPath: () => currentVideoPath,
+		saveProjectFile,
+		loadProjectFile,
+		loadCurrentProjectFile,
+		setCurrentVideoPath,
+		getCurrentVideoPathResult,
+		clearCurrentVideoPath,
+		resolveAssetBasePath,
+		resolveVideoPath: (videoPath?: string | null) =>
+			normalizeVideoSourcePath(videoPath ?? currentVideoPath),
+		loadCursorRecordingData: readCursorRecordingFile,
+		loadCursorTelemetry: readCursorTelemetryFile,
+	});
 }
