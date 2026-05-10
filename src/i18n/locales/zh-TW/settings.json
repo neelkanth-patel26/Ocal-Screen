@@ -15,6 +15,14 @@
 			"fast": "快速",
 			"smooth": "平滑",
 			"lazy": "緩慢"
+		},
+		"threeD": {
+			"title": "3D 旋轉",
+			"preset": {
+				"iso": "Iso",
+				"left": "左",
+				"right": "右"
+			}
 		}
 	},
 	"speed": {

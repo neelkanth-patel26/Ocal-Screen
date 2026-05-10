@@ -1,6 +1,7 @@
 {
 	"zoom": {
 		"level": "Zoom Level",
+		"customScale": "Custom Zoom",
 		"selectRegion": "Select a zoom region to adjust",
 		"deleteZoom": "Delete Zoom",
 		"focusMode": {
@@ -8,6 +9,20 @@
 			"manual": "Manual",
 			"auto": "Auto",
 			"autoDescription": "Camera follows the recorded cursor position"
+		},
+		"threeD": {
+			"title": "3D Rotation",
+			"preset": {
+				"iso": "Iso",
+				"left": "Left",
+				"right": "Right"
+			}
+		},
+		"position": {
+			"title": "Focus Position",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = leftmost / topmost, 100 = rightmost / bottommost"
 		}
 	},
 	"speed": {
@@ -27,6 +42,7 @@
 		"pictureInPicture": "Picture in Picture",
 		"verticalStack": "Vertical Stack",
 		"dualFrame": "Dual Frame",
+		"noWebcam": "No Webcam",
 		"webcamShape": "Camera Shape",
 		"webcamSize": "Webcam Size"
 	},
@@ -35,9 +51,23 @@
 		"blurBg": "Blur BG",
 		"motionBlur": "Motion Blur",
 		"off": "off",
+		"on": "on",
 		"shadow": "Shadow",
 		"roundness": "Roundness",
-		"padding": "Padding"
+		"padding": "Padding",
+		"cursorHighlight": {
+			"title": "Cursor highlight",
+			"style": "Style",
+			"dot": "Dot",
+			"ring": "Ring",
+			"size": "Size",
+			"onlyOnClicks": "Only on clicks",
+			"color": "Color",
+			"offsetX": "Offset X (window recordings)",
+			"offsetY": "Offset Y",
+			"accessibilityPermissionTitle": "Accessibility permission needed",
+			"accessibilityPermissionDescription": "Open System Settings → Privacy & Security → Accessibility, enable Openscreen, then restart the app."
+		}
 	},
 	"background": {
 		"title": "Background",

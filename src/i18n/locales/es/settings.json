@@ -8,6 +8,14 @@
 			"manual": "Manual",
 			"auto": "Auto",
 			"autoDescription": "La cámara sigue la posición del cursor grabado"
+		},
+		"threeD": {
+			"title": "Rotación 3D",
+			"preset": {
+				"iso": "Iso",
+				"left": "Izquierda",
+				"right": "Derecha"
+			}
 		}
 	},
 	"speed": {

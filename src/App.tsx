@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { CountdownOverlay } from "./components/launch/CountdownOverlay.tsx";
 import { LaunchWindow } from "./components/launch/LaunchWindow";
 import { SourceSelector } from "./components/launch/SourceSelector";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
-import { ShortcutsConfigDialog } from "./components/video-editor/ShortcutsConfigDialog";
-import VideoEditor from "./components/video-editor/VideoEditor";
 import { ShortcutsProvider } from "./contexts/ShortcutsContext";
 import { loadAllCustomFonts } from "./lib/customFonts";
+
+const VideoEditor = lazy(() => import("./components/video-editor/VideoEditor"));
+const ShortcutsConfigDialog = lazy(() =>
+	import("./components/video-editor/ShortcutsConfigDialog").then((module) => ({
+		default: module.ShortcutsConfigDialog,
+	})),
+);
 
 export default function App() {
 	const [windowType, setWindowType] = useState(
@@ -24,6 +29,20 @@ export default function App() {
 			document.body.style.background = "transparent";
 			document.documentElement.style.background = "transparent";
 			document.getElementById("root")?.style.setProperty("background", "transparent");
+		}
+
+		// HUD is a fixed-size BrowserWindow; pin the document shell and hide overflow
+		// so the renderer can't introduce scrollbars (see issue #305).
+		if (type === "hud-overlay") {
+			document.documentElement.style.height = "100%";
+			document.documentElement.style.overflow = "hidden";
+			document.body.style.height = "100%";
+			document.body.style.margin = "0";
+			document.body.style.overflow = "hidden";
+			const root = document.getElementById("root");
+			root?.style.setProperty("height", "100%");
+			root?.style.setProperty("min-height", "0");
+			root?.style.setProperty("overflow", "hidden");
 		}
 	}, [windowType]);
 
@@ -45,8 +64,10 @@ export default function App() {
 			case "editor":
 				return (
 					<ShortcutsProvider>
-						<VideoEditor />
-						<ShortcutsConfigDialog />
+						<Suspense fallback={<div className="h-screen bg-background" />}>
+							<VideoEditor />
+							<ShortcutsConfigDialog />
+						</Suspense>
 					</ShortcutsProvider>
 				);
 			default:

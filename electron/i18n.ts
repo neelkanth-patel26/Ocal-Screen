@@ -1,6 +1,8 @@
 // Lightweight i18n for the Electron main process.
 // Imports the same JSON translation files used by the renderer.
 
+import commonAr from "../src/i18n/locales/ar/common.json";
+import dialogsAr from "../src/i18n/locales/ar/dialogs.json";
 import commonEn from "../src/i18n/locales/en/common.json";
 import dialogsEn from "../src/i18n/locales/en/dialogs.json";
 import commonEs from "../src/i18n/locales/es/common.json";
@@ -13,12 +15,14 @@ import commonKo from "../src/i18n/locales/ko-KR/common.json";
 import dialogsKo from "../src/i18n/locales/ko-KR/dialogs.json";
 import commonTr from "../src/i18n/locales/tr/common.json";
 import dialogsTr from "../src/i18n/locales/tr/dialogs.json";
+import commonVi from "../src/i18n/locales/vi/common.json";
+import dialogsVi from "../src/i18n/locales/vi/dialogs.json";
 import commonZh from "../src/i18n/locales/zh-CN/common.json";
 import dialogsZh from "../src/i18n/locales/zh-CN/dialogs.json";
 import commonZhTw from "../src/i18n/locales/zh-TW/common.json";
 import dialogsZhTw from "../src/i18n/locales/zh-TW/dialogs.json";
 
-type Locale = "en" | "zh-CN" | "zh-TW" | "es" | "fr" | "ja-JP" | "ko-KR" | "tr";
+type Locale = "en" | "zh-CN" | "zh-TW" | "es" | "fr" | "ja-JP" | "ko-KR" | "tr" | "ar" | "vi";
 type Namespace = "common" | "dialogs";
 type MessageMap = Record<string, unknown>;
 
@@ -31,6 +35,8 @@ const messages: Record<Locale, Record<Namespace, MessageMap>> = {
 	"ja-JP": { common: commonJa, dialogs: dialogsJa },
 	"ko-KR": { common: commonKo, dialogs: dialogsKo },
 	tr: { common: commonTr, dialogs: dialogsTr },
+	ar: { common: commonAr, dialogs: dialogsAr },
+	vi: { common: commonVi, dialogs: dialogsVi },
 };
 
 let currentLocale: Locale = "en";
@@ -44,7 +50,9 @@ export function setMainLocale(locale: string) {
 		locale === "fr" ||
 		locale === "ja-JP" ||
 		locale === "ko-KR" ||
-		locale === "tr"
+		locale === "tr" ||
+		locale === "ar" ||
+		locale === "vi"
 	) {
 		currentLocale = locale;
 	}

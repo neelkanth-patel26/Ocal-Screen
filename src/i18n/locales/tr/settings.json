@@ -8,6 +8,14 @@
 			"manual": "Manuel",
 			"auto": "Otomatik",
 			"autoDescription": "Kamera kaydedilen imleç konumunu takip eder"
+		},
+		"threeD": {
+			"title": "3D Döndürme",
+			"preset": {
+				"iso": "Iso",
+				"left": "Sol",
+				"right": "Sağ"
+			}
 		}
 	},
 	"speed": {

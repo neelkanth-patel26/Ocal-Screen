@@ -15,6 +15,14 @@
 			"fast": "Rapide",
 			"smooth": "Fluide",
 			"lazy": "Lent"
+		},
+		"threeD": {
+			"title": "Rotation 3D",
+			"preset": {
+				"iso": "Iso",
+				"left": "Gauche",
+				"right": "Droite"
+			}
 		}
 	},
 	"speed": {

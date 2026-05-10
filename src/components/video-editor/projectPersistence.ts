@@ -80,6 +80,7 @@ export interface ProjectEditorState {
 	gifFrameRate: GifFrameRate;
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
+	cursorHighlight: import("./videoPlayback/cursorHighlight").CursorHighlightConfig;
 }
 
 export interface EditorProjectData {
@@ -99,6 +100,7 @@ function computeNormalizedWebcamLayoutPreset(
 ): WebcamLayoutPreset {
 	switch (webcamLayoutPreset) {
 		case "picture-in-picture":
+		case "no-webcam":
 			return webcamLayoutPreset;
 		case "vertical-stack":
 			return isPortraitAspectRatio(normalizedAspectRatio)
@@ -250,6 +252,12 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 
+					const validPreset =
+						region.rotationPreset === "iso" ||
+						region.rotationPreset === "left" ||
+						region.rotationPreset === "right"
+							? region.rotationPreset
+							: undefined;
 					return {
 						id: region.id,
 						startMs,
@@ -260,6 +268,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 							cy: clamp(isFiniteNumber(region.focus?.cy) ? region.focus.cy : 0.5, 0, 1),
 						},
 						focusMode: region.focusMode === "auto" ? "auto" : "manual",
+						...(validPreset ? { rotationPreset: validPreset } : {}),
 					};
 				})
 		: [];
@@ -494,6 +503,52 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.gifSizePreset === "original"
 				? editor.gifSizePreset
 				: "medium",
+		cursorHighlight: normalizeCursorHighlight(editor.cursorHighlight),
+	};
+}
+
+function normalizeCursorHighlight(
+	value: unknown,
+): import("./videoPlayback/cursorHighlight").CursorHighlightConfig {
+	const fallback: import("./videoPlayback/cursorHighlight").CursorHighlightConfig = {
+		enabled: false,
+		style: "ring",
+		sizePx: 24,
+		color: "#FFD700",
+		opacity: 0.9,
+		onlyOnClicks: false,
+		clickEmphasisDurationMs: 350,
+		offsetXNorm: 0,
+		offsetYNorm: 0,
+	};
+	if (!value || typeof value !== "object") return fallback;
+	const v = value as Partial<import("./videoPlayback/cursorHighlight").CursorHighlightConfig>;
+	return {
+		enabled: typeof v.enabled === "boolean" ? v.enabled : fallback.enabled,
+		style: v.style === "dot" || v.style === "ring" ? v.style : fallback.style,
+		sizePx:
+			typeof v.sizePx === "number" && v.sizePx >= 10 && v.sizePx <= 36 ? v.sizePx : fallback.sizePx,
+		color:
+			typeof v.color === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v.color)
+				? v.color
+				: fallback.color,
+		opacity:
+			typeof v.opacity === "number" && v.opacity >= 0 && v.opacity <= 1
+				? v.opacity
+				: fallback.opacity,
+		onlyOnClicks: typeof v.onlyOnClicks === "boolean" ? v.onlyOnClicks : fallback.onlyOnClicks,
+		clickEmphasisDurationMs:
+			typeof v.clickEmphasisDurationMs === "number" && v.clickEmphasisDurationMs > 0
+				? v.clickEmphasisDurationMs
+				: fallback.clickEmphasisDurationMs,
+		offsetXNorm:
+			typeof v.offsetXNorm === "number" && Number.isFinite(v.offsetXNorm)
+				? Math.max(-1, Math.min(1, v.offsetXNorm))
+				: fallback.offsetXNorm,
+		offsetYNorm:
+			typeof v.offsetYNorm === "number" && Number.isFinite(v.offsetYNorm)
+				? Math.max(-1, Math.min(1, v.offsetYNorm))
+				: fallback.offsetYNorm,
 	};
 }
 
