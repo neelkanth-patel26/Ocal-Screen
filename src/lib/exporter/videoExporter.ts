@@ -48,7 +48,6 @@ export interface VideoExporterConfig extends ExportConfig {
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
-	cursorHighlight?: import("@/components/video-editor/videoPlayback/cursorHighlight").CursorHighlightConfig;
 	cursorClickTimestamps?: number[];
 	onProgress?: (progress: ExportProgress) => void;
 }
@@ -71,12 +70,6 @@ function hasActiveSpeedRegions(regions?: SpeedRegion[]) {
 
 function hasNativeCursorOverlay(config: VideoExporterConfig) {
 	return (config.cursorScale ?? 0) > 0;
-}
-
-function hasCursorHighlightOverlay(config: VideoExporterConfig) {
-	return Boolean(
-		config.cursorHighlight?.enabled && config.cursorTelemetry && config.cursorTelemetry.length > 0,
-	);
 }
 
 function isDefaultCrop(cropRegion: CropRegion) {
@@ -113,7 +106,6 @@ export function getSourceCopyFastPathBlockers(
 	if (hasActiveTimeRegions(config.annotationRegions))
 		blockers.push("annotation regions are present");
 	if (hasNativeCursorOverlay(config)) blockers.push("editable cursor overlay is enabled");
-	if (hasCursorHighlightOverlay(config)) blockers.push("cursor highlight overlay is enabled");
 	if (!isDefaultCrop(config.cropRegion)) blockers.push("crop is not default");
 	if ((config.padding ?? 0) > SOURCE_COPY_EPSILON) blockers.push("padding is not zero");
 	if ((config.videoPadding ?? 0) > SOURCE_COPY_EPSILON) blockers.push("video padding is not zero");
@@ -262,7 +254,6 @@ export class VideoExporter {
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
 				cursorClickTimestamps: this.config.cursorClickTimestamps,
-				cursorHighlight: this.config.cursorHighlight,
 				platform,
 			});
 			this.renderer = renderer;

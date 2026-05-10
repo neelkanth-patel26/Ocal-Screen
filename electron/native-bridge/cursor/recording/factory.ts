@@ -1,6 +1,6 @@
 import type { Rectangle } from "electron";
-import type { CursorRecordingData } from "../../../../src/native/contracts";
 import type { CursorRecordingSession } from "./session";
+import { TelemetryRecordingSession } from "./telemetryRecordingSession";
 import { WindowsNativeRecordingSession } from "./windowsNativeRecordingSession";
 
 interface CreateCursorRecordingSessionOptions {
@@ -10,21 +10,6 @@ interface CreateCursorRecordingSessionOptions {
 	sampleIntervalMs: number;
 	sourceId?: string | null;
 	startTimeMs?: number;
-}
-
-class NoopCursorRecordingSession implements CursorRecordingSession {
-	async start(): Promise<void> {
-		// Native cursor capture is currently Windows-only.
-	}
-
-	async stop(): Promise<CursorRecordingData> {
-		return {
-			version: 2,
-			provider: "none",
-			assets: [],
-			samples: [],
-		};
-	}
 }
 
 export function createCursorRecordingSession(
@@ -40,5 +25,13 @@ export function createCursorRecordingSession(
 		});
 	}
 
-	return new NoopCursorRecordingSession();
+	// macOS / Linux: capture cursor positions via Electron's `screen` API on an
+	// interval. No cursor sprites/assets and no clicks — just position telemetry,
+	// which is what auto-zoom and other features consume.
+	return new TelemetryRecordingSession({
+		getDisplayBounds: options.getDisplayBounds,
+		maxSamples: options.maxSamples,
+		sampleIntervalMs: options.sampleIntervalMs,
+		startTimeMs: options.startTimeMs,
+	});
 }

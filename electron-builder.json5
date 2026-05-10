@@ -5,7 +5,6 @@
   "asar": true,
   // .node binaries can't be dlopen'd from inside an asar — must live unpacked.
   "asarUnpack": [
-    "node_modules/uiohook-napi/**/*",
     "**/*.node"
   ],
   "productName": "Openscreen",

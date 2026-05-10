@@ -126,7 +126,6 @@ export default function VideoEditor() {
 		webcamMaskShape,
 		webcamSizePreset,
 		webcamPosition,
-		cursorHighlight,
 	} = editorState;
 
 	// ── Non-undoable state
@@ -205,17 +204,15 @@ export default function VideoEditor() {
 	const nextSpeedIdRef = useRef(1);
 
 	const { shortcuts, isMac } = useShortcuts();
+	// Windows-only: the synthetic cursor overlay + cursor customization settings
+	// only apply when there's an actual native cursor recording (cursor frames +
+	// position samples produced by WindowsNativeRecordingSession). Mac and Linux
+	// keep their telemetry positions for auto-zoom but never render a synthetic
+	// cursor or expose cursor customization settings.
 	const hasEditableCursorRecording =
-		recordingCursorCaptureMode === "editable-overlay" ||
-		(recordingCursorCaptureMode === null && hasNativeCursorRecordingData(cursorRecordingData));
+		nativePlatform === "win32" && hasNativeCursorRecordingData(cursorRecordingData);
 	const effectiveShowCursor = showCursor && hasEditableCursorRecording;
-	const showCursorSettings = nativePlatform === "win32" && hasEditableCursorRecording;
-	// Off-Mac doesn't have click telemetry, so force `onlyOnClicks` off for
-	// renderers while keeping the persisted value intact for round-tripping.
-	const effectiveCursorHighlight = useMemo(
-		() => (isMac ? cursorHighlight : { ...cursorHighlight, onlyOnClicks: false }),
-		[cursorHighlight, isMac],
-	);
+	const showCursorSettings = hasEditableCursorRecording;
 	const { locale, setLocale, t: rawT } = useI18n();
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
@@ -534,7 +531,6 @@ export default function VideoEditor() {
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
-				cursorHighlight,
 			};
 			const projectData = createProjectData(currentProjectMedia, editorState);
 
@@ -596,7 +592,6 @@ export default function VideoEditor() {
 			videoPath,
 			t,
 			webcamSizePreset,
-			cursorHighlight,
 		],
 	);
 
@@ -1569,7 +1564,6 @@ export default function VideoEditor() {
 						previewHeight,
 						cursorTelemetry,
 						cursorClickTimestamps,
-						cursorHighlight: effectiveCursorHighlight,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1715,7 +1709,6 @@ export default function VideoEditor() {
 						previewHeight,
 						cursorTelemetry,
 						cursorClickTimestamps,
-						cursorHighlight: effectiveCursorHighlight,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -1797,7 +1790,6 @@ export default function VideoEditor() {
 			handleExportSaved,
 			cursorTelemetry,
 			cursorClickTimestamps,
-			effectiveCursorHighlight,
 			effectiveShowCursor,
 			cursorSize,
 			cursorSmoothing,
@@ -2074,7 +2066,6 @@ export default function VideoEditor() {
 												onBlurDataChange={handleBlurDataPreviewChange}
 												onBlurDataCommit={commitState}
 												cursorTelemetry={cursorTelemetry}
-												cursorHighlight={effectiveCursorHighlight}
 												cursorClickTimestamps={cursorClickTimestamps}
 												showCursor={effectiveShowCursor}
 												cursorSize={cursorSize}
@@ -2103,9 +2094,6 @@ export default function VideoEditor() {
 
 							<div className="editor-settings-rail min-w-0 h-full">
 								<SettingsPanel
-									cursorHighlight={cursorHighlight}
-									onCursorHighlightChange={(next) => pushState({ cursorHighlight: next })}
-									cursorHighlightSupportsClicks={isMac}
 									selected={wallpaper}
 									onWallpaperChange={(w) => pushState({ wallpaper: w })}
 									selectedZoomDepth={
@@ -2240,7 +2228,6 @@ export default function VideoEditor() {
 										cursorTelemetry.length > 0 || hasNativeCursorRecordingData(cursorRecordingData)
 									}
 									showCursorSettings={showCursorSettings}
-									showCursorHighlightSettings={isMac}
 								/>
 							</div>
 						</div>

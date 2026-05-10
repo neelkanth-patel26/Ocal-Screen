@@ -40,11 +40,6 @@ interface Window {
 			status: string;
 			error?: string;
 		}>;
-		requestAccessibilityAccess: () => Promise<{
-			success: boolean;
-			granted: boolean;
-			error?: string;
-		}>;
 		assetBaseUrl: string;
 		storeRecordedVideo: (
 			videoData: ArrayBuffer,

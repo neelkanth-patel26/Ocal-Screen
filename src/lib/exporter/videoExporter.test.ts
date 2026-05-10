@@ -106,25 +106,6 @@ describe("isSourceCopyFastPathEligible", () => {
 				videoInfo,
 			),
 		).toBe(false);
-		expect(
-			isSourceCopyFastPathEligible(
-				createConfig({
-					cursorHighlight: {
-						enabled: true,
-						style: "ring",
-						sizePx: 24,
-						color: "#ffffff",
-						opacity: 1,
-						onlyOnClicks: false,
-						clickEmphasisDurationMs: 350,
-						offsetXNorm: 0,
-						offsetYNorm: 0,
-					},
-					cursorTelemetry: [{ timeMs: 0, cx: 0.5, cy: 0.5 }],
-				}),
-				videoInfo,
-			),
-		).toBe(false);
 	});
 });
 

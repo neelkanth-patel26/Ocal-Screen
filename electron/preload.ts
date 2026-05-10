@@ -48,10 +48,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	requestCameraAccess: () => {
 		return ipcRenderer.invoke("request-camera-access");
 	},
-	requestAccessibilityAccess: () => {
-		return ipcRenderer.invoke("request-accessibility-access");
-	},
-
 	storeRecordedVideo: (videoData: ArrayBuffer, fileName: string) => {
 		return ipcRenderer.invoke("store-recorded-video", videoData, fileName);
 	},

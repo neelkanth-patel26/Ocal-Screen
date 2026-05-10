@@ -975,22 +975,6 @@ export function registerIpcHandlers(
 		}
 	});
 
-	// macOS Accessibility prompt for global click capture. First call shows the
-	// system dialog; the user has to toggle the app in System Settings (no
-	// programmatic grant exists for Accessibility).
-	ipcMain.handle("request-accessibility-access", () => {
-		if (process.platform !== "darwin") {
-			return { success: true, granted: true };
-		}
-		try {
-			const granted = systemPreferences.isTrustedAccessibilityClient(true);
-			return { success: true, granted };
-		} catch (error) {
-			console.error("Failed to request accessibility access:", error);
-			return { success: false, granted: false, error: String(error) };
-		}
-	});
-
 	ipcMain.handle("open-source-selector", () => {
 		const sourceSelectorWin = getSourceSelectorWindow();
 		if (sourceSelectorWin) {

@@ -41,9 +41,7 @@
 		"test:browser:install": "playwright install --with-deps chromium-headless-shell",
 		"test:e2e": "playwright test",
 		"test:e2e:windows-native-checklist": "playwright test tests/e2e/windows-native-checklist.spec.ts",
-		"prepare": "husky",
-		"rebuild:native": "node ./scripts/rebuild-native.mjs",
-		"postinstall": "npm run rebuild:native"
+		"prepare": "husky"
 	},
 	"dependencies": {
 		"@fix-webm-duration/fix": "^1.0.1",
@@ -85,7 +83,6 @@
 		"sonner": "^2.0.7",
 		"tailwind-merge": "^3.5.0",
 		"tailwindcss-animate": "^1.0.7",
-		"uiohook-napi": "^1.5.5",
 		"uuid": "^13.0.0",
 		"web-demuxer": "^4.0.0"
 	},

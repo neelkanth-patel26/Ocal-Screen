@@ -77,17 +77,7 @@ import {
 	ZOOM_SCALE_DEADZONE,
 	ZOOM_TRANSLATION_DEADZONE_PX,
 } from "./videoPlayback/constants";
-import {
-	adaptiveSmoothFactor,
-	interpolateCursorAt,
-	smoothCursorFocus,
-} from "./videoPlayback/cursorFollowUtils";
-import {
-	type CursorHighlightConfig,
-	clickEmphasisAlpha,
-	DEFAULT_CURSOR_HIGHLIGHT,
-	drawCursorHighlightGraphics,
-} from "./videoPlayback/cursorHighlight";
+import { adaptiveSmoothFactor, smoothCursorFocus } from "./videoPlayback/cursorFollowUtils";
 import {
 	DEFAULT_CURSOR_CONFIG,
 	PixiCursorOverlay,
@@ -152,7 +142,6 @@ interface VideoPlaybackProps {
 	onBlurDataChange?: (id: string, blurData: BlurData) => void;
 	onBlurDataCommit?: () => void;
 	cursorTelemetry?: CursorTelemetryPoint[];
-	cursorHighlight?: CursorHighlightConfig;
 	cursorClickTimestamps?: number[];
 	showCursor?: boolean;
 	cursorSize?: number;
@@ -253,7 +242,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onBlurDataChange,
 			onBlurDataCommit,
 			cursorTelemetry = [],
-			cursorHighlight = DEFAULT_CURSOR_HIGHLIGHT,
 			cursorClickTimestamps = [],
 			showCursor = false,
 			cursorSize = DEFAULT_CURSOR_SIZE,
@@ -285,9 +273,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const currentTimeRef = useRef(0);
 		const zoomRegionsRef = useRef<ZoomRegion[]>([]);
 		const cursorTelemetryRef = useRef<CursorTelemetryPoint[]>([]);
-		const cursorHighlightRef = useRef<CursorHighlightConfig>(DEFAULT_CURSOR_HIGHLIGHT);
 		const cursorClickTimestampsRef = useRef<number[]>([]);
-		const cursorHighlightGraphicsRef = useRef<Graphics | null>(null);
 		const selectedZoomIdRef = useRef<string | null>(null);
 		const animationStateRef = useRef({
 			scale: 1,
@@ -743,13 +729,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [cursorTelemetry]);
 
 		useEffect(() => {
-			cursorHighlightRef.current = cursorHighlight;
-			if (cursorHighlightGraphicsRef.current) {
-				drawCursorHighlightGraphics(cursorHighlightGraphicsRef.current, cursorHighlight);
-			}
-		}, [cursorHighlight]);
-
-		useEffect(() => {
 			cursorClickTimestampsRef.current = cursorClickTimestamps;
 		}, [cursorClickTimestamps]);
 
@@ -1084,11 +1063,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				videoContainer.addChild(cursorOverlayRef.current.container);
 			}
 
-			const cursorHighlightGraphics = new Graphics();
-			cursorHighlightGraphics.visible = false;
-			videoContainer.addChild(cursorHighlightGraphics);
-			cursorHighlightGraphicsRef.current = cursorHighlightGraphics;
-			drawCursorHighlightGraphics(cursorHighlightGraphics, cursorHighlightRef.current);
 			videoContainer.addChild(nativeCursorSprite);
 
 			animationStateRef.current = {
@@ -1152,11 +1126,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				if (maskGraphics) {
 					videoContainer.removeChild(maskGraphics);
 					maskGraphics.destroy();
-				}
-				if (cursorHighlightGraphicsRef.current) {
-					videoContainer.removeChild(cursorHighlightGraphicsRef.current);
-					cursorHighlightGraphicsRef.current.destroy();
-					cursorHighlightGraphicsRef.current = null;
 				}
 				if (nativeCursorSpriteRef.current) {
 					videoContainer.removeChild(nativeCursorSpriteRef.current);
@@ -1384,39 +1353,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					motionIntensity,
 					motionVector,
 				);
-
-				const cursorGraphics = cursorHighlightGraphicsRef.current;
-				const cursorConfig = cursorHighlightRef.current;
-				const lockedDims = lockedVideoDimensionsRef.current;
-				if (cursorGraphics) {
-					if (cursorConfig.enabled && lockedDims && cursorTelemetryRef.current.length > 0) {
-						const emphasisAlpha = clickEmphasisAlpha(
-							currentTimeRef.current,
-							cursorClickTimestampsRef.current,
-							cursorConfig,
-						);
-						const cursorPoint =
-							emphasisAlpha > 0
-								? interpolateCursorAt(cursorTelemetryRef.current, currentTimeRef.current)
-								: null;
-						if (cursorPoint) {
-							const baseScale = baseScaleRef.current;
-							const baseOffset = baseOffsetRef.current;
-							const cx = cursorPoint.cx + cursorConfig.offsetXNorm;
-							const cy = cursorPoint.cy + cursorConfig.offsetYNorm;
-							cursorGraphics.position.set(
-								baseOffset.x + cx * lockedDims.width * baseScale,
-								baseOffset.y + cy * lockedDims.height * baseScale,
-							);
-							cursorGraphics.alpha = emphasisAlpha;
-							cursorGraphics.visible = true;
-						} else {
-							cursorGraphics.visible = false;
-						}
-					} else {
-						cursorGraphics.visible = false;
-					}
-				}
 
 				const isMotionBlurActive =
 					(motionBlurAmountRef.current || 0) > 0 && isPlayingRef.current && !isScrubbingRef.current;
