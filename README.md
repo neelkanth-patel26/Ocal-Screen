@@ -73,18 +73,72 @@ Note: Give your terminal Full Disk Access in **System Settings > Privacy & Secur
 
 After running this command, proceed to **System Preferences > Security & Privacy** to grant the necessary permissions for "screen recording" and "accessibility". Once permissions are granted, you can launch the app.
 
+### Windows
+
+Install via [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/):
+
+```bash
+winget install SiddharthVaddem.OpenScreen
+```
+
+To update later: `winget upgrade SiddharthVaddem.OpenScreen`
+To uninstall: `winget uninstall SiddharthVaddem.OpenScreen`
+
+If you'd rather grab the `.exe` installer directly, download it from the [Releases page](https://github.com/siddharthvaddem/openscreen/releases).
+
 ### Linux
 
-Download the `.AppImage` file from the releases page. Make it executable and run:
+Three packages are published to the [Releases page](https://github.com/siddharthvaddem/openscreen/releases) for each version. Pick the one that matches your distro:
 
+**Debian / Ubuntu / Pop!_OS (`.deb`)**
+```bash
+sudo apt install ./Openscreen-Linux-latest.deb
+```
+
+**Arch / Manjaro (`.pacman`)**
+```bash
+sudo pacman -U Openscreen-Linux-latest.pacman
+```
+
+**Any distro (`.AppImage`)**
 ```bash
 chmod +x Openscreen-Linux-*.AppImage
 ./Openscreen-Linux-*.AppImage
 ```
 
+**NixOS / Nix (flake)**
+
+Try without installing:
+```bash
+nix run github:siddharthvaddem/openscreen
+```
+
+Install into your user profile:
+```bash
+nix profile install github:siddharthvaddem/openscreen
+```
+
+For a NixOS system config (flake):
+```nix
+{
+  inputs.openscreen.url = "github:siddharthvaddem/openscreen";
+
+  outputs = { nixpkgs, openscreen, ... }: {
+    nixosConfigurations.<host> = nixpkgs.lib.nixosSystem {
+      modules = [
+        openscreen.nixosModules.default
+        { programs.openscreen.enable = true; }
+      ];
+    };
+  };
+}
+```
+
+For Home Manager, use `openscreen.homeManagerModules.default` with the same `programs.openscreen.enable = true;`.
+
 You may need to grant screen recording permissions depending on your desktop environment.
 
-**Note:** If the app fails to launch due to a "sandbox" error, run it with --no-sandbox:
+**Sandbox error:** If the AppImage fails to launch with a "sandbox" error, run it with `--no-sandbox`:
 ```bash
 ./Openscreen-Linux-*.AppImage --no-sandbox
 ```
