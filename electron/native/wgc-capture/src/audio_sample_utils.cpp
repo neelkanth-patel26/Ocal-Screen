@@ -100,6 +100,17 @@ bool sameAudioFormatForMixing(const AudioInputFormat& left, const AudioInputForm
            left.avgBytesPerSec == right.avgBytesPerSec;
 }
 
+AudioInputFormat makeAacCompatibleAudioFormat(const AudioInputFormat& source) {
+    AudioInputFormat format{};
+    format.subtype = MFAudioFormat_PCM;
+    format.sampleRate = source.sampleRate > 0 ? source.sampleRate : 48000;
+    format.channels = 2;
+    format.bitsPerSample = 16;
+    format.blockAlign = format.channels * (format.bitsPerSample / 8);
+    format.avgBytesPerSec = format.sampleRate * format.blockAlign;
+    return format;
+}
+
 void copyAudioWithGain(
     const BYTE* source,
     DWORD byteCount,

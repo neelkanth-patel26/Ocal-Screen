@@ -1,5 +1,7 @@
 #include "mf_encoder.h"
 
+#include "audio_sample_utils.h"
+
 #include <mfapi.h>
 #include <mferror.h>
 #include <propvarutil.h>
@@ -156,7 +158,7 @@ bool MFEncoder::configureAudioStream(const AudioInputFormat& audioFormat) {
         return false;
     }
 
-    const UINT32 bitsPerSample = std::max<UINT32>(8, audioFormat.bitsPerSample);
+    const AudioInputFormat encoderFormat = makeAacCompatibleAudioFormat(audioFormat);
     const UINT32 aacBytesPerSecond = 24'000;
 
     Microsoft::WRL::ComPtr<IMFMediaType> outputType;
@@ -165,7 +167,7 @@ bool MFEncoder::configureAudioStream(const AudioInputFormat& audioFormat) {
     }
     outputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
     outputType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC);
-    setAudioFormat(outputType.Get(), audioFormat.channels, audioFormat.sampleRate, 16);
+    setAudioFormat(outputType.Get(), encoderFormat.channels, encoderFormat.sampleRate, 16);
     outputType->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, aacBytesPerSecond);
     outputType->SetUINT32(MF_MT_AAC_PAYLOAD_TYPE, 0);
 
@@ -178,10 +180,10 @@ bool MFEncoder::configureAudioStream(const AudioInputFormat& audioFormat) {
         return false;
     }
     inputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
-    inputType->SetGUID(MF_MT_SUBTYPE, audioFormat.subtype);
-    setAudioFormat(inputType.Get(), audioFormat.channels, audioFormat.sampleRate, bitsPerSample);
-    inputType->SetUINT32(MF_MT_AUDIO_BLOCK_ALIGNMENT, audioFormat.blockAlign);
-    inputType->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, audioFormat.avgBytesPerSec);
+    inputType->SetGUID(MF_MT_SUBTYPE, encoderFormat.subtype);
+    setAudioFormat(inputType.Get(), encoderFormat.channels, encoderFormat.sampleRate, encoderFormat.bitsPerSample);
+    inputType->SetUINT32(MF_MT_AUDIO_BLOCK_ALIGNMENT, encoderFormat.blockAlign);
+    inputType->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, encoderFormat.avgBytesPerSec);
     inputType->SetUINT32(MF_MT_ALL_SAMPLES_INDEPENDENT, TRUE);
 
     if (!succeeded(sinkWriter_->SetInputMediaType(audioStreamIndex_, inputType.Get(), nullptr),

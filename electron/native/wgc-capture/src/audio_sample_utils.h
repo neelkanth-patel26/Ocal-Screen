@@ -13,6 +13,7 @@
 #include <vector>
 
 bool sameAudioFormatForMixing(const AudioInputFormat& left, const AudioInputFormat& right);
+AudioInputFormat makeAacCompatibleAudioFormat(const AudioInputFormat& source);
 void copyAudioWithGain(
     const BYTE* source,
     DWORD byteCount,

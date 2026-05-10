@@ -410,6 +410,7 @@ int main(int argc, char* argv[]) {
     WasapiLoopbackCapture loopbackCapture;
     WasapiLoopbackCapture microphoneCapture;
     const AudioInputFormat* audioFormat = nullptr;
+    AudioInputFormat encoderAudioFormat{};
     AudioInputFormat systemAudioFormat{};
     AudioInputFormat microphoneAudioFormat{};
     if (config.captureSystemAudio) {
@@ -443,6 +444,12 @@ int main(int argc, char* argv[]) {
                       << jsonEscape(wideToUtf8(microphoneCapture.selectedDeviceName())) << "\"";
         }
         std::cout << "}" << std::endl;
+        encoderAudioFormat = makeAacCompatibleAudioFormat(*audioFormat);
+        std::cout << "{\"event\":\"encoder-audio-format\",\"schemaVersion\":2,\"sampleRate\":"
+                  << encoderAudioFormat.sampleRate
+                  << ",\"channels\":" << encoderAudioFormat.channels
+                  << ",\"bitsPerSample\":" << encoderAudioFormat.bitsPerSample
+                  << "}" << std::endl;
     }
 
     MFEncoder encoder;
@@ -454,7 +461,7 @@ int main(int argc, char* argv[]) {
             bitrate,
             session.device(),
             session.context(),
-            audioFormat)) {
+            audioFormat ? &encoderAudioFormat : nullptr)) {
         std::cerr << "ERROR: Failed to initialize Media Foundation encoder" << std::endl;
         return 1;
     }
@@ -579,9 +586,9 @@ int main(int argc, char* argv[]) {
         }
 
         audioMixer = std::make_unique<AudioMixer>(
-            *audioFormat,
-            config.captureSystemAudio ? systemAudioFormat : *audioFormat,
-            config.captureMic ? microphoneAudioFormat : *audioFormat,
+            encoderAudioFormat,
+            config.captureSystemAudio ? systemAudioFormat : encoderAudioFormat,
+            config.captureMic ? microphoneAudioFormat : encoderAudioFormat,
             config.captureSystemAudio,
             config.captureMic,
             config.microphoneGain,
