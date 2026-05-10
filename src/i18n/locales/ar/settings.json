@@ -38,20 +38,7 @@
 		"on": "تشغيل",
 		"shadow": "ظل",
 		"roundness": "الاستدارة",
-		"padding": "المسافة البادئة",
-		"cursorHighlight": {
-			"title": "تمييز المؤشر",
-			"style": "النمط",
-			"dot": "نقطة",
-			"ring": "حلقة",
-			"size": "الحجم",
-			"onlyOnClicks": "عند النقر فقط",
-			"color": "اللون",
-			"offsetX": "إزاحة X (لتسجيلات النوافذ)",
-			"offsetY": "إزاحة Y",
-			"accessibilityPermissionTitle": "مطلوب إذن الوصول",
-			"accessibilityPermissionDescription": "افتح إعدادات النظام ← الخصوصية والأمان ← إمكانية الوصول، وقم بتفعيل Openscreen، ثم أعد تشغيل التطبيق."
-		}
+		"padding": "المسافة البادئة"
 	},
 	"background": {
 		"title": "الخلفية",

@@ -1,7 +1,6 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import {
 	Bug,
-	ChevronDown,
 	Crop,
 	Download,
 	FileDown,
@@ -28,7 +27,6 @@ import {
 	AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -221,12 +219,6 @@ const GRADIENTS = [
 ];
 
 interface SettingsPanelProps {
-	cursorHighlight?: import("./videoPlayback/cursorHighlight").CursorHighlightConfig;
-	onCursorHighlightChange?: (
-		next: import("./videoPlayback/cursorHighlight").CursorHighlightConfig,
-	) => void;
-	// macOS only — gates the "Only on clicks" toggle (needs uiohook).
-	cursorHighlightSupportsClicks?: boolean;
 	selected: string;
 	onWallpaperChange: (path: string) => void;
 	selectedZoomDepth?: ZoomDepth | null;
@@ -309,6 +301,18 @@ interface SettingsPanelProps {
 	onWebcamSizePresetChange?: (size: WebcamSizePreset) => void;
 	onWebcamSizePresetCommit?: () => void;
 	onSaveDiagnostic?: () => Promise<void>;
+	showCursor?: boolean;
+	onShowCursorChange?: (show: boolean) => void;
+	cursorSize?: number;
+	onCursorSizeChange?: (size: number) => void;
+	cursorSmoothing?: number;
+	onCursorSmoothingChange?: (smoothing: number) => void;
+	cursorMotionBlur?: number;
+	onCursorMotionBlurChange?: (blur: number) => void;
+	cursorClickBounce?: number;
+	onCursorClickBounceChange?: (bounce: number) => void;
+	hasCursorData?: boolean;
+	showCursorSettings?: boolean;
 }
 
 export default SettingsPanel;
@@ -325,9 +329,6 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 type SettingsPanelMode = "background" | "effects" | "layout" | "cursor" | "export";
 
 export function SettingsPanel({
-	cursorHighlight,
-	onCursorHighlightChange,
-	cursorHighlightSupportsClicks = false,
 	selected,
 	onWallpaperChange,
 	selectedZoomDepth,
@@ -405,6 +406,18 @@ export function SettingsPanel({
 	onWebcamSizePresetChange,
 	onWebcamSizePresetCommit,
 	onSaveDiagnostic,
+	showCursor = true,
+	onShowCursorChange,
+	cursorSize = 3.0,
+	onCursorSizeChange,
+	cursorSmoothing = 0.67,
+	onCursorSmoothingChange,
+	cursorMotionBlur = 0.35,
+	onCursorMotionBlurChange,
+	cursorClickBounce = 2.5,
+	onCursorClickBounceChange,
+	hasCursorData = false,
+	showCursorSettings = true,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [activePanelMode, setActivePanelMode] = useState<SettingsPanelMode>("background");
@@ -435,8 +448,6 @@ export function SettingsPanel({
 
 	const [selectedColor, setSelectedColor] = useState("#ADADAD");
 	const [gradient, setGradient] = useState<string>(GRADIENTS[0]);
-	const [showCropModal, setShowCropModal] = useState(false);
-	const cropSnapshotRef = useRef<CropRegion | null>(null);
 	const [cropAspectLocked, setCropAspectLocked] = useState(false);
 	const [cropAspectRatio, setCropAspectRatio] = useState("");
 	const isPortraitCanvas = isPortraitAspectRatio(aspectRatio);
@@ -537,10 +548,13 @@ export function SettingsPanel({
 		},
 		[cropRegion, videoWidth, videoHeight],
 	);
+	const [showCropDropdown, setShowCropDropdown] = useState(false);
+	const handleCropToggle = () => setShowCropDropdown((open) => !open);
 
 	const zoomEnabled = Boolean(selectedZoomDepth);
 	const trimEnabled = Boolean(selectedTrimId);
 	const hasTimelineSelection = Boolean(selectedZoomId || selectedTrimId || selectedSpeedId);
+	const hasCursorPanel = showCursorSettings && hasCursorData;
 	const panelModes: Array<{
 		id: SettingsPanelMode;
 		label: string;
@@ -550,7 +564,15 @@ export function SettingsPanel({
 		{ id: "background", label: t("background.title"), icon: Palette },
 		{ id: "effects", label: t("effects.title"), icon: SlidersHorizontal },
 		{ id: "layout", label: t("layout.title"), icon: LayoutPanelTop, disabled: !hasWebcam },
-		{ id: "cursor", label: t("effects.cursorHighlight.title"), icon: MousePointerClick },
+		...(hasCursorPanel
+			? [
+					{
+						id: "cursor" as const,
+						label: t("effects.title"),
+						icon: MousePointerClick,
+					},
+				]
+			: []),
 	];
 	const exportPanelMode = {
 		id: "export" as const,
@@ -623,20 +645,6 @@ export function SettingsPanel({
 		if (selected === imageUrl) {
 			onWallpaperChange(WALLPAPER_PATHS[0]);
 		}
-	};
-
-	const handleCropToggle = () => {
-		if (!showCropModal && cropRegion) {
-			cropSnapshotRef.current = { ...cropRegion };
-		}
-		setShowCropModal(!showCropModal);
-	};
-
-	const handleCropCancel = () => {
-		if (cropSnapshotRef.current && onCropChange) {
-			onCropChange(cropSnapshotRef.current);
-		}
-		setShowCropModal(false);
 	};
 
 	// Find selected annotation
@@ -1265,11 +1273,7 @@ export function SettingsPanel({
 											) : (
 												<SlidersHorizontal className="w-4 h-4 text-[#34B27B]" />
 											)}
-											<span className="text-xs font-medium">
-												{activePanelMode === "cursor"
-													? t("effects.cursorHighlight.title")
-													: t("effects.title")}
-											</span>
+											<span className="text-xs font-medium">{t("effects.title")}</span>
 										</div>
 									</AccordionTrigger>
 									<AccordionContent className="pb-3">
@@ -1374,218 +1378,90 @@ export function SettingsPanel({
 											</>
 										)}
 
-										{activePanelMode === "cursor" && cursorHighlight && onCursorHighlightChange && (
-											<div className="p-2 rounded-lg editor-control-surface mt-2 space-y-2">
+										{activePanelMode === "cursor" && showCursorSettings && hasCursorData && (
+											<div className="p-2 rounded-lg editor-control-surface mt-2 space-y-3">
 												<div className="flex items-center justify-between">
-													<div className="text-[10px] font-medium text-slate-300">
-														{t("effects.cursorHighlight.title")}
-													</div>
-													<button
-														type="button"
-														onClick={() =>
-															onCursorHighlightChange({
-																...cursorHighlight,
-																enabled: !cursorHighlight.enabled,
-															})
-														}
-														className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-															cursorHighlight.enabled
-																? "bg-[#34B27B]/20 border-[#34B27B]/50 text-[#34B27B]"
-																: "bg-white/5 border-white/10 text-slate-400"
-														}`}
-													>
-														{cursorHighlight.enabled ? t("effects.on") : t("effects.off")}
-													</button>
-												</div>
-												<div
-													className={`grid grid-cols-2 gap-1 ${cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}`}
-												>
-													{(["dot", "ring"] as const).map((style) => (
-														<button
-															key={style}
-															type="button"
-															onClick={() => onCursorHighlightChange({ ...cursorHighlight, style })}
-															className={`text-[10px] px-2 py-1 rounded border capitalize transition-colors ${
-																cursorHighlight.style === style
-																	? "bg-[#34B27B]/20 border-[#34B27B]/50 text-[#34B27B]"
-																	: "bg-white/5 border-white/10 text-slate-300 hover:border-white/20"
-															}`}
-														>
-															{t(`effects.cursorHighlight.${style}`)}
-														</button>
-													))}
-												</div>
-												<div
-													className={
-														cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"
-													}
-												>
-													<div className="flex items-center justify-between mb-1">
-														<div className="text-[10px] text-slate-400">
-															{t("effects.cursorHighlight.size")}
-														</div>
-														<span className="text-[10px] text-slate-500 font-mono">
-															{cursorHighlight.sizePx}px
-														</span>
-													</div>
-													<Slider
-														value={[cursorHighlight.sizePx]}
-														onValueChange={(values) =>
-															onCursorHighlightChange({
-																...cursorHighlight,
-																sizePx: values[0],
-															})
-														}
-														min={10}
-														max={36}
-														step={1}
-														className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+													<div className="text-[10px] font-medium text-slate-300">Show Cursor</div>
+													<Switch
+														checked={showCursor}
+														onCheckedChange={onShowCursorChange}
+														className="data-[state=checked]:bg-[#34B27B] scale-90"
 													/>
 												</div>
-												{cursorHighlightSupportsClicks && (
-													<div
-														className={`flex items-center justify-between ${cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}`}
-													>
-														<div className="text-[10px] text-slate-400">
-															{t("effects.cursorHighlight.onlyOnClicks")}
+												{showCursor && (
+													<div className="grid grid-cols-2 gap-2">
+														<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+															<div className="flex items-center justify-between mb-1">
+																<div className="text-[10px] font-medium text-slate-300">Size</div>
+																<span className="text-[10px] text-slate-500 font-mono">
+																	{cursorSize.toFixed(1)}
+																</span>
+															</div>
+															<Slider
+																value={[cursorSize]}
+																onValueChange={(values) => onCursorSizeChange?.(values[0])}
+																min={0.5}
+																max={10}
+																step={0.1}
+																className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+															/>
 														</div>
-														<button
-															type="button"
-															onClick={async () => {
-																const turningOn = !cursorHighlight.onlyOnClicks;
-																if (turningOn) {
-																	try {
-																		const result =
-																			await window.electronAPI?.requestAccessibilityAccess?.();
-																		if (!result?.granted) {
-																			toast.message(
-																				t("effects.cursorHighlight.accessibilityPermissionTitle"),
-																				{
-																					description: t(
-																						"effects.cursorHighlight.accessibilityPermissionDescription",
-																					),
-																				},
-																			);
-																			return;
-																		}
-																	} catch (err) {
-																		console.warn("Accessibility request failed:", err);
-																	}
-																}
-																onCursorHighlightChange({
-																	...cursorHighlight,
-																	onlyOnClicks: turningOn,
-																});
-															}}
-															className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-																cursorHighlight.onlyOnClicks
-																	? "bg-[#34B27B]/20 border-[#34B27B]/50 text-[#34B27B]"
-																	: "bg-white/5 border-white/10 text-slate-400"
-															}`}
-														>
-															{cursorHighlight.onlyOnClicks ? t("effects.on") : t("effects.off")}
-														</button>
+														<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+															<div className="flex items-center justify-between mb-1">
+																<div className="text-[10px] font-medium text-slate-300">
+																	Smoothing
+																</div>
+																<span className="text-[10px] text-slate-500 font-mono">
+																	{Math.round(cursorSmoothing * 100)}%
+																</span>
+															</div>
+															<Slider
+																value={[cursorSmoothing]}
+																onValueChange={(values) => onCursorSmoothingChange?.(values[0])}
+																min={0}
+																max={1}
+																step={0.01}
+																className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+															/>
+														</div>
+														<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+															<div className="flex items-center justify-between mb-1">
+																<div className="text-[10px] font-medium text-slate-300">
+																	Motion Blur
+																</div>
+																<span className="text-[10px] text-slate-500 font-mono">
+																	{Math.round(cursorMotionBlur * 100)}%
+																</span>
+															</div>
+															<Slider
+																value={[cursorMotionBlur]}
+																onValueChange={(values) => onCursorMotionBlurChange?.(values[0])}
+																min={0}
+																max={1}
+																step={0.01}
+																className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+															/>
+														</div>
+														<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+															<div className="flex items-center justify-between mb-1">
+																<div className="text-[10px] font-medium text-slate-300">
+																	Click Bounce
+																</div>
+																<span className="text-[10px] text-slate-500 font-mono">
+																	{cursorClickBounce.toFixed(1)}
+																</span>
+															</div>
+															<Slider
+																value={[cursorClickBounce]}
+																onValueChange={(values) => onCursorClickBounceChange?.(values[0])}
+																min={0}
+																max={5}
+																step={0.1}
+																className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+															/>
+														</div>
 													</div>
 												)}
-												<div
-													className={
-														cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"
-													}
-												>
-													<div className="text-[10px] text-slate-400 mb-1">
-														{t("effects.cursorHighlight.color")}
-													</div>
-													<Popover>
-														<PopoverTrigger asChild>
-															<Button
-																variant="outline"
-																className="w-full h-8 justify-start gap-2 bg-white/5 border-white/10 hover:bg-white/10 px-2"
-															>
-																<div
-																	className="w-4 h-4 rounded-full border border-white/20"
-																	style={{ backgroundColor: cursorHighlight.color }}
-																/>
-																<span className="text-[10px] text-slate-300 truncate flex-1 text-left font-mono">
-																	{cursorHighlight.color}
-																</span>
-																<ChevronDown className="h-3 w-3 opacity-50" />
-															</Button>
-														</PopoverTrigger>
-														<PopoverContent
-															side="top"
-															className="w-[260px] p-3 bg-[#1a1a1c] border border-white/10 rounded-xl shadow-xl"
-														>
-															<ColorPicker
-																selectedColor={cursorHighlight.color}
-																colorPalette={colorPalette}
-																translations={{
-																	colorWheel: t("background.colorWheel"),
-																	colorPalette: t("background.colorPalette"),
-																}}
-																onUpdateColor={(color) =>
-																	onCursorHighlightChange({
-																		...cursorHighlight,
-																		color,
-																	})
-																}
-															/>
-														</PopoverContent>
-													</Popover>
-												</div>
-												<div
-													className={
-														cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"
-													}
-												>
-													<div className="flex items-center justify-between mb-1">
-														<div className="text-[10px] text-slate-400">
-															{t("effects.cursorHighlight.offsetX")}
-														</div>
-														<span className="text-[10px] text-slate-500 font-mono">
-															{(cursorHighlight.offsetXNorm * 100).toFixed(1)}%
-														</span>
-													</div>
-													<Slider
-														value={[cursorHighlight.offsetXNorm]}
-														onValueChange={(values) =>
-															onCursorHighlightChange({
-																...cursorHighlight,
-																offsetXNorm: values[0],
-															})
-														}
-														min={-0.25}
-														max={0.25}
-														step={0.005}
-														className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-													/>
-												</div>
-												<div
-													className={
-														cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"
-													}
-												>
-													<div className="flex items-center justify-between mb-1">
-														<div className="text-[10px] text-slate-400">
-															{t("effects.cursorHighlight.offsetY")}
-														</div>
-														<span className="text-[10px] text-slate-500 font-mono">
-															{(cursorHighlight.offsetYNorm * 100).toFixed(1)}%
-														</span>
-													</div>
-													<Slider
-														value={[cursorHighlight.offsetYNorm]}
-														onValueChange={(values) =>
-															onCursorHighlightChange({
-																...cursorHighlight,
-																offsetYNorm: values[0],
-															})
-														}
-														min={-0.25}
-														max={0.25}
-														step={0.005}
-														className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-													/>
-												</div>
 											</div>
 										)}
 									</AccordionContent>
@@ -1745,11 +1621,11 @@ export function SettingsPanel({
 				</div>
 			</div>
 
-			{showCropModal && cropRegion && onCropChange && (
+			{showCropDropdown && cropRegion && onCropChange && (
 				<>
 					<div
 						className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 animate-in fade-in duration-200"
-						onClick={handleCropCancel}
+						onClick={() => setShowCropDropdown(false)}
 					/>
 					<div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] bg-[#09090b] rounded-2xl shadow-2xl border border-white/10 p-8 w-[90vw] max-w-5xl max-h-[90vh] overflow-auto animate-in zoom-in-95 duration-200">
 						<div className="flex items-center justify-between mb-6">
@@ -1760,7 +1636,7 @@ export function SettingsPanel({
 							<Button
 								variant="ghost"
 								size="icon"
-								onClick={handleCropCancel}
+								onClick={() => setShowCropDropdown(false)}
 								className="hover:bg-white/10 text-slate-400 hover:text-white"
 							>
 								<X className="w-5 h-5" />
@@ -1856,7 +1732,7 @@ export function SettingsPanel({
 
 							<div className="flex justify-end">
 								<Button
-									onClick={() => setShowCropModal(false)}
+									onClick={() => setShowCropDropdown(false)}
 									size="lg"
 									className="bg-[#34B27B] hover:bg-[#34B27B]/90 text-white"
 								>

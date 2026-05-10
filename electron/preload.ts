@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { NativeWindowsRecordingRequest } from "../src/lib/nativeWindowsRecording";
 import type { RecordingSession, StoreRecordedSessionInput } from "../src/lib/recordingSession";
+import { NATIVE_BRIDGE_CHANNEL, type NativeBridgeRequest } from "../src/native/contracts";
 
 // Asset base URL is passed from the main process via webPreferences.additionalArguments
 // (see windows.ts). Sandboxed preloads cannot import node:path / node:url, so we
@@ -10,6 +12,9 @@ const assetBaseUrl = assetBaseUrlArg ? assetBaseUrlArg.slice(ASSET_BASE_URL_ARG_
 
 contextBridge.exposeInMainWorld("electronAPI", {
 	assetBaseUrl,
+	invokeNativeBridge: <TData>(request: NativeBridgeRequest) => {
+		return ipcRenderer.invoke(NATIVE_BRIDGE_CHANNEL, request) as Promise<TData>;
+	},
 	hudOverlayHide: () => {
 		ipcRenderer.send("hud-overlay-hide");
 	},
@@ -43,10 +48,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	requestCameraAccess: () => {
 		return ipcRenderer.invoke("request-camera-access");
 	},
-	requestAccessibilityAccess: () => {
-		return ipcRenderer.invoke("request-accessibility-access");
-	},
-
 	storeRecordedVideo: (videoData: ArrayBuffer, fileName: string) => {
 		return ipcRenderer.invoke("store-recorded-video", videoData, fileName);
 	},
@@ -57,8 +58,21 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getRecordedVideoPath: () => {
 		return ipcRenderer.invoke("get-recorded-video-path");
 	},
-	setRecordingState: (recording: boolean, recordingId?: number) => {
-		return ipcRenderer.invoke("set-recording-state", recording, recordingId);
+	setRecordingState: (
+		recording: boolean,
+		recordingId?: number,
+		cursorCaptureMode?: import("../src/lib/recordingSession").CursorCaptureMode,
+	) => {
+		return ipcRenderer.invoke("set-recording-state", recording, recordingId, cursorCaptureMode);
+	},
+	isNativeWindowsCaptureAvailable: () => {
+		return ipcRenderer.invoke("is-native-windows-capture-available");
+	},
+	startNativeWindowsRecording: (request: NativeWindowsRecordingRequest) => {
+		return ipcRenderer.invoke("start-native-windows-recording", request);
+	},
+	stopNativeWindowsRecording: (discard?: boolean) => {
+		return ipcRenderer.invoke("stop-native-windows-recording", discard);
 	},
 	getCursorTelemetry: (videoPath?: string) => {
 		return ipcRenderer.invoke("get-cursor-telemetry", videoPath);

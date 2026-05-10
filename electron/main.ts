@@ -490,7 +490,9 @@ app.whenReady().then(async () => {
 		// driven by later getSources() calls (fixes repeated permission dialog).
 		const screenStatus = systemPreferences.getMediaAccessStatus("screen");
 		if (screenStatus === "not-determined") {
-			desktopCapturer.getSources({ types: ["screen"] }).catch(() => {});
+			desktopCapturer.getSources({ types: ["screen"] }).catch(() => {
+				// This only triggers the system prompt; permission state is read separately.
+			});
 		}
 	}
 

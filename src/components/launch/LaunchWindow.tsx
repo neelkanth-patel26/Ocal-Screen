@@ -10,6 +10,7 @@ import {
 	MdMic,
 	MdMicOff,
 	MdMonitor,
+	MdMouse,
 	MdRestartAlt,
 	MdVideocam,
 	MdVideocamOff,
@@ -20,6 +21,7 @@ import {
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
+import { nativeBridgeClient } from "@/native";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
 import { useCameraDevices } from "../../hooks/useCameraDevices";
 import { useMicrophoneDevices } from "../../hooks/useMicrophoneDevices";
@@ -42,6 +44,7 @@ const ICON_CONFIG = {
 	micOff: { icon: MdMicOff, size: ICON_SIZE },
 	webcamOn: { icon: MdVideocam, size: ICON_SIZE },
 	webcamOff: { icon: MdVideocamOff, size: ICON_SIZE },
+	cursor: { icon: MdMouse, size: ICON_SIZE },
 	pause: { icon: BsPauseCircle, size: ICON_SIZE },
 	resume: { icon: BsPlayCircle, size: ICON_SIZE },
 	stop: { icon: FaRegStopCircle, size: ICON_SIZE },
@@ -101,12 +104,16 @@ export function LaunchWindow() {
 		setMicrophoneEnabled,
 		microphoneDeviceId,
 		setMicrophoneDeviceId,
+		setMicrophoneDeviceName,
 		systemAudioEnabled,
 		setSystemAudioEnabled,
 		webcamEnabled,
 		setWebcamEnabled,
 		webcamDeviceId,
 		setWebcamDeviceId,
+		setWebcamDeviceName,
+		cursorCaptureMode,
+		setCursorCaptureMode,
 	} = useScreenRecorder();
 
 	const showMicControls = microphoneEnabled && !recording;
@@ -120,6 +127,7 @@ export function LaunchWindow() {
 	const [isWebcamFocused, setIsWebcamFocused] = useState(false);
 	const webcamExpanded = isWebcamHovered || isWebcamFocused;
 	const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+	const [isWindows, setIsWindows] = useState(false);
 	const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
 	const languageMenuPanelRef = useRef<HTMLDivElement | null>(null);
 	const [languageMenuStyle, setLanguageMenuStyle] = useState<{
@@ -148,14 +156,16 @@ export function LaunchWindow() {
 	const selectedMicLabel =
 		micDevices.find((d) => d.deviceId === (microphoneDeviceId || selectedMicId))?.label ||
 		t("audio.defaultMicrophone");
+	const selectedCameraDevice = cameraDevices.find(
+		(d) => d.deviceId === (webcamDeviceId || selectedCameraId),
+	);
 	const selectedCameraLabel = isCameraDevicesLoading
 		? t("webcam.searching")
 		: cameraDevicesError
 			? t("webcam.unavailable")
 			: cameraDevices.length === 0
 				? t("webcam.noneFound")
-				: cameraDevices.find((d) => d.deviceId === (webcamDeviceId || selectedCameraId))?.label ||
-					t("webcam.defaultCamera");
+				: selectedCameraDevice?.label || t("webcam.defaultCamera");
 
 	const { level } = useAudioLevelMeter({
 		enabled: showMicControls,
@@ -165,14 +175,36 @@ export function LaunchWindow() {
 	useEffect(() => {
 		if (selectedMicId && selectedMicId !== "default") {
 			setMicrophoneDeviceId(selectedMicId);
+			setMicrophoneDeviceName(micDevices.find((d) => d.deviceId === selectedMicId)?.label);
 		}
-	}, [selectedMicId, setMicrophoneDeviceId]);
+	}, [selectedMicId, micDevices, setMicrophoneDeviceId, setMicrophoneDeviceName]);
 
 	useEffect(() => {
 		if (selectedCameraId) {
 			setWebcamDeviceId(selectedCameraId);
+			setWebcamDeviceName(cameraDevices.find((d) => d.deviceId === selectedCameraId)?.label);
 		}
-	}, [selectedCameraId, setWebcamDeviceId]);
+	}, [selectedCameraId, cameraDevices, setWebcamDeviceId, setWebcamDeviceName]);
+
+	useEffect(() => {
+		let cancelled = false;
+		nativeBridgeClient.system
+			.getPlatform()
+			.then((platform) => {
+				if (!cancelled) {
+					setIsWindows(platform === "win32");
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setIsWindows(false);
+				}
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	useEffect(() => {
 		if (!import.meta.env.DEV) {
@@ -258,6 +290,7 @@ export function LaunchWindow() {
 
 	const [selectedSource, setSelectedSource] = useState("Screen");
 	const [hasSelectedSource, setHasSelectedSource] = useState(false);
+	const [, setRecordPointerDownCount] = useState(0);
 
 	useEffect(() => {
 		const checkSelectedSource = async () => {
@@ -293,13 +326,17 @@ export function LaunchWindow() {
 		}
 
 		if (result.success && result.path) {
-			await window.electronAPI.setCurrentVideoPath(result.path);
+			const setVideoPathResult = await nativeBridgeClient.project.setCurrentVideoPath(result.path);
+			if (!setVideoPathResult.success) {
+				console.error("Failed to set current video path:", setVideoPathResult);
+				return;
+			}
 			await window.electronAPI.switchToEditor();
 		}
 	};
 
 	const openProjectFile = async () => {
-		const result = await window.electronAPI.loadProjectFile();
+		const result = await nativeBridgeClient.project.loadProjectFile();
 		if (result.canceled || !result.success) return;
 		await window.electronAPI.switchToEditor();
 	};
@@ -396,8 +433,10 @@ export function LaunchWindow() {
 								<select
 									value={microphoneDeviceId || selectedMicId}
 									onChange={(e) => {
+										const selectedDevice = micDevices.find((d) => d.deviceId === e.target.value);
 										setSelectedMicId(e.target.value);
 										setMicrophoneDeviceId(e.target.value);
+										setMicrophoneDeviceName(selectedDevice?.label);
 									}}
 									className={`w-full appearance-none bg-white/5 text-white text-[11px] rounded-lg pl-2 pr-6 py-1 border border-white/10 outline-none hover:bg-white/10 transition-colors cursor-pointer ${!micExpanded ? "sr-only" : ""}`}
 								>
@@ -455,8 +494,12 @@ export function LaunchWindow() {
 											<select
 												value={webcamDeviceId || selectedCameraId}
 												onChange={(e) => {
+													const device = cameraDevices.find(
+														(item) => item.deviceId === e.target.value,
+													);
 													setSelectedCameraId(e.target.value);
 													setWebcamDeviceId(e.target.value);
+													setWebcamDeviceName(device?.label);
 												}}
 												className="w-full appearance-none bg-white/5 text-white text-[11px] rounded-lg pl-2 pr-6 py-1 border border-white/10 outline-none hover:bg-white/10 transition-colors cursor-pointer"
 											>
@@ -480,8 +523,10 @@ export function LaunchWindow() {
 									<select
 										value={webcamDeviceId || selectedCameraId}
 										onChange={(e) => {
+											const device = cameraDevices.find((item) => item.deviceId === e.target.value);
 											setSelectedCameraId(e.target.value);
 											setWebcamDeviceId(e.target.value);
+											setWebcamDeviceName(device?.label);
 										}}
 										className="sr-only"
 									>
@@ -524,6 +569,7 @@ export function LaunchWindow() {
 				{/* Audio controls group */}
 				<div className={`${hudGroupClasses} ${styles.electronNoDrag}`}>
 					<button
+						data-testid="launch-system-audio-button"
 						className={`${hudIconBtnClasses} ${systemAudioEnabled ? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
 						onClick={() => !recording && setSystemAudioEnabled(!systemAudioEnabled)}
 						disabled={recording}
@@ -536,16 +582,21 @@ export function LaunchWindow() {
 							: getIcon("volumeOff", "text-white/40")}
 					</button>
 					<button
+						data-testid="launch-microphone-button"
 						className={`${hudIconBtnClasses} ${microphoneEnabled ? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
 						onClick={toggleMicrophone}
 						disabled={recording}
 						title={microphoneEnabled ? t("audio.disableMicrophone") : t("audio.enableMicrophone")}
+						onPointerDown={() => {
+							setRecordPointerDownCount((count) => count + 1);
+						}}
 					>
 						{microphoneEnabled
 							? getIcon("micOn", "text-green-400")
 							: getIcon("micOff", "text-white/40")}
 					</button>
 					<button
+						data-testid="launch-webcam-button"
 						className={`${hudIconBtnClasses} ${webcamEnabled ? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
 						onClick={async () => {
 							await setWebcamEnabled(!webcamEnabled);
@@ -557,10 +608,38 @@ export function LaunchWindow() {
 							? getIcon("webcamOn", "text-green-400")
 							: getIcon("webcamOff", "text-white/40")}
 					</button>
+					{isWindows && (
+						<button
+							data-testid="launch-cursor-mode-button"
+							className={`${hudIconBtnClasses} ${
+								cursorCaptureMode === "editable-overlay"
+									? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]"
+									: ""
+							}`}
+							onClick={() =>
+								!recording &&
+								setCursorCaptureMode(
+									cursorCaptureMode === "editable-overlay" ? "system" : "editable-overlay",
+								)
+							}
+							disabled={recording}
+							title={
+								cursorCaptureMode === "editable-overlay"
+									? t("cursor.useSystemCursor")
+									: t("cursor.useEditableCursor")
+							}
+						>
+							{getIcon(
+								"cursor",
+								cursorCaptureMode === "editable-overlay" ? "text-green-400" : "text-white/40",
+							)}
+						</button>
+					)}
 				</div>
 
 				{/* Record/Stop group */}
 				<button
+					data-testid="launch-record-button"
 					className={`flex items-center justify-center rounded-full p-2 transition-[min-width,background-color] duration-150 ${recording ? "min-w-[78px]" : "min-w-[36px]"} ${styles.electronNoDrag} ${
 						recording
 							? paused
@@ -613,6 +692,7 @@ export function LaunchWindow() {
 						{/* Open video file */}
 						<Tooltip content={t("tooltips.openVideoFile")}>
 							<button
+								data-testid="launch-open-video-button"
 								className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
 								onClick={openVideoFile}
 							>
@@ -623,6 +703,7 @@ export function LaunchWindow() {
 						{/* Open project */}
 						<Tooltip content={t("tooltips.openProject")}>
 							<button
+								data-testid="launch-open-project-button"
 								className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
 								onClick={openProjectFile}
 							>

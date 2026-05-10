@@ -46,20 +46,7 @@
 		"on": "вкл",
 		"shadow": "Тень",
 		"roundness": "Скругление",
-		"padding": "Отступ",
-		"cursorHighlight": {
-			"title": "Подсветка курсора",
-			"style": "Стиль",
-			"dot": "Точка",
-			"ring": "Кольцо",
-			"size": "Размер",
-			"onlyOnClicks": "Только при кликах",
-			"color": "Цвет",
-			"offsetX": "Смещение X (записи окон)",
-			"offsetY": "Смещение Y",
-			"accessibilityPermissionTitle": "Требуется разрешение на доступность",
-			"accessibilityPermissionDescription": "Откройте Системные настройки → Конфиденциальность и безопасность → Универсальный доступ, включите Openscreen, затем перезапустите приложение."
-		}
+		"padding": "Отступ"
 	},
 	"background": {
 		"title": "Фон",

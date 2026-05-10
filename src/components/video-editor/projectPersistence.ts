@@ -80,7 +80,6 @@ export interface ProjectEditorState {
 	gifFrameRate: GifFrameRate;
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
-	cursorHighlight: import("./videoPlayback/cursorHighlight").CursorHighlightConfig;
 }
 
 export interface EditorProjectData {
@@ -119,16 +118,14 @@ function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
 }
 
-function isFileUrl(value: string): boolean {
-	return /^file:\/\//i.test(value);
-}
-
 function encodePathSegments(pathname: string, keepWindowsDrive = false): string {
 	return pathname
 		.split("/")
 		.map((segment, index) => {
-			if (!segment) return "";
-			if (keepWindowsDrive && index === 1 && /^[a-zA-Z]:$/.test(segment)) {
+			if (!segment) {
+				return segment;
+			}
+			if (keepWindowsDrive && index === 0 && /^[a-zA-Z]:$/.test(segment)) {
 				return segment;
 			}
 			return encodeURIComponent(segment);
@@ -138,31 +135,25 @@ function encodePathSegments(pathname: string, keepWindowsDrive = false): string 
 
 export function toFileUrl(filePath: string): string {
 	const normalized = filePath.replace(/\\/g, "/");
-
-	// Windows drive path: C:/Users/...
-	if (/^[a-zA-Z]:\//.test(normalized)) {
-		return `file://${encodePathSegments(`/${normalized}`, true)}`;
+	if (normalized.match(/^[a-zA-Z]:/)) {
+		return `file:///${encodePathSegments(normalized, true)}`;
 	}
-
-	// UNC path: //server/share/...
 	if (normalized.startsWith("//")) {
-		const [host, ...pathParts] = normalized.replace(/^\/+/, "").split("/");
-		const encodedPath = pathParts.map((part) => encodeURIComponent(part)).join("/");
-		return encodedPath ? `file://${host}/${encodedPath}` : `file://${host}/`;
+		const withoutPrefix = normalized.slice(2);
+		const [host = "", ...segments] = withoutPrefix.split("/");
+		return `file://${host}/${encodePathSegments(segments.join("/"))}`;
 	}
-
 	const absolutePath = normalized.startsWith("/") ? normalized : `/${normalized}`;
 	return `file://${encodePathSegments(absolutePath)}`;
 }
 
 export function fromFileUrl(fileUrl: string): string {
-	const value = fileUrl.trim();
-	if (!isFileUrl(value)) {
+	if (!fileUrl.startsWith("file://")) {
 		return fileUrl;
 	}
 
 	try {
-		const url = new URL(value);
+		const url = new URL(fileUrl);
 		const pathname = decodeURIComponent(url.pathname);
 
 		if (url.host && url.host !== "localhost") {
@@ -175,13 +166,7 @@ export function fromFileUrl(fileUrl: string): string {
 
 		return pathname;
 	} catch {
-		const rawFallbackPath = value.replace(/^file:\/\//i, "");
-		let fallbackPath = rawFallbackPath;
-		try {
-			fallbackPath = decodeURIComponent(rawFallbackPath);
-		} catch {
-			// Keep raw best-effort path if percent decoding fails.
-		}
+		const fallbackPath = decodeURIComponent(fileUrl.replace(/^file:\/\//, ""));
 		return fallbackPath.replace(/^\/([a-zA-Z]:)/, "$1");
 	}
 }
@@ -503,52 +488,6 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.gifSizePreset === "original"
 				? editor.gifSizePreset
 				: "medium",
-		cursorHighlight: normalizeCursorHighlight(editor.cursorHighlight),
-	};
-}
-
-function normalizeCursorHighlight(
-	value: unknown,
-): import("./videoPlayback/cursorHighlight").CursorHighlightConfig {
-	const fallback: import("./videoPlayback/cursorHighlight").CursorHighlightConfig = {
-		enabled: false,
-		style: "ring",
-		sizePx: 24,
-		color: "#FFD700",
-		opacity: 0.9,
-		onlyOnClicks: false,
-		clickEmphasisDurationMs: 350,
-		offsetXNorm: 0,
-		offsetYNorm: 0,
-	};
-	if (!value || typeof value !== "object") return fallback;
-	const v = value as Partial<import("./videoPlayback/cursorHighlight").CursorHighlightConfig>;
-	return {
-		enabled: typeof v.enabled === "boolean" ? v.enabled : fallback.enabled,
-		style: v.style === "dot" || v.style === "ring" ? v.style : fallback.style,
-		sizePx:
-			typeof v.sizePx === "number" && v.sizePx >= 10 && v.sizePx <= 36 ? v.sizePx : fallback.sizePx,
-		color:
-			typeof v.color === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v.color)
-				? v.color
-				: fallback.color,
-		opacity:
-			typeof v.opacity === "number" && v.opacity >= 0 && v.opacity <= 1
-				? v.opacity
-				: fallback.opacity,
-		onlyOnClicks: typeof v.onlyOnClicks === "boolean" ? v.onlyOnClicks : fallback.onlyOnClicks,
-		clickEmphasisDurationMs:
-			typeof v.clickEmphasisDurationMs === "number" && v.clickEmphasisDurationMs > 0
-				? v.clickEmphasisDurationMs
-				: fallback.clickEmphasisDurationMs,
-		offsetXNorm:
-			typeof v.offsetXNorm === "number" && Number.isFinite(v.offsetXNorm)
-				? Math.max(-1, Math.min(1, v.offsetXNorm))
-				: fallback.offsetXNorm,
-		offsetYNorm:
-			typeof v.offsetYNorm === "number" && Number.isFinite(v.offsetYNorm)
-				? Math.max(-1, Math.min(1, v.offsetYNorm))
-				: fallback.offsetYNorm,
 	};
 }
 

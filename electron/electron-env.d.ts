@@ -24,6 +24,9 @@ declare namespace NodeJS {
 // Used in Renderer process, expose in `preload.ts`
 interface Window {
 	electronAPI: {
+		invokeNativeBridge: <TData = unknown>(
+			request: import("../src/native/contracts").NativeBridgeRequest,
+		) => Promise<import("../src/native/contracts").NativeBridgeResponse<TData>>;
 		getSources: (opts: Electron.SourcesOptions) => Promise<ProcessedDesktopSource[]>;
 		switchToEditor: () => Promise<void>;
 		switchToHud: () => Promise<void>;
@@ -35,11 +38,6 @@ interface Window {
 			success: boolean;
 			granted: boolean;
 			status: string;
-			error?: string;
-		}>;
-		requestAccessibilityAccess: () => Promise<{
-			success: boolean;
-			granted: boolean;
 			error?: string;
 		}>;
 		assetBaseUrl: string;
@@ -68,7 +66,29 @@ interface Window {
 			message?: string;
 			error?: string;
 		}>;
-		setRecordingState: (recording: boolean, recordingId?: number) => Promise<void>;
+		setRecordingState: (
+			recording: boolean,
+			recordingId?: number,
+			cursorCaptureMode?: import("../src/lib/recordingSession").CursorCaptureMode,
+		) => Promise<void>;
+		isNativeWindowsCaptureAvailable: () => Promise<{
+			success: boolean;
+			available: boolean;
+			helperPath?: string;
+			reason?: string;
+			error?: string;
+		}>;
+		startNativeWindowsRecording: (
+			request: import("../src/lib/nativeWindowsRecording").NativeWindowsRecordingRequest,
+		) => Promise<import("../src/lib/nativeWindowsRecording").NativeWindowsRecordingStartResult>;
+		stopNativeWindowsRecording: (discard?: boolean) => Promise<{
+			success: boolean;
+			path?: string;
+			session?: import("../src/lib/recordingSession").RecordingSession;
+			message?: string;
+			discarded?: boolean;
+			error?: string;
+		}>;
 		discardCursorTelemetry: (recordingId: number) => Promise<void>;
 		getCursorTelemetry: (videoPath?: string) => Promise<{
 			success: boolean;

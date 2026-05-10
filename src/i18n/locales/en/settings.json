@@ -54,20 +54,7 @@
 		"on": "on",
 		"shadow": "Shadow",
 		"roundness": "Roundness",
-		"padding": "Padding",
-		"cursorHighlight": {
-			"title": "Cursor highlight",
-			"style": "Style",
-			"dot": "Dot",
-			"ring": "Ring",
-			"size": "Size",
-			"onlyOnClicks": "Only on clicks",
-			"color": "Color",
-			"offsetX": "Offset X (window recordings)",
-			"offsetY": "Offset Y",
-			"accessibilityPermissionTitle": "Accessibility permission needed",
-			"accessibilityPermissionDescription": "Open System Settings → Privacy & Security → Accessibility, enable Openscreen, then restart the app."
-		}
+		"padding": "Padding"
 	},
 	"background": {
 		"title": "Background",
