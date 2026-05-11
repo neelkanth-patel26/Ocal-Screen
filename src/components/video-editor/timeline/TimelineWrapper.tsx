@@ -66,9 +66,26 @@ const SnapGuide = forwardRef<SnapGuideHandle>((_, ref) => {
 	return (
 		<div
 			ref={elRef}
-			className="absolute top-0 bottom-0 w-[1px] bg-[#fbbf24] shadow-[0_0_6px_rgba(251,191,36,0.6)] pointer-events-none z-[55]"
+			className="absolute top-0 bottom-0 w-[2px] bg-[#fbbf24] shadow-[0_0_10px_rgba(251,191,36,0.85),0_0_2px_rgba(251,191,36,1)] pointer-events-none z-[55]"
 			style={{ opacity: 0, transition: "opacity 0.08s" }}
-		/>
+		>
+			<div
+				className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-0 h-0"
+				style={{
+					borderLeft: "4px solid transparent",
+					borderRight: "4px solid transparent",
+					borderTop: "6px solid #fbbf24",
+				}}
+			/>
+			<div
+				className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 w-0 h-0"
+				style={{
+					borderLeft: "4px solid transparent",
+					borderRight: "4px solid transparent",
+					borderBottom: "6px solid #fbbf24",
+				}}
+			/>
+		</div>
 	);
 });
 SnapGuide.displayName = "SnapGuide";
