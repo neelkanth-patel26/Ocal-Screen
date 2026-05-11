@@ -7,20 +7,21 @@
 			"title": "フォーカスモード",
 			"manual": "手動",
 			"auto": "自動",
-			"autoDescription": "カメラが録画中のカーソル位置に追従します"
+			"autoDescription": "表示範囲が録画中のカーソル位置に追従します"
 		},
-		"speed": {
-			"title": "ズーム速度",
-			"instant": "即時",
-			"fast": "高速",
-			"smooth": "滑らか",
-			"lazy": "遅延"
+		"threeD": {
+			"title": "3D回転",
+			"preset": {
+				"iso": "Iso",
+				"left": "左",
+				"right": "右"
+			}
 		}
 	},
 	"speed": {
 		"playbackSpeed": "再生速度",
-		"selectRegion": "速度範囲を選択して調整",
-		"deleteRegion": "速度範囲を削除",
+		"selectRegion": "再生速度の範囲を選択して調整",
+		"deleteRegion": "再生速度の範囲を削除",
 		"customPlaybackSpeed": "カスタム再生速度",
 		"maxSpeedError": "速度は16×を超えることはできません"
 	},
@@ -31,14 +32,14 @@
 		"title": "レイアウト",
 		"preset": "プリセット",
 		"selectPreset": "プリセットを選択",
-		"pictureInPicture": "ピクチャーインピクチャー",
-		"verticalStack": "縦積み",
+		"pictureInPicture": "ピクチャーインピクチャ",
+		"verticalStack": "縦並び",
 		"dualFrame": "デュアルフレーム",
 		"webcamShape": "カメラの形状",
 		"webcamSize": "カメラのサイズ"
 	},
 	"effects": {
-		"title": "ビデオ効果",
+		"title": "動画効果",
 		"blurBg": "背景をぼかす",
 		"motionBlur": "モーションブラー",
 		"off": "オフ",
@@ -51,12 +52,14 @@
 		"image": "画像",
 		"color": "色",
 		"gradient": "グラデーション",
-		"uploadCustom": "カスタムをアップロード",
-		"gradientLabel": "グラデーション {{index}}"
+		"uploadCustom": "カスタム画像を読み込む",
+		"gradientLabel": "グラデーション {{index}}",
+		"colorWheel": "カラーホイール",
+		"colorPalette": "カラーパレット"
 	},
 	"crop": {
 		"title": "クロップ",
-		"cropVideo": "ビデオをクロップ",
+		"cropVideo": "動画をクロップ",
 		"dragInstruction": "各辺をドラッグしてクロップ範囲を調整",
 		"ratio": "比率",
 		"free": "自由",
@@ -67,8 +70,8 @@
 	"exportFormat": {
 		"mp4": "MP4",
 		"gif": "GIF",
-		"mp4Video": "MP4 ビデオ",
-		"mp4Description": "高品質のビデオファイル",
+		"mp4Video": "MP4 動画",
+		"mp4Description": "高品質の動画ファイル",
 		"gifAnimation": "GIF アニメーション",
 		"gifDescription": "共有用のアニメーション画像"
 	},
@@ -88,7 +91,7 @@
 		"load": "プロジェクトを読み込む"
 	},
 	"export": {
-		"videoButton": "ビデオをエクスポート",
+		"videoButton": "動画をエクスポート",
 		"gifButton": "GIF をエクスポート",
 		"chooseSaveLocation": "保存場所を選択"
 	},
@@ -98,9 +101,9 @@
 	},
 	"imageUpload": {
 		"invalidFileType": "無効なファイル形式",
-		"jpgOnly": "JPG または JPEG 画像ファイルをアップロードしてください。",
-		"uploadSuccess": "カスタム画像が正常にアップロードされました！",
-		"failedToUpload": "画像のアップロードに失敗しました",
+		"jpgOnly": "JPG または JPEG 画像ファイルを選択してください。",
+		"uploadSuccess": "カスタム画像を読み込みました。",
+		"failedToUpload": "画像の読み込みに失敗しました",
 		"errorReading": "ファイルの読み取り中にエラーが発生しました。"
 	},
 	"annotation": {
@@ -120,8 +123,10 @@
 		"background": "背景",
 		"none": "なし",
 		"color": "色",
+		"colorWheel": "カラーホイール",
+		"colorPalette": "カラーパレット",
 		"clearBackground": "背景をクリア",
-		"uploadImage": "画像をアップロード",
+		"uploadImage": "画像を読み込む",
 		"supportedFormats": "サポートされている形式: JPG, PNG, GIF, WebP",
 		"arrowDirection": "矢印の方向",
 		"strokeWidth": "線の太さ: {{width}}px",
@@ -144,9 +149,9 @@
 		"tipTabCycle": "Tabキーを使用して重なっている項目を順に切り替えます。",
 		"tipShiftTabCycle": "Shift+Tabキーを使用して逆順に切り替えます。",
 		"invalidImageType": "無効なファイル形式",
-		"imageFormatsOnly": "JPG、PNG、GIF、またはWebP画像ファイルをアップロードしてください。",
-		"imageUploadSuccess": "画像が正常にアップロードされました！",
-		"failedImageUpload": "画像のアップロードに失敗しました"
+		"imageFormatsOnly": "JPG、PNG、GIF、またはWebP画像ファイルを選択してください。",
+		"imageUploadSuccess": "画像を読み込みました。",
+		"failedImageUpload": "画像の読み込みに失敗しました"
 	},
 	"fontStyles": {
 		"classic": "クラシック",

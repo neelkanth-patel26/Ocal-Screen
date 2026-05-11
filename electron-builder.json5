@@ -3,6 +3,10 @@
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.siddharthvaddem.openscreen",
   "asar": true,
+  // .node binaries can't be dlopen'd from inside an asar — must live unpacked.
+  "asarUnpack": [
+    "**/*.node"
+  ],
   "productName": "Openscreen",
   "npmRebuild": true,
   "buildDependenciesFromSource": true,
@@ -46,13 +50,15 @@
       "NSAudioCaptureUsageDescription": "OpenScreen needs audio capture permission to record system audio.",
       "NSMicrophoneUsageDescription": "OpenScreen needs microphone access to record voice audio.",
       "NSCameraUsageDescription": "OpenScreen needs camera access to record webcam video.",
-      "NSCameraUseContinuityCameraDeviceType": true,
-      "com.apple.security.device.audio-input": true
+      "NSScreenCaptureUsageDescription": "OpenScreen needs screen recording permission to detect and capture windows.",
+      "NSCameraUseContinuityCameraDeviceType": true
     }
   },
   "linux": {
     "target": [
-      "AppImage"
+      "AppImage",
+      "deb",
+      "pacman"
     ],
     "icon": "icons/icons/png",
     "artifactName": "${productName}-Linux-${version}.${ext}",
@@ -62,7 +68,14 @@
     "target": [
       "nsis"
     ],
-    "icon": "icons/icons/win/icon.ico"
+    "icon": "icons/icons/win/icon.ico",
+    "extraResources": [
+      {
+        "from": "electron/native/bin",
+        "to": "electron/native/bin",
+        "filter": ["**/*"]
+      }
+    ]
   },
   "nsis": {
     "oneClick": false,

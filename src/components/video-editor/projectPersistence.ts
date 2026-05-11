@@ -99,6 +99,7 @@ function computeNormalizedWebcamLayoutPreset(
 ): WebcamLayoutPreset {
 	switch (webcamLayoutPreset) {
 		case "picture-in-picture":
+		case "no-webcam":
 			return webcamLayoutPreset;
 		case "vertical-stack":
 			return isPortraitAspectRatio(normalizedAspectRatio)
@@ -117,16 +118,14 @@ function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
 }
 
-function isFileUrl(value: string): boolean {
-	return /^file:\/\//i.test(value);
-}
-
 function encodePathSegments(pathname: string, keepWindowsDrive = false): string {
 	return pathname
 		.split("/")
 		.map((segment, index) => {
-			if (!segment) return "";
-			if (keepWindowsDrive && index === 1 && /^[a-zA-Z]:$/.test(segment)) {
+			if (!segment) {
+				return segment;
+			}
+			if (keepWindowsDrive && index === 0 && /^[a-zA-Z]:$/.test(segment)) {
 				return segment;
 			}
 			return encodeURIComponent(segment);
@@ -136,31 +135,25 @@ function encodePathSegments(pathname: string, keepWindowsDrive = false): string 
 
 export function toFileUrl(filePath: string): string {
 	const normalized = filePath.replace(/\\/g, "/");
-
-	// Windows drive path: C:/Users/...
-	if (/^[a-zA-Z]:\//.test(normalized)) {
-		return `file://${encodePathSegments(`/${normalized}`, true)}`;
+	if (normalized.match(/^[a-zA-Z]:/)) {
+		return `file:///${encodePathSegments(normalized, true)}`;
 	}
-
-	// UNC path: //server/share/...
 	if (normalized.startsWith("//")) {
-		const [host, ...pathParts] = normalized.replace(/^\/+/, "").split("/");
-		const encodedPath = pathParts.map((part) => encodeURIComponent(part)).join("/");
-		return encodedPath ? `file://${host}/${encodedPath}` : `file://${host}/`;
+		const withoutPrefix = normalized.slice(2);
+		const [host = "", ...segments] = withoutPrefix.split("/");
+		return `file://${host}/${encodePathSegments(segments.join("/"))}`;
 	}
-
 	const absolutePath = normalized.startsWith("/") ? normalized : `/${normalized}`;
 	return `file://${encodePathSegments(absolutePath)}`;
 }
 
 export function fromFileUrl(fileUrl: string): string {
-	const value = fileUrl.trim();
-	if (!isFileUrl(value)) {
+	if (!fileUrl.startsWith("file://")) {
 		return fileUrl;
 	}
 
 	try {
-		const url = new URL(value);
+		const url = new URL(fileUrl);
 		const pathname = decodeURIComponent(url.pathname);
 
 		if (url.host && url.host !== "localhost") {
@@ -173,13 +166,7 @@ export function fromFileUrl(fileUrl: string): string {
 
 		return pathname;
 	} catch {
-		const rawFallbackPath = value.replace(/^file:\/\//i, "");
-		let fallbackPath = rawFallbackPath;
-		try {
-			fallbackPath = decodeURIComponent(rawFallbackPath);
-		} catch {
-			// Keep raw best-effort path if percent decoding fails.
-		}
+		const fallbackPath = decodeURIComponent(fileUrl.replace(/^file:\/\//, ""));
 		return fallbackPath.replace(/^\/([a-zA-Z]:)/, "$1");
 	}
 }
@@ -250,6 +237,12 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 
+					const validPreset =
+						region.rotationPreset === "iso" ||
+						region.rotationPreset === "left" ||
+						region.rotationPreset === "right"
+							? region.rotationPreset
+							: undefined;
 					return {
 						id: region.id,
 						startMs,
@@ -260,6 +253,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 							cy: clamp(isFiniteNumber(region.focus?.cy) ? region.focus.cy : 0.5, 0, 1),
 						},
 						focusMode: region.focusMode === "auto" ? "auto" : "manual",
+						...(validPreset ? { rotationPreset: validPreset } : {}),
 					};
 				})
 		: [];

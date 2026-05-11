@@ -11,13 +11,18 @@ import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import type {
 	AnnotationRegion,
 	CropRegion,
+	Rotation3D,
 	SpeedRegion,
 	WebcamLayoutPreset,
 	WebcamSizePreset,
-	ZoomDepth,
 	ZoomRegion,
 } from "@/components/video-editor/types";
-import { ZOOM_DEPTH_SCALES } from "@/components/video-editor/types";
+import {
+	DEFAULT_ROTATION_3D,
+	getZoomScale,
+	isRotation3DIdentity,
+	lerpRotation3D,
+} from "@/components/video-editor/types";
 import {
 	AUTO_FOLLOW_RAMP_DISTANCE,
 	AUTO_FOLLOW_SMOOTHING_FACTOR,
@@ -30,7 +35,7 @@ import {
 	adaptiveSmoothFactor,
 	smoothCursorFocus,
 } from "@/components/video-editor/videoPlayback/cursorFollowUtils";
-import { clampFocusToStage as clampFocusToStageUtil } from "@/components/video-editor/videoPlayback/focusUtils";
+import { clampFocusToScale } from "@/components/video-editor/videoPlayback/focusUtils";
 import { findDominantRegion } from "@/components/video-editor/videoPlayback/zoomRegionUtils";
 import {
 	applyZoomTransform,
@@ -45,8 +50,22 @@ import {
 	type Size,
 	type StyledRenderRect,
 } from "@/lib/compositeLayout";
+import {
+	createNativeCursorMotionBlurState,
+	createNativeCursorSmoothingState,
+	getNativeCursorClickBounceProgress,
+	getNativeCursorClickBounceScale,
+	getNativeCursorMotionBlurPx,
+	projectNativeCursorToLocal,
+	resetNativeCursorMotionBlurState,
+	resetNativeCursorSmoothingState,
+	resolveInterpolatedNativeCursorFrame,
+	resolveNativeCursorRenderAsset,
+	smoothNativeCursorSample,
+} from "@/lib/cursor/nativeCursor";
 import { BackgroundLoadError, classifyWallpaper, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { drawCanvasClipPath } from "@/lib/webcamMaskShapes";
+import type { CursorRecordingData } from "@/native/contracts";
 import { renderAnnotations } from "./annotationRenderer";
 import {
 	getLinearGradientPoints,
@@ -54,6 +73,7 @@ import {
 	parseCssGradient,
 	resolveLinearGradientAngle,
 } from "./gradientParser";
+import { createThreeDPass, type ThreeDPass } from "./threeDPass";
 
 interface FrameRenderConfig {
 	width: number;
@@ -67,6 +87,11 @@ interface FrameRenderConfig {
 	borderRadius?: number;
 	padding?: number;
 	cropRegion: CropRegion;
+	cursorRecordingData?: CursorRecordingData | null;
+	cursorScale?: number;
+	cursorSmoothing?: number;
+	cursorMotionBlur?: number;
+	cursorClickBounce?: number;
 	videoWidth: number;
 	videoHeight: number;
 	webcamSize?: Size | null;
@@ -79,6 +104,7 @@ interface FrameRenderConfig {
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
+	cursorClickTimestamps?: number[];
 	platform: string;
 }
 
@@ -116,13 +142,21 @@ export class FrameRenderer {
 	private shadowCtx: CanvasRenderingContext2D | null = null;
 	private compositeCanvas: HTMLCanvasElement | null = null;
 	private compositeCtx: CanvasRenderingContext2D | null = null;
+	private foregroundCanvas: HTMLCanvasElement | null = null;
+	private foregroundCtx: CanvasRenderingContext2D | null = null;
 	private rasterCanvas: HTMLCanvasElement | null = null;
 	private rasterCtx: CanvasRenderingContext2D | null = null;
+	private threeDPass: ThreeDPass | null = null;
+	private currentRotation3D: Rotation3D = { ...DEFAULT_ROTATION_3D };
+	private cursorImageCache = new Map<string, HTMLImageElement>();
+	private warnedKeys = new Set<string>();
 	private config: FrameRenderConfig;
 	private animationState: AnimationState;
 	private layoutCache: LayoutCache | null = null;
 	private currentVideoTime = 0;
 	private motionBlurState: MotionBlurState = createMotionBlurState();
+	private nativeCursorSmoothingState = createNativeCursorSmoothingState();
+	private nativeCursorMotionBlurState = createNativeCursorMotionBlurState();
 	private smoothedAutoFocus: { cx: number; cy: number } | null = null;
 	private prevAnimationTimeMs: number | null = null;
 	private prevTargetProgress = 0;
@@ -209,6 +243,19 @@ export class FrameRenderer {
 			throw new Error("Failed to get 2D context for raster canvas");
 		}
 
+		// Foreground canvas: holds recording + shadow + webcam + cursor + annotations,
+		// transparent background. The 3D rotation pass operates only on this layer so
+		// the wallpaper stays flat behind the rotated content (matching preview).
+		this.foregroundCanvas = document.createElement("canvas");
+		this.foregroundCanvas.width = this.config.width;
+		this.foregroundCanvas.height = this.config.height;
+		this.foregroundCtx = this.foregroundCanvas.getContext("2d", {
+			willReadFrequently: this.isLinux,
+		});
+		if (!this.foregroundCtx) {
+			throw new Error("Failed to get 2D context for foreground canvas");
+		}
+
 		// Setup shadow canvas if needed
 		if (this.config.showShadow) {
 			this.shadowCanvas = document.createElement("canvas");
@@ -227,6 +274,13 @@ export class FrameRenderer {
 		this.maskGraphics = new Graphics();
 		this.videoContainer.addChild(this.maskGraphics);
 		this.videoContainer.mask = this.maskGraphics;
+
+		try {
+			this.threeDPass = createThreeDPass(this.config.width, this.config.height);
+		} catch (error) {
+			console.warn("[FrameRenderer] 3D pass unavailable, rotation fields will be ignored:", error);
+			this.threeDPass = null;
+		}
 	}
 
 	private async setupBackground(): Promise<void> {
@@ -384,16 +438,19 @@ export class FrameRenderer {
 		// Render the PixiJS stage to its canvas (video only, transparent background)
 		this.app.renderer.render(this.app.stage);
 
-		// Composite with shadows to final output canvas
-		this.compositeWithShadows(webcamFrame);
+		// Skip baking the shadow when the WebGL rotation pass will run — it'd alias to
+		// a hard edge through bilinear sampling. We re-apply shadow fresh after rotation.
+		const willRotate = !isRotation3DIdentity(this.currentRotation3D);
+		this.compositeWithShadows(webcamFrame, !willRotate);
 
-		// Render annotations on top if present
+		await this.drawNativeCursor(timeMs);
+
+		// Render annotations on top of foreground (so they rotate with recording).
 		if (
 			this.config.annotationRegions &&
 			this.config.annotationRegions.length > 0 &&
-			this.compositeCtx
+			this.foregroundCtx
 		) {
-			// Calculate scale factor based on export vs preview dimensions
 			const previewWidth = this.config.previewWidth ?? this.config.width;
 			const previewHeight = this.config.previewHeight ?? this.config.height;
 			const scaleX = this.config.width / previewWidth;
@@ -401,7 +458,7 @@ export class FrameRenderer {
 			const scaleFactor = (scaleX + scaleY) / 2;
 
 			await renderAnnotations(
-				this.compositeCtx,
+				this.foregroundCtx,
 				this.config.annotationRegions,
 				this.config.width,
 				this.config.height,
@@ -409,6 +466,158 @@ export class FrameRenderer {
 				scaleFactor,
 			);
 		}
+
+		// Apply 3D rotation to foreground only. Wallpaper (on compositeCanvas) is untouched.
+		if (willRotate && this.threeDPass && this.foregroundCanvas && this.foregroundCtx) {
+			const passCanvas = this.threeDPass.apply(this.foregroundCanvas, this.currentRotation3D);
+			const w = this.foregroundCanvas.width;
+			const h = this.foregroundCanvas.height;
+			this.foregroundCtx.clearRect(0, 0, w, h);
+			if (this.isLinux) {
+				// drawImage(webglCanvas) is unreliable on Linux/Wayland — use readPixels.
+				const pixels = this.threeDPass.readPixels();
+				const imageData = this.foregroundCtx.createImageData(w, h);
+				imageData.data.set(pixels);
+				this.foregroundCtx.putImageData(imageData, 0, 0);
+			} else {
+				this.foregroundCtx.drawImage(passCanvas, 0, 0);
+			}
+		}
+
+		// Apply shadow fresh on the rotated silhouette (flat path already baked it
+		// in compositeWithShadows, so guard on willRotate to avoid doubling).
+		// Same 3-layer filter chain as `main` — keeps the soft Gaussian intact.
+		if (
+			willRotate &&
+			this.config.showShadow &&
+			this.config.shadowIntensity > 0 &&
+			this.shadowCanvas &&
+			this.shadowCtx &&
+			this.foregroundCanvas
+		) {
+			const shadowCtx = this.shadowCtx;
+			const w = this.foregroundCanvas.width;
+			const h = this.foregroundCanvas.height;
+			shadowCtx.clearRect(0, 0, w, h);
+			shadowCtx.save();
+			const intensity = this.config.shadowIntensity;
+			const baseBlur1 = 48 * intensity;
+			const baseBlur2 = 16 * intensity;
+			const baseBlur3 = 8 * intensity;
+			const baseAlpha1 = 0.7 * intensity;
+			const baseAlpha2 = 0.5 * intensity;
+			const baseAlpha3 = 0.3 * intensity;
+			const baseOffset = 12 * intensity;
+			shadowCtx.filter = `drop-shadow(0 ${baseOffset}px ${baseBlur1}px rgba(0,0,0,${baseAlpha1})) drop-shadow(0 ${baseOffset / 3}px ${baseBlur2}px rgba(0,0,0,${baseAlpha2})) drop-shadow(0 ${baseOffset / 6}px ${baseBlur3}px rgba(0,0,0,${baseAlpha3}))`;
+			shadowCtx.drawImage(this.foregroundCanvas, 0, 0, w, h);
+			shadowCtx.restore();
+			if (this.compositeCtx) {
+				this.compositeCtx.drawImage(this.shadowCanvas, 0, 0);
+			}
+		} else if (this.compositeCtx && this.foregroundCanvas) {
+			// Flat path or 3D-without-shadow: stamp foreground directly.
+			this.compositeCtx.drawImage(this.foregroundCanvas, 0, 0);
+		}
+	}
+
+	private async drawNativeCursor(timeMs: number) {
+		if (!this.foregroundCtx || !this.layoutCache) {
+			return;
+		}
+
+		if ((this.config.cursorScale ?? 1) <= 0) {
+			resetNativeCursorSmoothingState(this.nativeCursorSmoothingState);
+			resetNativeCursorMotionBlurState(this.nativeCursorMotionBlurState);
+			return;
+		}
+
+		const activeNativeCursor = resolveInterpolatedNativeCursorFrame(
+			this.config.cursorRecordingData,
+			timeMs,
+		);
+		if (!activeNativeCursor) {
+			resetNativeCursorSmoothingState(this.nativeCursorSmoothingState);
+			resetNativeCursorMotionBlurState(this.nativeCursorMotionBlurState);
+			return;
+		}
+		const displaySample = smoothNativeCursorSample({
+			sample: activeNativeCursor.sample,
+			smoothing: this.config.cursorSmoothing ?? 0,
+			state: this.nativeCursorSmoothingState,
+			timeMs,
+		});
+
+		const projectedPoint = projectNativeCursorToLocal({
+			cropRegion: this.config.cropRegion,
+			maskRect: this.layoutCache.maskRect,
+			sample: displaySample,
+		});
+		if (!projectedPoint) {
+			resetNativeCursorSmoothingState(this.nativeCursorSmoothingState);
+			resetNativeCursorMotionBlurState(this.nativeCursorMotionBlurState);
+			return;
+		}
+
+		const renderAsset = resolveNativeCursorRenderAsset(activeNativeCursor.asset, 1, displaySample);
+		let image: HTMLImageElement;
+		try {
+			image = await this.getCursorImage(renderAsset);
+		} catch (error) {
+			this.warnOnce("native-cursor-image-load", "Failed to load native cursor asset", error);
+			return;
+		}
+		const scale =
+			Math.max(0, this.config.cursorScale ?? 1) *
+			getNativeCursorClickBounceScale(
+				this.config.cursorClickBounce ?? 0,
+				getNativeCursorClickBounceProgress(this.config.cursorRecordingData, timeMs),
+			);
+		const appliedScale = this.animationState.appliedScale;
+		const canvasX = projectedPoint.x * appliedScale + this.animationState.x;
+		const canvasY = projectedPoint.y * appliedScale + this.animationState.y;
+		const blurPx = getNativeCursorMotionBlurPx({
+			motionBlur: this.config.cursorMotionBlur ?? 0,
+			point: { x: canvasX, y: canvasY },
+			state: this.nativeCursorMotionBlurState,
+			timeMs,
+		});
+		const previousFilter = this.foregroundCtx.filter;
+		if (blurPx > 0) {
+			this.foregroundCtx.filter = `blur(${blurPx.toFixed(2)}px)`;
+		}
+		this.foregroundCtx.drawImage(
+			image,
+			canvasX - renderAsset.hotspotX * scale * appliedScale,
+			canvasY - renderAsset.hotspotY * scale * appliedScale,
+			renderAsset.width * scale * appliedScale,
+			renderAsset.height * scale * appliedScale,
+		);
+		this.foregroundCtx.filter = previousFilter;
+	}
+
+	private async getCursorImage(asset: { id: string; imageDataUrl: string }) {
+		const cachedImage = this.cursorImageCache.get(asset.id);
+		if (cachedImage) {
+			return cachedImage;
+		}
+
+		const image = new Image();
+		await new Promise<void>((resolve, reject) => {
+			image.onload = () => resolve();
+			image.onerror = () => reject(new Error(`Failed to load cursor asset ${asset.id}`));
+			image.src = asset.imageDataUrl;
+		});
+
+		this.cursorImageCache.set(asset.id, image);
+		return image;
+	}
+
+	private warnOnce(key: string, message: string, error: unknown) {
+		if (this.warnedKeys.has(key)) {
+			return;
+		}
+		this.warnedKeys.add(key);
+		console.warn(`[FrameRenderer] ${message}:`, error);
 	}
 
 	private updateLayout(webcamFrame?: VideoFrame | null): void {
@@ -494,29 +703,28 @@ export class FrameRenderer {
 		this.maskGraphics.roundRect(0, 0, screenRect.width, screenRect.height, scaledBorderRadius);
 		this.maskGraphics.fill({ color: 0xffffff });
 
-		// Cache layout info
+		// Cache layout info. baseOffset is the stage position of the FULL
+		// (uncropped) video sprite's top-left — matches preview semantics so
+		// downstream consumers (e.g. cursor highlight) can map normalized
+		// recording-space coordinates to stage coordinates uniformly:
+		//   stagePos = baseOffset + (cx, cy) * (videoWidth, videoHeight) * baseScale
 		this.layoutCache = {
 			stageSize: { width, height },
 			videoSize: { width: croppedVideoWidth, height: croppedVideoHeight },
 			baseScale: scale,
-			baseOffset: { x: compositeLayout.screenRect.x, y: compositeLayout.screenRect.y },
+			baseOffset: {
+				x: compositeLayout.screenRect.x + coverOffsetX - cropPixelX,
+				y: compositeLayout.screenRect.y + coverOffsetY - cropPixelY,
+			},
 			maskRect: compositeLayout.screenRect,
 			webcamRect: compositeLayout.webcamRect,
 		};
 	}
 
-	private clampFocusToStage(
-		focus: { cx: number; cy: number },
-		depth: ZoomDepth,
-	): { cx: number; cy: number } {
-		if (!this.layoutCache) return focus;
-		return clampFocusToStageUtil(focus, depth, this.layoutCache.stageSize);
-	}
-
 	private updateAnimationState(timeMs: number): number {
 		if (!this.cameraContainer || !this.layoutCache) return 0;
 
-		const { region, strength, blendedScale, transition } = findDominantRegion(
+		const { region, strength, blendedScale, rotation3D, transition } = findDominantRegion(
 			this.config.zoomRegions,
 			timeMs,
 			{ connectZooms: true, cursorTelemetry: this.config.cursorTelemetry },
@@ -527,9 +735,14 @@ export class FrameRenderer {
 		let targetFocus = { ...defaultFocus };
 		let targetProgress = 0;
 
+		this.currentRotation3D =
+			region && strength > 0
+				? lerpRotation3D(DEFAULT_ROTATION_3D, rotation3D, strength)
+				: { ...DEFAULT_ROTATION_3D };
+
 		if (region && strength > 0) {
-			const zoomScale = blendedScale ?? ZOOM_DEPTH_SCALES[region.depth];
-			const regionFocus = this.clampFocusToStage(region.focus, region.depth);
+			const zoomScale = blendedScale ?? getZoomScale(region);
+			const regionFocus = clampFocusToScale(region.focus, zoomScale);
 
 			targetScaleFactor = zoomScale;
 			targetFocus = regionFocus;
@@ -699,38 +912,52 @@ export class FrameRenderer {
 		return this.rasterCanvas;
 	}
 
-	private compositeWithShadows(webcamFrame?: VideoFrame | null): void {
-		if (!this.compositeCanvas || !this.compositeCtx || !this.app) return;
+	// `applyShadowToRecording` is false when the 3D pass will rotate this canvas
+	// next — the shadow gets re-applied after rotation to avoid aliasing.
+	private compositeWithShadows(
+		webcamFrame: VideoFrame | null | undefined,
+		applyShadowToRecording: boolean,
+	): void {
+		if (
+			!this.compositeCanvas ||
+			!this.compositeCtx ||
+			!this.foregroundCanvas ||
+			!this.foregroundCtx ||
+			!this.app
+		)
+			return;
 
 		const videoCanvas = this.isLinux
 			? this.readbackVideoCanvas()
 			: (this.app.canvas as HTMLCanvasElement);
 
-		const ctx = this.compositeCtx;
+		const bgCtx = this.compositeCtx;
+		const fgCtx = this.foregroundCtx;
 		const w = this.compositeCanvas.width;
 		const h = this.compositeCanvas.height;
 
-		// Clear composite canvas
-		ctx.clearRect(0, 0, w, h);
-
-		// Step 1: Draw background layer (with optional blur, not affected by zoom)
+		// Background layer (compositeCanvas): wallpaper only. Stays flat — never
+		// touched by the 3D rotation pass, matching preview behavior.
+		bgCtx.clearRect(0, 0, w, h);
 		if (this.backgroundSprite) {
 			const bgCanvas = this.backgroundSprite;
-
 			if (this.config.showBlur) {
-				ctx.save();
-				ctx.filter = "blur(6px)"; // Canvas blur is weaker than CSS
-				ctx.drawImage(bgCanvas, 0, 0, w, h);
-				ctx.restore();
+				bgCtx.save();
+				bgCtx.filter = "blur(6px)"; // Canvas blur is weaker than CSS
+				bgCtx.drawImage(bgCanvas, 0, 0, w, h);
+				bgCtx.restore();
 			} else {
-				ctx.drawImage(bgCanvas, 0, 0, w, h);
+				bgCtx.drawImage(bgCanvas, 0, 0, w, h);
 			}
 		} else {
 			console.warn("[FrameRenderer] No background sprite found during compositing!");
 		}
 
-		// Draw video layer with shadows on top of background
+		// Foreground (transparent): recording + webcam. Shadow only baked here on
+		// the flat path; the 3D path applies it after rotation (see renderFrame).
+		fgCtx.clearRect(0, 0, w, h);
 		if (
+			applyShadowToRecording &&
 			this.config.showShadow &&
 			this.config.shadowIntensity > 0 &&
 			this.shadowCanvas &&
@@ -740,7 +967,6 @@ export class FrameRenderer {
 			shadowCtx.clearRect(0, 0, w, h);
 			shadowCtx.save();
 
-			// Calculate shadow parameters based on intensity (0-1)
 			const intensity = this.config.shadowIntensity;
 			const baseBlur1 = 48 * intensity;
 			const baseBlur2 = 16 * intensity;
@@ -753,9 +979,9 @@ export class FrameRenderer {
 			shadowCtx.filter = `drop-shadow(0 ${baseOffset}px ${baseBlur1}px rgba(0,0,0,${baseAlpha1})) drop-shadow(0 ${baseOffset / 3}px ${baseBlur2}px rgba(0,0,0,${baseAlpha2})) drop-shadow(0 ${baseOffset / 6}px ${baseBlur3}px rgba(0,0,0,${baseAlpha3}))`;
 			shadowCtx.drawImage(videoCanvas, 0, 0, w, h);
 			shadowCtx.restore();
-			ctx.drawImage(this.shadowCanvas, 0, 0, w, h);
+			fgCtx.drawImage(this.shadowCanvas, 0, 0, w, h);
 		} else {
-			ctx.drawImage(videoCanvas, 0, 0, w, h);
+			fgCtx.drawImage(videoCanvas, 0, 0, w, h);
 		}
 
 		const webcamRect = this.layoutCache?.webcamRect ?? null;
@@ -778,9 +1004,9 @@ export class FrameRenderer {
 				sourceAspect > targetAspect ? sourceHeight : Math.round(sourceWidth / targetAspect);
 			const sourceCropX = Math.max(0, Math.round((sourceWidth - sourceCropWidth) / 2));
 			const sourceCropY = Math.max(0, Math.round((sourceHeight - sourceCropHeight) / 2));
-			ctx.save();
+			fgCtx.save();
 			drawCanvasClipPath(
-				ctx,
+				fgCtx,
 				webcamRect.x,
 				webcamRect.y,
 				webcamRect.width,
@@ -789,15 +1015,15 @@ export class FrameRenderer {
 				webcamRect.borderRadius,
 			);
 			if (preset.shadow) {
-				ctx.shadowColor = preset.shadow.color;
-				ctx.shadowBlur = preset.shadow.blur;
-				ctx.shadowOffsetX = preset.shadow.offsetX;
-				ctx.shadowOffsetY = preset.shadow.offsetY;
+				fgCtx.shadowColor = preset.shadow.color;
+				fgCtx.shadowBlur = preset.shadow.blur;
+				fgCtx.shadowOffsetX = preset.shadow.offsetX;
+				fgCtx.shadowOffsetY = preset.shadow.offsetY;
 			}
-			ctx.fillStyle = "#000000";
-			ctx.fill();
-			ctx.clip();
-			ctx.drawImage(
+			fgCtx.fillStyle = "#000000";
+			fgCtx.fill();
+			fgCtx.clip();
+			fgCtx.drawImage(
 				webcamFrame as unknown as CanvasImageSource,
 				sourceCropX,
 				sourceCropY,
@@ -808,7 +1034,7 @@ export class FrameRenderer {
 				webcamRect.width,
 				webcamRect.height,
 			);
-			ctx.restore();
+			fgCtx.restore();
 		}
 	}
 
@@ -842,7 +1068,14 @@ export class FrameRenderer {
 		this.shadowCtx = null;
 		this.compositeCanvas = null;
 		this.compositeCtx = null;
+		this.foregroundCanvas = null;
+		this.foregroundCtx = null;
 		this.rasterCanvas = null;
 		this.rasterCtx = null;
+		if (this.threeDPass) {
+			this.threeDPass.destroy();
+			this.threeDPass = null;
+		}
+		this.cursorImageCache.clear();
 	}
 }
