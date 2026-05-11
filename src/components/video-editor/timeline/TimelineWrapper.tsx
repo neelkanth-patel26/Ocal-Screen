@@ -299,15 +299,19 @@ export default function TimelineWrapper({
 	// dnd-timeline's resize event doesn't expose direction. Compare the live
 	// span to the committed one (committed spans only update on commit, so
 	// during a single resize they still reflect the pre-resize state).
+	// Returns null when the deltas are equal — including the common clamped
+	// case where both are 0 — because we can't tell which handle the user
+	// grabbed, and guessing wrong would snap the other edge.
 	const inferResizeMode = useCallback(
-		(activeItemId: string, span: Span): "resize-left" | "resize-right" => {
+		(activeItemId: string, span: Span): "resize-left" | "resize-right" | null => {
 			const old =
 				allRegionSpans.find((r) => r.id === activeItemId) ??
 				softSnapSpans.find((r) => r.id === activeItemId);
 			if (!old) return "resize-right";
 			const startDelta = Math.abs(old.start - span.start);
 			const endDelta = Math.abs(old.end - span.end);
-			return startDelta >= endDelta ? "resize-left" : "resize-right";
+			if (startDelta === endDelta) return null;
+			return startDelta > endDelta ? "resize-left" : "resize-right";
 		},
 		[allRegionSpans, softSnapSpans],
 	);
@@ -337,7 +341,9 @@ export default function TimelineWrapper({
 			let clampedSpan = clampSpanToBounds(updatedSpan);
 
 			const mode = inferResizeMode(activeItemId, clampedSpan);
-			clampedSpan = snapSpanToTargets(clampedSpan, activeItemId, mode).span;
+			if (mode !== null) {
+				clampedSpan = snapSpanToTargets(clampedSpan, activeItemId, mode).span;
+			}
 
 			const effectiveMinDuration =
 				totalMs > 0 ? Math.min(minItemDurationMs, totalMs) : minItemDurationMs;
@@ -456,7 +462,10 @@ export default function TimelineWrapper({
 			const activeItemId = event.active.id as string;
 			const clamped = totalMs > 0 ? clampSpanToBounds(rawSpan) : rawSpan;
 			const mode = inferResizeMode(activeItemId, clamped);
-			const { span, snapPoint } = snapSpanToTargets(clamped, activeItemId, mode);
+			const { span, snapPoint } =
+				mode !== null
+					? snapSpanToTargets(clamped, activeItemId, mode)
+					: { span: clamped, snapPoint: null };
 			updateSnapGuide(snapPoint);
 			const screenX =
 				event.activatorEvent && "clientX" in event.activatorEvent
