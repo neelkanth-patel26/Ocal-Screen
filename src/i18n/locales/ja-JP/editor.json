@@ -41,5 +41,23 @@
 		"permissionDenied": "録画の権限が拒否されました。画面録画を許可してください。",
 		"cameraDisconnected": "ウェブカメラが切断されました。",
 		"cameraNotFound": "カメラが見つかりません。"
+	},
+	"autoCaptions": {
+		"button": "Auto captions",
+		"dialogTitle": "Auto captions",
+		"dialogDescription": "Choose roughly how many words each caption shows at once. Timing is spread across the words in that phrase.",
+		"minWords": "Minimum words per caption",
+		"maxWords": "Maximum words per caption",
+		"wordsCount": "{{count}} words",
+		"generate": "Generate",
+		"dialogCancel": "Cancel",
+		"generating": "Generating captions from audio…",
+		"loadingModel": "Loading speech model (first use downloads ~75 MB)…",
+		"busy": "Caption generation is already in progress.",
+		"done": "Added {{count}} captions.",
+		"noneHeard": "No speech was detected.",
+		"noAudio": "This video has no usable audio to transcribe.",
+		"failed": "Could not generate captions.",
+		"truncated": "Only the first {{minutes}} minutes were transcribed."
 	}
 }

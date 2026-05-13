@@ -342,6 +342,8 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						content: typeof region.content === "string" ? region.content : "",
 						textContent: typeof region.textContent === "string" ? region.textContent : undefined,
 						imageContent: typeof region.imageContent === "string" ? region.imageContent : undefined,
+						annotationSource:
+							region.annotationSource === "auto-caption" ? ("auto-caption" as const) : undefined,
 						position: {
 							x: clamp(
 								isFiniteNumber(region.position?.x)

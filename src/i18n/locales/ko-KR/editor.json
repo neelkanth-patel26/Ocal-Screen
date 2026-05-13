@@ -41,5 +41,23 @@
 		"permissionDenied": "녹화 권한이 거부되었습니다. 화면 녹화를 허용해 주세요.",
 		"cameraDisconnected": "웹캠 연결이 끊어졌습니다.",
 		"cameraNotFound": "카메라를 찾을 수 없습니다."
+	},
+	"autoCaptions": {
+		"button": "Auto captions",
+		"dialogTitle": "Auto captions",
+		"dialogDescription": "Choose roughly how many words each caption shows at once. Timing is spread across the words in that phrase.",
+		"minWords": "Minimum words per caption",
+		"maxWords": "Maximum words per caption",
+		"wordsCount": "{{count}} words",
+		"generate": "Generate",
+		"dialogCancel": "Cancel",
+		"generating": "Generating captions from audio…",
+		"loadingModel": "Loading speech model (first use downloads ~75 MB)…",
+		"busy": "Caption generation is already in progress.",
+		"done": "Added {{count}} captions.",
+		"noneHeard": "No speech was detected.",
+		"noAudio": "This video has no usable audio to transcribe.",
+		"failed": "Could not generate captions.",
+		"truncated": "Only the first {{minutes}} minutes were transcribed."
 	}
 }

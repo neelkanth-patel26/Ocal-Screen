@@ -248,6 +248,8 @@ export interface AnnotationRegion {
 	size: AnnotationSize;
 	style: AnnotationTextStyle;
 	zIndex: number;
+	/** When set, layout/style edits on one region can sync to all auto-caption siblings. */
+	annotationSource?: "auto-caption";
 	figureData?: FigureData;
 	blurData?: BlurData;
 }
