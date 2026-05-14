@@ -65,6 +65,8 @@ export interface ZoomRegion {
 	focus: ZoomFocus;
 	focusMode?: ZoomFocusMode;
 	rotationPreset?: Rotation3DPreset;
+	/** Custom scale overriding the preset depth (1.0–5.0, two decimal precision). */
+	customScale?: number;
 }
 
 export function getRotation3D(region: Pick<ZoomRegion, "rotationPreset">): Rotation3D {
@@ -168,7 +170,31 @@ export interface CursorTelemetryPoint {
 	timeMs: number;
 	cx: number;
 	cy: number;
+	interactionType?: "move" | "click" | "double-click" | "right-click" | "middle-click" | "mouseup";
+	cursorType?:
+		| "arrow"
+		| "text"
+		| "pointer"
+		| "crosshair"
+		| "open-hand"
+		| "closed-hand"
+		| "resize-ew"
+		| "resize-ns"
+		| "not-allowed";
 }
+
+export interface CursorVisualSettings {
+	size: number;
+	smoothing: number;
+	motionBlur: number;
+	clickBounce: number;
+}
+
+export const DEFAULT_CURSOR_SIZE = 3.0;
+export const DEFAULT_CURSOR_SMOOTHING = 0.67;
+export const DEFAULT_CURSOR_MOTION_BLUR = 0.35;
+export const DEFAULT_CURSOR_CLICK_BOUNCE = 2.5;
+export const DEFAULT_ZOOM_MOTION_BLUR = 0.35;
 
 export interface TrimRegion {
 	id: string;
@@ -294,7 +320,7 @@ export const DEFAULT_BLUR_FREEHAND_POINTS: Array<{ x: number; y: number }> = [
 ];
 
 export const DEFAULT_BLUR_DATA: BlurData = {
-	type: "blur",
+	type: "mosaic",
 	shape: "rectangle",
 	color: "white",
 	intensity: DEFAULT_BLUR_INTENSITY,
@@ -358,7 +384,19 @@ export const ZOOM_DEPTH_SCALES: Record<ZoomDepth, number> = {
 	6: 5.0,
 };
 
+export const MIN_ZOOM_SCALE = 1.0;
+export const MAX_ZOOM_SCALE = 5.0;
+
 export const DEFAULT_ZOOM_DEPTH: ZoomDepth = 3;
+
+/** Returns the effective zoom scale for a region, preferring customScale over the preset. */
+export function getZoomScale(region: ZoomRegion): number {
+	if (region.customScale != null) {
+		const clamped = Math.max(MIN_ZOOM_SCALE, Math.min(MAX_ZOOM_SCALE, region.customScale));
+		if (Number.isFinite(clamped)) return clamped;
+	}
+	return ZOOM_DEPTH_SCALES[region.depth];
+}
 
 export function clampFocusToDepth(focus: ZoomFocus, _depth: ZoomDepth): ZoomFocus {
 	return {

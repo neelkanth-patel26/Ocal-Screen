@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { CountdownOverlay } from "./components/launch/CountdownOverlay.tsx";
 import { LaunchWindow } from "./components/launch/LaunchWindow";
 import { SourceSelector } from "./components/launch/SourceSelector";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
-import { ShortcutsConfigDialog } from "./components/video-editor/ShortcutsConfigDialog";
-import VideoEditor from "./components/video-editor/VideoEditor";
 import { ShortcutsProvider } from "./contexts/ShortcutsContext";
 import { loadAllCustomFonts } from "./lib/customFonts";
+
+const VideoEditor = lazy(() => import("./components/video-editor/VideoEditor"));
+const ShortcutsConfigDialog = lazy(() =>
+	import("./components/video-editor/ShortcutsConfigDialog").then((module) => ({
+		default: module.ShortcutsConfigDialog,
+	})),
+);
 
 export default function App() {
 	const [windowType, setWindowType] = useState(
@@ -59,8 +64,10 @@ export default function App() {
 			case "editor":
 				return (
 					<ShortcutsProvider>
-						<VideoEditor />
-						<ShortcutsConfigDialog />
+						<Suspense fallback={<div className="h-screen bg-background" />}>
+							<VideoEditor />
+							<ShortcutsConfigDialog />
+						</Suspense>
 					</ShortcutsProvider>
 				);
 			default:

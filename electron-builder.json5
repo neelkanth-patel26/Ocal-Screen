@@ -5,7 +5,6 @@
   "asar": true,
   // .node binaries can't be dlopen'd from inside an asar — must live unpacked.
   "asarUnpack": [
-    "node_modules/uiohook-napi/**/*",
     "**/*.node"
   ],
   "productName": "Openscreen",
@@ -51,8 +50,8 @@
       "NSAudioCaptureUsageDescription": "OpenScreen needs audio capture permission to record system audio.",
       "NSMicrophoneUsageDescription": "OpenScreen needs microphone access to record voice audio.",
       "NSCameraUsageDescription": "OpenScreen needs camera access to record webcam video.",
-      "NSCameraUseContinuityCameraDeviceType": true,
-      "com.apple.security.device.audio-input": true
+      "NSScreenCaptureUsageDescription": "OpenScreen needs screen recording permission to detect and capture windows.",
+      "NSCameraUseContinuityCameraDeviceType": true
     }
   },
   "linux": {
@@ -69,7 +68,14 @@
     "target": [
       "nsis"
     ],
-    "icon": "icons/icons/win/icon.ico"
+    "icon": "icons/icons/win/icon.ico",
+    "extraResources": [
+      {
+        "from": "electron/native/bin",
+        "to": "electron/native/bin",
+        "filter": ["**/*"]
+      }
+    ]
   },
   "nsis": {
     "oneClick": false,

@@ -1,14 +1,213 @@
 import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
-import type { VideoMuxer } from "./muxer";
+import type { ExportAudioMuxerCodec, VideoMuxer } from "./muxer";
 
 const AUDIO_BITRATE = 128_000;
 const DECODE_BACKPRESSURE_LIMIT = 20;
 const MIN_SPEED_REGION_DELTA_MS = 0.0001;
 const SEEK_TIMEOUT_MS = 5_000;
 
+export interface ExportAudioCodec {
+	encoderCodec: string;
+	muxerCodec: ExportAudioMuxerCodec;
+	label: string;
+	sampleRate: number;
+	numberOfChannels: number;
+}
+
+type ExportAudioCodecCandidate = Omit<ExportAudioCodec, "sampleRate" | "numberOfChannels">;
+
+const EXPORT_AUDIO_CODECS: ExportAudioCodecCandidate[] = [
+	{ encoderCodec: "mp4a.40.2", muxerCodec: "aac", label: "AAC" },
+	{ encoderCodec: "opus", muxerCodec: "opus", label: "Opus" },
+];
+
+function averageChannels(sourcePlanes: Float32Array[], frame: number) {
+	let mixed = 0;
+	for (const plane of sourcePlanes) {
+		mixed += plane[frame] ?? 0;
+	}
+	return mixed / Math.max(1, sourcePlanes.length);
+}
+
+function weightedSample(
+	sourcePlanes: Float32Array[],
+	frame: number,
+	weights: Array<[channel: number, weight: number]>,
+) {
+	let mixed = 0;
+	let weightSum = 0;
+	for (const [channel, weight] of weights) {
+		const sample = sourcePlanes[channel]?.[frame];
+		if (typeof sample !== "number") {
+			continue;
+		}
+		mixed += sample * weight;
+		weightSum += weight;
+	}
+	return weightSum > 0 ? mixed / weightSum : averageChannels(sourcePlanes, frame);
+}
+
+function getStereoDownmixWeights(sourceChannels: number) {
+	const centerWeight = Math.SQRT1_2;
+	const surroundWeight = Math.SQRT1_2;
+	const lfeWeight = 0.5;
+
+	if (sourceChannels >= 8) {
+		// Windows 7.1 order: FL, FR, FC, LFE, BL, BR, SL, SR.
+		return {
+			left: [
+				[0, 1],
+				[2, centerWeight],
+				[3, lfeWeight],
+				[4, surroundWeight],
+				[6, surroundWeight],
+			] satisfies Array<[number, number]>,
+			right: [
+				[1, 1],
+				[2, centerWeight],
+				[3, lfeWeight],
+				[5, surroundWeight],
+				[7, surroundWeight],
+			] satisfies Array<[number, number]>,
+		};
+	}
+
+	if (sourceChannels >= 6) {
+		// Windows 5.1 order: FL, FR, FC, LFE, BL, BR.
+		return {
+			left: [
+				[0, 1],
+				[2, centerWeight],
+				[3, lfeWeight],
+				[4, surroundWeight],
+			] satisfies Array<[number, number]>,
+			right: [
+				[1, 1],
+				[2, centerWeight],
+				[3, lfeWeight],
+				[5, surroundWeight],
+			] satisfies Array<[number, number]>,
+		};
+	}
+
+	if (sourceChannels >= 4) {
+		return {
+			left: [
+				[0, 1],
+				[2, surroundWeight],
+			] satisfies Array<[number, number]>,
+			right: [
+				[1, 1],
+				[3, surroundWeight],
+			] satisfies Array<[number, number]>,
+		};
+	}
+
+	return {
+		left: [
+			[0, 1],
+			[2, centerWeight],
+		] satisfies Array<[number, number]>,
+		right: [
+			[1, 1],
+			[2, centerWeight],
+		] satisfies Array<[number, number]>,
+	};
+}
+
+export function downmixPlanarChannelsForExport(
+	sourcePlanes: Float32Array[],
+	targetChannels: number,
+): Float32Array {
+	const frameCount = sourcePlanes[0]?.length ?? 0;
+	const output = new Float32Array(frameCount * targetChannels);
+
+	if (targetChannels === 1) {
+		for (let frame = 0; frame < frameCount; frame++) {
+			output[frame] = averageChannels(sourcePlanes, frame);
+		}
+		return output;
+	}
+
+	if (targetChannels !== 2) {
+		throw new Error(`Unsupported target channel count: ${targetChannels}`);
+	}
+
+	if (sourcePlanes.length === 1) {
+		output.set(sourcePlanes[0], 0);
+		output.set(sourcePlanes[0], frameCount);
+		return output;
+	}
+
+	if (sourcePlanes.length === 2) {
+		output.set(sourcePlanes[0], 0);
+		output.set(sourcePlanes[1], frameCount);
+		return output;
+	}
+
+	const weights = getStereoDownmixWeights(sourcePlanes.length);
+	for (let frame = 0; frame < frameCount; frame++) {
+		output[frame] = weightedSample(sourcePlanes, frame, weights.left);
+		output[frameCount + frame] = weightedSample(sourcePlanes, frame, weights.right);
+	}
+	return output;
+}
+
 export class AudioProcessor {
 	private cancelled = false;
+
+	static async selectSupportedExportCodec(
+		sampleRate: number,
+		numberOfChannels: number,
+	): Promise<ExportAudioCodec | null> {
+		const channelOptions = [numberOfChannels];
+		if (numberOfChannels > 2) {
+			channelOptions.push(2);
+		}
+
+		if (!channelOptions.includes(1)) {
+			channelOptions.push(1);
+		}
+
+		for (const codec of EXPORT_AUDIO_CODECS) {
+			for (const channels of channelOptions) {
+				const support = await AudioEncoder.isConfigSupported({
+					codec: codec.encoderCodec,
+					sampleRate,
+					numberOfChannels: channels,
+					bitrate: AUDIO_BITRATE,
+				});
+				if (support.supported) {
+					return { ...codec, sampleRate, numberOfChannels: channels };
+				}
+			}
+		}
+
+		return null;
+	}
+
+	static async selectSupportedExportCodecForSource(
+		demuxer: WebDemuxer,
+	): Promise<ExportAudioCodec | null> {
+		let audioConfig: AudioDecoderConfig;
+		try {
+			audioConfig = await demuxer.getDecoderConfig("audio");
+		} catch {
+			return null;
+		}
+
+		const codecCheck = await AudioDecoder.isConfigSupported(audioConfig);
+		if (!codecCheck.supported) {
+			console.warn("[AudioProcessor] Audio codec not supported:", audioConfig.codec);
+			return null;
+		}
+
+		return AudioProcessor.selectSupportedExportCodec(
+			audioConfig.sampleRate || 48000,
+			audioConfig.numberOfChannels || 2,
+		);
+	}
 
 	/**
 	 * Audio export has two modes:
@@ -22,6 +221,7 @@ export class AudioProcessor {
 		trimRegions: TrimRegion[] | undefined,
 		speedRegions: SpeedRegion[] | undefined,
 		validatedDurationSec: number,
+		exportCodec: ExportAudioCodec,
 	): Promise<void> {
 		const sortedTrims = trimRegions ? [...trimRegions].sort((a, b) => a.startMs - b.startMs) : [];
 		const sortedSpeedRegions = speedRegions
@@ -39,7 +239,7 @@ export class AudioProcessor {
 				validatedDurationSec,
 			);
 			if (!this.cancelled && renderedAudioBlob.size > 0) {
-				await this.muxRenderedAudioBlob(renderedAudioBlob, muxer);
+				await this.muxRenderedAudioBlob(renderedAudioBlob, muxer, exportCodec);
 				return;
 			}
 			return;
@@ -49,7 +249,7 @@ export class AudioProcessor {
 		// The +0.5s buffer mirrors streamingDecoder.decodeAll's read window so the trim-only
 		// and speed-aware paths agree on how far to read past the validated duration boundary.
 		const readEndSec = validatedDurationSec + 0.5;
-		await this.processTrimOnlyAudio(demuxer, muxer, sortedTrims, readEndSec);
+		await this.processTrimOnlyAudio(demuxer, muxer, sortedTrims, readEndSec, exportCodec);
 	}
 
 	// Legacy trim-only path. This is still used for projects without speed regions.
@@ -58,6 +258,7 @@ export class AudioProcessor {
 		muxer: VideoMuxer,
 		sortedTrims: TrimRegion[],
 		readEndSec?: number,
+		exportCodec?: ExportAudioCodec,
 	): Promise<void> {
 		let audioConfig: AudioDecoderConfig;
 		try {
@@ -136,17 +337,28 @@ export class AudioProcessor {
 
 		const sampleRate = audioConfig.sampleRate || 48000;
 		const channels = audioConfig.numberOfChannels || 2;
+		const selectedCodec =
+			exportCodec ?? (await AudioProcessor.selectSupportedExportCodec(sampleRate, channels));
+		if (!selectedCodec) {
+			console.warn("[AudioProcessor] No supported audio export codec, skipping audio");
+			for (const frame of decodedFrames) frame.close();
+			return;
+		}
 
+		const outputSampleRate = selectedCodec.sampleRate || sampleRate;
+		const outputChannels = selectedCodec.numberOfChannels || channels;
 		const encodeConfig: AudioEncoderConfig = {
-			codec: "opus",
-			sampleRate,
-			numberOfChannels: channels,
+			codec: selectedCodec.encoderCodec,
+			sampleRate: outputSampleRate,
+			numberOfChannels: outputChannels,
 			bitrate: AUDIO_BITRATE,
 		};
 
 		const encodeSupport = await AudioEncoder.isConfigSupported(encodeConfig);
 		if (!encodeSupport.supported) {
-			console.warn("[AudioProcessor] Opus encoding not supported, skipping audio");
+			console.warn(
+				`[AudioProcessor] ${selectedCodec.label} encoding not supported, skipping audio`,
+			);
 			for (const frame of decodedFrames) frame.close();
 			return;
 		}
@@ -163,7 +375,11 @@ export class AudioProcessor {
 			const trimOffsetMs = this.computeTrimOffset(timestampMs, sortedTrims);
 			const adjustedTimestampUs = audioData.timestamp - trimOffsetMs * 1000;
 
-			const adjusted = this.cloneWithTimestamp(audioData, Math.max(0, adjustedTimestampUs));
+			const adjusted = this.cloneForEncoding(
+				audioData,
+				Math.max(0, adjustedTimestampUs),
+				outputChannels,
+			);
 			audioData.close();
 
 			encoder.encode(adjusted);
@@ -388,7 +604,11 @@ export class AudioProcessor {
 	}
 
 	// Demuxes the rendered speed-adjusted blob and feeds encoded chunks into the MP4 muxer.
-	private async muxRenderedAudioBlob(blob: Blob, muxer: VideoMuxer): Promise<void> {
+	private async muxRenderedAudioBlob(
+		blob: Blob,
+		muxer: VideoMuxer,
+		exportCodec: ExportAudioCodec,
+	): Promise<void> {
 		if (this.cancelled) return;
 
 		const file = new File([blob], "speed-audio.webm", { type: blob.type || "audio/webm" });
@@ -397,28 +617,7 @@ export class AudioProcessor {
 
 		try {
 			await demuxer.load(file);
-			const audioConfig = await demuxer.getDecoderConfig("audio");
-			const reader = demuxer.read("audio").getReader();
-			let isFirstChunk = true;
-
-			try {
-				while (!this.cancelled) {
-					const { done, value: chunk } = await reader.read();
-					if (done || !chunk) break;
-					if (isFirstChunk) {
-						await muxer.addAudioChunk(chunk, { decoderConfig: audioConfig });
-						isFirstChunk = false;
-					} else {
-						await muxer.addAudioChunk(chunk);
-					}
-				}
-			} finally {
-				try {
-					await reader.cancel();
-				} catch {
-					/* reader already closed */
-				}
-			}
+			await this.processTrimOnlyAudio(demuxer, muxer, [], undefined, exportCodec);
 		} finally {
 			try {
 				demuxer.destroy();
@@ -541,7 +740,15 @@ export class AudioProcessor {
 		);
 	}
 
-	private cloneWithTimestamp(src: AudioData, newTimestamp: number): AudioData {
+	private cloneForEncoding(
+		src: AudioData,
+		newTimestamp: number,
+		targetChannels: number,
+	): AudioData {
+		if (targetChannels !== src.numberOfChannels) {
+			return this.downmixWithTimestamp(src, newTimestamp, targetChannels);
+		}
+
 		if (!src.format) {
 			throw new Error("AudioData format is required for cloning");
 		}
@@ -568,6 +775,37 @@ export class AudioProcessor {
 			numberOfChannels: src.numberOfChannels,
 			timestamp: newTimestamp,
 			data: buffer,
+		});
+	}
+
+	private downmixWithTimestamp(
+		src: AudioData,
+		newTimestamp: number,
+		targetChannels: number,
+	): AudioData {
+		const sourceChannels = src.numberOfChannels;
+		const frameCount = src.numberOfFrames;
+		if (targetChannels < 1 || targetChannels > 2) {
+			throw new Error(`Unsupported target channel count: ${targetChannels}`);
+		}
+
+		const sourcePlanes = Array.from({ length: sourceChannels }, () => new Float32Array(frameCount));
+		for (let channel = 0; channel < sourceChannels; channel++) {
+			src.copyTo(sourcePlanes[channel], {
+				format: "f32-planar",
+				planeIndex: channel,
+			});
+		}
+
+		const output = downmixPlanarChannelsForExport(sourcePlanes, targetChannels);
+
+		return new AudioData({
+			format: "f32-planar",
+			sampleRate: src.sampleRate,
+			numberOfFrames: frameCount,
+			numberOfChannels: targetChannels,
+			timestamp: newTimestamp,
+			data: output.buffer instanceof ArrayBuffer ? output.buffer : output.slice().buffer,
 		});
 	}
 

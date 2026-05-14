@@ -8,6 +8,7 @@ import type {
 	ZoomRegion,
 } from "@/components/video-editor/types";
 import { BackgroundLoadError } from "@/lib/wallpaper";
+import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
 import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
 import { AudioProcessor } from "./audioEncoder";
@@ -19,7 +20,7 @@ import type { ExportConfig, ExportProgress, ExportResult } from "./types";
 const ENCODER_STALL_TIMEOUT_MS = 15_000;
 const ENCODER_FLUSH_TIMEOUT_MS = 20_000;
 
-interface VideoExporterConfig extends ExportConfig {
+export interface VideoExporterConfig extends ExportConfig {
 	videoUrl: string;
 	webcamVideoUrl?: string;
 	wallpaper: string;
@@ -38,13 +39,97 @@ interface VideoExporterConfig extends ExportConfig {
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
 	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
+	cursorRecordingData?: CursorRecordingData | null;
+	cursorScale?: number;
+	cursorSmoothing?: number;
+	cursorMotionBlur?: number;
+	cursorClickBounce?: number;
 	annotationRegions?: AnnotationRegion[];
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
-	cursorHighlight?: import("@/components/video-editor/videoPlayback/cursorHighlight").CursorHighlightConfig;
 	cursorClickTimestamps?: number[];
 	onProgress?: (progress: ExportProgress) => void;
+}
+
+const SOURCE_COPY_EPSILON = 0.0001;
+
+function hasActiveTimeRegions(regions?: Array<{ startMs: number; endMs: number }>) {
+	return Boolean(regions?.some((region) => region.endMs - region.startMs > SOURCE_COPY_EPSILON));
+}
+
+function hasActiveSpeedRegions(regions?: SpeedRegion[]) {
+	return Boolean(
+		regions?.some(
+			(region) =>
+				region.endMs - region.startMs > SOURCE_COPY_EPSILON &&
+				Math.abs(region.speed - 1) > SOURCE_COPY_EPSILON,
+		),
+	);
+}
+
+function hasNativeCursorOverlay(config: VideoExporterConfig) {
+	return (config.cursorScale ?? 0) > 0;
+}
+
+function isDefaultCrop(cropRegion: CropRegion) {
+	return (
+		Math.abs(cropRegion.x) <= SOURCE_COPY_EPSILON &&
+		Math.abs(cropRegion.y) <= SOURCE_COPY_EPSILON &&
+		Math.abs(cropRegion.width - 1) <= SOURCE_COPY_EPSILON &&
+		Math.abs(cropRegion.height - 1) <= SOURCE_COPY_EPSILON
+	);
+}
+
+export function isSourceCopyFastPathEligible(
+	config: VideoExporterConfig,
+	videoInfo: { width: number; height: number },
+) {
+	return getSourceCopyFastPathBlockers(config, videoInfo).length === 0;
+}
+
+export function getSourceCopyFastPathBlockers(
+	config: VideoExporterConfig,
+	videoInfo: { width: number; height: number },
+) {
+	const blockers: string[] = [];
+
+	if (config.width !== videoInfo.width || config.height !== videoInfo.height) {
+		blockers.push(
+			`output-size ${config.width}x${config.height} differs from source ${videoInfo.width}x${videoInfo.height}`,
+		);
+	}
+	if (config.webcamVideoUrl) blockers.push("webcam overlay is enabled");
+	if (hasActiveTimeRegions(config.trimRegions)) blockers.push("trim regions are present");
+	if (hasActiveSpeedRegions(config.speedRegions)) blockers.push("speed regions are present");
+	if (hasActiveTimeRegions(config.zoomRegions)) blockers.push("zoom regions are present");
+	if (hasActiveTimeRegions(config.annotationRegions))
+		blockers.push("annotation regions are present");
+	if (hasNativeCursorOverlay(config)) blockers.push("editable cursor overlay is enabled");
+	if (!isDefaultCrop(config.cropRegion)) blockers.push("crop is not default");
+	if ((config.padding ?? 0) > SOURCE_COPY_EPSILON) blockers.push("padding is not zero");
+	if ((config.videoPadding ?? 0) > SOURCE_COPY_EPSILON) blockers.push("video padding is not zero");
+	if ((config.borderRadius ?? 0) > SOURCE_COPY_EPSILON) blockers.push("roundness is not zero");
+	if (config.showShadow || config.shadowIntensity > SOURCE_COPY_EPSILON) {
+		blockers.push("shadow is enabled");
+	}
+	if (config.showBlur) blockers.push("background blur is enabled");
+	if ((config.motionBlurAmount ?? 0) > SOURCE_COPY_EPSILON) blockers.push("motion blur is enabled");
+
+	return blockers;
+}
+
+function isMp4Source(videoUrl: string, blob: Blob) {
+	if (blob.type.toLowerCase().includes("mp4")) {
+		return true;
+	}
+
+	try {
+		const path = new URL(videoUrl, window.location.href).pathname;
+		return path.toLowerCase().endsWith(".mp4");
+	} catch {
+		return videoUrl.toLowerCase().split(/[?#]/, 1)[0].endsWith(".mp4");
+	}
 }
 
 export class VideoExporter {
@@ -127,6 +212,11 @@ export class VideoExporter {
 			const streamingDecoder = new StreamingVideoDecoder();
 			this.streamingDecoder = streamingDecoder;
 			const videoInfo = await streamingDecoder.loadMetadata(this.config.videoUrl);
+			const sourceCopyResult = await this.trySourceCopyFastPath(videoInfo);
+			if (sourceCopyResult) {
+				return sourceCopyResult;
+			}
+
 			let webcamInfo: Awaited<ReturnType<StreamingVideoDecoder["loadMetadata"]>> | null = null;
 			if (this.config.webcamVideoUrl) {
 				webcamDecoder = new StreamingVideoDecoder();
@@ -146,6 +236,11 @@ export class VideoExporter {
 				borderRadius: this.config.borderRadius,
 				padding: this.config.padding,
 				cropRegion: this.config.cropRegion,
+				cursorRecordingData: this.config.cursorRecordingData,
+				cursorScale: this.config.cursorScale,
+				cursorSmoothing: this.config.cursorSmoothing,
+				cursorMotionBlur: this.config.cursorMotionBlur,
+				cursorClickBounce: this.config.cursorClickBounce,
 				videoWidth: videoInfo.width,
 				videoHeight: videoInfo.height,
 				webcamSize: webcamInfo ? { width: webcamInfo.width, height: webcamInfo.height } : null,
@@ -159,7 +254,6 @@ export class VideoExporter {
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
 				cursorClickTimestamps: this.config.cursorClickTimestamps,
-				cursorHighlight: this.config.cursorHighlight,
 				platform,
 			});
 			this.renderer = renderer;
@@ -167,8 +261,17 @@ export class VideoExporter {
 
 			await this.initializeEncoder(encoderPreference);
 
-			const hasAudio = videoInfo.hasAudio;
-			const muxer = new VideoMuxer(this.config, hasAudio);
+			const sourceDemuxer = streamingDecoder.getDemuxer();
+			const audioExportCodec =
+				videoInfo.hasAudio && sourceDemuxer
+					? await AudioProcessor.selectSupportedExportCodecForSource(sourceDemuxer)
+					: null;
+			if (videoInfo.hasAudio && !audioExportCodec) {
+				console.warn("[VideoExporter] No supported audio export codec, exporting video-only.");
+			}
+
+			const hasAudio = Boolean(audioExportCodec);
+			const muxer = new VideoMuxer(this.config, hasAudio, audioExportCodec?.muxerCodec);
 			this.muxer = muxer;
 			await muxer.initialize();
 
@@ -350,7 +453,7 @@ export class VideoExporter {
 				phase: "finalizing",
 			});
 
-			if (hasAudio && !this.cancelled) {
+			if (hasAudio && audioExportCodec && !this.cancelled) {
 				const demuxer = streamingDecoder.getDemuxer();
 				if (demuxer) {
 					console.log("[VideoExporter] Processing audio track...");
@@ -362,6 +465,7 @@ export class VideoExporter {
 						this.config.trimRegions,
 						this.config.speedRegions,
 						videoInfo.duration,
+						audioExportCodec,
 					);
 				}
 			}
@@ -543,6 +647,70 @@ export class VideoExporter {
 			return ["prefer-software", "prefer-hardware"];
 		}
 		return ["prefer-hardware", "prefer-software"];
+	}
+
+	private async trySourceCopyFastPath(videoInfo: { width: number; height: number }) {
+		const blockers = getSourceCopyFastPathBlockers(this.config, videoInfo);
+		if (blockers.length > 0) {
+			console.info("[VideoExporter] source-copy fast path disabled", {
+				blockers,
+				output: { width: this.config.width, height: this.config.height },
+				source: videoInfo,
+			});
+			return null;
+		}
+
+		const sourceBlob = await this.loadSourceBlob();
+		if (!sourceBlob || !isMp4Source(this.config.videoUrl, sourceBlob)) {
+			console.info("[VideoExporter] source-copy fast path disabled", {
+				blockers: ["source is not a readable MP4"],
+				source: videoInfo,
+			});
+			return null;
+		}
+
+		if (this.cancelled) {
+			return { success: false, error: "Export cancelled" };
+		}
+
+		this.reportProgress({
+			currentFrame: 1,
+			totalFrames: 1,
+			percentage: 100,
+			estimatedTimeRemaining: 0,
+			phase: "finalizing",
+		});
+		console.info("[VideoExporter] using source-copy fast path", {
+			source: videoInfo,
+			bytes: sourceBlob.size,
+		});
+
+		return {
+			success: true,
+			blob: sourceBlob.type ? sourceBlob : new Blob([sourceBlob], { type: "video/mp4" }),
+		} satisfies ExportResult;
+	}
+
+	private async loadSourceBlob() {
+		const videoUrl = this.config.videoUrl;
+		const isRemoteUrl = /^(https?:|blob:|data:)/i.test(videoUrl);
+
+		if (!isRemoteUrl && window.electronAPI?.readBinaryFile) {
+			const result = await window.electronAPI.readBinaryFile(videoUrl);
+			if (!result.success || !result.data) {
+				return null;
+			}
+
+			const type = videoUrl.toLowerCase().split(/[?#]/, 1)[0].endsWith(".mp4") ? "video/mp4" : "";
+			return new Blob([result.data], type ? { type } : undefined);
+		}
+
+		const response = await fetch(videoUrl);
+		if (!response.ok) {
+			return null;
+		}
+
+		return response.blob();
 	}
 
 	private reportProgress(progress: ExportProgress): void {

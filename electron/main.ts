@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
 	app,
 	BrowserWindow,
-	dialog,
+	desktopCapturer,
 	ipcMain,
 	Menu,
 	nativeImage,
@@ -333,6 +333,7 @@ function updateTrayMenu(recording: boolean = false) {
 
 let editorHasUnsavedChanges = false;
 let isForceClosing = false;
+let isCloseConfirmInFlight = false;
 
 ipcMain.on("set-has-unsaved-changes", (_, hasChanges: boolean) => {
 	editorHasUnsavedChanges = hasChanges;
@@ -364,39 +365,35 @@ function createEditorWindowWrapper() {
 	editorHasUnsavedChanges = false;
 
 	mainWindow.on("close", (event) => {
-		if (isForceClosing || !editorHasUnsavedChanges) return;
+		if (isForceClosing || !editorHasUnsavedChanges || isCloseConfirmInFlight) return;
 
 		event.preventDefault();
-
-		const choice = dialog.showMessageBoxSync(mainWindow!, {
-			type: "warning",
-			buttons: [
-				mainT("dialogs", "unsavedChanges.saveAndClose"),
-				mainT("dialogs", "unsavedChanges.discardAndClose"),
-				mainT("common", "actions.cancel"),
-			],
-			defaultId: 0,
-			cancelId: 2,
-			title: mainT("dialogs", "unsavedChanges.title"),
-			message: mainT("dialogs", "unsavedChanges.message"),
-			detail: mainT("dialogs", "unsavedChanges.detail"),
-		});
+		isCloseConfirmInFlight = true;
 
 		const windowToClose = mainWindow;
 		if (!windowToClose || windowToClose.isDestroyed()) return;
 
-		if (choice === 0) {
-			// Save & Close — tell renderer to save, then close
-			windowToClose.webContents.send("request-save-before-close");
-			ipcMain.once("save-before-close-done", (_, shouldClose: boolean) => {
-				if (!shouldClose) return;
+		// Ask renderer to show the custom in-app dialog
+		windowToClose.webContents.send("request-close-confirm");
+
+		ipcMain.once("close-confirm-response", (event, choice: "save" | "discard" | "cancel") => {
+			if (event.sender.id !== windowToClose?.webContents.id) return;
+			isCloseConfirmInFlight = false;
+			if (!windowToClose || windowToClose.isDestroyed()) return;
+
+			if (choice === "save") {
+				// Tell renderer to save the project, then close when done
+				windowToClose.webContents.send("request-save-before-close");
+				ipcMain.once("save-before-close-done", (event, shouldClose: boolean) => {
+					if (event.sender.id !== windowToClose?.webContents.id) return;
+					if (!shouldClose) return;
+					forceCloseEditorWindow(windowToClose);
+				});
+			} else if (choice === "discard") {
 				forceCloseEditorWindow(windowToClose);
-			});
-		} else if (choice === 1) {
-			// Discard & Close
-			forceCloseEditorWindow(windowToClose);
-		}
-		// choice === 2: Cancel — do nothing, window stays open
+			}
+			// "cancel": flag reset, window stays open
+		});
 	});
 }
 
@@ -453,22 +450,49 @@ app.whenReady().then(async () => {
 		app.dock?.show();
 	}
 
-	// Allow microphone/media permission checks
+	// Allow microphone/media/screen permission checks
 	session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-		const allowed = ["media", "audioCapture", "microphone", "videoCapture", "camera"];
+		const allowed = [
+			"media",
+			"audioCapture",
+			"microphone",
+			"videoCapture",
+			"camera",
+			"screen",
+			"display-capture",
+		];
 		return allowed.includes(permission);
 	});
 
 	session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-		const allowed = ["media", "audioCapture", "microphone", "videoCapture", "camera"];
+		const allowed = [
+			"media",
+			"audioCapture",
+			"microphone",
+			"videoCapture",
+			"camera",
+			"screen",
+			"display-capture",
+		];
 		callback(allowed.includes(permission));
 	});
 
-	// Request microphone permission from macOS
+	// Request microphone and screen recording permissions from macOS
 	if (process.platform === "darwin") {
 		const micStatus = systemPreferences.getMediaAccessStatus("microphone");
 		if (micStatus !== "granted") {
 			await systemPreferences.askForMediaAccess("microphone");
+		}
+
+		// Screen recording has no askForMediaAccess equivalent — the TCC prompt is
+		// triggered by the first desktopCapturer.getSources() call. Firing it here
+		// at startup settles the permission state early and prevents repeated prompts
+		// driven by later getSources() calls (fixes repeated permission dialog).
+		const screenStatus = systemPreferences.getMediaAccessStatus("screen");
+		if (screenStatus === "not-determined") {
+			desktopCapturer.getSources({ types: ["screen"] }).catch(() => {
+				// This only triggers the system prompt; permission state is read separately.
+			});
 		}
 	}
 
