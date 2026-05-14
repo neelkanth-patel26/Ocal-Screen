@@ -1816,17 +1816,31 @@ export default function VideoEditor() {
 				const trimMs = Math.round(trimSec * 1000);
 				const trimRegionsForTranscribe = shiftTrimRegionsMsForCaptionBuffer(trimRegions, trimMs);
 
-				const { segments: segmentsRaw, granularity } = await transcribeMono16kToSegments(
+				const transcribeOptions = {
+					onStatus: (phase: "model" | "transcribe") => {
+						if (phase === "model") {
+							toast.loading(t("autoCaptions.loadingModel"), { id: toastId });
+						}
+					},
+				};
+
+				let { segments: segmentsRaw, granularity } = await transcribeMono16kToSegments(
 					speechSamples,
 					{
 						trimRegions: trimRegionsForTranscribe,
-						onStatus: (phase) => {
-							if (phase === "model") {
-								toast.loading(t("autoCaptions.loadingModel"), { id: toastId });
-							}
-						},
+						...transcribeOptions,
 					},
 				);
+
+				// Some recordings come back empty after leading-silence trimming even though the full
+				// source has recognizable speech. Retry once against the untouched audio buffer before
+				// giving up so we do not show "no speech detected" for a spoken clip.
+				if (segmentsRaw.length === 0 && trimSec > 0) {
+					({ segments: segmentsRaw, granularity } = await transcribeMono16kToSegments(samples, {
+						trimRegions,
+						...transcribeOptions,
+					}));
+				}
 
 				const segments =
 					trimSec > 0
@@ -1837,7 +1851,7 @@ export default function VideoEditor() {
 							}))
 						: segmentsRaw;
 
-				const { regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
+				let { regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
 					segments,
 					nextAnnotationIdRef.current,
 					nextAnnotationZIndexRef.current,
@@ -1847,6 +1861,19 @@ export default function VideoEditor() {
 						timestampGranularity: granularity,
 					},
 				);
+
+				if (regions.length === 0 && segments.length > 0) {
+					({ regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
+						segments,
+						nextAnnotationIdRef.current,
+						nextAnnotationZIndexRef.current,
+						{
+							minWordsPerCaption: 1,
+							maxWordsPerCaption: Number.MAX_SAFE_INTEGER,
+							timestampGranularity: granularity,
+						},
+					));
+				}
 
 				if (regions.length === 0) {
 					toast.dismiss(toastId);

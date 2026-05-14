@@ -5,7 +5,7 @@ import type { CaptionSegment } from "./transcribe";
 /** Wide lower-third bar; `position.x` is top-left as % of container, so center with (100 − width) / 2. */
 const CAPTION_WIDTH = 92;
 const CAPTION_HEIGHT = 12;
-const CAPTION_BOTTOM_MARGIN = 4;
+const CAPTION_BOTTOM_MARGIN = 2;
 
 const CAPTION_POSITION = {
 	x: (100 - CAPTION_WIDTH) / 2,
@@ -29,38 +29,33 @@ const CAPTION_STYLE: AnnotationTextStyle = {
  * Nudge caption **starts** earlier (seconds). Whisper onsets are often slightly late vs. what you
  * hear; do **not** apply the same offset to ends — that pulls lines off-screen too early.
  */
-const AUTO_CAPTION_START_BIAS_SEC = -0.2;
+const AUTO_CAPTION_START_BIAS_SEC = 0;
 
 /**
  * Extra time held after Whisper’s segment **end** (seconds). Model end times are often early vs.
  * trailing vowels / room tone; this is separate from `AUTO_CAPTION_START_BIAS_SEC`.
  */
-const AUTO_CAPTION_END_HOLD_SEC = 0.12;
-
-/** First phrases often sit a bit early in the model; delay only the first two timeline lines (seconds). */
-const FIRST_TWO_CAPTION_DELAY_SEC = 0.32;
+const AUTO_CAPTION_END_HOLD_SEC = 0;
 
 /** Inside one Whisper phrase, sub-lines can be shorter (do not steal time from neighbors). */
 const WORD_SPLIT_MIN_SPAN_SEC = 0.02;
 
 /** Brief linger after the last word in a line (seconds); trimmed if it would overlap the next line. */
-const CAPTION_LINE_END_TAIL_SEC = 0.12;
+const CAPTION_LINE_END_TAIL_SEC = 0;
+
+/** A real silence between word-level timestamps should start a new caption run. */
+const WORD_RUN_BREAK_GAP_SEC = 0.24;
 
 /**
  * Minimum time between consecutive caption regions on the timeline (seconds). Keeps a visible gap
  * so blocks do not read as one clip; kept small so we do not erase natural short pauses between phrases.
  */
-const MIN_CAPTION_TIMELINE_GAP_SEC = 0.024;
+const MIN_CAPTION_TIMELINE_GAP_SEC = 0;
 
 /** Same text again with almost no gap or overlap — common Whisper / chunk artifact. */
 const DEDUPE_SAME_TEXT_MAX_GAP_SEC = 0.55;
 
-/**
- * Same caption content re-emerging shortly after the last time that text appeared (stride /
- * decoding loops). Wider than `DEDUPE_SAME_TEXT_MAX_GAP_SEC` so non-adjacent duplicates still
- * collapse after grouping.
- */
-const SAME_CONTENT_ECHO_MAX_GAP_SEC = 1.15;
+export const SAME_CONTENT_ECHO_MAX_GAP_SEC = 1.15;
 
 function normalizeCaptionKey(text: string): string {
 	return text
@@ -72,8 +67,8 @@ function normalizeCaptionKey(text: string): string {
 		.replace(/[.!?,;:]+$/g, "");
 }
 
-/** Merges duplicate lines when the same wording appears again within `SAME_CONTENT_ECHO_MAX_GAP_SEC`. */
-function collapseSameContentEchoes(segments: CaptionSegment[]): CaptionSegment[] {
+/** Legacy echo-collapse helper kept for reference while phrase timing uses raw model spans. */
+export function collapseSameContentEchoes(segments: CaptionSegment[]): CaptionSegment[] {
 	const sorted = [...segments]
 		.filter((s) => s.text.trim())
 		.sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec);
@@ -105,12 +100,6 @@ function collapseSameContentEchoes(segments: CaptionSegment[]): CaptionSegment[]
  * Only merge segments that are almost back-to-back (Whisper often splits mid-phrase with a tiny gap).
  * Wider gaps are usually silence or missed audio — merging those stretches word timing across dead air.
  */
-const AUTO_CAPTION_MERGE_OPTIONS = {
-	maxGapSec: 0.16,
-	maxChars: 500,
-	maxBlockDurationSec: 5,
-} as const;
-
 /**
  * Collapse adjacent duplicate lines (overlapping or tiny gap). Does not merge the same phrase
  * repeated later in the video when separated by real silence.
@@ -137,11 +126,7 @@ function dedupeAdjacentCaptionRepeats(segments: CaptionSegment[]): CaptionSegmen
 	return out;
 }
 
-/**
- * Apply start bias + end hold, then trim only *real* overlaps (previous end into next start). No
- * minimum-duration stretching and no snapping starts — that was collapsing gaps and stacking lines
- * on the timeline.
- */
+/** Trim only real overlaps. Avoid synthetic lead/lag so caption timing matches model output. */
 function finalizeCaptionSegmentsForPlayback(segments: CaptionSegment[]): CaptionSegment[] {
 	const OVERLAP_TRIM_SEC = 0.002;
 
@@ -149,10 +134,9 @@ function finalizeCaptionSegmentsForPlayback(segments: CaptionSegment[]): Caption
 		.filter((s) => s.text.trim())
 		.sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec);
 
-	const a = sortedRaw.map((seg, i) => {
-		const earlyHold = i < 2 ? FIRST_TWO_CAPTION_DELAY_SEC : 0;
-		let s = seg.startSec + AUTO_CAPTION_START_BIAS_SEC + earlyHold;
-		let e = seg.endSec + AUTO_CAPTION_END_HOLD_SEC + earlyHold;
+	const a = sortedRaw.map((seg) => {
+		let s = seg.startSec + AUTO_CAPTION_START_BIAS_SEC;
+		let e = seg.endSec + AUTO_CAPTION_END_HOLD_SEC;
 		s = Math.max(0, s);
 		if (e <= s) e = s + 0.02;
 		return { startSec: s, endSec: e, text: seg.text.trim() };
@@ -161,14 +145,6 @@ function finalizeCaptionSegmentsForPlayback(segments: CaptionSegment[]): Caption
 	for (let i = 1; i < a.length; i++) {
 		if (a[i].startSec < a[i - 1].endSec - OVERLAP_TRIM_SEC) {
 			a[i - 1].endSec = Math.max(a[i - 1].startSec + 1e-4, a[i].startSec);
-		}
-	}
-
-	// Leave at least MIN_CAPTION_TIMELINE_GAP_SEC between lines (shorten previous end only).
-	for (let i = 1; i < a.length; i++) {
-		const needPrevEnd = a[i]!.startSec - MIN_CAPTION_TIMELINE_GAP_SEC;
-		if (a[i - 1]!.endSec > needPrevEnd) {
-			a[i - 1]!.endSec = Math.max(a[i - 1]!.startSec + WORD_SPLIT_MIN_SPAN_SEC, needPrevEnd);
 		}
 	}
 
@@ -258,6 +234,54 @@ export function mergeAdjacentCaptionSegments(
 	return out;
 }
 
+function partitionPhraseCaptionSegments(
+	segments: CaptionSegment[],
+	options?: { maxGapSec?: number; maxChars?: number; maxBlockDurationSec?: number },
+): CaptionSegment[][] {
+	const maxGapSec = options?.maxGapSec ?? 0;
+	const maxChars = options?.maxChars ?? Number.POSITIVE_INFINITY;
+	const maxBlockDurationSec = options?.maxBlockDurationSec ?? Number.POSITIVE_INFINITY;
+
+	const sorted = [...segments]
+		.filter((s) => s.text.trim())
+		.sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec);
+	if (sorted.length === 0) return [];
+
+	const groups: CaptionSegment[][] = [];
+	let current: CaptionSegment[] = [];
+
+	for (const seg of sorted) {
+		const text = seg.text.trim();
+		if (!text) continue;
+
+		if (current.length === 0) {
+			current.push({ ...seg, text });
+			continue;
+		}
+
+		const prev = current[current.length - 1]!;
+		const groupStart = current[0]!.startSec;
+		const gap = seg.startSec - prev.endSec;
+		const currentChars = current.reduce((sum, item) => sum + item.text.length, 0);
+		const wouldChars = currentChars + 1 + text.length;
+		const wouldSpan = Math.max(prev.endSec, seg.endSec) - groupStart;
+
+		if (gap <= maxGapSec && wouldChars <= maxChars && wouldSpan <= maxBlockDurationSec) {
+			current.push({ ...seg, text });
+			continue;
+		}
+
+		groups.push(current);
+		current = [{ ...seg, text }];
+	}
+
+	if (current.length > 0) {
+		groups.push(current);
+	}
+
+	return groups;
+}
+
 export interface CaptionSegmentLayoutOptions {
 	/** Lower bound on words per on-screen caption (default 2). */
 	minWordsPerCaption?: number;
@@ -324,19 +348,37 @@ export function groupTimedCaptionWordsIntoLines(
 
 	const minW = Math.max(1, Math.min(Math.floor(minWords), Math.floor(maxWords)));
 	const maxW = Math.max(minW, Math.floor(maxWords));
-	const ranges = computeCaptionLineIndexRanges(words.length, minW, maxW);
 	const out: CaptionSegment[] = [];
-	for (const { from, to } of ranges) {
-		const slice = words.slice(from, to);
-		const s = slice[0]!.startSec;
-		const rawEnd = slice[slice.length - 1]!.endSec;
-		const e = Math.max(s + WORD_SPLIT_MIN_SPAN_SEC, rawEnd + CAPTION_LINE_END_TAIL_SEC);
-		out.push({
-			startSec: s,
-			endSec: e,
-			text: slice.map((w) => w.text.trim()).join(" "),
-		});
+
+	let runStart = 0;
+	const flushRun = (runEndExclusive: number) => {
+		const run = words.slice(runStart, runEndExclusive);
+		if (run.length === 0) return;
+		const ranges = computeCaptionLineIndexRanges(run.length, minW, maxW);
+		for (const { from, to } of ranges) {
+			const slice = run.slice(from, to);
+			const s = slice[0]!.startSec;
+			const rawEnd = slice[slice.length - 1]!.endSec;
+			const e = Math.max(s + WORD_SPLIT_MIN_SPAN_SEC, rawEnd + CAPTION_LINE_END_TAIL_SEC);
+			out.push({
+				startSec: s,
+				endSec: e,
+				text: slice.map((w) => w.text.trim()).join(" "),
+			});
+		}
+	};
+
+	for (let i = 1; i < words.length; i++) {
+		const prev = words[i - 1]!;
+		const cur = words[i]!;
+		const gap = cur.startSec - prev.endSec;
+		if (gap >= WORD_RUN_BREAK_GAP_SEC) {
+			flushRun(i);
+			runStart = i;
+		}
 	}
+	flushRun(words.length);
+
 	for (let i = 0; i < out.length - 1; i++) {
 		if (out[i]!.endSec > out[i + 1]!.startSec + 1e-3) {
 			out[i]!.endSec = Math.max(
@@ -375,6 +417,58 @@ export function splitMergedCaptionsByWordBounds(
 		}
 
 		out.push(...splitOneSegmentByWordBounds(seg.startSec, seg.endSec, words, minW, maxW));
+	}
+
+	return out;
+}
+
+function wrapCaptionTextByWordBounds(text: string, minWords: number, maxWords: number): string {
+	const words = text.trim().split(/\s+/).filter(Boolean);
+	if (words.length === 0) return "";
+	const minW = Math.max(1, Math.min(Math.floor(minWords), Math.floor(maxWords)));
+	const maxW = Math.max(minW, Math.floor(maxWords));
+	const ranges = computeCaptionLineIndexRanges(words.length, minW, maxW);
+	return ranges.map(({ from, to }) => words.slice(from, to).join(" ")).join("\n");
+}
+
+function expandPhraseSegmentToPseudoWords(segment: CaptionSegment): CaptionSegment[] {
+	const words = segment.text.trim().split(/\s+/).filter(Boolean);
+	if (words.length === 0) return [];
+	if (words.length === 1) {
+		return [
+			{
+				startSec: segment.startSec,
+				endSec: segment.endSec,
+				text: words[0]!,
+			},
+		];
+	}
+
+	return splitOneSegmentByWordBounds(segment.startSec, segment.endSec, words, 1, 1);
+}
+
+export function groupPhraseCaptionSegmentsIntoLines(
+	segments: CaptionSegment[],
+	minWords: number,
+	maxWords: number,
+	options?: { maxGapSec?: number; maxChars?: number; maxBlockDurationSec?: number },
+): CaptionSegment[] {
+	const groups = partitionPhraseCaptionSegments(segments, options);
+	const out: CaptionSegment[] = [];
+
+	for (const group of groups) {
+		if (group.length === 1) {
+			const only = group[0]!;
+			out.push({
+				startSec: only.startSec,
+				endSec: only.endSec,
+				text: wrapCaptionTextByWordBounds(only.text, minWords, maxWords),
+			});
+			continue;
+		}
+
+		const pseudoWords = group.flatMap(expandPhraseSegmentToPseudoWords);
+		out.push(...groupTimedCaptionWordsIntoLines(pseudoWords, minWords, maxWords));
 	}
 
 	return out;
@@ -445,16 +539,11 @@ export function captionSegmentsToAnnotationRegions(
 
 	const grouped =
 		granularity === "phrase"
-			? splitMergedCaptionsByWordBounds(
-					mergeAdjacentCaptionSegments(dedupedIn, AUTO_CAPTION_MERGE_OPTIONS),
-					minW,
-					maxW,
-				)
+			? groupPhraseCaptionSegmentsIntoLines(dedupedIn, minW, maxW)
 			: groupTimedCaptionWordsIntoLines(dedupedIn, minW, maxW);
 
 	const dedupedOut = dedupeAdjacentCaptionRepeats(grouped);
-	const rinsedOut = collapseSameContentEchoes(dedupedOut);
-	const finalized = finalizeCaptionSegmentsForPlayback(rinsedOut);
+	const finalized = finalizeCaptionSegmentsForPlayback(dedupedOut);
 
 	let nid = startNumericId;
 	let z = startZIndex;

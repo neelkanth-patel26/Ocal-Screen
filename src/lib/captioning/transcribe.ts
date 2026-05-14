@@ -140,13 +140,13 @@ function segmentsFromTranscriberChunks(
 async function runTranscriberOnSlice(
 	transcriber: (audio: Float32Array, opts: Record<string, unknown>) => Promise<unknown>,
 	samples: Float32Array,
-	opts: { forceFullSequences: boolean },
+	opts: { forceFullSequences: boolean; timestampMode: "word" | "phrase" },
 ): Promise<unknown> {
 	const durationSec = samples.length / 16_000;
 	// Only chunk long clips; short-audio chunking regressed some Whisper.js runs (empty chunks).
 	const chunking = durationSec > 30 ? { chunk_length_s: 30, stride_length_s: 5 } : {};
 	return transcriber(samples, {
-		return_timestamps: true,
+		return_timestamps: opts.timestampMode === "word" ? "word" : true,
 		force_full_sequences: opts.forceFullSequences,
 		...chunking,
 	});
@@ -219,6 +219,7 @@ export async function transcribeMono16kToSegments(
 		const transcribeOne = async (
 			ignoreTrims: boolean,
 			forceFullSequences: boolean,
+			timestampMode: "word" | "phrase",
 		): Promise<CaptionSegment[]> => {
 			try {
 				const activeTrims = ignoreTrims ? [] : trims;
@@ -226,6 +227,7 @@ export async function transcribeMono16kToSegments(
 					const { slice, realDurationSec } = padTailSliceForTranscribe(samples);
 					const result = await runTranscriberOnSlice(transcriber, slice, {
 						forceFullSequences,
+						timestampMode,
 					});
 					return segmentsFromTranscriberChunks(
 						extractChunksFromAsrResult(result),
@@ -251,6 +253,7 @@ export async function transcribeMono16kToSegments(
 
 					const result = await runTranscriberOnSlice(transcriber, slice, {
 						forceFullSequences,
+						timestampMode,
 					});
 					const tOff = offset / 16_000;
 					all.push(
@@ -270,17 +273,23 @@ export async function transcribeMono16kToSegments(
 			}
 		};
 
-		let segments = await transcribeOne(false, true);
-		if (segments.length === 0) {
-			segments = await transcribeOne(false, false);
-		}
-		if (segments.length === 0 && trims.length > 0) {
-			segments = await transcribeOne(true, true);
+		const attemptModes: Array<"word" | "phrase"> = ["word", "phrase"];
+		for (const timestampMode of attemptModes) {
+			let segments = await transcribeOne(false, true, timestampMode);
 			if (segments.length === 0) {
-				segments = await transcribeOne(true, false);
+				segments = await transcribeOne(false, false, timestampMode);
+			}
+			if (segments.length === 0 && trims.length > 0) {
+				segments = await transcribeOne(true, true, timestampMode);
+				if (segments.length === 0) {
+					segments = await transcribeOne(true, false, timestampMode);
+				}
+			}
+			if (segments.length > 0) {
+				return { segments, granularity: timestampMode };
 			}
 		}
 
-		return { segments, granularity: "phrase" };
+		return { segments: [], granularity: "phrase" };
 	});
 }
