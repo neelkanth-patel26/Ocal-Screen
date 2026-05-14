@@ -124,10 +124,9 @@ function segmentsFromTranscriberChunks(
 
 	segments.sort((u, v) => u.startSec - v.startSec || u.endSec - v.endSec);
 	const rawDeduped: CaptionSegment[] = [];
-	const CHUNK_DUP_MAX_GAP_SEC = 0.42;
 	for (const seg of segments) {
 		const prev = rawDeduped[rawDeduped.length - 1];
-		if (prev && prev.text === seg.text && seg.startSec <= prev.endSec + CHUNK_DUP_MAX_GAP_SEC) {
+		if (prev && prev.text === seg.text && seg.startSec <= prev.endSec) {
 			prev.endSec = Math.max(prev.endSec, seg.endSec);
 			prev.startSec = Math.min(prev.startSec, seg.startSec);
 			continue;

@@ -43,21 +43,21 @@
 		"confirm": "Confirmar"
 	},
 	"autoCaptions": {
-		"button": "Auto captions",
-		"dialogTitle": "Auto captions",
-		"dialogDescription": "Choose roughly how many words each caption shows at once. Timing is spread across the words in that phrase.",
-		"minWords": "Minimum words per caption",
-		"maxWords": "Maximum words per caption",
-		"wordsCount": "{{count}} words",
-		"generate": "Generate",
-		"dialogCancel": "Cancel",
-		"generating": "Generating captions from audio…",
-		"loadingModel": "Loading speech model (first use downloads ~75 MB)…",
-		"busy": "Caption generation is already in progress.",
-		"done": "Added {{count}} captions.",
-		"noneHeard": "No speech was detected.",
-		"noAudio": "This video has no usable audio to transcribe.",
-		"failed": "Could not generate captions.",
-		"truncated": "Only the first {{minutes}} minutes were transcribed."
+		"button": "Subtítulos automáticos",
+		"dialogTitle": "Subtítulos automáticos",
+		"dialogDescription": "Elige aproximadamente cuántas palabras muestra cada subtítulo a la vez. El tiempo se reparte entre las palabras de esa frase.",
+		"minWords": "Número mínimo de palabras por subtítulo",
+		"maxWords": "Número máximo de palabras por subtítulo",
+		"wordsCount": "{{count}} palabras",
+		"generate": "Generar",
+		"dialogCancel": "Cancelar",
+		"generating": "Generando subtítulos a partir del audio…",
+		"loadingModel": "Cargando el modelo de voz (el primer uso descarga ~75 MB)…",
+		"busy": "La generación de subtítulos ya está en curso.",
+		"done": "Se añadieron {{count}} subtítulos.",
+		"noneHeard": "No se detectó voz.",
+		"noAudio": "Este video no tiene audio utilizable para transcribir.",
+		"failed": "No se pudieron generar los subtítulos.",
+		"truncated": "Solo se transcribieron los primeros {{minutes}} minutos."
 	}
 }

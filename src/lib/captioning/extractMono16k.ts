@@ -99,7 +99,7 @@ async function truncateAndResampleTo16k(
 	}
 
 	const samples = await resampleMono(work, fromRate, 16_000, signal);
-	return { samples, truncated, durationSec };
+	return { samples, truncated, durationSec: samples.length / 16_000 };
 }
 
 /**

@@ -42,7 +42,7 @@ function audioDataFrameToMono(frame: AudioData): Float32Array {
 	return out;
 }
 
-function mergeDecodedAudioToMonoLinear(
+function mergeAndConsumeDecodedAudioToMonoLinear(
 	frames: AudioData[],
 	sampleRate: number,
 	durationSec: number,
@@ -129,7 +129,7 @@ export async function extractMonoPcmViaWebDemuxer(
 	const sampleRate = audioConfig.sampleRate || 48_000;
 
 	// Many WebM/Matroska files report a too-short duration; capping read at reported time stops
-	// demux early and mergeDecodedAudioToMonoLinear clips everything past that. Read up to the
+	// demux early and mergeAndConsumeDecodedAudioToMonoLinear clips everything past that. Read up to the
 	// same ceiling as caption decode (demuxer stops when the track ends).
 	const readEndSec = MAX_CAPTION_AUDIO_SEC + READ_END_PADDING_SEC;
 	const decodedFrames: AudioData[] = [];
@@ -182,6 +182,6 @@ export async function extractMonoPcmViaWebDemuxer(
 	// duration, fall back to reported metadata.
 	const durationSec = inferredDurationSec > 0.02 ? inferredDurationSec : reportedDurationSec;
 
-	const mono = mergeDecodedAudioToMonoLinear(decodedFrames, sampleRate, durationSec);
+	const mono = mergeAndConsumeDecodedAudioToMonoLinear(decodedFrames, sampleRate, durationSec);
 	return { mono, sampleRate, durationSec };
 }

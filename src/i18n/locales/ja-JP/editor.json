@@ -43,21 +43,21 @@
 		"cameraNotFound": "カメラが見つかりません。"
 	},
 	"autoCaptions": {
-		"button": "Auto captions",
-		"dialogTitle": "Auto captions",
-		"dialogDescription": "Choose roughly how many words each caption shows at once. Timing is spread across the words in that phrase.",
-		"minWords": "Minimum words per caption",
-		"maxWords": "Maximum words per caption",
-		"wordsCount": "{{count}} words",
-		"generate": "Generate",
-		"dialogCancel": "Cancel",
-		"generating": "Generating captions from audio…",
-		"loadingModel": "Loading speech model (first use downloads ~75 MB)…",
-		"busy": "Caption generation is already in progress.",
-		"done": "Added {{count}} captions.",
-		"noneHeard": "No speech was detected.",
-		"noAudio": "This video has no usable audio to transcribe.",
-		"failed": "Could not generate captions.",
-		"truncated": "Only the first {{minutes}} minutes were transcribed."
+		"button": "自動キャプション",
+		"dialogTitle": "自動キャプション",
+		"dialogDescription": "各キャプションに一度に表示する語数の目安を選びます。タイミングはそのフレーズ内の語に分配されます。",
+		"minWords": "キャプションあたりの最小語数",
+		"maxWords": "キャプションあたりの最大語数",
+		"wordsCount": "{{count}} 語",
+		"generate": "生成",
+		"dialogCancel": "キャンセル",
+		"generating": "音声からキャプションを生成しています…",
+		"loadingModel": "音声モデルを読み込んでいます（初回利用時は約 75 MB をダウンロードします）…",
+		"busy": "キャプションの生成はすでに実行中です。",
+		"done": "{{count}} 件のキャプションを追加しました。",
+		"noneHeard": "音声が検出されませんでした。",
+		"noAudio": "この動画には書き起こしに使える音声がありません。",
+		"failed": "キャプションを生成できませんでした。",
+		"truncated": "最初の {{minutes}} 分のみが書き起こされました。"
 	}
 }

@@ -71,13 +71,8 @@ export function shiftTrimRegionsMsForCaptionBuffer(
 	return regions
 		.map((r) => ({
 			...r,
-			startMs: r.startMs - trimMs,
-			endMs: r.endMs - trimMs,
-		}))
-		.map((r) => ({
-			...r,
-			startMs: Math.max(0, r.startMs),
-			endMs: Math.max(0, r.endMs),
+			startMs: Math.max(0, r.startMs - trimMs),
+			endMs: Math.max(0, r.endMs - trimMs),
 		}))
 		.filter((r) => r.endMs > r.startMs);
 }

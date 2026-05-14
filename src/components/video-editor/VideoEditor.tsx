@@ -1022,6 +1022,9 @@ export default function VideoEditor() {
 	const handleAnnotationSpanChange = useCallback(
 		(id: string, span: Span) => {
 			pushState((prev) => {
+				const editedAutoCaption =
+					prev.annotationRegions.find((region) => region.id === id)?.annotationSource ===
+					"auto-caption";
 				const next = prev.annotationRegions.map((region) =>
 					region.id === id
 						? {
@@ -1032,7 +1035,7 @@ export default function VideoEditor() {
 						: region,
 				);
 				return {
-					annotationRegions: reconcileAutoCaptionTimelineGaps(next),
+					annotationRegions: editedAutoCaption ? reconcileAutoCaptionTimelineGaps(next) : next,
 				};
 			});
 		},
@@ -1831,6 +1834,7 @@ export default function VideoEditor() {
 						...transcribeOptions,
 					},
 				);
+				let transcribedFromTrimmedBuffer = true;
 
 				// Some recordings come back empty after leading-silence trimming even though the full
 				// source has recognizable speech. Retry once against the untouched audio buffer before
@@ -1840,10 +1844,11 @@ export default function VideoEditor() {
 						trimRegions,
 						...transcribeOptions,
 					}));
+					transcribedFromTrimmedBuffer = false;
 				}
 
 				const segments =
-					trimSec > 0
+					transcribedFromTrimmedBuffer && trimSec > 0
 						? segmentsRaw.map((s) => ({
 								...s,
 								startSec: s.startSec + trimSec,

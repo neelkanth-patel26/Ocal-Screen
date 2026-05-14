@@ -43,21 +43,21 @@
 		"permissionDenied": "تم رفض إذن التسجيل. يرجى السماح بتسجيل الشاشة."
 	},
 	"autoCaptions": {
-		"button": "Auto captions",
-		"dialogTitle": "Auto captions",
-		"dialogDescription": "Choose roughly how many words each caption shows at once. Timing is spread across the words in that phrase.",
-		"minWords": "Minimum words per caption",
-		"maxWords": "Maximum words per caption",
-		"wordsCount": "{{count}} words",
-		"generate": "Generate",
-		"dialogCancel": "Cancel",
-		"generating": "Generating captions from audio…",
-		"loadingModel": "Loading speech model (first use downloads ~75 MB)…",
-		"busy": "Caption generation is already in progress.",
-		"done": "Added {{count}} captions.",
-		"noneHeard": "No speech was detected.",
-		"noAudio": "This video has no usable audio to transcribe.",
-		"failed": "Could not generate captions.",
-		"truncated": "Only the first {{minutes}} minutes were transcribed."
+		"button": "التسميات التوضيحية التلقائية",
+		"dialogTitle": "التسميات التوضيحية التلقائية",
+		"dialogDescription": "اختر تقريبا كم عدد الكلمات التي تظهر في كل تسمية توضيحية. يتم توزيع التوقيت عبر الكلمات في تلك العبارة.",
+		"minWords": "الحد الأدنى من الكلمات لكل تسمية",
+		"maxWords": "الحد الأقصى من الكلمات لكل تسمية",
+		"wordsCount": "{{count}} كلمة",
+		"generate": "توليد",
+		"dialogCancel": "إلغاء",
+		"generating": "جارٍ توليد التسميات من الصوت…",
+		"loadingModel": "جارٍ تحميل نموذج الكلام (سيتم تنزيل ~75 ميغابايت عند الاستخدام الأول)…",
+		"busy": "توليد التسميات قيد التنفيذ بالفعل.",
+		"done": "تمت إضافة {{count}} تسمية.",
+		"noneHeard": "لم يتم الكشف عن أي كلام.",
+		"noAudio": "لا يحتوي هذا الفيديو على صوت صالح للنسخ.",
+		"failed": "تعذّر توليد التسميات.",
+		"truncated": "تم نسخ الدقائق الأولى فقط: {{minutes}} دقيقة."
 	}
 }

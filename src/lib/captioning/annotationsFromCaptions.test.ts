@@ -73,6 +73,21 @@ describe("captionSegmentsToAnnotationRegions", () => {
 		expect(lines[0]).toMatchObject({ startSec: 0, endSec: 0.28, text: "first caption" });
 		expect(lines[1]).toMatchObject({ startSec: 0.7, endSec: 0.98, text: "second caption" });
 	});
+
+	it("preserves repeated words before grouping in word mode", () => {
+		const { regions } = captionSegmentsToAnnotationRegions(
+			[
+				{ startSec: 0, endSec: 0.12, text: "I" },
+				{ startSec: 0.13, endSec: 0.25, text: "I" },
+			],
+			1,
+			1,
+			{ minWordsPerCaption: 2, maxWordsPerCaption: 2, timestampGranularity: "word" },
+		);
+
+		expect(regions).toHaveLength(1);
+		expect(regions[0]).toMatchObject({ content: "I I" });
+	});
 });
 
 describe("reconcileAutoCaptionTimelineGaps", () => {

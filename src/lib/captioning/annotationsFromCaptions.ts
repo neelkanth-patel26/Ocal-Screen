@@ -532,15 +532,14 @@ export function captionSegmentsToAnnotationRegions(
 ): { regions: AnnotationRegion[]; nextNumericId: number; nextZIndex: number } {
 	// Do not echo-collapse raw word tokens before grouping: repeated words ("I … I") share a
 	// normalized key and would merge spans while keeping only the first token's text.
-	const dedupedIn = dedupeAdjacentCaptionRepeats(segments);
 	const minW = layout?.minWordsPerCaption ?? 2;
 	const maxW = layout?.maxWordsPerCaption ?? 7;
 	const granularity = layout?.timestampGranularity ?? "word";
 
 	const grouped =
 		granularity === "phrase"
-			? groupPhraseCaptionSegmentsIntoLines(dedupedIn, minW, maxW)
-			: groupTimedCaptionWordsIntoLines(dedupedIn, minW, maxW);
+			? groupPhraseCaptionSegmentsIntoLines(segments, minW, maxW)
+			: groupTimedCaptionWordsIntoLines(segments, minW, maxW);
 
 	const dedupedOut = dedupeAdjacentCaptionRepeats(grouped);
 	const finalized = finalizeCaptionSegmentsForPlayback(dedupedOut);
