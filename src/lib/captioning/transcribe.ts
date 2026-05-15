@@ -18,6 +18,19 @@ function segmentOverlapsTrim(startMs: number, endMs: number, trims: TrimRegion[]
 	return trims.some((t) => startMs < t.endMs && endMs > t.startMs);
 }
 
+/** Same trim-out rule as {@link segmentsFromTranscriberChunks}; for retry passes that used empty trims. */
+function dropSegmentsOverlappingTrimRegions(
+	segments: CaptionSegment[],
+	trimRegions: TrimRegion[],
+): CaptionSegment[] {
+	if (trimRegions.length === 0) return segments;
+	return segments.filter((s) => {
+		const startMs = Math.round(s.startSec * 1000);
+		const endMs = Math.round(s.endSec * 1000);
+		return !segmentOverlapsTrim(startMs, endMs, trimRegions);
+	});
+}
+
 /** Lets the browser paint toast / in-app status before Whisper blocks the main thread (WASM may not yield). */
 async function yieldForUiPaint(): Promise<void> {
 	await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -211,7 +224,9 @@ export async function transcribeMono16kToSegments(
 		signal?: AbortSignal;
 	},
 ): Promise<TranscribeMono16kResult> {
-	return withoutNodeVersion(async () => {
+	if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
+	const { transcriber } = await withoutNodeVersion(async () => {
 		const { pipeline, env } = await import("@xenova/transformers");
 		env.allowLocalModels = false;
 
@@ -220,92 +235,101 @@ export async function transcribeMono16kToSegments(
 		options?.onStatus?.("model");
 		// Default tiny weights only: the `output_attentions` revision has regressed inference for
 		// some environments (empty chunks / thrown errors) while phrase mode works on this model.
-		const transcriber = await pipeline("automatic-speech-recognition", "Xenova/whisper-tiny");
+		const t = await pipeline("automatic-speech-recognition", "Xenova/whisper-tiny");
+		return { transcriber: t };
+	});
 
-		if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+	if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-		await yieldForUiPaint();
+	await yieldForUiPaint();
 
-		const trims = options?.trimRegions ?? [];
-		options?.onStatus?.("transcribe");
-		if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-		await yieldForUiPaint();
-		if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+	const trims = options?.trimRegions ?? [];
+	options?.onStatus?.("transcribe");
+	if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+	await yieldForUiPaint();
+	if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-		const transcribeOne = async (
-			ignoreTrims: boolean,
-			forceFullSequences: boolean,
-			timestampMode: "word" | "phrase",
-		): Promise<CaptionSegment[]> => {
-			try {
-				const activeTrims = ignoreTrims ? [] : trims;
-				if (samples.length <= TRANSCRIBE_SLICE_SAMPLES) {
-					const { slice, realDurationSec } = padTailSliceForTranscribe(samples);
-					const result = await runTranscriberOnSlice(transcriber, slice, {
-						forceFullSequences,
-						timestampMode,
-					});
-					return segmentsFromTranscriberChunks(
+	const transcribeOne = async (
+		ignoreTrims: boolean,
+		forceFullSequences: boolean,
+		timestampMode: "word" | "phrase",
+	): Promise<CaptionSegment[]> => {
+		try {
+			const activeTrims = ignoreTrims ? [] : trims;
+			if (samples.length <= TRANSCRIBE_SLICE_SAMPLES) {
+				const { slice, realDurationSec } = padTailSliceForTranscribe(samples);
+				const result = await runTranscriberOnSlice(transcriber, slice, {
+					forceFullSequences,
+					timestampMode,
+				});
+				if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+				return segmentsFromTranscriberChunks(
+					extractChunksFromAsrResult(result),
+					0,
+					activeTrims,
+					realDurationSec,
+				);
+			}
+
+			const all: CaptionSegment[] = [];
+			for (let offset = 0; offset < samples.length; offset += TRANSCRIBE_SLICE_SAMPLES) {
+				if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+				const end = Math.min(offset + TRANSCRIBE_SLICE_SAMPLES, samples.length);
+				const sliceRaw = samples.subarray(offset, end);
+				const isFinalSlice = end >= samples.length;
+				if (sliceRaw.length === 0) continue;
+				if (sliceRaw.length < MIN_TRANSCRIBE_SLICE_SAMPLES && !isFinalSlice) continue;
+
+				const { slice, realDurationSec } =
+					sliceRaw.length < MIN_TRANSCRIBE_SLICE_SAMPLES && isFinalSlice
+						? padTailSliceForTranscribe(sliceRaw)
+						: { slice: sliceRaw, realDurationSec: sliceRaw.length / 16_000 };
+
+				const result = await runTranscriberOnSlice(transcriber, slice, {
+					forceFullSequences,
+					timestampMode,
+				});
+				if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+				const tOff = offset / 16_000;
+				all.push(
+					...segmentsFromTranscriberChunks(
 						extractChunksFromAsrResult(result),
-						0,
+						tOff,
 						activeTrims,
 						realDurationSec,
-					);
-				}
-
-				const all: CaptionSegment[] = [];
-				for (let offset = 0; offset < samples.length; offset += TRANSCRIBE_SLICE_SAMPLES) {
-					if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-					const end = Math.min(offset + TRANSCRIBE_SLICE_SAMPLES, samples.length);
-					const sliceRaw = samples.subarray(offset, end);
-					const isFinalSlice = end >= samples.length;
-					if (sliceRaw.length === 0) continue;
-					if (sliceRaw.length < MIN_TRANSCRIBE_SLICE_SAMPLES && !isFinalSlice) continue;
-
-					const { slice, realDurationSec } =
-						sliceRaw.length < MIN_TRANSCRIBE_SLICE_SAMPLES && isFinalSlice
-							? padTailSliceForTranscribe(sliceRaw)
-							: { slice: sliceRaw, realDurationSec: sliceRaw.length / 16_000 };
-
-					const result = await runTranscriberOnSlice(transcriber, slice, {
-						forceFullSequences,
-						timestampMode,
-					});
-					const tOff = offset / 16_000;
-					all.push(
-						...segmentsFromTranscriberChunks(
-							extractChunksFromAsrResult(result),
-							tOff,
-							activeTrims,
-							realDurationSec,
-						),
-					);
-				}
-				return all;
-			} catch (e) {
-				if (e instanceof DOMException && e.name === "AbortError") throw e;
-				console.warn("[captioning] Whisper pass failed:", e);
-				return [];
+					),
+				);
 			}
-		};
+			return all;
+		} catch (e) {
+			if (e instanceof DOMException && e.name === "AbortError") throw e;
+			console.warn("[captioning] Whisper pass failed:", e);
+			return [];
+		}
+	};
 
-		const attemptModes: Array<"word" | "phrase"> = ["word", "phrase"];
-		for (const timestampMode of attemptModes) {
-			let segments = await transcribeOne(false, true, timestampMode);
+	const attemptModes: Array<"word" | "phrase"> = ["word", "phrase"];
+	for (const timestampMode of attemptModes) {
+		let segments = await transcribeOne(false, true, timestampMode);
+		if (segments.length === 0) {
+			segments = await transcribeOne(false, false, timestampMode);
+		}
+		if (segments.length === 0 && trims.length > 0) {
+			segments = dropSegmentsOverlappingTrimRegions(
+				await transcribeOne(true, true, timestampMode),
+				trims,
+			);
 			if (segments.length === 0) {
-				segments = await transcribeOne(false, false, timestampMode);
-			}
-			if (segments.length === 0 && trims.length > 0) {
-				segments = await transcribeOne(true, true, timestampMode);
-				if (segments.length === 0) {
-					segments = await transcribeOne(true, false, timestampMode);
-				}
-			}
-			if (segments.length > 0) {
-				return { segments, granularity: timestampMode };
+				segments = dropSegmentsOverlappingTrimRegions(
+					await transcribeOne(true, false, timestampMode),
+					trims,
+				);
 			}
 		}
+		if (segments.length > 0) {
+			return { segments, granularity: timestampMode };
+		}
+	}
 
-		return { segments: [], granularity: "phrase" };
-	});
+	return { segments: [], granularity: "phrase" };
 }
