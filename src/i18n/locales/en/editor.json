@@ -53,6 +53,7 @@
 		"dialogCancel": "Cancel",
 		"generating": "Generating captions from audio…",
 		"loadingModel": "Loading speech model (first use downloads ~75 MB)…",
+		"transcribing": "Transcribing speech…",
 		"busy": "Caption generation is already in progress.",
 		"done": "Added {{count}} captions.",
 		"noneHeard": "No speech was detected.",

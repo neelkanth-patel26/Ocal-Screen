@@ -53,6 +53,7 @@
 		"dialogCancel": "取消",
 		"generating": "正在從音訊產生字幕…",
 		"loadingModel": "正在載入語音模型（首次使用將下載約 75 MB）…",
+		"transcribing": "正在轉錄語音…",
 		"busy": "字幕產生已在進行中。",
 		"done": "已新增 {{count}} 條字幕。",
 		"noneHeard": "未偵測到語音。",

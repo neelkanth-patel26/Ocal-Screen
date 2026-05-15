@@ -109,6 +109,9 @@ import {
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 
+/** Single Sonner slot for auto-caption progress so phases update in place instead of stacking. */
+const AUTO_CAPTION_PROGRESS_TOAST_ID = "auto-caption-progress";
+
 function isClickInteractionType(interactionType: string | null | undefined) {
 	return (
 		interactionType === "click" ||
@@ -2030,18 +2033,18 @@ export default function VideoEditor() {
 
 			isAutoCaptioningRef.current = true;
 			setIsAutoCaptioning(true);
-			const toastId = toast.loading(t("autoCaptions.generating"));
+			toast.loading(t("autoCaptions.generating"), { id: AUTO_CAPTION_PROGRESS_TOAST_ID });
 			try {
 				const { samples, truncated, durationSec } = await extractMono16kFromVideoUrl(videoPath);
 				if (!Number.isFinite(durationSec) || durationSec <= 0 || samples.length < 800) {
-					toast.dismiss(toastId);
+					toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
 					toast.error(t("autoCaptions.noAudio"));
 					return;
 				}
 
 				const { samples: speechSamples, trimSec } = trimLeadingSilenceMono16k(samples);
 				if (speechSamples.length < 800) {
-					toast.dismiss(toastId);
+					toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
 					toast.error(t("autoCaptions.noAudio"));
 					return;
 				}
@@ -2052,7 +2055,13 @@ export default function VideoEditor() {
 				const transcribeOptions = {
 					onStatus: (phase: "model" | "transcribe") => {
 						if (phase === "model") {
-							toast.loading(t("autoCaptions.loadingModel"), { id: toastId });
+							toast.loading(t("autoCaptions.loadingModel"), {
+								id: AUTO_CAPTION_PROGRESS_TOAST_ID,
+							});
+						} else {
+							toast.loading(t("autoCaptions.transcribing"), {
+								id: AUTO_CAPTION_PROGRESS_TOAST_ID,
+							});
 						}
 					},
 				};
@@ -2111,7 +2120,7 @@ export default function VideoEditor() {
 				}
 
 				if (regions.length === 0) {
-					toast.dismiss(toastId);
+					toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
 					toast.info(t("autoCaptions.noneHeard"));
 					return;
 				}
@@ -2120,18 +2129,18 @@ export default function VideoEditor() {
 				nextAnnotationIdRef.current = nextNumericId;
 				nextAnnotationZIndexRef.current = nextZIndex;
 
-				toast.dismiss(toastId);
+				toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+				const minutesTrunc = String(Math.round(MAX_CAPTION_AUDIO_SEC / 60));
 				if (truncated) {
-					toast.info(
-						t("autoCaptions.truncated", {
-							minutes: String(Math.round(MAX_CAPTION_AUDIO_SEC / 60)),
-						}),
-					);
+					toast.success(t("autoCaptions.done", { count: String(regions.length) }), {
+						description: t("autoCaptions.truncated", { minutes: minutesTrunc }),
+					});
+				} else {
+					toast.success(t("autoCaptions.done", { count: String(regions.length) }));
 				}
-				toast.success(t("autoCaptions.done", { count: String(regions.length) }));
 			} catch (e) {
 				console.error(e);
-				toast.dismiss(toastId);
+				toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
 				const detail = e instanceof Error ? e.message : String(e);
 				toast.error(t("autoCaptions.failed"), { description: detail });
 			} finally {

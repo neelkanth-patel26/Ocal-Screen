@@ -53,6 +53,7 @@
 		"dialogCancel": "İptal",
 		"generating": "Sesten altyazılar oluşturuluyor…",
 		"loadingModel": "Konuşma modeli yükleniyor (ilk kullanımda ~75 MB indirilir)…",
+		"transcribing": "Konuşma yazıya dökülüyor…",
 		"busy": "Altyazı oluşturma zaten devam ediyor.",
 		"done": "{{count}} altyazı eklendi.",
 		"noneHeard": "Konuşma algılanmadı.",

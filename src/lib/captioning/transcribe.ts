@@ -18,6 +18,18 @@ function segmentOverlapsTrim(startMs: number, endMs: number, trims: TrimRegion[]
 	return trims.some((t) => startMs < t.endMs && endMs > t.startMs);
 }
 
+/** Lets the browser paint toast / in-app status before Whisper blocks the main thread (WASM may not yield). */
+async function yieldForUiPaint(): Promise<void> {
+	await new Promise<void>((resolve) => setTimeout(resolve, 0));
+	await new Promise<void>((resolve) => {
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => resolve());
+		});
+	});
+	// macrotask after rAF so React/Sonner state can commit under load.
+	await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
 /**
  * ONNX Runtime's wasm bundle treats `process.versions.node` (present in Electron's
  * renderer) as Node and tries `require("fs")`, which Vite does not support. Mask it
@@ -212,8 +224,13 @@ export async function transcribeMono16kToSegments(
 
 		if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
+		await yieldForUiPaint();
+
 		const trims = options?.trimRegions ?? [];
 		options?.onStatus?.("transcribe");
+		if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+		await yieldForUiPaint();
+		if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
 		const transcribeOne = async (
 			ignoreTrims: boolean,

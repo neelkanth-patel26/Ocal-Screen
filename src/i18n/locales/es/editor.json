@@ -53,6 +53,7 @@
 		"dialogCancel": "Cancelar",
 		"generating": "Generando subtítulos a partir del audio…",
 		"loadingModel": "Cargando el modelo de voz (el primer uso descarga ~75 MB)…",
+		"transcribing": "Transcribiendo el habla…",
 		"busy": "La generación de subtítulos ya está en curso.",
 		"done": "Se añadieron {{count}} subtítulos.",
 		"noneHeard": "No se detectó voz.",

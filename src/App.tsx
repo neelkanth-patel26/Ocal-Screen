@@ -82,7 +82,7 @@ export default function App() {
 	return (
 		<TooltipProvider>
 			{content}
-			<Toaster theme="dark" className="pointer-events-auto" />
+			<Toaster theme="dark" />
 		</TooltipProvider>
 	);
 }
