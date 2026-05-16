@@ -76,10 +76,10 @@
 		"gifDescription": "共有用のアニメーション画像"
 	},
 	"exportQuality": {
-		"title": "エクスポート品質",
-		"low": "低画質",
-		"medium": "中画質",
-		"high": "高画質"
+		"title": "書き出し解像度",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF フレームレート",

@@ -66,10 +66,10 @@
 		"gifDescription": "Hình ảnh động để chia sẻ"
 	},
 	"exportQuality": {
-		"title": "Chất lượng xuất",
-		"low": "Thấp",
-		"medium": "Trung bình",
-		"high": "Cao"
+		"title": "Độ phân giải xuất",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "Tốc độ khung hình GIF",

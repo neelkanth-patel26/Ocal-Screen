@@ -76,10 +76,10 @@
 		"gifDescription": "공유용 애니메이션 이미지"
 	},
 	"exportQuality": {
-		"title": "내보내기 품질",
-		"low": "낮음",
-		"medium": "보통",
-		"high": "높음"
+		"title": "내보내기 해상도",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF 프레임 속도",

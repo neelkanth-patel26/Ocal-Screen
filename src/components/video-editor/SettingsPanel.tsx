@@ -40,7 +40,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useScopedT } from "@/contexts/I18nContext";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
-import { GIF_FRAME_RATES, GIF_SIZE_PRESETS } from "@/lib/exporter";
+import {
+	calculateEffectiveSourceDimensions,
+	GIF_FRAME_RATES,
+	GIF_SIZE_PRESETS,
+} from "@/lib/exporter";
 import { cn } from "@/lib/utils";
 import { resolveImageWallpaperUrl, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
@@ -328,6 +332,23 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 
 type SettingsPanelMode = "background" | "effects" | "layout" | "cursor" | "export";
 
+const MP4_EXPORT_SHORT_SIDES = {
+	medium: 720,
+	good: 1080,
+} as const;
+
+function formatSourceDimensions(videoElement?: HTMLVideoElement | null, cropRegion?: CropRegion) {
+	const width = videoElement?.videoWidth ?? 0;
+	const height = videoElement?.videoHeight ?? 0;
+
+	if (width <= 0 || height <= 0) {
+		return null;
+	}
+
+	const dimensions = calculateEffectiveSourceDimensions(width, height, cropRegion);
+	return { ...dimensions, shortSide: Math.min(dimensions.width, dimensions.height) };
+}
+
 export function SettingsPanel({
 	selected,
 	onWallpaperChange,
@@ -421,6 +442,7 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [activePanelMode, setActivePanelMode] = useState<SettingsPanelMode>("background");
+	const sourceDimensions = formatSourceDimensions(videoElement, cropRegion);
 	// Resolved URLs are for DOM rendering only (backgroundImage). The canonical
 	// `/wallpapers/wallpaperN.jpg` form in WALLPAPER_PATHS is what gets persisted
 	// on click — never the machine-specific file:// URL.
@@ -1776,40 +1798,82 @@ export function SettingsPanel({
 						</div>
 
 						{exportFormat === "mp4" && (
-							<div className="mb-3 bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 h-7 rounded-lg">
-								<button
-									onClick={() => onExportQualityChange?.("medium")}
-									className={cn(
-										"rounded-md transition-all text-[10px] font-medium",
-										exportQuality === "medium"
-											? "bg-white text-black"
-											: "text-slate-400 hover:text-slate-200",
-									)}
-								>
-									{t("exportQuality.low")}
-								</button>
-								<button
-									onClick={() => onExportQualityChange?.("good")}
-									className={cn(
-										"rounded-md transition-all text-[10px] font-medium",
-										exportQuality === "good"
-											? "bg-white text-black"
-											: "text-slate-400 hover:text-slate-200",
-									)}
-								>
-									{t("exportQuality.medium")}
-								</button>
-								<button
-									onClick={() => onExportQualityChange?.("source")}
-									className={cn(
-										"rounded-md transition-all text-[10px] font-medium",
-										exportQuality === "source"
-											? "bg-white text-black"
-											: "text-slate-400 hover:text-slate-200",
-									)}
-								>
-									{t("exportQuality.high")}
-								</button>
+							<div className="mb-3 space-y-1.5">
+								{sourceDimensions && (
+									<div className="flex items-center justify-between px-0.5 text-[10px] leading-none text-slate-500">
+										<span>{t("exportQuality.title")}</span>
+										<span>
+											Source {sourceDimensions.width}x{sourceDimensions.height}
+										</span>
+									</div>
+								)}
+								<div className="bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 h-9 rounded-lg">
+									<button
+										onClick={() => onExportQualityChange?.("medium")}
+										className={cn(
+											"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
+											exportQuality === "medium"
+												? "bg-white text-black"
+												: "text-slate-400 hover:text-slate-200",
+										)}
+									>
+										<span>{t("exportQuality.low")}</span>
+										{sourceDimensions &&
+											sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.medium && (
+												<span
+													className={cn(
+														"text-[8px] font-medium",
+														exportQuality === "medium" ? "text-black/55" : "text-amber-300/80",
+													)}
+												>
+													Upscale
+												</span>
+											)}
+									</button>
+									<button
+										onClick={() => onExportQualityChange?.("good")}
+										className={cn(
+											"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
+											exportQuality === "good"
+												? "bg-white text-black"
+												: "text-slate-400 hover:text-slate-200",
+										)}
+									>
+										<span>{t("exportQuality.medium")}</span>
+										{sourceDimensions &&
+											sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.good && (
+												<span
+													className={cn(
+														"text-[8px] font-medium",
+														exportQuality === "good" ? "text-black/55" : "text-amber-300/80",
+													)}
+												>
+													Upscale
+												</span>
+											)}
+									</button>
+									<button
+										onClick={() => onExportQualityChange?.("source")}
+										className={cn(
+											"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
+											exportQuality === "source"
+												? "bg-white text-black"
+												: "text-slate-400 hover:text-slate-200",
+										)}
+									>
+										<span>{t("exportQuality.high")}</span>
+										{sourceDimensions && (
+											<span
+												className={cn(
+													"text-[8px] font-medium",
+													exportQuality === "source" ? "text-black/55" : "text-slate-500",
+												)}
+											>
+												{sourceDimensions.shortSide}p
+											</span>
+										)}
+									</button>
+								</div>
 							</div>
 						)}
 

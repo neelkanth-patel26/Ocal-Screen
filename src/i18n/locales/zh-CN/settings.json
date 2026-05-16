@@ -76,10 +76,10 @@
 		"gifDescription": "可分享的动态图片"
 	},
 	"exportQuality": {
-		"title": "导出质量",
-		"low": "低",
-		"medium": "中",
-		"high": "高"
+		"title": "导出分辨率",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF 帧率",

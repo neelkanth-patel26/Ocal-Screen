@@ -77,10 +77,10 @@
 		"gifDescription": "Анимированное изображение для обмена"
 	},
 	"exportQuality": {
-		"title": "Качество экспорта",
-		"low": "Низкое",
-		"medium": "Среднее",
-		"high": "Высокое"
+		"title": "Разрешение экспорта",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "Частота кадров GIF",
