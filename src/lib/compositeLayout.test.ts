@@ -17,6 +17,21 @@ describe("computeCompositeLayout", () => {
 		expect(layout!.webcamRect!.y).toBeGreaterThan(1080 / 2);
 	});
 
+	it("scales small screen content up to the export canvas when no padding is applied", () => {
+		const layout = computeCompositeLayout({
+			canvasSize: { width: 1280, height: 720 },
+			screenSize: { width: 854, height: 480 },
+		});
+
+		expect(layout).not.toBeNull();
+		expect(layout!.screenRect).toEqual({
+			x: 0,
+			y: 0,
+			width: 1280,
+			height: 720,
+		});
+	});
+
 	it("keeps the overlay within the configured stage fraction while preserving aspect ratio", () => {
 		const layout = computeCompositeLayout({
 			canvasSize: { width: 1280, height: 720 },
@@ -126,6 +141,21 @@ describe("computeCompositeLayout", () => {
 		// Values above 50 should clamp to 50
 		expect(aboveMax!.webcamRect!.width).toBe(atMax!.webcamRect!.width);
 		expect(aboveMax!.webcamRect!.height).toBe(atMax!.webcamRect!.height);
+	});
+
+	it("snaps rounding-only source aspect gaps to the full canvas", () => {
+		const layout = computeCompositeLayout({
+			canvasSize: { width: 319, height: 199 },
+			maxContentSize: { width: 319, height: 199 },
+			screenSize: { width: 1680, height: 1050 },
+		});
+
+		expect(layout?.screenRect).toEqual({
+			x: 0,
+			y: 0,
+			width: 319,
+			height: 199,
+		});
 	});
 
 	it("centers the combined screen and webcam stack in vertical stack mode", () => {

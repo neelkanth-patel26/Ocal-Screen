@@ -18,6 +18,8 @@ import { type Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
 import { hasNativeCursorRecordingData } from "@/lib/cursor/nativeCursor";
 import {
+	calculateEffectiveSourceDimensions,
+	calculateMp4ExportSettings,
 	calculateOutputDimensions,
 	type ExportFormat,
 	type ExportProgress,
@@ -1574,6 +1576,11 @@ export default function VideoEditor() {
 
 				const sourceWidth = video.videoWidth || 1920;
 				const sourceHeight = video.videoHeight || 1080;
+				const effectiveSourceDimensions = calculateEffectiveSourceDimensions(
+					sourceWidth,
+					sourceHeight,
+					cropRegion,
+				);
 				const aspectRatioValue =
 					aspectRatio === "native"
 						? getNativeAspectRatioValue(sourceWidth, sourceHeight, cropRegion)
@@ -1667,83 +1674,16 @@ export default function VideoEditor() {
 				} else {
 					// MP4 Export
 					const quality = settings.quality || exportQuality;
-					let exportWidth: number;
-					let exportHeight: number;
-					let bitrate: number;
-
-					if (quality === "source") {
-						exportWidth = sourceWidth;
-						exportHeight = sourceHeight;
-
-						// Use the source's longer dimension as the long axis of the export so
-						// a landscape recording can still fill a portrait target (and vice versa).
-						const sourceLongDim = Math.max(sourceWidth, sourceHeight);
-
-						if (aspectRatioValue === 1) {
-							const baseDimension = Math.floor(Math.min(sourceWidth, sourceHeight) / 2) * 2;
-							exportWidth = baseDimension;
-							exportHeight = baseDimension;
-						} else if (aspectRatioValue > 1) {
-							const baseWidth = Math.floor(sourceLongDim / 2) * 2;
-							let found = false;
-							for (let w = baseWidth; w >= 100 && !found; w -= 2) {
-								const h = Math.round(w / aspectRatioValue);
-								if (h % 2 === 0 && Math.abs(w / h - aspectRatioValue) < 0.0001) {
-									exportWidth = w;
-									exportHeight = h;
-									found = true;
-								}
-							}
-							if (!found) {
-								exportWidth = baseWidth;
-								exportHeight = Math.floor(baseWidth / aspectRatioValue / 2) * 2;
-							}
-						} else {
-							const baseHeight = Math.floor(sourceLongDim / 2) * 2;
-							let found = false;
-							for (let h = baseHeight; h >= 100 && !found; h -= 2) {
-								const w = Math.round(h * aspectRatioValue);
-								if (w % 2 === 0 && Math.abs(w / h - aspectRatioValue) < 0.0001) {
-									exportWidth = w;
-									exportHeight = h;
-									found = true;
-								}
-							}
-							if (!found) {
-								exportHeight = baseHeight;
-								exportWidth = Math.floor((baseHeight * aspectRatioValue) / 2) * 2;
-							}
-						}
-
-						const totalPixels = exportWidth * exportHeight;
-						bitrate = 30_000_000;
-						if (totalPixels > 1920 * 1080 && totalPixels <= 2560 * 1440) {
-							bitrate = 50_000_000;
-						} else if (totalPixels > 2560 * 1440) {
-							bitrate = 80_000_000;
-						}
-					} else {
-						// Quality presets target the SHORT side; the long side derives from the
-						// aspect ratio. This keeps 1080p portrait at 1080×1920 instead of 607×1080.
-						const targetShortDim = quality === "medium" ? 720 : 1080;
-
-						if (aspectRatioValue >= 1) {
-							exportHeight = Math.floor(targetShortDim / 2) * 2;
-							exportWidth = Math.floor((exportHeight * aspectRatioValue) / 2) * 2;
-						} else {
-							exportWidth = Math.floor(targetShortDim / 2) * 2;
-							exportHeight = Math.floor(exportWidth / aspectRatioValue / 2) * 2;
-						}
-
-						const totalPixels = exportWidth * exportHeight;
-						if (totalPixels <= 1280 * 720) {
-							bitrate = 10_000_000;
-						} else if (totalPixels <= 1920 * 1080) {
-							bitrate = 20_000_000;
-						} else {
-							bitrate = 30_000_000;
-						}
-					}
+					const {
+						width: exportWidth,
+						height: exportHeight,
+						bitrate,
+					} = calculateMp4ExportSettings({
+						quality,
+						sourceWidth: effectiveSourceDimensions.width,
+						sourceHeight: effectiveSourceDimensions.height,
+						aspectRatioValue,
+					});
 
 					const exporter = new VideoExporter({
 						videoUrl: videoPath,
@@ -1903,13 +1843,18 @@ export default function VideoEditor() {
 		// Build export settings from current state
 		const sourceWidth = video.videoWidth || 1920;
 		const sourceHeight = video.videoHeight || 1080;
+		const effectiveSourceDimensions = calculateEffectiveSourceDimensions(
+			sourceWidth,
+			sourceHeight,
+			cropRegion,
+		);
 		const aspectRatioValue =
 			aspectRatio === "native"
 				? getNativeAspectRatioValue(sourceWidth, sourceHeight, cropRegion)
 				: getAspectRatioValue(aspectRatio);
 		const gifDimensions = calculateOutputDimensions(
-			sourceWidth,
-			sourceHeight,
+			effectiveSourceDimensions.width,
+			effectiveSourceDimensions.height,
 			gifSizePreset,
 			GIF_SIZE_PRESETS,
 			aspectRatioValue,
@@ -2266,8 +2211,16 @@ export default function VideoEditor() {
 									gifSizePreset={gifSizePreset}
 									onGifSizePresetChange={setGifSizePreset}
 									gifOutputDimensions={calculateOutputDimensions(
-										videoPlaybackRef.current?.video?.videoWidth || 1920,
-										videoPlaybackRef.current?.video?.videoHeight || 1080,
+										calculateEffectiveSourceDimensions(
+											videoPlaybackRef.current?.video?.videoWidth || 1920,
+											videoPlaybackRef.current?.video?.videoHeight || 1080,
+											cropRegion,
+										).width,
+										calculateEffectiveSourceDimensions(
+											videoPlaybackRef.current?.video?.videoWidth || 1920,
+											videoPlaybackRef.current?.video?.videoHeight || 1080,
+											cropRegion,
+										).height,
 										gifSizePreset,
 										GIF_SIZE_PRESETS,
 										aspectRatio === "native"

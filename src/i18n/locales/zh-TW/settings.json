@@ -83,10 +83,10 @@
 		"gifDescription": "可分享的動態圖片"
 	},
 	"exportQuality": {
-		"title": "匯出品質",
-		"low": "低",
-		"medium": "中",
-		"high": "高"
+		"title": "匯出解析度",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF 影格率",

@@ -76,10 +76,10 @@
 		"gifDescription": "Paylaşım için hareketli görüntü"
 	},
 	"exportQuality": {
-		"title": "Dışa Aktarım Kalitesi",
-		"low": "Düşük",
-		"medium": "Orta",
-		"high": "Yüksek"
+		"title": "Dışa aktarma çözünürlüğü",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF Kare Hızı",

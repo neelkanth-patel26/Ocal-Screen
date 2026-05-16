@@ -69,10 +69,10 @@
 		"gifDescription": "صورة متحركة للمشاركة"
 	},
 	"exportQuality": {
-		"title": "جودة التصدير",
-		"low": "منخفضة",
-		"medium": "متوسطة",
-		"high": "عالية"
+		"title": "دقة التصدير",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "معدل إطارات GIF",

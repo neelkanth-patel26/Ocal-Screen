@@ -76,10 +76,10 @@
 		"gifDescription": "Imagen animada para compartir"
 	},
 	"exportQuality": {
-		"title": "Calidad de exportación",
-		"low": "Baja",
-		"medium": "Media",
-		"high": "Alta"
+		"title": "Resolución de exportación",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "Velocidad de cuadros del GIF",
