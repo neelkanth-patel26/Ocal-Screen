@@ -682,21 +682,21 @@ function Timeline({
 		}
 	}, []);
 
-	const handleTimelinePointerLeave = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-		if (isScrubbingTimelineRef.current && scrubPointerIdRef.current === e.pointerId) {
-			seekTimelineAtClientX(e.currentTarget, e.clientX);
-		}
-	}, [seekTimelineAtClientX]);
-
-	const handleTimelineLostPointerCapture = useCallback(
+	const handleTimelinePointerLeave = useCallback(
 		(e: React.PointerEvent<HTMLDivElement>) => {
-			if (scrubPointerIdRef.current === e.pointerId) {
-				isScrubbingTimelineRef.current = false;
-				scrubPointerIdRef.current = null;
+			if (isScrubbingTimelineRef.current && scrubPointerIdRef.current === e.pointerId) {
+				seekTimelineAtClientX(e.currentTarget, e.clientX);
 			}
 		},
-		[],
+		[seekTimelineAtClientX],
 	);
+
+	const handleTimelineLostPointerCapture = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+		if (scrubPointerIdRef.current === e.pointerId) {
+			isScrubbingTimelineRef.current = false;
+			scrubPointerIdRef.current = null;
+		}
+	}, []);
 
 	const handleTimelineWheel = useCallback(
 		(event: React.WheelEvent<HTMLDivElement>) => {
