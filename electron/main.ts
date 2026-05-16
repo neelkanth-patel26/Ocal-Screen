@@ -13,7 +13,7 @@ import {
 	Tray,
 } from "electron";
 import { mainT, setMainLocale } from "./i18n";
-import { registerIpcHandlers } from "./ipc/handlers";
+import { getSelectedDesktopSource, registerIpcHandlers } from "./ipc/handlers";
 import {
 	createCountdownOverlayWindow,
 	createEditorWindow,
@@ -476,6 +476,22 @@ app.whenReady().then(async () => {
 		];
 		callback(allowed.includes(permission));
 	});
+
+	session.defaultSession.setDisplayMediaRequestHandler(
+		(request, callback) => {
+			const source = getSelectedDesktopSource();
+			if (!request.videoRequested || !source) {
+				callback({});
+				return;
+			}
+
+			callback({
+				video: source,
+				...(request.audioRequested && process.platform === "win32" ? { audio: "loopback" } : {}),
+			});
+		},
+		{ useSystemPicker: false },
+	);
 
 	// Request microphone and screen recording permissions from macOS
 	if (process.platform === "darwin") {

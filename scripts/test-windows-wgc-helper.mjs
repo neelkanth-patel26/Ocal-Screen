@@ -23,6 +23,9 @@ const WITH_WINDOW =
 	process.env.OPENSCREEN_WGC_TEST_WINDOW === "true" || process.argv.includes("--window");
 const WITH_WEBCAM =
 	process.env.OPENSCREEN_WGC_TEST_WEBCAM === "true" || process.argv.includes("--webcam");
+const CAPTURE_CURSOR =
+	process.env.OPENSCREEN_WGC_TEST_CAPTURE_CURSOR === "true" ||
+	process.argv.includes("--capture-cursor");
 
 function runHelper(config) {
 	return new Promise((resolve, reject) => {
@@ -247,6 +250,7 @@ const config = {
 	hasDisplayBounds: true,
 	captureSystemAudio: WITH_SYSTEM_AUDIO,
 	captureMic: WITH_MICROPHONE,
+	captureCursor: CAPTURE_CURSOR,
 	microphoneDeviceId: process.env.OPENSCREEN_WGC_TEST_MICROPHONE_DEVICE_ID ?? "default",
 	microphoneDeviceName: process.env.OPENSCREEN_WGC_TEST_MICROPHONE_DEVICE_NAME ?? "",
 	microphoneGain: 1.4,
@@ -297,6 +301,10 @@ const audioFormatLine = result.stdout
 	.split(/\r?\n/)
 	.find((line) => line.includes('"event":"audio-format"'));
 const audioFormat = audioFormatLine ? JSON.parse(audioFormatLine) : null;
+const cursorCaptureLine = result.stdout
+	.split(/\r?\n/)
+	.find((line) => line.includes('"event":"cursor-capture"'));
+const cursorCapture = cursorCaptureLine ? JSON.parse(cursorCaptureLine) : null;
 const nativeWebcamDiagnostics = result.stderr
 	.split(/\r?\n/)
 	.filter((line) => line.includes("Native webcam candidate"));
@@ -309,6 +317,11 @@ const nativeMicrophoneDiagnostics = result.stderr
 	);
 if (!hasVideo) {
 	throw new Error(`WGC helper output has no video stream: ${outputPath}`);
+}
+if (!cursorCapture || cursorCapture.requested !== CAPTURE_CURSOR || cursorCapture.applied !== CAPTURE_CURSOR) {
+	throw new Error(
+		`WGC helper did not apply requested cursor capture mode (${CAPTURE_CURSOR}): ${result.stdout}`,
+	);
 }
 if ((WITH_SYSTEM_AUDIO || WITH_MICROPHONE) && !hasAudio) {
 	throw new Error(`WGC helper output has no audio stream: ${outputPath}`);
@@ -332,6 +345,7 @@ console.log(
 				codecName: stream.codec_name,
 				duration: stream.duration,
 			})),
+			cursorCapture,
 			selectedMicrophoneDeviceName: audioFormat?.microphoneDeviceName,
 			selectedWebcamDeviceName: webcamFormat?.deviceName,
 			nativeMicrophoneDiagnostics,
