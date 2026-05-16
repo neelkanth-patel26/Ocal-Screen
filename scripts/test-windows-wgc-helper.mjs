@@ -318,7 +318,11 @@ const nativeMicrophoneDiagnostics = result.stderr
 if (!hasVideo) {
 	throw new Error(`WGC helper output has no video stream: ${outputPath}`);
 }
-if (!cursorCapture || cursorCapture.requested !== CAPTURE_CURSOR || cursorCapture.applied !== CAPTURE_CURSOR) {
+if (
+	(CAPTURE_CURSOR && !cursorCapture) ||
+	(cursorCapture &&
+		(cursorCapture.requested !== CAPTURE_CURSOR || cursorCapture.applied !== CAPTURE_CURSOR))
+) {
 	throw new Error(
 		`WGC helper did not apply requested cursor capture mode (${CAPTURE_CURSOR}): ${result.stdout}`,
 	);
