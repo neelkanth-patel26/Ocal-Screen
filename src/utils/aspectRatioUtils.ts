@@ -11,6 +11,8 @@ export const ASPECT_RATIOS = [
 
 export type AspectRatio = (typeof ASPECT_RATIOS)[number];
 
+const NATIVE_ASPECT_RATIO_FALLBACK = 16 / 9;
+
 /**
  * Returns the numeric value of an aspect ratio.
  * For "native", returns a fallback ratio of 16/9.
@@ -33,7 +35,7 @@ export function getAspectRatioValue(aspectRatio: AspectRatio): number {
 		case "10:16":
 			return 10 / 16;
 		case "native":
-			return 16 / 9;
+			return NATIVE_ASPECT_RATIO_FALLBACK;
 		default: {
 			const _exhaustiveCheck: never = aspectRatio;
 			return _exhaustiveCheck;
@@ -48,7 +50,21 @@ export function getNativeAspectRatioValue(
 ): number {
 	const cropW = cropRegion?.width ?? 1;
 	const cropH = cropRegion?.height ?? 1;
-	return (videoWidth * cropW) / (videoHeight * cropH);
+	if (
+		!Number.isFinite(videoWidth) ||
+		!Number.isFinite(videoHeight) ||
+		!Number.isFinite(cropW) ||
+		!Number.isFinite(cropH) ||
+		videoWidth <= 0 ||
+		videoHeight <= 0 ||
+		cropW <= 0 ||
+		cropH <= 0
+	) {
+		return NATIVE_ASPECT_RATIO_FALLBACK;
+	}
+
+	const ratio = (videoWidth * cropW) / (videoHeight * cropH);
+	return Number.isFinite(ratio) && ratio > 0 ? ratio : NATIVE_ASPECT_RATIO_FALLBACK;
 }
 
 export function getAspectRatioDimensions(
@@ -72,6 +88,6 @@ export function isPortraitAspectRatio(aspectRatio: AspectRatio): boolean {
 }
 
 export function formatAspectRatioForCSS(aspectRatio: AspectRatio, nativeRatio?: number): string {
-	if (aspectRatio === "native") return String(nativeRatio ?? 16 / 9);
+	if (aspectRatio === "native") return String(nativeRatio ?? NATIVE_ASPECT_RATIO_FALLBACK);
 	return aspectRatio.replace(":", "/");
 }
