@@ -37,7 +37,7 @@ private:
     bool createD3DDevice();
     bool createCaptureItem(HMONITOR monitor);
     bool createCaptureItem(HWND window);
-    void applySessionOptions(bool captureCursor);
+    bool applySessionOptions(bool captureCursor);
     void onFrameArrived(
         winrt::Windows::Graphics::Capture::Direct3D11CaptureFramePool const& sender,
         winrt::Windows::Foundation::IInspectable const&);
@@ -54,5 +54,6 @@ private:
     int width_ = 0;
     int height_ = 0;
     int fps_ = 60;
+    bool captureCursor_ = false;
     bool started_ = false;
 };

@@ -111,6 +111,7 @@ Smoke-test the helper directly:
 
 ```powershell
 npm run test:wgc-helper:win
+npm run test:wgc-helper:win -- --capture-cursor
 npm run test:wgc-window:win
 npm run test:wgc-audio:win
 npm run test:wgc-mic:win
