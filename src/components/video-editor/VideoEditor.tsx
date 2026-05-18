@@ -72,6 +72,7 @@ import {
 	DEFAULT_ANNOTATION_STYLE,
 	DEFAULT_BLUR_DATA,
 	DEFAULT_CURSOR_CLICK_BOUNCE,
+	DEFAULT_CURSOR_CLIP_TO_BOUNDS,
 	DEFAULT_CURSOR_MOTION_BLUR,
 	DEFAULT_CURSOR_SIZE,
 	DEFAULT_CURSOR_SMOOTHING,
@@ -242,6 +243,7 @@ export default function VideoEditor() {
 	const [cursorSmoothing, setCursorSmoothing] = useState(DEFAULT_CURSOR_SMOOTHING);
 	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_CURSOR_MOTION_BLUR);
 	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_CURSOR_CLICK_BOUNCE);
+	const [cursorClipToBounds, setCursorClipToBounds] = useState(DEFAULT_CURSOR_CLIP_TO_BOUNDS);
 	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
 	const [recordingCursorCaptureMode, setRecordingCursorCaptureMode] =
 		useState<CursorCaptureMode | null>(null);
@@ -1619,6 +1621,7 @@ export default function VideoEditor() {
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
+						cursorClipToBounds,
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
@@ -1709,6 +1712,7 @@ export default function VideoEditor() {
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
+						cursorClipToBounds,
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
@@ -1824,6 +1828,7 @@ export default function VideoEditor() {
 			cursorSmoothing,
 			cursorMotionBlur,
 			cursorClickBounce,
+			cursorClipToBounds,
 			t,
 		],
 	);
@@ -2106,6 +2111,7 @@ export default function VideoEditor() {
 												cursorSmoothing={cursorSmoothing}
 												cursorMotionBlur={cursorMotionBlur}
 												cursorClickBounce={cursorClickBounce}
+												cursorClipToBounds={cursorClipToBounds}
 											/>
 										</div>
 									</div>
@@ -2266,6 +2272,8 @@ export default function VideoEditor() {
 									onCursorMotionBlurChange={setCursorMotionBlur}
 									cursorClickBounce={cursorClickBounce}
 									onCursorClickBounceChange={setCursorClickBounce}
+									cursorClipToBounds={cursorClipToBounds}
+									onCursorClipToBoundsChange={setCursorClipToBounds}
 									hasCursorData={
 										cursorTelemetry.length > 0 || hasNativeCursorRecordingData(cursorRecordingData)
 									}
