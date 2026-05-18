@@ -1,4 +1,9 @@
 import { useCallback, useRef, useState } from "react";
+import {
+	DEFAULT_EDITOR_APPEARANCE_SETTINGS,
+	DEFAULT_EDITOR_LAYOUT_SETTINGS,
+	DEFAULT_WEBCAM_SETTINGS,
+} from "@/components/video-editor/editorDefaults";
 import type {
 	AnnotationRegion,
 	CropRegion,
@@ -10,14 +15,7 @@ import type {
 	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
-import {
-	DEFAULT_CROP_REGION,
-	DEFAULT_WEBCAM_LAYOUT_PRESET,
-	DEFAULT_WEBCAM_MASK_SHAPE,
-	DEFAULT_WEBCAM_POSITION,
-	DEFAULT_WEBCAM_SIZE_PRESET,
-} from "@/components/video-editor/types";
-import { DEFAULT_WALLPAPER } from "@/lib/wallpaper";
+import { DEFAULT_CROP_REGION } from "@/components/video-editor/types";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
 // Undoable state — selection IDs are intentionally excluded (undoing a
@@ -47,17 +45,17 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	speedRegions: [],
 	annotationRegions: [],
 	cropRegion: DEFAULT_CROP_REGION,
-	wallpaper: DEFAULT_WALLPAPER,
-	shadowIntensity: 0,
-	showBlur: false,
-	motionBlurAmount: 0,
-	borderRadius: 0,
-	padding: 50,
-	aspectRatio: "16:9",
-	webcamLayoutPreset: DEFAULT_WEBCAM_LAYOUT_PRESET,
-	webcamMaskShape: DEFAULT_WEBCAM_MASK_SHAPE,
-	webcamSizePreset: DEFAULT_WEBCAM_SIZE_PRESET,
-	webcamPosition: DEFAULT_WEBCAM_POSITION,
+	wallpaper: DEFAULT_EDITOR_LAYOUT_SETTINGS.wallpaper,
+	shadowIntensity: DEFAULT_EDITOR_APPEARANCE_SETTINGS.shadowIntensity,
+	showBlur: DEFAULT_EDITOR_APPEARANCE_SETTINGS.showBlur,
+	motionBlurAmount: DEFAULT_EDITOR_APPEARANCE_SETTINGS.motionBlurAmount,
+	borderRadius: DEFAULT_EDITOR_APPEARANCE_SETTINGS.borderRadius,
+	padding: DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
+	aspectRatio: DEFAULT_EDITOR_LAYOUT_SETTINGS.aspectRatio,
+	webcamLayoutPreset: DEFAULT_WEBCAM_SETTINGS.layoutPreset,
+	webcamMaskShape: DEFAULT_WEBCAM_SETTINGS.maskShape,
+	webcamSizePreset: DEFAULT_WEBCAM_SETTINGS.sizePreset,
+	webcamPosition: DEFAULT_WEBCAM_SETTINGS.position,
 };
 
 type StateUpdate = Partial<EditorState> | ((prev: EditorState) => Partial<EditorState>);

@@ -53,6 +53,14 @@ import ColorPicker from "../ui/color-picker";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { CropControl } from "./CropControl";
+import {
+	DEFAULT_CURSOR_SETTINGS,
+	DEFAULT_EDITOR_LAYOUT_SETTINGS,
+	DEFAULT_EXPORT_SETTINGS,
+	DEFAULT_GIF_SETTINGS,
+	DEFAULT_SOURCE_DIMENSIONS,
+	DEFAULT_WEBCAM_SETTINGS,
+} from "./editorDefaults";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
@@ -70,7 +78,6 @@ import type {
 	ZoomFocusMode,
 } from "./types";
 import {
-	DEFAULT_WEBCAM_SIZE_PRESET,
 	MAX_PLAYBACK_SPEED,
 	MAX_ZOOM_SCALE,
 	MIN_ZOOM_SCALE,
@@ -382,24 +389,24 @@ export function SettingsPanel({
 	borderRadius = 0,
 	onBorderRadiusChange,
 	onBorderRadiusCommit,
-	padding = 50,
+	padding = DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
 	onPaddingChange,
 	onPaddingCommit,
 	cropRegion,
 	onCropChange,
 	aspectRatio,
 	videoElement,
-	exportQuality = "good",
+	exportQuality = DEFAULT_EXPORT_SETTINGS.quality,
 	onExportQualityChange,
-	exportFormat = "mp4",
+	exportFormat = DEFAULT_EXPORT_SETTINGS.format,
 	onExportFormatChange,
-	gifFrameRate = 15,
+	gifFrameRate = DEFAULT_GIF_SETTINGS.frameRate,
 	onGifFrameRateChange,
-	gifLoop = true,
+	gifLoop = DEFAULT_GIF_SETTINGS.loop,
 	onGifLoopChange,
-	gifSizePreset = "medium",
+	gifSizePreset = DEFAULT_GIF_SETTINGS.sizePreset,
 	onGifSizePresetChange,
-	gifOutputDimensions = { width: 1280, height: 720 },
+	gifOutputDimensions = DEFAULT_GIF_SETTINGS.outputDimensions,
 	onExport,
 	unsavedExport,
 	onSaveUnsavedExport,
@@ -421,25 +428,25 @@ export function SettingsPanel({
 	onSpeedChange,
 	onSpeedDelete,
 	hasWebcam = false,
-	webcamLayoutPreset = "picture-in-picture",
+	webcamLayoutPreset = DEFAULT_WEBCAM_SETTINGS.layoutPreset,
 	onWebcamLayoutPresetChange,
-	webcamMaskShape = "rectangle",
+	webcamMaskShape = DEFAULT_WEBCAM_SETTINGS.maskShape,
 	onWebcamMaskShapeChange,
-	webcamSizePreset = DEFAULT_WEBCAM_SIZE_PRESET,
+	webcamSizePreset = DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	onWebcamSizePresetChange,
 	onWebcamSizePresetCommit,
 	onSaveDiagnostic,
-	showCursor = true,
+	showCursor = DEFAULT_CURSOR_SETTINGS.show,
 	onShowCursorChange,
-	cursorSize = 3.0,
+	cursorSize = DEFAULT_CURSOR_SETTINGS.size,
 	onCursorSizeChange,
-	cursorSmoothing = 0.67,
+	cursorSmoothing = DEFAULT_CURSOR_SETTINGS.smoothing,
 	onCursorSmoothingChange,
-	cursorMotionBlur = 0.35,
+	cursorMotionBlur = DEFAULT_CURSOR_SETTINGS.motionBlur,
 	onCursorMotionBlurChange,
-	cursorClickBounce = 2.5,
+	cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
 	onCursorClickBounceChange,
-	cursorClipToBounds = false,
+	cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
 	onCursorClipToBoundsChange,
 	hasCursorData = false,
 	showCursorSettings = true,
@@ -478,8 +485,8 @@ export function SettingsPanel({
 	const [cropAspectRatio, setCropAspectRatio] = useState("");
 	const isPortraitCanvas = isPortraitAspectRatio(aspectRatio);
 
-	const videoWidth = videoElement?.videoWidth || 1920;
-	const videoHeight = videoElement?.videoHeight || 1080;
+	const videoWidth = videoElement?.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width;
+	const videoHeight = videoElement?.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height;
 
 	const handleCropNumericChange = useCallback(
 		(field: "x" | "y" | "width" | "height", pixelValue: number) => {
