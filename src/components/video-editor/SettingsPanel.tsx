@@ -1426,6 +1426,7 @@ export function SettingsPanel({
 																checked={cursorClipToBounds}
 																onCheckedChange={onCursorClipToBoundsChange}
 																className="data-[state=checked]:bg-[#34B27B] scale-90"
+																aria-label={t("cursor.clipToBounds")}
 															/>
 														</div>
 														<div className="grid grid-cols-2 gap-2">
