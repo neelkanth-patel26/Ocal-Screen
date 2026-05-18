@@ -1,5 +1,38 @@
 # Native capture helpers
 
+## macOS
+
+macOS native recording will use a ScreenCaptureKit helper with the same process boundary as the Windows WGC helper:
+
+1. Electron resolves the selected source, output paths, and user-selected devices.
+2. The helper receives one structured JSON request.
+3. The helper owns ScreenCaptureKit/AVFoundation capture, timing, encoding, and muxing.
+4. Electron persists the resulting media/session manifest and reports helper errors explicitly.
+
+Helper locations:
+
+1. `OPENSCREEN_SCK_CAPTURE_EXE`, for local development and diagnostics.
+2. `electron/native/screencapturekit/build/openscreen-screencapturekit-helper`, for locally built Swift output.
+3. `electron/native/bin/darwin-arm64/openscreen-screencapturekit-helper` or `electron/native/bin/darwin-x64/openscreen-screencapturekit-helper`, for packaged prebuilt helpers.
+
+The macOS cursor-shape helper is resolved from `OPENSCREEN_MAC_CURSOR_HELPER_EXE` first, then the matching `openscreen-macos-cursor-helper` binary in the same local build and packaged `electron/native/bin/darwin-${arch}` directories.
+
+Build the macOS helper with:
+
+```bash
+npm run build:native:mac
+```
+
+On non-macOS hosts this command exits successfully and does not affect Windows/Linux development. On macOS it builds the Swift package at `electron/native/screencapturekit`, writes the development binaries to `electron/native/screencapturekit/build`, and copies redistributable binaries to `electron/native/bin/darwin-${arch}`.
+
+The current helper implementation supports display/window ScreenCaptureKit video capture, cursor exclusion through `SCStreamConfiguration.showsCursor`, H.264 encoding, MP4 muxing, and ScreenCaptureKit system audio. It also attempts native ScreenCaptureKit microphone capture when the running macOS version exposes that capability. Webcam recording currently stays as an Electron sidecar and is attached to the same recording session after the native screen capture stops.
+
+Electron exposes `is-native-mac-capture-available` for capability probing. It resolves the same helper locations listed above and reports `missing-helper` until a Swift helper binary is present. When available, macOS recording routes screen/window capture through the native helper so editable cursor recordings do not bake the system cursor into the video. Cursor positions are sampled in Electron; when the cursor helper is available and Accessibility is granted, samples are also tagged with link/text cursor hints such as `pointer`.
+
+See `docs/engineering/macos-native-recorder-roadmap.md` for the contract, rollout phases, and SSOT rules.
+
+## Windows
+
 Windows native recording is resolved from one of these locations:
 
 1. `OPENSCREEN_WGC_CAPTURE_EXE`, for local development and diagnostics.
