@@ -439,7 +439,7 @@ export function SettingsPanel({
 	onCursorMotionBlurChange,
 	cursorClickBounce = 2.5,
 	onCursorClickBounceChange,
-	cursorClipToBounds = true,
+	cursorClipToBounds = false,
 	onCursorClipToBoundsChange,
 	hasCursorData = false,
 	showCursorSettings = true,

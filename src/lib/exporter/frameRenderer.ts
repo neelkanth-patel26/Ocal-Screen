@@ -611,9 +611,8 @@ export class FrameRenderer {
 			state: this.nativeCursorMotionBlurState,
 			timeMs,
 		});
-		// Clip cursor to the actual visible video boundary, accounting for zoom.
-		// Skip when cursorClipToBounds is off so the cursor can overflow the canvas.
-		const cursorClip = this.config.cursorClipToBounds === false ? null : this.cameraAwareMaskRect();
+		// Clip only when explicitly enabled; by default the cursor may overflow the canvas.
+		const cursorClip = this.config.cursorClipToBounds === true ? this.cameraAwareMaskRect() : null;
 		this.foregroundCtx.save();
 		this.foregroundCtx.beginPath();
 		if (cursorClip) {

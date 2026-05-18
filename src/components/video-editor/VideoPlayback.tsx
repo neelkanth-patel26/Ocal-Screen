@@ -269,7 +269,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorSmoothing = DEFAULT_CURSOR_SMOOTHING,
 			cursorMotionBlur = DEFAULT_CURSOR_MOTION_BLUR,
 			cursorClickBounce = DEFAULT_CURSOR_CLICK_BOUNCE,
-			cursorClipToBounds = true,
+			cursorClipToBounds = false,
 		},
 		ref,
 	) => {
