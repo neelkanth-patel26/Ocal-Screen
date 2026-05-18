@@ -40,8 +40,6 @@ const AUDIO_BITRATE_VOICE = 128_000;
 const AUDIO_BITRATE_SYSTEM = 192_000;
 
 const MIC_GAIN_BOOST = 1.4;
-const WEBCAM_TARGET_WIDTH = 1280;
-const WEBCAM_TARGET_HEIGHT = 720;
 const WEBCAM_TARGET_FRAME_RATE = 30;
 
 type UseScreenRecorderReturn = {
@@ -247,13 +245,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					video: webcamDeviceId
 						? {
 								deviceId: { exact: webcamDeviceId },
-								width: { ideal: WEBCAM_TARGET_WIDTH },
-								height: { ideal: WEBCAM_TARGET_HEIGHT },
 								frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
 							}
 						: {
-								width: { ideal: WEBCAM_TARGET_WIDTH },
-								height: { ideal: WEBCAM_TARGET_HEIGHT },
 								frameRate: { ideal: WEBCAM_TARGET_FRAME_RATE, max: WEBCAM_TARGET_FRAME_RATE },
 							},
 				});
@@ -599,12 +593,12 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				if (availability.reason === "unsupported-os") {
 					return false;
 				}
+				if (availability.reason === "missing-helper") {
+					console.warn("Native Windows capture helper is not available; using browser capture.");
+					return false;
+				}
 
-				throw new Error(
-					availability.reason === "missing-helper"
-						? "Native Windows capture helper is not available."
-						: (availability.error ?? "Native Windows capture is not available."),
-				);
+				throw new Error(availability.error ?? "Native Windows capture is not available.");
 			}
 
 			if (!isCountdownRunActive(countdownRunToken)) {
@@ -646,8 +640,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					enabled: webcamEnabled,
 					deviceId: webcamDeviceId,
 					deviceName: webcamDeviceName,
-					width: WEBCAM_TARGET_WIDTH,
-					height: WEBCAM_TARGET_HEIGHT,
+					width: 0,
+					height: 0,
 					fps: WEBCAM_TARGET_FRAME_RATE,
 				},
 				cursor: {
