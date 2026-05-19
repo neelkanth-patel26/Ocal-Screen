@@ -18,9 +18,8 @@
 				"right": "오른쪽"
 			}
 		},
-		"customScale": "사용자 지정 확대",
 		"position": {
-			"title": "초점 위치",
+			"title": "포커스 위치",
 			"x": "X (%)",
 			"y": "Y (%)",
 			"hint": "0 = 가장 왼쪽 / 위쪽, 100 = 가장 오른쪽 / 아래쪽"
@@ -55,8 +54,7 @@
 		"on": "켜기",
 		"shadow": "그림자",
 		"roundness": "모서리 둥글기",
-		"padding": "여백",
-		"on": "켜짐"
+		"padding": "여백"
 	},
 	"background": {
 		"title": "배경",
