@@ -1,6 +1,6 @@
 {
 	"zoom": {
-		"previewHold": "Hold to preview",
+		"previewHold": "Hold to preview zoom effect",
 		"level": "Zoom Level",
 		"customScale": "Custom Zoom",
 		"selectRegion": "Select a zoom region to adjust",
