@@ -194,6 +194,7 @@ export default function VideoEditor() {
 	const durationRef = useRef(duration);
 	durationRef.current = duration;
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
+	const [isPreviewingZoom, setIsPreviewingZoom] = useState(false);
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
 	const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
@@ -2112,6 +2113,7 @@ export default function VideoEditor() {
 												cursorMotionBlur={cursorMotionBlur}
 												cursorClickBounce={cursorClickBounce}
 												cursorClipToBounds={cursorClipToBounds}
+												isPreviewingZoom={isPreviewingZoom}
 											/>
 										</div>
 									</div>
@@ -2147,6 +2149,8 @@ export default function VideoEditor() {
 									}
 									onZoomCustomScaleChange={handleZoomCustomScaleChange}
 									onZoomCustomScaleCommit={handleZoomCustomScaleCommit}
+									onZoomPreviewStart={() => setIsPreviewingZoom(true)}
+									onZoomPreviewEnd={() => setIsPreviewingZoom(false)}
 									selectedZoomFocusMode={
 										selectedZoomId
 											? (zoomRegions.find((z) => z.id === selectedZoomId)?.focusMode ?? "manual")

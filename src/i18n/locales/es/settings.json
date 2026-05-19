@@ -1,5 +1,6 @@
 {
 	"zoom": {
+		"previewHold": "Mantener para previsualizar",
 		"level": "Nivel de zoom",
 		"selectRegion": "Selecciona una región de zoom para ajustar",
 		"deleteZoom": "Eliminar zoom",

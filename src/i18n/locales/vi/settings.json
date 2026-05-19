@@ -1,5 +1,6 @@
 {
 	"zoom": {
+		"previewHold": "Giữ để xem trước",
 		"level": "Mức độ thu phóng",
 		"selectRegion": "Chọn vùng thu phóng để điều chỉnh",
 		"deleteZoom": "Xóa thu phóng",

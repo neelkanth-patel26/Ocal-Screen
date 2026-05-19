@@ -230,6 +230,8 @@ interface SettingsPanelProps {
 	selectedZoomCustomScale?: number | null;
 	onZoomCustomScaleChange?: (scale: number) => void;
 	onZoomCustomScaleCommit?: () => void;
+	onZoomPreviewStart?: () => void;
+	onZoomPreviewEnd?: () => void;
 	selectedZoomFocusMode?: ZoomFocusMode | null;
 	onZoomFocusModeChange?: (mode: ZoomFocusMode) => void;
 	selectedZoomFocus?: ZoomFocus | null;
@@ -359,6 +361,8 @@ export function SettingsPanel({
 	selectedZoomCustomScale,
 	onZoomCustomScaleChange,
 	onZoomCustomScaleCommit,
+	onZoomPreviewStart,
+	onZoomPreviewEnd,
 	selectedZoomFocusMode,
 	onZoomFocusModeChange,
 	selectedZoomFocus,
@@ -939,6 +943,18 @@ export function SettingsPanel({
 										})}
 									</div>
 								</div>
+							)}
+							{zoomEnabled && (onZoomPreviewStart || onZoomPreviewEnd) && (
+								<Button
+									type="button"
+									onPointerDown={() => onZoomPreviewStart?.()}
+									onPointerUp={() => onZoomPreviewEnd?.()}
+									onPointerLeave={() => onZoomPreviewEnd?.()}
+									onPointerCancel={() => onZoomPreviewEnd?.()}
+									className="h-7 w-full select-none rounded-md border border-white/[0.08] bg-white/[0.04] text-[10px] font-semibold text-slate-300 transition-all duration-150 ease-out hover:bg-white/[0.08] hover:text-slate-100 active:border-[#34B27B]/50 active:bg-[#34B27B] active:text-white cursor-pointer"
+								>
+									{t("zoom.previewHold")}
+								</Button>
 							)}
 							{zoomEnabled &&
 								selectedZoomFocusMode !== "auto" &&

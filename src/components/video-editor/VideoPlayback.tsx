@@ -149,6 +149,9 @@ interface VideoPlaybackProps {
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
 	cursorClipToBounds?: boolean;
+	// When true, render the selected zoom at the playhead even while paused —
+	// lets the editor preview the zoom effect without leaving the focus-edit view.
+	isPreviewingZoom?: boolean;
 }
 
 export interface VideoPlaybackRef {
@@ -270,6 +273,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorMotionBlur = DEFAULT_CURSOR_MOTION_BLUR,
 			cursorClickBounce = DEFAULT_CURSOR_CLICK_BOUNCE,
 			cursorClipToBounds = false,
+			isPreviewingZoom = false,
 		},
 		ref,
 	) => {
@@ -341,6 +345,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorMotionBlurRef = useRef(cursorMotionBlur);
 		const cursorClickBounceRef = useRef(cursorClickBounce);
 		const cursorClipToBoundsRef = useRef(cursorClipToBounds);
+		const isPreviewingZoomRef = useRef(isPreviewingZoom);
 		const motionBlurStateRef = useRef<MotionBlurState>(createMotionBlurState());
 		const onTimeUpdateRef = useRef(onTimeUpdate);
 		const onPlayStateChangeRef = useRef(onPlayStateChange);
@@ -832,6 +837,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorClipToBoundsRef.current = cursorClipToBounds;
 		}, [cursorClipToBounds]);
 
+		useEffect(() => {
+			isPreviewingZoomRef.current = isPreviewingZoom;
+		}, [isPreviewingZoom]);
+
 		// Sync cursor overlay config when settings change
 		useEffect(() => {
 			const overlay = cursorOverlayRef.current;
@@ -1309,7 +1318,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				// If a zoom is selected but video is not playing, show default unzoomed view
 				const selectedId = selectedZoomIdRef.current;
 				const hasSelectedZoom = selectedId !== null;
-				const shouldShowUnzoomedView = hasSelectedZoom && !isPlayingRef.current;
+				const shouldShowUnzoomedView =
+					hasSelectedZoom && !isPlayingRef.current && !isPreviewingZoomRef.current;
 
 				if (region && strength > 0 && !shouldShowUnzoomedView) {
 					const zoomScale = blendedScale ?? ZOOM_DEPTH_SCALES[region.depth];
