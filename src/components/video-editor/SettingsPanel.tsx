@@ -808,6 +808,7 @@ export function SettingsPanel({
 						<Crop className="h-4 w-4" />
 					</button>
 					<button
+						data-testid={getTestId("export-panel-button")}
 						type="button"
 						title={exportPanelMode.label}
 						onClick={() => setActivePanelMode(exportPanelMode.id)}
@@ -1792,6 +1793,7 @@ export function SettingsPanel({
 					<>
 						<div className="flex items-center gap-2 mb-3">
 							<button
+								data-testid={getTestId("mp4-format-button")}
 								onClick={() => onExportFormatChange?.("mp4")}
 								className={cn(
 									"flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all text-xs font-medium",
