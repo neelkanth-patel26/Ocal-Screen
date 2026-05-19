@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Languages } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
 import { FaRegStopCircle } from "react-icons/fa";
@@ -98,6 +98,7 @@ export function LaunchWindow() {
 		elapsedSeconds,
 		toggleRecording,
 		togglePaused,
+		canPauseRecording,
 		restartRecording,
 		cancelRecording,
 		microphoneEnabled,
@@ -127,7 +128,7 @@ export function LaunchWindow() {
 	const [isWebcamFocused, setIsWebcamFocused] = useState(false);
 	const webcamExpanded = isWebcamHovered || isWebcamFocused;
 	const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
-	const [isWindows, setIsWindows] = useState(false);
+	const [supportsCursorModeToggle, setSupportsCursorModeToggle] = useState(false);
 	const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
 	const languageMenuPanelRef = useRef<HTMLDivElement | null>(null);
 	const [languageMenuStyle, setLanguageMenuStyle] = useState<{
@@ -192,12 +193,12 @@ export function LaunchWindow() {
 			.getPlatform()
 			.then((platform) => {
 				if (!cancelled) {
-					setIsWindows(platform === "win32");
+					setSupportsCursorModeToggle(platform === "win32" || platform === "darwin");
 				}
 			})
 			.catch(() => {
 				if (!cancelled) {
-					setIsWindows(false);
+					setSupportsCursorModeToggle(false);
 				}
 			});
 
@@ -281,12 +282,25 @@ export function LaunchWindow() {
 		return () => cancelAnimationFrame(id);
 	}, [isLanguageMenuOpen]);
 
+	const hudMouseEventsEnabledRef = useRef<boolean | undefined>(undefined);
+	const setHudMouseEventsEnabled = useCallback((enabled: boolean) => {
+		if (hudMouseEventsEnabledRef.current === enabled) {
+			return;
+		}
+		hudMouseEventsEnabledRef.current = enabled;
+		window.electronAPI?.setHudOverlayIgnoreMouseEvents?.(!enabled);
+	}, []);
+
 	useEffect(() => {
-		window.electronAPI?.setHudOverlayIgnoreMouseEvents?.(true);
+		setHudMouseEventsEnabled(false);
 		return () => {
 			window.electronAPI?.setHudOverlayIgnoreMouseEvents?.(false);
 		};
-	}, []);
+	}, [setHudMouseEventsEnabled]);
+
+	useEffect(() => {
+		setHudMouseEventsEnabled(isLanguageMenuOpen);
+	}, [isLanguageMenuOpen, setHudMouseEventsEnabled]);
 
 	const [selectedSource, setSelectedSource] = useState("Screen");
 	const [hasSelectedSource, setHasSelectedSource] = useState(false);
@@ -357,6 +371,29 @@ export function LaunchWindow() {
 			setMicrophoneEnabled(!microphoneEnabled);
 		}
 	};
+	const dragLastPositionRef = useRef<{ x: number; y: number } | null>(null);
+	const handleHudDragPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+		event.preventDefault();
+		event.stopPropagation();
+		setHudMouseEventsEnabled(true);
+		event.currentTarget.setPointerCapture(event.pointerId);
+		dragLastPositionRef.current = { x: event.screenX, y: event.screenY };
+	};
+	const handleHudDragPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+		const lastPosition = dragLastPositionRef.current;
+		if (!lastPosition) return;
+		const deltaX = event.screenX - lastPosition.x;
+		const deltaY = event.screenY - lastPosition.y;
+		dragLastPositionRef.current = { x: event.screenX, y: event.screenY };
+		window.electronAPI?.moveHudOverlayBy?.(deltaX, deltaY);
+	};
+	const handleHudDragPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+		dragLastPositionRef.current = null;
+		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		}
+		setHudMouseEventsEnabled(false);
+	};
 
 	return (
 		// Root fills the HUD window only. Avoid w-screen/h-screen (100vw/100vh):
@@ -367,10 +404,15 @@ export function LaunchWindow() {
 			className={`h-full w-full min-w-0 max-w-full overflow-x-hidden overflow-y-hidden bg-transparent ${styles.electronDrag}`}
 			onPointerMove={(event) => {
 				const target = event.target as HTMLElement | null;
-				const shouldCapture = Boolean(target?.closest("[data-hud-interactive='true']"));
-				window.electronAPI?.setHudOverlayIgnoreMouseEvents?.(!shouldCapture);
+				const shouldCapture =
+					isLanguageMenuOpen || Boolean(target?.closest("[data-hud-interactive='true']"));
+				setHudMouseEventsEnabled(shouldCapture);
 			}}
-			onPointerLeave={() => window.electronAPI?.setHudOverlayIgnoreMouseEvents?.(true)}
+			onPointerLeave={() => {
+				if (!isLanguageMenuOpen) {
+					setHudMouseEventsEnabled(false);
+				}
+			}}
 		>
 			{systemLocaleSuggestion && (
 				<div
@@ -548,9 +590,23 @@ export function LaunchWindow() {
 			<div
 				data-hud-interactive="true"
 				className={`fixed bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-2xl border border-white/[0.10] bg-[#07080a]/90 px-2 py-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl backdrop-saturate-[140%]`}
+				onPointerEnter={() => setHudMouseEventsEnabled(true)}
+				onPointerDown={() => setHudMouseEventsEnabled(true)}
+				onMouseEnter={() => setHudMouseEventsEnabled(true)}
+				onMouseLeave={() => {
+					if (!isLanguageMenuOpen) {
+						setHudMouseEventsEnabled(false);
+					}
+				}}
 			>
 				{/* Drag handle */}
-				<div className={`flex items-center px-1 ${styles.electronDrag}`}>
+				<div
+					className={`flex h-8 w-7 cursor-grab items-center justify-center active:cursor-grabbing ${styles.electronNoDrag}`}
+					onPointerDown={handleHudDragPointerDown}
+					onPointerMove={handleHudDragPointerMove}
+					onPointerUp={handleHudDragPointerEnd}
+					onPointerCancel={handleHudDragPointerEnd}
+				>
 					{getIcon("drag", "text-white/30")}
 				</div>
 
@@ -609,7 +665,7 @@ export function LaunchWindow() {
 							? getIcon("webcamOn", "text-green-400")
 							: getIcon("webcamOff", "text-white/40")}
 					</button>
-					{isWindows && (
+					{supportsCursorModeToggle && (
 						<button
 							data-testid="launch-cursor-mode-button"
 							className={`${hudIconBtnClasses} ${
@@ -668,13 +724,18 @@ export function LaunchWindow() {
 
 				{recording && (
 					<div className={`flex items-center gap-0.5 ${styles.electronNoDrag}`}>
-						<Tooltip
-							content={paused ? t("tooltips.resumeRecording") : t("tooltips.pauseRecording")}
-						>
-							<button className={hudAuxIconBtnClasses} onClick={togglePaused}>
-								{getIcon(paused ? "resume" : "pause", paused ? "text-amber-400" : "text-white/60")}
-							</button>
-						</Tooltip>
+						{canPauseRecording && (
+							<Tooltip
+								content={paused ? t("tooltips.resumeRecording") : t("tooltips.pauseRecording")}
+							>
+								<button className={hudAuxIconBtnClasses} onClick={togglePaused}>
+									{getIcon(
+										paused ? "resume" : "pause",
+										paused ? "text-amber-400" : "text-white/60",
+									)}
+								</button>
+							</Tooltip>
+						)}
 						<Tooltip content={t("tooltips.restartRecording")}>
 							<button className={hudAuxIconBtnClasses} onClick={restartRecording}>
 								{getIcon("restart", "text-white/60")}
@@ -737,6 +798,7 @@ export function LaunchWindow() {
 						? createPortal(
 								<div
 									ref={languageMenuPanelRef}
+									data-hud-interactive="true"
 									role="menu"
 									className={`${styles.languageMenuPanel} ${styles.languageMenuScroll} ${styles.electronNoDrag}`}
 									style={
@@ -749,6 +811,12 @@ export function LaunchWindow() {
 										} as React.CSSProperties
 									}
 									onPointerDown={(event) => event.stopPropagation()}
+									onPointerEnter={() => setHudMouseEventsEnabled(true)}
+									onPointerMove={() => setHudMouseEventsEnabled(true)}
+									onWheel={(event) => {
+										setHudMouseEventsEnabled(true);
+										event.stopPropagation();
+									}}
 								>
 									{availableLocales.map((loc) => (
 										<button

@@ -25,7 +25,7 @@
 		"minimize": "최소화",
 		"reload": "새로고침",
 		"forceReload": "강제 새로고침",
-		"toggleDevTools": "개발자 도구 열기/닫기",
+		"toggleDevTools": "개발자 도구 전환",
 		"actualSize": "실제 크기",
 		"zoomIn": "확대",
 		"zoomOut": "축소",
@@ -33,8 +33,8 @@
 		"recordingStatus": "녹화 중: {{source}}",
 		"about": "OpenScreen 정보",
 		"services": "서비스",
-		"hide": "OpenScreen 가리기",
-		"hideOthers": "다른 항목 가리기",
+		"hide": "OpenScreen 숨기기",
+		"hideOthers": "다른 항목 숨기기",
 		"unhide": "모두 보기"
 	},
 	"playback": {
