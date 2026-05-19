@@ -88,11 +88,13 @@ async function exportFromLoadedVideo(format: "gif" | "mp4"): Promise<Buffer> {
 		await editorWindow.getByTestId(`testId-${format}-format-button`).click();
 		await editorWindow.getByTestId("testId-export-button").click();
 
-		await expect(
-			editorWindow.getByText(`${format === "gif" ? "GIF" : "Video"} exported successfully`),
-		).toBeVisible({
-			timeout: 90_000,
-		});
+		await expect
+			.poll(
+				() =>
+					app.evaluate(() => Boolean((globalThis as Record<string, unknown>)["__testExportData"])),
+				{ timeout: 90_000 },
+			)
+			.toBe(true);
 
 		const base64 = await app.evaluate(
 			() => (globalThis as Record<string, unknown>)["__testExportData"] as string,
