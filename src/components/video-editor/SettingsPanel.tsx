@@ -944,13 +944,26 @@ export function SettingsPanel({
 									</div>
 								</div>
 							)}
-							{zoomEnabled && (onZoomPreviewStart || onZoomPreviewEnd) && (
+							{zoomEnabled && onZoomPreviewStart && onZoomPreviewEnd && (
 								<Button
 									type="button"
-									onPointerDown={() => onZoomPreviewStart?.()}
-									onPointerUp={() => onZoomPreviewEnd?.()}
-									onPointerLeave={() => onZoomPreviewEnd?.()}
-									onPointerCancel={() => onZoomPreviewEnd?.()}
+									onPointerDown={() => onZoomPreviewStart()}
+									onPointerUp={() => onZoomPreviewEnd()}
+									onPointerLeave={() => onZoomPreviewEnd()}
+									onPointerCancel={() => onZoomPreviewEnd()}
+									onKeyDown={(e) => {
+										if ((e.key === " " || e.key === "Enter") && !e.repeat) {
+											e.preventDefault();
+											onZoomPreviewStart();
+										}
+									}}
+									onKeyUp={(e) => {
+										if (e.key === " " || e.key === "Enter") {
+											e.preventDefault();
+											onZoomPreviewEnd();
+										}
+									}}
+									onBlur={() => onZoomPreviewEnd()}
 									className="h-7 w-full select-none rounded-md border border-white/[0.08] bg-white/[0.04] text-[10px] font-semibold text-slate-300 transition-all duration-150 ease-out hover:bg-white/[0.08] hover:text-slate-100 active:border-[#34B27B]/50 active:bg-[#34B27B] active:text-white cursor-pointer"
 								>
 									{t("zoom.previewHold")}
