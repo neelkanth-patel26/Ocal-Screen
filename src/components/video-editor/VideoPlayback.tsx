@@ -59,8 +59,6 @@ import {
 	DEFAULT_CURSOR_SIZE,
 	DEFAULT_CURSOR_SMOOTHING,
 	DEFAULT_ROTATION_3D,
-	getRotation3D,
-	getZoomScale,
 	isRotation3DIdentity,
 	lerpRotation3D,
 	rotation3DPerspective,
@@ -1303,7 +1301,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			let lastTransformIsIdentity = true;
 			let lastPerspectiveValue = 0;
 			const ticker = () => {
-				let { region, strength, blendedScale, rotation3D, transition } = findDominantRegion(
+				const { region, strength, blendedScale, rotation3D, transition } = findDominantRegion(
 					zoomRegionsRef.current,
 					currentTimeRef.current,
 					{
@@ -1311,21 +1309,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						cursorTelemetry: cursorTelemetryRef.current,
 					},
 				);
-
-				// While holding Preview, show the SELECTED zoom (what the settings panel
-				// is editing) at full strength, independent of the playhead — otherwise
-				// the preview reflects whatever region sits at currentTime, which may be
-				// none or a different zoom when the playhead isn't inside the selection.
-				if (isPreviewingZoomRef.current && selectedZoomIdRef.current) {
-					const sel = zoomRegionsRef.current.find((r) => r.id === selectedZoomIdRef.current);
-					if (sel) {
-						region = sel;
-						strength = 1;
-						blendedScale = getZoomScale(sel);
-						rotation3D = getRotation3D(sel);
-						transition = null;
-					}
-				}
 
 				const defaultFocus = DEFAULT_FOCUS;
 				let targetScaleFactor = 1;
