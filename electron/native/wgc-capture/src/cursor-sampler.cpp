@@ -3,6 +3,7 @@
 #include <objbase.h>
 
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <cinttypes>
 #include <cstdint>
