@@ -104,8 +104,9 @@
 		"gifButton": "GIF Olarak Dışa Aktar",
 		"chooseSaveLocation": "Kayıt Konumu Seç"
 	},
-	"links": {
+	"support": {
 		"reportBug": "Hata Bildir",
+		"saveDiagnostics": "Teşhis Verilerini Kaydet",
 		"starOnGithub": "GitHub'da Yıldızla"
 	},
 	"imageUpload": {

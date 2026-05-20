@@ -104,8 +104,9 @@
 		"gifButton": "GIF 내보내기",
 		"chooseSaveLocation": "저장 위치 선택"
 	},
-	"links": {
+	"support": {
 		"reportBug": "버그 신고",
+		"saveDiagnostics": "Save Diagnostics",
 		"starOnGithub": "GitHub에 Star 남기기"
 	},
 	"imageUpload": {
