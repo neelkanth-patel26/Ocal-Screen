@@ -22,6 +22,7 @@ static HHOOK              g_mouseHook    = nullptr;
 static DWORD              g_mainThreadId = 0;
 static std::atomic<int>   g_leftDownCount{0};
 static std::atomic<int>   g_leftUpCount{0};
+static std::atomic<bool>  g_stop{false};
 static std::mutex         g_stdoutMtx;
 
 static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -314,7 +315,7 @@ static std::string buildAssetJson(
 static void runSamplingLoop(int intervalMs, HWND targetWindow, const CLSID& pngClsid) {
     HCURSOR lastCursor = nullptr;
 
-    while (true) {
+    while (!g_stop.load(std::memory_order_relaxed)) {
         const int downCount = g_leftDownCount.exchange(0, std::memory_order_relaxed);
         const int upCount   = g_leftUpCount.exchange(0,   std::memory_order_relaxed);
 
@@ -473,7 +474,8 @@ int main(int argc, char* argv[]) {
         DispatchMessage(&msg);
     }
 
-    sampler.detach();
+    g_stop.store(true, std::memory_order_relaxed);
+    if (sampler.joinable()) sampler.join();
     UnhookWindowsHookEx(g_mouseHook);
     Gdiplus::GdiplusShutdown(gdipToken);
     return 0;
