@@ -48,6 +48,12 @@ async function exportFromLoadedVideo(format: "gif" | "mp4"): Promise<Buffer> {
 			ipcMain.handle(
 				"write-export-to-path",
 				(_event: Electron.IpcMainInvokeEvent, buffer: ArrayBuffer, filePath: string) => {
+					if (filePath !== targetPath) {
+						return {
+							success: false,
+							error: `Unexpected export path: ${filePath}`,
+						};
+					}
 					(globalThis as Record<string, unknown>)["__testExportData"] =
 						Buffer.from(buffer).toString("base64");
 					return { success: true, path: filePath };
@@ -63,13 +69,19 @@ async function exportFromLoadedVideo(format: "gif" | "mp4"): Promise<Buffer> {
 		fs.mkdirSync(recordingsDir, { recursive: true });
 		fs.copyFileSync(TEST_VIDEO, testVideoInRecordings);
 
+		await hudWindow.evaluate(
+			(videoPath: string) => window.electronAPI.setCurrentVideoPath(videoPath),
+			testVideoInRecordings,
+		);
 		try {
-			await hudWindow.evaluate((videoPath: string) => {
-				window.electronAPI.setCurrentVideoPath(videoPath);
-				window.electronAPI.switchToEditor();
-			}, testVideoInRecordings);
-		} catch {
-			// switchToEditor closes the HUD window before evaluate can resolve.
+			await hudWindow.evaluate(() => window.electronAPI.switchToEditor());
+		} catch (error) {
+			if (
+				!(error instanceof Error) ||
+				!/closed|destroyed|target page|target closed/i.test(error.message)
+			) {
+				throw error;
+			}
 		}
 
 		const editorWindow = await app.waitForEvent("window", {
