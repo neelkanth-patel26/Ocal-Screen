@@ -107,7 +107,7 @@
 	},
 	"support": {
 		"reportBug": "回報錯誤",
-		"saveDiagnostics": "Save Diagnostics",
+		"saveDiagnostics": "儲存診斷資料",
 		"starOnGithub": "在 GitHub 上加星"
 	},
 	"imageUpload": {
