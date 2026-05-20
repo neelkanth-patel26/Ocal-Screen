@@ -104,8 +104,9 @@
 		"gifButton": "تصدير GIF",
 		"chooseSaveLocation": "اختيار موقع الحفظ"
 	},
-	"links": {
+	"support": {
 		"reportBug": "الإبلاغ عن خطأ",
+		"saveDiagnostics": "Save Diagnostics",
 		"starOnGithub": "إعطاء نجمة على GitHub"
 	},
 	"imageUpload": {

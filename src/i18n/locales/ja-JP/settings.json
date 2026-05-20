@@ -104,8 +104,9 @@
 		"gifButton": "GIF をエクスポート",
 		"chooseSaveLocation": "保存場所を選択"
 	},
-	"links": {
+	"support": {
 		"reportBug": "バグを報告",
+		"saveDiagnostics": "Save Diagnostics",
 		"starOnGithub": "GitHub でスターを付ける"
 	},
 	"imageUpload": {
