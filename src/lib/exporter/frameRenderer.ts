@@ -74,6 +74,7 @@ import {
 	resolveLinearGradientAngle,
 } from "./gradientParser";
 import { createThreeDPass, type ThreeDPass } from "./threeDPass";
+import { drawWebcamFrameImage } from "./webcamFrameDrawing";
 
 interface FrameRenderConfig {
 	width: number;
@@ -98,6 +99,7 @@ interface FrameRenderConfig {
 	webcamSize?: Size | null;
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
+	webcamMirrored?: boolean;
 	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	annotationRegions?: AnnotationRegion[];
@@ -1109,16 +1111,22 @@ export class FrameRenderer {
 			fgCtx.fillStyle = "#000000";
 			fgCtx.fill();
 			fgCtx.clip();
-			fgCtx.drawImage(
+			drawWebcamFrameImage(
+				fgCtx,
 				webcamFrame as unknown as CanvasImageSource,
-				sourceCropX,
-				sourceCropY,
-				sourceCropWidth,
-				sourceCropHeight,
-				webcamRect.x,
-				webcamRect.y,
-				webcamRect.width,
-				webcamRect.height,
+				{
+					x: sourceCropX,
+					y: sourceCropY,
+					width: sourceCropWidth,
+					height: sourceCropHeight,
+				},
+				{
+					x: webcamRect.x,
+					y: webcamRect.y,
+					width: webcamRect.width,
+					height: webcamRect.height,
+				},
+				this.config.webcamMirrored,
 			);
 			fgCtx.restore();
 		}

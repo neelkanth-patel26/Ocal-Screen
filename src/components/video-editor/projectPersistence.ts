@@ -24,6 +24,7 @@ import {
 	DEFAULT_BLUR_INTENSITY,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
+	DEFAULT_WEBCAM_MIRRORED,
 	DEFAULT_ZOOM_DEPTH,
 	DEFAULT_ZOOM_MOTION_BLUR,
 	MAX_BLUR_BLOCK_SIZE,
@@ -76,6 +77,7 @@ export interface ProjectEditorState {
 	aspectRatio: AspectRatio;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape: WebcamMaskShape;
+	webcamMirrored: boolean;
 	webcamSizePreset: WebcamSizePreset;
 	webcamPosition: WebcamPosition | null;
 	exportQuality: ExportQuality;
@@ -478,6 +480,8 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.webcamMaskShape === "rounded"
 				? editor.webcamMaskShape
 				: DEFAULT_WEBCAM_SETTINGS.maskShape,
+		webcamMirrored:
+			typeof editor.webcamMirrored === "boolean" ? editor.webcamMirrored : DEFAULT_WEBCAM_MIRRORED,
 		webcamSizePreset:
 			typeof editor.webcamSizePreset === "number" && isFiniteNumber(editor.webcamSizePreset)
 				? Math.max(10, Math.min(50, editor.webcamSizePreset))

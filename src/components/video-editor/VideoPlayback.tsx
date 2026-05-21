@@ -103,6 +103,7 @@ interface VideoPlaybackProps {
 	webcamVideoPath?: string;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
+	webcamMirrored?: boolean;
 	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	onWebcamPositionChange?: (position: { cx: number; cy: number }) => void;
@@ -227,6 +228,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			webcamVideoPath,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamMirrored = false,
 			webcamSizePreset,
 			webcamPosition,
 			onWebcamPositionChange,
@@ -1898,6 +1900,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 											clipPath: clipPath ?? undefined,
 											boxShadow: useClipPath ? "none" : webcamCssBoxShadow,
 											backgroundColor: "#000",
+											transform: webcamMirrored ? "scaleX(-1)" : undefined,
 										}}
 										onPointerDown={handleWebcamPointerDown}
 										onPointerMove={handleWebcamPointerMove}
