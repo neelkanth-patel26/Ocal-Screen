@@ -612,6 +612,7 @@ export function LaunchWindow() {
 
 				{/* Source selector */}
 				<button
+					data-testid="launch-source-selector-button"
 					className={`${hudGroupClasses} h-8 px-2.5 ${styles.electronNoDrag}`}
 					onClick={openSourceSelector}
 					disabled={recording}
