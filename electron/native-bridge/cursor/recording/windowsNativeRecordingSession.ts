@@ -1,10 +1,8 @@
 import { type ChildProcessByStdio, spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
-import { screen } from "electron";
+import { app, screen } from "electron";
 import { parseWindowHandleFromSourceId } from "../../../../src/lib/nativeWindowsRecording";
 import type {
 	CursorRecordingData,
@@ -12,11 +10,31 @@ import type {
 	NativeCursorAsset,
 } from "../../../../src/native/contracts";
 import type { CursorRecordingSession } from "./session";
-import { buildPowerShellScript } from "./windowsNativeRecordingSession.script";
 import type {
 	WindowsCursorEvent,
 	WindowsNativeRecordingSessionOptions,
 } from "./windowsNativeRecordingSession.types";
+
+function getCursorSamplerCandidates(): string[] {
+	const envPath = process.env.OPENSCREEN_CURSOR_SAMPLER_EXE?.trim();
+	const archTag = process.arch === "arm64" ? "win32-arm64" : "win32-x64";
+	const resolve = (...segs: string[]) => {
+		const p = join(app.getAppPath(), ...segs);
+		return app.isPackaged ? p.replace(/\.asar([/\\])/, ".asar.unpacked$1") : p;
+	};
+	return [
+		envPath,
+		resolve("electron", "native", "wgc-capture", "build", "cursor-sampler.exe"),
+		resolve("electron", "native", "bin", archTag, "cursor-sampler.exe"),
+	].filter((c): c is string => Boolean(c));
+}
+
+function findCursorSamplerPath(): string | null {
+	for (const candidate of getCursorSamplerCandidates()) {
+		if (existsSync(candidate)) return candidate;
+	}
+	return null;
+}
 
 const READY_TIMEOUT_MS = 5_000;
 
@@ -29,7 +47,6 @@ export class WindowsNativeRecordingSession implements CursorRecordingSession {
 	private assets = new Map<string, NativeCursorAsset>();
 	private samples: CursorRecordingSample[] = [];
 	private process: ChildProcessByStdio<null, Readable, Readable> | null = null;
-	private helperScriptPath: string | null = null;
 	private lineBuffer = "";
 	private startTimeMs = 0;
 	private readyResolve: (() => void) | null = null;
@@ -50,41 +67,26 @@ export class WindowsNativeRecordingSession implements CursorRecordingSession {
 		this.outOfBoundsSampleCount = 0;
 		this.previousLeftButtonDown = false;
 
-		const script = buildPowerShellScript(
-			this.options.sampleIntervalMs,
-			parseWindowHandleFromSourceId(this.options.sourceId),
-		);
-		const helperScriptDir = join(tmpdir(), "openscreen-cursor-native");
-		mkdirSync(helperScriptDir, { recursive: true });
-		const helperScriptPath = join(
-			helperScriptDir,
-			`cursor-sampler-${process.pid}-${Date.now()}-${randomUUID()}.ps1`,
-		);
-		writeFileSync(helperScriptPath, script, "utf8");
-		this.helperScriptPath = helperScriptPath;
-		const child = spawn(
-			"powershell.exe",
-			[
-				"-NoLogo",
-				"-NoProfile",
-				"-NonInteractive",
-				"-ExecutionPolicy",
-				"Bypass",
-				"-File",
-				helperScriptPath,
-			],
-			{
-				stdio: ["ignore", "pipe", "pipe"],
-				windowsHide: true,
-			},
-		);
+		const helperPath = findCursorSamplerPath();
+		if (!helperPath) {
+			throw new Error("Windows cursor sampler helper is not available.");
+		}
+
+		const windowHandle = parseWindowHandleFromSourceId(this.options.sourceId);
+		const args = [String(this.options.sampleIntervalMs)];
+		if (windowHandle) args.push(windowHandle);
+
+		const child = spawn(helperPath, args, {
+			stdio: ["ignore", "pipe", "pipe"],
+			windowsHide: true,
+		});
 
 		this.process = child;
 		this.logDiagnostic("spawn", {
 			pid: child.pid ?? null,
 			sampleIntervalMs: this.options.sampleIntervalMs,
 			sourceId: this.options.sourceId ?? null,
-			windowHandle: parseWindowHandleFromSourceId(this.options.sourceId),
+			windowHandle,
 		});
 
 		child.stdout.setEncoding("utf8");
@@ -100,7 +102,6 @@ export class WindowsNativeRecordingSession implements CursorRecordingSession {
 			console.error("[cursor-native]", message);
 		});
 		child.once("exit", (code, signal) => {
-			this.cleanupHelperScript(helperScriptPath);
 			this.logDiagnostic("exit", {
 				code,
 				signal,
@@ -113,7 +114,6 @@ export class WindowsNativeRecordingSession implements CursorRecordingSession {
 			);
 		});
 		child.once("error", (error) => {
-			this.cleanupHelperScript(helperScriptPath);
 			this.logDiagnostic("process-error", { message: error.message });
 			this.rejectReady(error);
 		});
@@ -122,7 +122,6 @@ export class WindowsNativeRecordingSession implements CursorRecordingSession {
 			await this.waitUntilReady();
 		} catch (error) {
 			this.terminateHelperProcess();
-			this.cleanupHelperScript(helperScriptPath);
 			throw error;
 		}
 	}
@@ -313,25 +312,6 @@ export class WindowsNativeRecordingSession implements CursorRecordingSession {
 		}
 		this.readyResolve = null;
 		this.readyReject = null;
-	}
-
-	private cleanupHelperScript(scriptPath = this.helperScriptPath) {
-		if (!scriptPath) {
-			return;
-		}
-
-		try {
-			rmSync(scriptPath, { force: true });
-		} catch (error) {
-			this.logDiagnostic("script-cleanup-error", {
-				path: scriptPath,
-				message: error instanceof Error ? error.message : String(error),
-			});
-		} finally {
-			if (this.helperScriptPath === scriptPath) {
-				this.helperScriptPath = null;
-			}
-		}
 	}
 
 	private logDiagnostic(event: string, data: Record<string, unknown>) {
