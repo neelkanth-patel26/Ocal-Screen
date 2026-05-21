@@ -79,7 +79,7 @@ export function getAspectRatioDimensions(
 }
 
 export function getAspectRatioLabel(aspectRatio: AspectRatio): string {
-	if (aspectRatio === "native") return "Native";
+	if (aspectRatio === "native") return "Original";
 	return aspectRatio;
 }
 
