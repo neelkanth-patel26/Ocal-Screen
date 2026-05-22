@@ -46,7 +46,8 @@
 		"dualFrame": "Double cadre",
 		"webcamShape": "Forme de la caméra",
 		"webcamSize": "Taille de la caméra",
-		"noWebcam": "Sans webcam"
+		"noWebcam": "Sans webcam",
+		"mirrorWebcam": "Inverser la webcam"
 	},
 	"effects": {
 		"title": "Effets vidéo",

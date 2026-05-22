@@ -1227,12 +1227,14 @@ export function SettingsPanel({
 										</div>
 										{webcamLayoutPreset !== "no-webcam" && (
 											<div className="mt-2 flex items-center justify-between p-2 rounded-lg editor-control-surface">
-												<div className="text-[10px] font-medium text-slate-300">Mirror webcam</div>
+												<div className="text-[10px] font-medium text-slate-300">
+													{t("layout.mirrorWebcam")}
+												</div>
 												<Switch
 													checked={webcamMirrored}
 													onCheckedChange={onWebcamMirroredChange}
 													className="data-[state=checked]:bg-[#34B27B] scale-90"
-													aria-label="Mirror webcam"
+													aria-label={t("layout.mirrorWebcam")}
 												/>
 											</div>
 										)}

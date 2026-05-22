@@ -66,4 +66,32 @@ describe("drawWebcamFrameImage", () => {
 			["restore"],
 		]);
 	});
+
+	it("restores the canvas context if mirrored drawing fails", () => {
+		const { calls, ctx } = createMockCanvasContext();
+		const frame = {} as CanvasImageSource;
+		const error = new Error("draw failed");
+		ctx.drawImage = () => {
+			calls.push(["drawImage", frame, 12, 8, 640, 360, 0, 0, 320, 180]);
+			throw error;
+		};
+
+		expect(() =>
+			drawWebcamFrameImage(
+				ctx,
+				frame,
+				{ x: 12, y: 8, width: 640, height: 360 },
+				{ x: 100, y: 50, width: 320, height: 180 },
+				true,
+			),
+		).toThrow(error);
+
+		expect(calls).toEqual([
+			["save"],
+			["translate", 420, 50],
+			["scale", -1, 1],
+			["drawImage", frame, 12, 8, 640, 360, 0, 0, 320, 180],
+			["restore"],
+		]);
+	});
 });

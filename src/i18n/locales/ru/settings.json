@@ -45,7 +45,8 @@
 		"dualFrame": "Двойной кадр",
 		"webcamShape": "Форма камеры",
 		"webcamSize": "Размер веб-камеры",
-		"noWebcam": "Без веб-камеры"
+		"noWebcam": "Без веб-камеры",
+		"mirrorWebcam": "Зеркалить веб-камеру"
 	},
 	"effects": {
 		"title": "Видеоэффекты",

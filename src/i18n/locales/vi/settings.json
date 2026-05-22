@@ -45,7 +45,8 @@
 		"dualFrame": "Khung kép",
 		"webcamShape": "Hình dạng máy ảnh",
 		"webcamSize": "Kích thước Webcam",
-		"noWebcam": "Không có webcam"
+		"noWebcam": "Không có webcam",
+		"mirrorWebcam": "Lật webcam"
 	},
 	"effects": {
 		"title": "Hiệu ứng video",

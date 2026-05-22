@@ -45,7 +45,8 @@
 		"dualFrame": "Dual Frame",
 		"noWebcam": "No Webcam",
 		"webcamShape": "Camera Shape",
-		"webcamSize": "Webcam Size"
+		"webcamSize": "Webcam Size",
+		"mirrorWebcam": "Mirror webcam"
 	},
 	"effects": {
 		"title": "Video Effects",

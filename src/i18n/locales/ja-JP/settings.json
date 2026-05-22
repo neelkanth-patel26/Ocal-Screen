@@ -45,7 +45,8 @@
 		"dualFrame": "デュアルフレーム",
 		"webcamShape": "カメラの形状",
 		"webcamSize": "カメラのサイズ",
-		"noWebcam": "Webカメラなし"
+		"noWebcam": "Webカメラなし",
+		"mirrorWebcam": "Webカメラを反転"
 	},
 	"effects": {
 		"title": "動画効果",

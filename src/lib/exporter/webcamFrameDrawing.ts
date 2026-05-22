@@ -19,10 +19,13 @@ export function drawWebcamFrameImage(
 ) {
 	if (mirrored) {
 		ctx.save();
-		ctx.translate(dest.x + dest.width, dest.y);
-		ctx.scale(-1, 1);
-		ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, dest.width, dest.height);
-		ctx.restore();
+		try {
+			ctx.translate(dest.x + dest.width, dest.y);
+			ctx.scale(-1, 1);
+			ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, dest.width, dest.height);
+		} finally {
+			ctx.restore();
+		}
 		return;
 	}
 
