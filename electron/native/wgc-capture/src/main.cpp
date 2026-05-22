@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <cctype>
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -47,6 +48,37 @@ struct CaptureConfig {
     int webcamWidth = 0;
     int webcamHeight = 0;
     int webcamFps = 0;
+};
+
+struct CaptureControl {
+    std::atomic<bool> stopRequested = false;
+    std::atomic<bool> paused = false;
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::chrono::steady_clock::time_point pauseStartedAt;
+    std::chrono::steady_clock::duration totalPausedDuration{};
+
+    int64_t pausedDurationHns() {
+        std::scoped_lock lock(mutex);
+        auto total = totalPausedDuration;
+        if (paused.load()) {
+            total += std::chrono::steady_clock::now() - pauseStartedAt;
+        }
+        return std::chrono::duration_cast<std::chrono::nanoseconds>(total).count() / 100;
+    }
+
+    void setPaused(bool nextPaused) {
+        std::scoped_lock lock(mutex);
+        if (nextPaused == paused.load()) {
+            return;
+        }
+        if (nextPaused) {
+            pauseStartedAt = std::chrono::steady_clock::now();
+        } else {
+            totalPausedDuration += std::chrono::steady_clock::now() - pauseStartedAt;
+        }
+        paused = nextPaused;
+    }
 };
 
 std::wstring utf8ToWide(const std::string& value) {
@@ -317,17 +349,31 @@ bool parseConfig(const std::string& json, CaptureConfig& config) {
     return true;
 }
 
-void readStopCommands(std::atomic<bool>& stopRequested, std::condition_variable& cv) {
+void readCaptureCommands(CaptureControl& control, const std::function<void(bool)>& onPauseChanged) {
     std::string line;
     while (std::getline(std::cin, line)) {
         if (line == "stop" || line == "q" || line == "quit") {
-            stopRequested = true;
-            cv.notify_all();
+            control.stopRequested = true;
+            control.cv.notify_all();
             return;
         }
+        if (line == "pause") {
+            control.setPaused(true);
+            onPauseChanged(true);
+            std::cout << "{\"event\":\"recording-paused\",\"schemaVersion\":2}" << std::endl;
+            control.cv.notify_all();
+            continue;
+        }
+        if (line == "resume") {
+            control.setPaused(false);
+            onPauseChanged(false);
+            std::cout << "{\"event\":\"recording-resumed\",\"schemaVersion\":2}" << std::endl;
+            control.cv.notify_all();
+            continue;
+        }
     }
-    stopRequested = true;
-    cv.notify_all();
+    control.stopRequested = true;
+    control.cv.notify_all();
 }
 
 } // namespace
@@ -467,8 +513,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::mutex mutex;
-    std::condition_variable cv;
-    std::atomic<bool> stopRequested = false;
+    CaptureControl control;
     std::atomic<bool> firstFrameWritten = false;
     std::atomic<bool> encodeFailed = false;
     Microsoft::WRL::ComPtr<ID3D11Texture2D> latestFrameTexture;
@@ -480,7 +525,7 @@ int main(int argc, char* argv[]) {
     bool hasVisibleWebcamFrame = false;
 
     session.setFrameCallback([&](ID3D11Texture2D* texture, int64_t timestampHns) {
-        if (stopRequested) {
+        if (control.stopRequested || control.paused) {
             return;
         }
 
@@ -493,8 +538,8 @@ int main(int argc, char* argv[]) {
             desc.MiscFlags = 0;
             if (FAILED(session.device()->CreateTexture2D(&desc, nullptr, &latestFrameTexture))) {
                 encodeFailed = true;
-                stopRequested = true;
-                cv.notify_all();
+                control.stopRequested = true;
+                control.cv.notify_all();
                 return;
             }
         }
@@ -502,18 +547,27 @@ int main(int argc, char* argv[]) {
         session.context()->CopyResource(latestFrameTexture.Get(), texture);
         latestFrameTimestampHns = timestampHns;
         if (!firstFrameWritten.exchange(true)) {
-            cv.notify_all();
+            control.cv.notify_all();
         }
     });
 
     auto writeVideoFrames = [&]() {
-        const auto startedAt = std::chrono::steady_clock::now();
+        const auto frameDuration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+            std::chrono::duration<double>(1.0 / config.fps));
         uint64_t frameIndex = 0;
         int64_t lastEncodedVideoTimestampHns = -1;
 
-        while (!stopRequested && !encodeFailed) {
+        while (!control.stopRequested && !encodeFailed) {
             {
-                std::scoped_lock lock(mutex);
+                std::unique_lock lock(mutex);
+                control.cv.wait(lock, [&] {
+                    return control.stopRequested.load() ||
+                        encodeFailed.load() ||
+                        (!control.paused.load() && latestFrameTexture);
+                });
+                if (control.stopRequested || encodeFailed) {
+                    break;
+                }
                 if (webcamActive) {
                     std::vector<BYTE> candidateWebcamFrame;
                     int candidateWebcamWidth = 0;
@@ -539,7 +593,9 @@ int main(int argc, char* argv[]) {
                     firstFrameTimestampHns = sourceTimestampHns;
                 }
                 int64_t frameTimestampHns =
-                    std::max<int64_t>(0, sourceTimestampHns - firstFrameTimestampHns);
+                    std::max<int64_t>(
+                        0,
+                        sourceTimestampHns - firstFrameTimestampHns - control.pausedDurationHns());
                 if (lastEncodedVideoTimestampHns >= 0 &&
                     frameTimestampHns <= lastEncodedVideoTimestampHns) {
                     frameTimestampHns =
@@ -550,8 +606,8 @@ int main(int argc, char* argv[]) {
                         frameTimestampHns,
                         webcamFrame.data ? &webcamFrame : nullptr)) {
                     encodeFailed = true;
-                    stopRequested = true;
-                    cv.notify_all();
+                    control.stopRequested = true;
+                    control.cv.notify_all();
                     return;
                 }
                 if (latestFrameTexture) {
@@ -560,10 +616,7 @@ int main(int argc, char* argv[]) {
             }
 
             frameIndex += 1;
-            const auto nextDeadline = startedAt +
-                std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                    std::chrono::duration<double>(static_cast<double>(frameIndex) / config.fps));
-            std::this_thread::sleep_until(nextDeadline);
+            std::this_thread::sleep_for(frameDuration);
         }
     };
 
@@ -595,8 +648,8 @@ int main(int argc, char* argv[]) {
             [&](const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns) {
                 if (!encoder.writeAudio(data, byteCount, timestampHns, durationHns)) {
                     encodeFailed = true;
-                    stopRequested = true;
-                    cv.notify_all();
+                    control.stopRequested = true;
+                    control.cv.notify_all();
                     return false;
                 }
                 return true;
@@ -611,7 +664,7 @@ int main(int argc, char* argv[]) {
             if (!microphoneCapture.start([&](const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns) {
                     (void)timestampHns;
                     (void)durationHns;
-                    if (stopRequested || !audioMixer) {
+                    if (control.stopRequested || !audioMixer) {
                         return;
                     }
 
@@ -627,7 +680,7 @@ int main(int argc, char* argv[]) {
             if (!loopbackCapture.start([&](const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns) {
                     (void)timestampHns;
                     (void)durationHns;
-                    if (stopRequested || !audioMixer) {
+                    if (control.stopRequested || !audioMixer) {
                         return;
                     }
 
@@ -689,16 +742,20 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::thread stdinThread(readStopCommands, std::ref(stopRequested), std::ref(cv));
+    std::thread stdinThread(readCaptureCommands, std::ref(control), [&](bool isPaused) {
+        if (audioMixer) {
+            audioMixer->setPaused(isPaused);
+        }
+    });
 
     {
         std::unique_lock lock(mutex);
-        const bool started = cv.wait_for(lock, std::chrono::seconds(10), [&] {
-            return firstFrameWritten.load() || stopRequested.load();
+        const bool started = control.cv.wait_for(lock, std::chrono::seconds(10), [&] {
+            return firstFrameWritten.load() || control.stopRequested.load();
         });
         if (!started || !firstFrameWritten) {
-            stopRequested = true;
-            cv.notify_all();
+            control.stopRequested = true;
+            control.cv.notify_all();
             if (stdinThread.joinable()) {
                 stdinThread.detach();
             }
@@ -724,8 +781,8 @@ int main(int argc, char* argv[]) {
 
     {
         std::unique_lock lock(mutex);
-        cv.wait(lock, [&] {
-            return stopRequested.load();
+        control.cv.wait(lock, [&] {
+            return control.stopRequested.load();
         });
     }
 

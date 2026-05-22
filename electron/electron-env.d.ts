@@ -117,6 +117,14 @@ interface Window {
 			discarded?: boolean;
 			error?: string;
 		}>;
+		pauseNativeWindowsRecording: () => Promise<{
+			success: boolean;
+			error?: string;
+		}>;
+		resumeNativeWindowsRecording: () => Promise<{
+			success: boolean;
+			error?: string;
+		}>;
 		startNativeMacRecording: (
 			request: import("../src/lib/nativeMacRecording").NativeMacRecordingRequest,
 		) => Promise<import("../src/lib/nativeMacRecording").NativeMacRecordingStartResult>;
