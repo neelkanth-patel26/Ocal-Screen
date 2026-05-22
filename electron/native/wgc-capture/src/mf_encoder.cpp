@@ -267,7 +267,12 @@ bool MFEncoder::copyBgraFrameToBuffer(const BgraFrameView& frame, BYTE* destinat
     }
 
     if (frame.width == width_ && frame.height == height_) {
-        std::memcpy(destination, frame.data, requiredBytes);
+        for (DWORD i = 0; i < requiredBytes; i += 4) {
+            destination[i] = frame.data[i];
+            destination[i + 1] = frame.data[i + 1];
+            destination[i + 2] = frame.data[i + 2];
+            destination[i + 3] = 255;
+        }
         return true;
     }
 

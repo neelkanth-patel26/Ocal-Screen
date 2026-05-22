@@ -379,8 +379,11 @@ void DirectShowWebcamCapture::storeFrame(const BYTE* buffer, long length) {
         }
         if (width_ % 2 == 1) {
             const int x = width_ - 1;
-            const BYTE* pair = source + (x - 1) * 2;
-            const auto color = yuvToBgr(pair[2], pair[1], pair[3]);
+            const int previousPairStart = ((x - 1) / 2) * 4;
+            const BYTE y = source[x * 2];
+            const BYTE u = source[previousPairStart + 1];
+            const BYTE v = source[previousPairStart + 3];
+            const auto color = yuvToBgr(y, u, v);
             BYTE* pixel = destination + x * 4;
             pixel[0] = color[0];
             pixel[1] = color[1];

@@ -64,7 +64,12 @@ export class TimestampedVideoFrameQueue {
 				continue;
 			}
 
-			if (this.heldFrame) {
+			if (
+				this.heldFrame &&
+				(next ||
+					this.closed ||
+					this.heldFrame.sourceTimestampMs >= sourceTimestampMs - TIMESTAMP_EPSILON_MS)
+			) {
 				return new VideoFrame(this.heldFrame.frame, {
 					timestamp: this.heldFrame.frame.timestamp,
 				});

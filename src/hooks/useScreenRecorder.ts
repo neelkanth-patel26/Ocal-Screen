@@ -764,6 +764,25 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const isCountdownRunActive = (runId?: number) =>
 		runId === undefined || countdownRunId.current === runId;
 
+	const waitForWebcamReady = async () => {
+		if (webcamReady.current) {
+			return;
+		}
+
+		await new Promise<void>((resolve) => {
+			const interval = setInterval(() => {
+				if (webcamReady.current) {
+					clearInterval(interval);
+					resolve();
+				}
+			}, 50);
+			setTimeout(() => {
+				clearInterval(interval);
+				resolve();
+			}, 5000);
+		});
+	};
+
 	const startNativeWindowsRecordingIfAvailable = async (
 		selectedSource: ProcessedDesktopSource,
 		countdownRunToken?: number,
@@ -795,6 +814,12 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			const displayId = Number(selectedSource.display_id);
 			const sourceType = selectedSource.id.startsWith("window:") ? "window" : "display";
 			const windowHandle = parseWindowHandleFromSourceId(selectedSource.id);
+			if (webcamEnabled) {
+				await waitForWebcamReady();
+				if (!isCountdownRunActive(countdownRunToken)) {
+					return true;
+				}
+			}
 			const browserWebcamRecorder =
 				webcamEnabled && webcamStream.current
 					? createRecorderHandle(webcamStream.current, {
