@@ -10,13 +10,28 @@ function getAudioCtx(): AudioContext {
 
 /**
  * Offloads peak computation to a Web Worker (zero-copy via Transferable).
- * Returns a Promise that resolves with the peaks Float32Array.
+ * Accepts an optional AbortSignal — if aborted, the worker is terminated
+ * immediately and the promise rejects with an AbortError.
  */
-function computePeaksInWorker(audioBuffer: AudioBuffer): Promise<Float32Array> {
+function computePeaksInWorker(
+	audioBuffer: AudioBuffer,
+	signal?: AbortSignal,
+): Promise<Float32Array> {
 	return new Promise((resolve, reject) => {
+		if (signal?.aborted) {
+			reject(new DOMException("Aborted", "AbortError"));
+			return;
+		}
+
 		const worker = new Worker(new URL("./audioPeaksWorker.ts", import.meta.url), {
 			type: "module",
 		});
+
+		const onAbort = () => {
+			worker.terminate();
+			reject(new DOMException("Aborted", "AbortError"));
+		};
+		signal?.addEventListener("abort", onAbort, { once: true });
 
 		// slice() creates an owned copy so the transfer is safe and the
 		// AudioBuffer remains valid if anything else holds a reference.
@@ -26,11 +41,13 @@ function computePeaksInWorker(audioBuffer: AudioBuffer): Promise<Float32Array> {
 		}
 
 		worker.onmessage = (e: MessageEvent<Float32Array>) => {
+			signal?.removeEventListener("abort", onAbort);
 			worker.terminate();
 			resolve(e.data);
 		};
 
 		worker.onerror = (e) => {
+			signal?.removeEventListener("abort", onAbort);
 			worker.terminate();
 			reject(e);
 		};
@@ -73,6 +90,7 @@ export function useAudioPeaks(videoUrl?: string): Float32Array | null {
 
 		setPeaks(null);
 		let cancelled = false;
+		const controller = new AbortController();
 
 		(async () => {
 			try {
@@ -80,11 +98,13 @@ export function useAudioPeaks(videoUrl?: string): Float32Array | null {
 				if (cancelled) return;
 				const audioBuffer = await getAudioCtx().decodeAudioData(arrayBuffer);
 				if (cancelled) return;
-				const p = await computePeaksInWorker(audioBuffer);
+				const p = await computePeaksInWorker(audioBuffer, controller.signal);
 				if (cancelled) return;
 				cacheRef.current.set(videoUrl, p);
 				setPeaks(p);
-			} catch {
+			} catch (err) {
+				// AbortError means the effect cleaned up — no state update needed.
+				if (err instanceof DOMException && err.name === "AbortError") return;
 				// No audio track or unsupported format — clear stale data silently.
 				if (!cancelled) setPeaks(null);
 			}
@@ -92,6 +112,7 @@ export function useAudioPeaks(videoUrl?: string): Float32Array | null {
 
 		return () => {
 			cancelled = true;
+			controller.abort();
 		};
 	}, [videoUrl]);
 

@@ -187,8 +187,21 @@ export class StreamingVideoDecoder {
 			SOURCE_LOAD_TIMEOUT_MS,
 			"Timed out while loading the source video.",
 		);
-		const filename = videoUrl.split(/[\\/]/).pop() || "video";
-		const blob = new Blob([buffer]);
+
+		let filename: string;
+		let mime = "";
+
+		if (videoUrl.startsWith("data:")) {
+			// data:video/mp4;base64,... → mime="video/mp4", filename="video.mp4"
+			const mimeMatch = videoUrl.match(/^data:([^;,]+)/);
+			mime = mimeMatch?.[1] ?? "";
+			const ext = mime.split("/")[1]?.replace(/[^a-z0-9]/gi, "") ?? "";
+			filename = ext ? `video.${ext}` : "video";
+		} else {
+			filename = videoUrl.split(/[\\/]/).pop() || "video";
+		}
+
+		const blob = new Blob([buffer], { type: mime });
 		return {
 			blob,
 			file: new File([blob], filename, { type: blob.type || "application/octet-stream" }),
