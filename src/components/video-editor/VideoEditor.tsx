@@ -49,6 +49,12 @@ import {
 	isPortraitAspectRatio,
 } from "@/utils/aspectRatioUtils";
 import { ExportDialog } from "./ExportDialog";
+import {
+	DEFAULT_CURSOR_SETTINGS,
+	DEFAULT_EXPORT_SETTINGS,
+	DEFAULT_GIF_SETTINGS,
+	DEFAULT_SOURCE_DIMENSIONS,
+} from "./editorDefaults";
 import PlaybackControls from "./PlaybackControls";
 import {
 	createProjectData,
@@ -71,11 +77,6 @@ import {
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
 	DEFAULT_BLUR_DATA,
-	DEFAULT_CURSOR_CLICK_BOUNCE,
-	DEFAULT_CURSOR_CLIP_TO_BOUNDS,
-	DEFAULT_CURSOR_MOTION_BLUR,
-	DEFAULT_CURSOR_SIZE,
-	DEFAULT_CURSOR_SMOOTHING,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_ZOOM_DEPTH,
@@ -203,11 +204,15 @@ export default function VideoEditor() {
 	const [exportError, setExportError] = useState<string | null>(null);
 	const [showExportDialog, setShowExportDialog] = useState(false);
 	const [showNewRecordingDialog, setShowNewRecordingDialog] = useState(false);
-	const [exportQuality, setExportQuality] = useState<ExportQuality>("good");
-	const [exportFormat, setExportFormat] = useState<ExportFormat>("mp4");
-	const [gifFrameRate, setGifFrameRate] = useState<GifFrameRate>(15);
-	const [gifLoop, setGifLoop] = useState(true);
-	const [gifSizePreset, setGifSizePreset] = useState<GifSizePreset>("medium");
+	const [exportQuality, setExportQuality] = useState<ExportQuality>(
+		DEFAULT_EXPORT_SETTINGS.quality,
+	);
+	const [exportFormat, setExportFormat] = useState<ExportFormat>(DEFAULT_EXPORT_SETTINGS.format);
+	const [gifFrameRate, setGifFrameRate] = useState<GifFrameRate>(DEFAULT_GIF_SETTINGS.frameRate);
+	const [gifLoop, setGifLoop] = useState(DEFAULT_GIF_SETTINGS.loop);
+	const [gifSizePreset, setGifSizePreset] = useState<GifSizePreset>(
+		DEFAULT_GIF_SETTINGS.sizePreset,
+	);
 	const [exportedFilePath, setExportedFilePath] = useState<string | null>(null);
 	const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string | null>(null);
 	const [unsavedExport, setUnsavedExport] = useState<{
@@ -238,12 +243,14 @@ export default function VideoEditor() {
 	}, [cursorRecordingData, cursorTelemetry]);
 
 	// Cursor & motion blur visual settings (non-undoable preferences)
-	const [showCursor, setShowCursor] = useState(true);
-	const [cursorSize, setCursorSize] = useState(DEFAULT_CURSOR_SIZE);
-	const [cursorSmoothing, setCursorSmoothing] = useState(DEFAULT_CURSOR_SMOOTHING);
-	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_CURSOR_MOTION_BLUR);
-	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_CURSOR_CLICK_BOUNCE);
-	const [cursorClipToBounds, setCursorClipToBounds] = useState(DEFAULT_CURSOR_CLIP_TO_BOUNDS);
+	const [showCursor, setShowCursor] = useState(DEFAULT_CURSOR_SETTINGS.show);
+	const [cursorSize, setCursorSize] = useState(DEFAULT_CURSOR_SETTINGS.size);
+	const [cursorSmoothing, setCursorSmoothing] = useState(DEFAULT_CURSOR_SETTINGS.smoothing);
+	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_CURSOR_SETTINGS.motionBlur);
+	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_CURSOR_SETTINGS.clickBounce);
+	const [cursorClipToBounds, setCursorClipToBounds] = useState(
+		DEFAULT_CURSOR_SETTINGS.clipToBounds,
+	);
 	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
 	const [recordingCursorCaptureMode, setRecordingCursorCaptureMode] =
 		useState<CursorCaptureMode | null>(null);
@@ -1575,8 +1582,8 @@ export default function VideoEditor() {
 					videoPlaybackRef.current?.pause();
 				}
 
-				const sourceWidth = video.videoWidth || 1920;
-				const sourceHeight = video.videoHeight || 1080;
+				const sourceWidth = video.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width;
+				const sourceHeight = video.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height;
 				const effectiveSourceDimensions = calculateEffectiveSourceDimensions(
 					sourceWidth,
 					sourceHeight,
@@ -1590,8 +1597,8 @@ export default function VideoEditor() {
 				// Get preview CONTAINER dimensions for scaling
 				const playbackRef = videoPlaybackRef.current;
 				const containerElement = playbackRef?.containerRef?.current;
-				const previewWidth = containerElement?.clientWidth || 1920;
-				const previewHeight = containerElement?.clientHeight || 1080;
+				const previewWidth = containerElement?.clientWidth || DEFAULT_SOURCE_DIMENSIONS.width;
+				const previewHeight = containerElement?.clientHeight || DEFAULT_SOURCE_DIMENSIONS.height;
 
 				if (settings.format === "gif" && settings.gifConfig) {
 					// GIF Export
@@ -1845,8 +1852,8 @@ export default function VideoEditor() {
 		}
 
 		// Build export settings from current state
-		const sourceWidth = video.videoWidth || 1920;
-		const sourceHeight = video.videoHeight || 1080;
+		const sourceWidth = video.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width;
+		const sourceHeight = video.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height;
 		const effectiveSourceDimensions = calculateEffectiveSourceDimensions(
 			sourceWidth,
 			sourceHeight,
@@ -2050,8 +2057,10 @@ export default function VideoEditor() {
 												aspectRatio:
 													aspectRatio === "native"
 														? getNativeAspectRatioValue(
-																videoPlaybackRef.current?.video?.videoWidth || 1920,
-																videoPlaybackRef.current?.video?.videoHeight || 1080,
+																videoPlaybackRef.current?.video?.videoWidth ||
+																	DEFAULT_SOURCE_DIMENSIONS.width,
+																videoPlaybackRef.current?.video?.videoHeight ||
+																	DEFAULT_SOURCE_DIMENSIONS.height,
 																cropRegion,
 															)
 														: getAspectRatioValue(aspectRatio),
@@ -2217,21 +2226,27 @@ export default function VideoEditor() {
 									onGifSizePresetChange={setGifSizePreset}
 									gifOutputDimensions={calculateOutputDimensions(
 										calculateEffectiveSourceDimensions(
-											videoPlaybackRef.current?.video?.videoWidth || 1920,
-											videoPlaybackRef.current?.video?.videoHeight || 1080,
+											videoPlaybackRef.current?.video?.videoWidth ||
+												DEFAULT_SOURCE_DIMENSIONS.width,
+											videoPlaybackRef.current?.video?.videoHeight ||
+												DEFAULT_SOURCE_DIMENSIONS.height,
 											cropRegion,
 										).width,
 										calculateEffectiveSourceDimensions(
-											videoPlaybackRef.current?.video?.videoWidth || 1920,
-											videoPlaybackRef.current?.video?.videoHeight || 1080,
+											videoPlaybackRef.current?.video?.videoWidth ||
+												DEFAULT_SOURCE_DIMENSIONS.width,
+											videoPlaybackRef.current?.video?.videoHeight ||
+												DEFAULT_SOURCE_DIMENSIONS.height,
 											cropRegion,
 										).height,
 										gifSizePreset,
 										GIF_SIZE_PRESETS,
 										aspectRatio === "native"
 											? getNativeAspectRatioValue(
-													videoPlaybackRef.current?.video?.videoWidth || 1920,
-													videoPlaybackRef.current?.video?.videoHeight || 1080,
+													videoPlaybackRef.current?.video?.videoWidth ||
+														DEFAULT_SOURCE_DIMENSIONS.width,
+													videoPlaybackRef.current?.video?.videoHeight ||
+														DEFAULT_SOURCE_DIMENSIONS.height,
 													cropRegion,
 												)
 											: getAspectRatioValue(aspectRatio),

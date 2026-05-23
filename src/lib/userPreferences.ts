@@ -1,3 +1,7 @@
+import {
+	DEFAULT_EDITOR_LAYOUT_SETTINGS,
+	DEFAULT_EXPORT_SETTINGS,
+} from "@/components/video-editor/editorDefaults";
 import type { ExportFormat, ExportQuality } from "@/lib/exporter";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
@@ -27,11 +31,11 @@ export interface UserPreferences {
 	exportFolder: string | null;
 }
 
-const DEFAULT_PREFS: UserPreferences = {
-	padding: 50,
-	aspectRatio: "16:9",
-	exportQuality: "good",
-	exportFormat: "mp4",
+export const DEFAULT_PREFS: UserPreferences = {
+	padding: DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
+	aspectRatio: DEFAULT_EDITOR_LAYOUT_SETTINGS.aspectRatio,
+	exportQuality: DEFAULT_EXPORT_SETTINGS.quality,
+	exportFormat: DEFAULT_EXPORT_SETTINGS.format,
 	exportFolder: null,
 };
 
