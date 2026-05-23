@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { loadFileAsArrayBuffer } from "@/lib/exporter/streamingDecoder";
 
 // Module-level cache keyed by URL — survives re-mounts within the same page session.
 const peaksCache = new Map<string, Float32Array>();
@@ -67,9 +68,7 @@ export function useAudioPeaks(videoUrl?: string): Float32Array | null {
 
 		(async () => {
 			try {
-				const response = await fetch(videoUrl);
-				if (cancelled) return;
-				const arrayBuffer = await response.arrayBuffer();
+				const arrayBuffer = await loadFileAsArrayBuffer(videoUrl);
 				if (cancelled) return;
 				const audioBuffer = await getAudioCtx().decodeAudioData(arrayBuffer);
 				if (cancelled) return;

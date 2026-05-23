@@ -137,6 +137,29 @@ export function shouldFailDecodeEndedEarly({
 	return true;
 }
 
+/**
+ * Loads a video file as an ArrayBuffer, using the Electron IPC bridge for
+ * local paths and falling back to `fetch` for remote / blob / data URLs.
+ * This is the single canonical place for reading raw video bytes in the renderer.
+ */
+export async function loadFileAsArrayBuffer(videoUrl: string): Promise<ArrayBuffer> {
+	const isRemoteUrl = /^(https?:|blob:|data:)/i.test(videoUrl);
+
+	if (!isRemoteUrl && window.electronAPI?.readBinaryFile) {
+		const result = await window.electronAPI.readBinaryFile(videoUrl);
+		if (!result.success || !result.data) {
+			throw new Error(result.message ?? result.error ?? "Failed to read video file");
+		}
+		return result.data;
+	}
+
+	const response = await fetch(videoUrl);
+	if (!response.ok) {
+		throw new Error(`Failed to fetch video file: ${response.status} ${response.statusText}`);
+	}
+	return response.arrayBuffer();
+}
+
 /** Caller must close the VideoFrame after use. */
 type OnFrameCallback = (
 	frame: VideoFrame,
@@ -158,43 +181,16 @@ export class StreamingVideoDecoder {
 	private metadata: DecodedVideoInfo | null = null;
 
 	private async loadSourceFile(videoUrl: string): Promise<{ file: File; blob: Blob }> {
-		const isRemoteUrl = /^(https?:|blob:|data:)/i.test(videoUrl);
-
-		if (!isRemoteUrl && window.electronAPI?.readBinaryFile) {
-			const result = await this.withTimeout(
-				window.electronAPI.readBinaryFile(videoUrl),
-				SOURCE_LOAD_TIMEOUT_MS,
-				"Timed out while loading the source video.",
-			);
-			if (!result.success || !result.data) {
-				throw new Error(result.message || result.error || "Failed to read source video");
-			}
-
-			const filename = (result.path || videoUrl).split(/[\\/]/).pop() || "video";
-			const blob = new Blob([result.data]);
-			return {
-				blob,
-				file: new File([blob], filename, { type: blob.type || "application/octet-stream" }),
-			};
-		}
-
-		const response = await this.withTimeout(
-			fetch(videoUrl),
+		const buffer = await this.withTimeout(
+			loadFileAsArrayBuffer(videoUrl),
 			SOURCE_LOAD_TIMEOUT_MS,
 			"Timed out while loading the source video.",
 		);
-		if (!response.ok) {
-			throw new Error(`Failed to fetch source video: ${response.status} ${response.statusText}`);
-		}
-		const blob = await this.withTimeout(
-			response.blob(),
-			SOURCE_LOAD_TIMEOUT_MS,
-			"Timed out while reading the source video.",
-		);
-		const filename = videoUrl.split("/").pop() || "video";
+		const filename = videoUrl.split(/[\\/]/).pop() || "video";
+		const blob = new Blob([buffer]);
 		return {
 			blob,
-			file: new File([blob], filename, { type: blob.type }),
+			file: new File([blob], filename, { type: blob.type || "application/octet-stream" }),
 		};
 	}
 
