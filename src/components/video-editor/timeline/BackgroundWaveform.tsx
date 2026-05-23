@@ -37,7 +37,7 @@ export default function BackgroundWaveform({ peaks, videoDurationMs }: Backgroun
 	// Redraw whenever peaks, range, or canvas size changes.
 	useEffect(() => {
 		const canvas = canvasRef.current;
-		if (!canvas || !peaks || canvasSize.w <= 0 || canvasSize.h <= 0) return;
+		if (!canvas || canvasSize.w <= 0 || canvasSize.h <= 0) return;
 
 		const dpr = window.devicePixelRatio || 1;
 		canvas.width = Math.round(canvasSize.w * dpr);
@@ -48,6 +48,8 @@ export default function BackgroundWaveform({ peaks, videoDurationMs }: Backgroun
 
 		ctx.scale(dpr, dpr);
 		ctx.clearRect(0, 0, canvasSize.w, canvasSize.h);
+
+		if (!peaks || peaks.length === 0) return;
 
 		const W = canvasSize.w;
 		const H = canvasSize.h;
