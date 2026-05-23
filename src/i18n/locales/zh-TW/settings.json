@@ -204,5 +204,9 @@
 	},
 	"language": {
 		"title": "語言"
+	},
+	"timeline": {
+		"title": "時間軸",
+		"waveform": "在修剪軌道上顯示音訊波形"
 	}
 }

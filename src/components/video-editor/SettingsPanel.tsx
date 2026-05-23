@@ -608,7 +608,7 @@ export function SettingsPanel({
 		{ id: "background", label: t("background.title"), icon: Palette },
 		{ id: "effects", label: t("effects.title"), icon: SlidersHorizontal },
 		{ id: "layout", label: t("layout.title"), icon: LayoutPanelTop, disabled: !hasWebcam },
-		{ id: "timeline", label: "Timeline", icon: Brackets },
+		{ id: "timeline", label: t("timeline.title"), icon: Brackets },
 		...(hasCursorPanel
 			? [
 					{
@@ -631,7 +631,7 @@ export function SettingsPanel({
 				? t("speed.playbackSpeed")
 				: t("trim.deleteRegion")
 		: activePanelMode === "timeline"
-			? "Timeline"
+			? t("timeline.title")
 			: ([...panelModes, exportPanelMode].find((mode) => mode.id === activePanelMode)?.label ??
 				t("background.title"));
 
@@ -1709,13 +1709,13 @@ export function SettingsPanel({
 									<AccordionTrigger className="py-2.5 hover:no-underline">
 										<div className="flex items-center gap-2">
 											<Brackets className="w-4 h-4 text-[#34B27B]" />
-											<span className="text-xs font-medium">Timeline</span>
+											<span className="text-xs font-medium">{t("timeline.title")}</span>
 										</div>
 									</AccordionTrigger>
 									<AccordionContent className="pb-3">
 										<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
 											<div className="text-[10px] font-medium text-slate-300">
-												Show Audio Waveform on Trim Track
+												{t("timeline.waveform")}
 											</div>
 											<Switch
 												checked={showTrimWaveform}

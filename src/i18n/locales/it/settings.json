@@ -202,5 +202,9 @@
 	},
 	"language": {
 		"title": "Lingua"
+	},
+	"timeline": {
+		"title": "Timeline",
+		"waveform": "Mostra la forma d'onda sulla traccia di ritaglio"
 	}
 }

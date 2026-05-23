@@ -203,5 +203,9 @@
 	},
 	"language": {
 		"title": "语言"
+	},
+	"timeline": {
+		"title": "时间轴",
+		"waveform": "在剪辑轨道上显示音频波形"
 	}
 }
