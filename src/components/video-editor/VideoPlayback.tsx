@@ -50,14 +50,15 @@ import {
 } from "@/utils/aspectRatioUtils";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import {
+	DEFAULT_CURSOR_SETTINGS,
+	DEFAULT_EDITOR_LAYOUT_SETTINGS,
+	DEFAULT_SOURCE_DIMENSIONS,
+} from "./editorDefaults";
+import {
 	type AnnotationRegion,
 	type BlurData,
 	type CursorTelemetryPoint,
 	computeRotation3DContainScale,
-	DEFAULT_CURSOR_CLICK_BOUNCE,
-	DEFAULT_CURSOR_MOTION_BLUR,
-	DEFAULT_CURSOR_SIZE,
-	DEFAULT_CURSOR_SMOOTHING,
 	DEFAULT_ROTATION_3D,
 	isRotation3DIdentity,
 	lerpRotation3D,
@@ -247,7 +248,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			showBlur,
 			motionBlurAmount = 0,
 			borderRadius = 0,
-			padding = 50,
+			padding = DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
 			cropRegion,
 			trimRegions = [],
 			speedRegions = [],
@@ -268,11 +269,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorTelemetry = [],
 			cursorClickTimestamps = [],
 			showCursor = false,
-			cursorSize = DEFAULT_CURSOR_SIZE,
-			cursorSmoothing = DEFAULT_CURSOR_SMOOTHING,
-			cursorMotionBlur = DEFAULT_CURSOR_MOTION_BLUR,
-			cursorClickBounce = DEFAULT_CURSOR_CLICK_BOUNCE,
-			cursorClipToBounds = false,
+			cursorSize = DEFAULT_CURSOR_SETTINGS.size,
+			cursorSmoothing = DEFAULT_CURSOR_SETTINGS.smoothing,
+			cursorMotionBlur = DEFAULT_CURSOR_SETTINGS.motionBlur,
+			cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
+			cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
 			isPreviewingZoom = false,
 		},
 		ref,
@@ -1834,8 +1835,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						aspectRatio,
 						aspectRatio === "native"
 							? getNativeAspectRatioValue(
-									lockedVideoDimensionsRef.current?.width || 1920,
-									lockedVideoDimensionsRef.current?.height || 1080,
+									lockedVideoDimensionsRef.current?.width || DEFAULT_SOURCE_DIMENSIONS.width,
+									lockedVideoDimensionsRef.current?.height || DEFAULT_SOURCE_DIMENSIONS.height,
 									cropRegion,
 								)
 							: undefined,

@@ -188,6 +188,7 @@ export interface CursorVisualSettings {
 	smoothing: number;
 	motionBlur: number;
 	clickBounce: number;
+	clipToBounds: boolean;
 }
 
 export const DEFAULT_CURSOR_SIZE = 3.0;

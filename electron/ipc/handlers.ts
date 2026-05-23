@@ -384,6 +384,10 @@ let nativeWindowsCaptureWebcamTargetPath: string | null = null;
 let nativeWindowsCaptureRecordingId: number | null = null;
 let nativeWindowsCursorOffsetMs = 0;
 let nativeWindowsCursorCaptureMode: CursorCaptureMode = "editable-overlay";
+let nativeWindowsCursorRecordingStartMs = 0;
+let nativeWindowsPauseStartedAtMs: number | null = null;
+let nativeWindowsPauseRanges: Array<{ startMs: number; endMs: number }> = [];
+let nativeWindowsIsPaused = false;
 const NATIVE_WINDOWS_CAPTURE_STOP_TIMEOUT_MS = 15_000;
 let nativeMacCaptureProcess: ChildProcessWithoutNullStreams | null = null;
 let nativeMacCaptureOutput = "";
@@ -871,6 +875,18 @@ function completeNativeMacCursorPauseRange(endMs = Date.now()) {
 		endMs: Math.max(0, endMs - nativeMacCursorRecordingStartMs),
 	});
 	nativeMacPauseStartedAtMs = null;
+}
+
+function completeNativeWindowsCursorPauseRange(endMs = Date.now()) {
+	if (nativeWindowsPauseStartedAtMs === null || nativeWindowsCursorRecordingStartMs <= 0) {
+		return;
+	}
+
+	nativeWindowsPauseRanges.push({
+		startMs: Math.max(0, nativeWindowsPauseStartedAtMs - nativeWindowsCursorRecordingStartMs),
+		endMs: Math.max(0, endMs - nativeWindowsCursorRecordingStartMs),
+	});
+	nativeWindowsPauseStartedAtMs = null;
 }
 
 function waitForNativeWindowsCaptureStart(proc: ChildProcessWithoutNullStreams) {
@@ -1583,9 +1599,14 @@ export function registerIpcHandlers(
 				nativeWindowsCaptureRecordingId = recordingId;
 				nativeWindowsCursorOffsetMs = 0;
 				nativeWindowsCursorCaptureMode = cursorCaptureMode;
+				nativeWindowsCursorRecordingStartMs = 0;
+				nativeWindowsPauseStartedAtMs = null;
+				nativeWindowsPauseRanges = [];
+				nativeWindowsIsPaused = false;
 
 				const cursorStartTimeMs = Date.now();
 				if (cursorCaptureMode === "editable-overlay") {
+					nativeWindowsCursorRecordingStartMs = cursorStartTimeMs;
 					await startCursorRecording(cursorStartTimeMs);
 					console.info("[native-wgc] cursor sampler ready", {
 						cursorStartTimeMs,
@@ -1635,6 +1656,10 @@ export function registerIpcHandlers(
 				nativeWindowsCaptureRecordingId = null;
 				nativeWindowsCursorOffsetMs = 0;
 				nativeWindowsCursorCaptureMode = "editable-overlay";
+				nativeWindowsCursorRecordingStartMs = 0;
+				nativeWindowsPauseStartedAtMs = null;
+				nativeWindowsPauseRanges = [];
+				nativeWindowsIsPaused = false;
 				await stopCursorRecording();
 				return { success: false, error: String(error) };
 			}
@@ -1836,6 +1861,50 @@ export function registerIpcHandlers(
 		}
 	});
 
+	ipcMain.handle("pause-native-windows-recording", async () => {
+		const proc = nativeWindowsCaptureProcess;
+		if (!proc) {
+			return { success: false, error: "Native Windows capture is not running." };
+		}
+		if (nativeWindowsIsPaused) {
+			return { success: true };
+		}
+		if (!proc.stdin.writable) {
+			return { success: false, error: "Native Windows capture command channel is closed." };
+		}
+
+		try {
+			proc.stdin.write("pause\n");
+			nativeWindowsIsPaused = true;
+			nativeWindowsPauseStartedAtMs = Date.now();
+			return { success: true };
+		} catch (error) {
+			return { success: false, error: error instanceof Error ? error.message : String(error) };
+		}
+	});
+
+	ipcMain.handle("resume-native-windows-recording", async () => {
+		const proc = nativeWindowsCaptureProcess;
+		if (!proc) {
+			return { success: false, error: "Native Windows capture is not running." };
+		}
+		if (!nativeWindowsIsPaused) {
+			return { success: true };
+		}
+		if (!proc.stdin.writable) {
+			return { success: false, error: "Native Windows capture command channel is closed." };
+		}
+
+		try {
+			proc.stdin.write("resume\n");
+			completeNativeWindowsCursorPauseRange();
+			nativeWindowsIsPaused = false;
+			return { success: true };
+		} catch (error) {
+			return { success: false, error: error instanceof Error ? error.message : String(error) };
+		}
+	});
+
 	ipcMain.handle("stop-native-windows-recording", async (_, discard?: boolean) => {
 		const proc = nativeWindowsCaptureProcess;
 		const preferredPath = nativeWindowsCaptureTargetPath;
@@ -1848,6 +1917,7 @@ export function registerIpcHandlers(
 		}
 
 		try {
+			completeNativeWindowsCursorPauseRange();
 			const stoppedPathPromise = waitForNativeWindowsCaptureStop(proc);
 			proc.stdin.write("stop\n");
 			const stoppedPath = await stoppedPathPromise;
@@ -1872,6 +1942,7 @@ export function registerIpcHandlers(
 			}
 
 			if (cursorCaptureMode === "editable-overlay") {
+				compactPendingCursorTelemetryPauseRanges(nativeWindowsPauseRanges);
 				shiftPendingCursorTelemetry(nativeWindowsCursorOffsetMs);
 				await writePendingCursorTelemetry(screenVideoPath);
 			}
@@ -1913,6 +1984,10 @@ export function registerIpcHandlers(
 			nativeWindowsCaptureRecordingId = null;
 			nativeWindowsCursorOffsetMs = 0;
 			nativeWindowsCursorCaptureMode = "editable-overlay";
+			nativeWindowsCursorRecordingStartMs = 0;
+			nativeWindowsPauseStartedAtMs = null;
+			nativeWindowsPauseRanges = [];
+			nativeWindowsIsPaused = false;
 			const source = selectedSource || { name: "Screen" };
 			if (onRecordingStateChange) {
 				onRecordingStateChange(false, source.name);
