@@ -53,6 +53,7 @@ import ColorPicker from "../ui/color-picker";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { CropControl } from "./CropControl";
+import { parseCustomPlaybackSpeedInput } from "./customPlaybackSpeed";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
@@ -71,7 +72,6 @@ import type {
 } from "./types";
 import {
 	DEFAULT_WEBCAM_SIZE_PRESET,
-	MAX_PLAYBACK_SPEED,
 	MAX_ZOOM_SCALE,
 	MIN_ZOOM_SCALE,
 	ROTATION_3D_PRESET_ORDER,
@@ -90,37 +90,38 @@ function CustomSpeedInput({
 	onError: () => void;
 }) {
 	const isPreset = SPEED_OPTIONS.some((o) => o.speed === value);
-	const [draft, setDraft] = useState(isPreset ? "" : String(Math.round(value)));
+	const [draft, setDraft] = useState(isPreset ? "" : String(value));
 	const [isFocused, setIsFocused] = useState(false);
 
 	const prevValue = useRef(value);
 	if (!isFocused && prevValue.current !== value) {
 		prevValue.current = value;
-		setDraft(isPreset ? "" : String(Math.round(value)));
+		setDraft(isPreset ? "" : String(value));
 	}
 
 	const handleChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
-			const digits = e.target.value.replace(/\D/g, "");
-			if (digits === "") {
-				setDraft("");
-				return;
-			}
-			const num = Number(digits);
-			if (num > MAX_PLAYBACK_SPEED) {
+			const result = parseCustomPlaybackSpeedInput(e.target.value);
+			if (result.status === "too-fast") {
 				onError();
 				return;
 			}
-			setDraft(digits);
-			if (num >= 1) onChange(num);
+
+			setDraft(result.draft);
+			if (result.status === "valid") {
+				onChange(result.speed);
+			}
 		},
 		[onChange, onError],
 	);
 
 	const handleBlur = useCallback(() => {
 		setIsFocused(false);
-		if (!draft || Number(draft) < 1) {
-			setDraft(isPreset ? "" : String(Math.round(value)));
+		const result = parseCustomPlaybackSpeedInput(draft);
+		if (result.status === "valid") {
+			setDraft(String(result.speed));
+		} else {
+			setDraft(isPreset ? "" : String(value));
 		}
 	}, [draft, isPreset, value]);
 
@@ -128,8 +129,8 @@ function CustomSpeedInput({
 		<div className="flex items-center gap-1">
 			<input
 				type="text"
-				inputMode="numeric"
-				pattern="[0-9]*"
+				inputMode="decimal"
+				pattern="[0-9]*[.]?[0-9]*"
 				placeholder="--"
 				value={draft}
 				onFocus={() => setIsFocused(true)}
