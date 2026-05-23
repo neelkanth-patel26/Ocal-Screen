@@ -169,6 +169,7 @@ export default function VideoEditor() {
 		wallpaper,
 		shadowIntensity,
 		showBlur,
+		showTrimWaveform,
 		motionBlurAmount,
 		borderRadius,
 		padding,
@@ -355,6 +356,7 @@ export default function VideoEditor() {
 				wallpaper: normalizedEditor.wallpaper,
 				shadowIntensity: normalizedEditor.shadowIntensity,
 				showBlur: normalizedEditor.showBlur,
+				showTrimWaveform: normalizedEditor.showTrimWaveform,
 				motionBlurAmount: normalizedEditor.motionBlurAmount,
 				borderRadius: normalizedEditor.borderRadius,
 				padding: normalizedEditor.padding,
@@ -426,6 +428,7 @@ export default function VideoEditor() {
 			wallpaper,
 			shadowIntensity,
 			showBlur,
+			showTrimWaveform,
 			motionBlurAmount,
 			borderRadius,
 			padding,
@@ -449,6 +452,7 @@ export default function VideoEditor() {
 		wallpaper,
 		shadowIntensity,
 		showBlur,
+		showTrimWaveform,
 		motionBlurAmount,
 		borderRadius,
 		padding,
@@ -572,6 +576,7 @@ export default function VideoEditor() {
 				wallpaper,
 				shadowIntensity,
 				showBlur,
+				showTrimWaveform,
 				motionBlurAmount,
 				borderRadius,
 				padding,
@@ -631,6 +636,7 @@ export default function VideoEditor() {
 			wallpaper,
 			shadowIntensity,
 			showBlur,
+			showTrimWaveform,
 			motionBlurAmount,
 			borderRadius,
 			padding,
@@ -2192,6 +2198,8 @@ export default function VideoEditor() {
 									onShadowCommit={commitState}
 									showBlur={showBlur}
 									onBlurChange={(v) => pushState({ showBlur: v })}
+									showTrimWaveform={showTrimWaveform}
+									onTrimWaveformChange={(v) => pushState({ showTrimWaveform: v })}
 									motionBlurAmount={motionBlurAmount}
 									onMotionBlurChange={(v) => updateState({ motionBlurAmount: v })}
 									onMotionBlurCommit={commitState}
@@ -2355,6 +2363,8 @@ export default function VideoEditor() {
 												: webcamLayoutPreset,
 									})
 								}
+								videoUrl={videoPath ?? undefined}
+								showTrimWaveform={showTrimWaveform}
 							/>
 						</div>
 					</Panel>

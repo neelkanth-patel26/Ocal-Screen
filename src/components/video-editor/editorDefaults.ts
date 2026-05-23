@@ -34,11 +34,13 @@ export const DEFAULT_EDITOR_APPEARANCE_SETTINGS: {
 	showBlur: boolean;
 	motionBlurAmount: number;
 	borderRadius: number;
+	showTrimWaveform: boolean;
 } = {
 	shadowIntensity: 0,
 	showBlur: false,
 	motionBlurAmount: 0,
 	borderRadius: 0,
+	showTrimWaveform: true,
 };
 
 export const DEFAULT_EDITOR_LAYOUT_SETTINGS: {

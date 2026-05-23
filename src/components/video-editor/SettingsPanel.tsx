@@ -1,5 +1,6 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import {
+	AudioWaveform,
 	Bug,
 	Crop,
 	Download,
@@ -258,6 +259,8 @@ interface SettingsPanelProps {
 	onShadowCommit?: () => void;
 	showBlur?: boolean;
 	onBlurChange?: (showBlur: boolean) => void;
+	showTrimWaveform?: boolean;
+	onTrimWaveformChange?: (show: boolean) => void;
 	motionBlurAmount?: number;
 	onMotionBlurChange?: (amount: number) => void;
 	onMotionBlurCommit?: () => void;
@@ -389,6 +392,8 @@ export function SettingsPanel({
 	onShadowCommit,
 	showBlur,
 	onBlurChange,
+	showTrimWaveform = true,
+	onTrimWaveformChange,
 	motionBlurAmount = 0,
 	onMotionBlurChange,
 	onMotionBlurCommit,
@@ -1178,7 +1183,11 @@ export function SettingsPanel({
 					)}
 
 					{!hasTimelineSelection && (
-						<Accordion type="multiple" value={[activePanelMode]} className="space-y-2">
+						<Accordion
+							type="multiple"
+							value={[activePanelMode, "timeline-settings"]}
+							className="space-y-2"
+						>
 							{hasWebcam && activePanelMode === "layout" && (
 								<AccordionItem value="layout" className="editor-panel-section px-3">
 									<AccordionTrigger className="py-2.5 hover:no-underline">
@@ -1696,6 +1705,27 @@ export function SettingsPanel({
 									</AccordionContent>
 								</AccordionItem>
 							)}
+							{/* Timeline Settings — always visible regardless of active panel mode */}
+							<AccordionItem value="timeline-settings" className="editor-panel-section px-3">
+								<AccordionTrigger className="py-2.5 hover:no-underline">
+									<div className="flex items-center gap-2">
+										<AudioWaveform className="w-4 h-4 text-[#34B27B]" />
+										<span className="text-xs font-medium">Timeline</span>
+									</div>
+								</AccordionTrigger>
+								<AccordionContent className="pb-3">
+									<div className="grid grid-cols-2 gap-2">
+										<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
+											<div className="text-[10px] font-medium text-slate-300">Waveform</div>
+											<Switch
+												checked={showTrimWaveform}
+												onCheckedChange={onTrimWaveformChange}
+												className="data-[state=checked]:bg-[#34B27B] scale-90"
+											/>
+										</div>
+									</div>
+								</AccordionContent>
+							</AccordionItem>
 						</Accordion>
 					)}
 				</div>

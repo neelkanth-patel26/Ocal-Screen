@@ -38,6 +38,7 @@ import Item from "./Item";
 import KeyframeMarkers from "./KeyframeMarkers";
 import Row from "./Row";
 import TimelineWrapper from "./TimelineWrapper";
+import RowWaveform from "./RowWaveform";
 import { detectZoomDwellCandidates, normalizeCursorTelemetry } from "./zoomSuggestionUtils";
 
 const ZOOM_ROW_ID = "row-zoom";
@@ -88,6 +89,8 @@ interface TimelineEditorProps {
 	onSelectSpeed?: (id: string | null) => void;
 	aspectRatio: AspectRatio;
 	onAspectRatioChange: (aspectRatio: AspectRatio) => void;
+	videoUrl?: string;
+	showTrimWaveform?: boolean;
 }
 
 interface TimelineScaleConfig {
@@ -567,6 +570,8 @@ function Timeline({
 	selectedBlurId,
 	selectedSpeedId,
 	keyframes = [],
+	videoUrl,
+	showTrimWaveform = true,
 }: {
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
@@ -584,6 +589,8 @@ function Timeline({
 	selectedBlurId?: string | null;
 	selectedSpeedId?: string | null;
 	keyframes?: { id: string; time: number }[];
+	videoUrl?: string;
+	showTrimWaveform?: boolean;
 }) {
 	const t = useScopedT("timeline");
 	const { setTimelineRef, style, sidebarWidth, range, pixelsToValue } = useTimelineContext();
@@ -788,7 +795,12 @@ function Timeline({
 				))}
 			</Row>
 
-			<Row id={TRIM_ROW_ID} isEmpty={trimItems.length === 0} hint={t("hints.pressTrim")}>
+			<Row
+				id={TRIM_ROW_ID}
+				isEmpty={trimItems.length === 0}
+				hint={t("hints.pressTrim")}
+				background={showTrimWaveform ? <RowWaveform videoUrl={videoUrl} videoDurationMs={videoDurationMs} /> : undefined}
+			>
 				{trimItems.map((item) => (
 					<Item
 						id={item.id}
@@ -899,6 +911,8 @@ export default function TimelineEditor({
 	onSelectSpeed,
 	aspectRatio,
 	onAspectRatioChange,
+	videoUrl,
+	showTrimWaveform = true,
 }: TimelineEditorProps) {
 	const t = useScopedT("timeline");
 	const totalMs = useMemo(() => Math.max(0, Math.round(videoDuration * 1000)), [videoDuration]);
@@ -1700,6 +1714,8 @@ export default function TimelineEditor({
 						selectedBlurId={selectedBlurId}
 						selectedSpeedId={selectedSpeedId}
 						keyframes={keyframes}
+						videoUrl={videoUrl}
+						showTrimWaveform={showTrimWaveform}
 					/>
 				</TimelineWrapper>
 			</div>
