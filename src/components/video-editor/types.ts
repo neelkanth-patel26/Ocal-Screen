@@ -170,7 +170,35 @@ export interface CursorTelemetryPoint {
 	timeMs: number;
 	cx: number;
 	cy: number;
+	interactionType?: "move" | "click" | "double-click" | "right-click" | "middle-click" | "mouseup";
+	cursorType?:
+		| "arrow"
+		| "text"
+		| "pointer"
+		| "crosshair"
+		| "open-hand"
+		| "closed-hand"
+		| "resize-ew"
+		| "resize-ns"
+		| "not-allowed";
 }
+
+export interface CursorVisualSettings {
+	size: number;
+	smoothing: number;
+	motionBlur: number;
+	clickBounce: number;
+	clipToBounds: boolean;
+}
+
+export const DEFAULT_CURSOR_SIZE = 3.0;
+export const DEFAULT_CURSOR_SMOOTHING = 0.67;
+export const DEFAULT_CURSOR_MOTION_BLUR = 0.35;
+export const DEFAULT_CURSOR_CLICK_BOUNCE = 2.5;
+// false = allow the cursor to overflow into the background by default.
+// true = clip the native cursor to the video canvas bounds.
+export const DEFAULT_CURSOR_CLIP_TO_BOUNDS = false;
+export const DEFAULT_ZOOM_MOTION_BLUR = 0.35;
 
 export interface TrimRegion {
 	id: string;

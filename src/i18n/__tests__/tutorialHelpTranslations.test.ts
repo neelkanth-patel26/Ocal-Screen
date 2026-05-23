@@ -4,6 +4,7 @@ import arDialogs from "@/i18n/locales/ar/dialogs.json";
 import enDialogs from "@/i18n/locales/en/dialogs.json";
 import esDialogs from "@/i18n/locales/es/dialogs.json";
 import frDialogs from "@/i18n/locales/fr/dialogs.json";
+import itDialogs from "@/i18n/locales/it/dialogs.json";
 import jaJPDialogs from "@/i18n/locales/ja-JP/dialogs.json";
 import koKRDialogs from "@/i18n/locales/ko-KR/dialogs.json";
 import ruDialogs from "@/i18n/locales/ru/dialogs.json";
@@ -39,16 +40,17 @@ const keysThatMayBeEmpty = new Set<(typeof tutorialHelpKeys)[number]>(["step1Des
 
 const dialogsByLocale = {
 	en: enDialogs,
-	"zh-CN": zhCNDialogs,
-	"zh-TW": zhTWDialogs,
+	ar: arDialogs,
 	es: esDialogs,
 	fr: frDialogs,
-	tr: trDialogs,
+	it: itDialogs,
+	"ja-JP": jaJPDialogs,
 	"ko-KR": koKRDialogs,
 	ru: ruDialogs,
-	"ja-JP": jaJPDialogs,
-	ar: arDialogs,
+	tr: trDialogs,
 	vi: viDialogs,
+	"zh-CN": zhCNDialogs,
+	"zh-TW": zhTWDialogs,
 } satisfies Record<Locale, { tutorial: Record<string, unknown> }>;
 
 describe("TutorialHelp translations", () => {

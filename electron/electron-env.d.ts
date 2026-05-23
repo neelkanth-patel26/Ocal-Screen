@@ -24,11 +24,23 @@ declare namespace NodeJS {
 // Used in Renderer process, expose in `preload.ts`
 interface Window {
 	electronAPI: {
+		invokeNativeBridge: <TData = unknown>(
+			request: import("../src/native/contracts").NativeBridgeRequest,
+		) => Promise<import("../src/native/contracts").NativeBridgeResponse<TData>>;
 		getSources: (opts: Electron.SourcesOptions) => Promise<ProcessedDesktopSource[]>;
 		switchToEditor: () => Promise<void>;
 		switchToHud: () => Promise<void>;
 		startNewRecording: () => Promise<{ success: boolean; error?: string }>;
-		openSourceSelector: () => Promise<void>;
+		openSourceSelector: () => Promise<{
+			opened: boolean;
+			reason?: string;
+			access?: {
+				success: boolean;
+				granted: boolean;
+				status: string;
+				error?: string;
+			};
+		}>;
 		selectSource: (source: ProcessedDesktopSource) => Promise<ProcessedDesktopSource | null>;
 		getSelectedSource: () => Promise<ProcessedDesktopSource | null>;
 		requestCameraAccess: () => Promise<{
@@ -37,9 +49,16 @@ interface Window {
 			status: string;
 			error?: string;
 		}>;
-		requestAccessibilityAccess: () => Promise<{
+		requestScreenAccess: () => Promise<{
 			success: boolean;
 			granted: boolean;
+			status: string;
+			error?: string;
+		}>;
+		requestNativeMacCursorAccess: () => Promise<{
+			success: boolean;
+			granted: boolean;
+			status: string;
 			error?: string;
 		}>;
 		assetBaseUrl: string;
@@ -68,7 +87,75 @@ interface Window {
 			message?: string;
 			error?: string;
 		}>;
-		setRecordingState: (recording: boolean, recordingId?: number) => Promise<void>;
+		setRecordingState: (
+			recording: boolean,
+			recordingId?: number,
+			cursorCaptureMode?: import("../src/lib/recordingSession").CursorCaptureMode,
+		) => Promise<void>;
+		isNativeWindowsCaptureAvailable: () => Promise<{
+			success: boolean;
+			available: boolean;
+			helperPath?: string;
+			reason?: string;
+			error?: string;
+		}>;
+		isNativeMacCaptureAvailable: () => Promise<{
+			success: boolean;
+			available: boolean;
+			helperPath?: string;
+			reason?: "unsupported-platform" | "missing-helper" | string;
+			error?: string;
+		}>;
+		startNativeWindowsRecording: (
+			request: import("../src/lib/nativeWindowsRecording").NativeWindowsRecordingRequest,
+		) => Promise<import("../src/lib/nativeWindowsRecording").NativeWindowsRecordingStartResult>;
+		stopNativeWindowsRecording: (discard?: boolean) => Promise<{
+			success: boolean;
+			path?: string;
+			session?: import("../src/lib/recordingSession").RecordingSession;
+			message?: string;
+			discarded?: boolean;
+			error?: string;
+		}>;
+		pauseNativeWindowsRecording: () => Promise<{
+			success: boolean;
+			error?: string;
+		}>;
+		resumeNativeWindowsRecording: () => Promise<{
+			success: boolean;
+			error?: string;
+		}>;
+		startNativeMacRecording: (
+			request: import("../src/lib/nativeMacRecording").NativeMacRecordingRequest,
+		) => Promise<import("../src/lib/nativeMacRecording").NativeMacRecordingStartResult>;
+		pauseNativeMacRecording: () => Promise<{
+			success: boolean;
+			error?: string;
+		}>;
+		resumeNativeMacRecording: () => Promise<{
+			success: boolean;
+			error?: string;
+		}>;
+		stopNativeMacRecording: (discard?: boolean) => Promise<{
+			success: boolean;
+			path?: string;
+			session?: import("../src/lib/recordingSession").RecordingSession;
+			message?: string;
+			discarded?: boolean;
+			error?: string;
+		}>;
+		attachNativeMacWebcamRecording: (payload: {
+			screenVideoPath: string;
+			recordingId: number;
+			webcam: import("../src/lib/recordingSession").RecordedVideoAssetInput;
+			cursorCaptureMode?: import("../src/lib/recordingSession").CursorCaptureMode;
+		}) => Promise<{
+			success: boolean;
+			path?: string;
+			session?: import("../src/lib/recordingSession").RecordingSession;
+			message?: string;
+			error?: string;
+		}>;
 		discardCursorTelemetry: (recordingId: number) => Promise<void>;
 		getCursorTelemetry: (videoPath?: string) => Promise<{
 			success: boolean;
@@ -118,6 +205,12 @@ interface Window {
 			message?: string;
 			error?: string;
 		}>;
+		preparePreviewAudioTrack: (filePath: string) => Promise<{
+			success: boolean;
+			path?: string | null;
+			message?: string;
+			error?: string;
+		}>;
 		clearCurrentVideoPath: () => Promise<{ success: boolean }>;
 		saveProjectFile: (
 			projectData: unknown,
@@ -158,6 +251,7 @@ interface Window {
 		hudOverlayHide: () => void;
 		hudOverlayClose: () => void;
 		setHudOverlayIgnoreMouseEvents: (ignore: boolean) => void;
+		moveHudOverlayBy: (deltaX: number, deltaY: number) => void;
 		showCountdownOverlay: (value: number, runId: number) => Promise<void>;
 		setCountdownOverlayValue: (value: number, runId: number) => Promise<void>;
 		hideCountdownOverlay: (runId: number) => Promise<void>;

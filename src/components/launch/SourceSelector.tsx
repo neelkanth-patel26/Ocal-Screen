@@ -145,6 +145,7 @@ export function SourceSelector() {
 			</div>
 			<div className="flex justify-center gap-2 border-t border-white/[0.06] p-3">
 				<Button
+					data-testid="source-selector-cancel-button"
 					variant="ghost"
 					onClick={() => window.close()}
 					className="h-8 rounded-lg px-5 text-[11px] text-zinc-400 transition-transform duration-150 hover:bg-white/5 hover:text-white active:scale-95"
@@ -152,6 +153,7 @@ export function SourceSelector() {
 					{tc("actions.cancel")}
 				</Button>
 				<Button
+					data-testid="source-selector-share-button"
 					onClick={handleShare}
 					disabled={!selectedSource}
 					className="h-8 rounded-lg bg-[#34B27B] px-5 text-[11px] font-semibold text-white transition-transform duration-150 hover:bg-[#34B27B]/85 active:scale-95 disabled:bg-zinc-700 disabled:opacity-30"

@@ -9,10 +9,11 @@ import type {
 	ZoomRegion,
 } from "@/components/video-editor/types";
 import { BackgroundLoadError } from "@/lib/wallpaper";
+import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
-import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
 import { FrameRenderer } from "./frameRenderer";
 import { StreamingVideoDecoder } from "./streamingDecoder";
+import { TimestampedVideoFrameQueue } from "./timestampedVideoFrameQueue";
 import type {
 	ExportProgress,
 	ExportResult,
@@ -47,11 +48,16 @@ interface GifExporterConfig {
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
 	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
+	cursorRecordingData?: CursorRecordingData | null;
+	cursorScale?: number;
+	cursorSmoothing?: number;
+	cursorMotionBlur?: number;
+	cursorClickBounce?: number;
+	cursorClipToBounds?: boolean;
 	annotationRegions?: AnnotationRegion[];
 	previewWidth?: number;
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
-	cursorHighlight?: import("@/components/video-editor/videoPlayback/cursorHighlight").CursorHighlightConfig;
 	cursorClickTimestamps?: number[];
 	onProgress?: (progress: ExportProgress) => void;
 }
@@ -118,7 +124,7 @@ export class GifExporter {
 	}
 
 	async export(): Promise<ExportResult> {
-		let webcamFrameQueue: AsyncVideoFrameQueue | null = null;
+		let webcamFrameQueue: TimestampedVideoFrameQueue | null = null;
 
 		const warnings: string[] = [];
 		const onWarning = (message: string) => warnings.push(message);
@@ -151,6 +157,12 @@ export class GifExporter {
 				borderRadius: this.config.borderRadius,
 				padding: this.config.padding,
 				cropRegion: this.config.cropRegion,
+				cursorRecordingData: this.config.cursorRecordingData,
+				cursorScale: this.config.cursorScale,
+				cursorSmoothing: this.config.cursorSmoothing,
+				cursorMotionBlur: this.config.cursorMotionBlur,
+				cursorClickBounce: this.config.cursorClickBounce,
+				cursorClipToBounds: this.config.cursorClipToBounds,
 				videoWidth: videoInfo.width,
 				videoHeight: videoInfo.height,
 				webcamSize: webcamInfo ? { width: webcamInfo.width, height: webcamInfo.height } : null,
@@ -164,7 +176,6 @@ export class GifExporter {
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
 				cursorClickTimestamps: this.config.cursorClickTimestamps,
-				cursorHighlight: this.config.cursorHighlight,
 				platform,
 			});
 			await this.renderer.initialize();
@@ -205,7 +216,7 @@ export class GifExporter {
 			console.log("[GifExporter] Using streaming decode (web-demuxer + VideoDecoder)");
 
 			let frameIndex = 0;
-			webcamFrameQueue = this.config.webcamVideoUrl ? new AsyncVideoFrameQueue() : null;
+			webcamFrameQueue = this.config.webcamVideoUrl ? new TimestampedVideoFrameQueue() : null;
 			let stopWebcamDecode = false;
 			let webcamDecodeError: Error | null = null;
 			const webcamDecodePromise =
@@ -217,7 +228,7 @@ export class GifExporter {
 									this.config.frameRate,
 									this.config.trimRegions,
 									this.config.speedRegions,
-									async (webcamFrame) => {
+									async (webcamFrame, _exportTimestampUs, webcamSourceTimestampMs) => {
 										while (queue.length >= 12 && !this.cancelled && !stopWebcamDecode) {
 											await new Promise((resolve) => setTimeout(resolve, 2));
 										}
@@ -225,7 +236,7 @@ export class GifExporter {
 											webcamFrame.close();
 											return;
 										}
-										queue.enqueue(webcamFrame);
+										queue.enqueue(webcamFrame, webcamSourceTimestampMs);
 									},
 									onWarning,
 								)
@@ -255,7 +266,9 @@ export class GifExporter {
 							return;
 						}
 
-						webcamFrame = webcamFrameQueue ? await webcamFrameQueue.dequeue() : null;
+						webcamFrame = webcamFrameQueue
+							? await webcamFrameQueue.frameAt(sourceTimestampMs)
+							: null;
 						const renderer = this.renderer;
 						if (this.cancelled || !renderer) {
 							return;

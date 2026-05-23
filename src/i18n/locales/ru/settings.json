@@ -16,6 +16,13 @@
 				"left": "Слева",
 				"right": "Справа"
 			}
+		},
+		"customScale": "Пользовательский масштаб",
+		"position": {
+			"title": "Положение фокуса",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = край слева / сверху, 100 = край справа / снизу"
 		}
 	},
 	"speed": {
@@ -36,7 +43,8 @@
 		"verticalStack": "Вертикальный стек",
 		"dualFrame": "Двойной кадр",
 		"webcamShape": "Форма камеры",
-		"webcamSize": "Размер веб-камеры"
+		"webcamSize": "Размер веб-камеры",
+		"noWebcam": "Без веб-камеры"
 	},
 	"effects": {
 		"title": "Видеоэффекты",
@@ -46,20 +54,7 @@
 		"on": "вкл",
 		"shadow": "Тень",
 		"roundness": "Скругление",
-		"padding": "Отступ",
-		"cursorHighlight": {
-			"title": "Подсветка курсора",
-			"style": "Стиль",
-			"dot": "Точка",
-			"ring": "Кольцо",
-			"size": "Размер",
-			"onlyOnClicks": "Только при кликах",
-			"color": "Цвет",
-			"offsetX": "Смещение X (записи окон)",
-			"offsetY": "Смещение Y",
-			"accessibilityPermissionTitle": "Требуется разрешение на доступность",
-			"accessibilityPermissionDescription": "Откройте Системные настройки → Конфиденциальность и безопасность → Универсальный доступ, включите Openscreen, затем перезапустите приложение."
-		}
+		"padding": "Отступ"
 	},
 	"background": {
 		"title": "Фон",
@@ -90,10 +85,10 @@
 		"gifDescription": "Анимированное изображение для обмена"
 	},
 	"exportQuality": {
-		"title": "Качество экспорта",
-		"low": "Низкое",
-		"medium": "Среднее",
-		"high": "Высокое"
+		"title": "Разрешение экспорта",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "Частота кадров GIF",
@@ -109,8 +104,9 @@
 		"gifButton": "Экспорт GIF",
 		"chooseSaveLocation": "Выбрать место сохранения"
 	},
-	"links": {
+	"support": {
 		"reportBug": "Сообщить об ошибке",
+		"saveDiagnostics": "Сохранить диагностику",
 		"starOnGithub": "Звезда на GitHub"
 	},
 	"imageUpload": {
@@ -195,6 +191,14 @@
 		"failedToAdd": "Не удалось добавить шрифт",
 		"errorTimeout": "Загрузка шрифта заняла слишком много времени. Пожалуйста, проверьте URL и попробуйте снова.",
 		"errorLoadFailed": "Не удалось загрузить шрифт. Пожалуйста, проверьте правильность URL Google Fonts."
+	},
+	"cursor": {
+		"show": "Показывать курсор",
+		"size": "Размер",
+		"smoothing": "Сглаживание",
+		"motionBlur": "Размытие движения",
+		"clickBounce": "Отскок при клике",
+		"clipToBounds": "Обрезать по холсту"
 	},
 	"language": {
 		"title": "Язык"

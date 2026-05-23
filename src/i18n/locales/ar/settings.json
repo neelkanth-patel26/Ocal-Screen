@@ -8,6 +8,21 @@
 			"manual": "يدوي",
 			"auto": "تلقائي",
 			"autoDescription": "الكاميرا تتبع موضع المؤشر المسجل"
+		},
+		"customScale": "تكبير مخصص",
+		"position": {
+			"title": "موضع التركيز",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = أقصى اليسار / الأعلى، 100 = أقصى اليمين / الأسفل"
+		},
+		"threeD": {
+			"title": "دوران ثلاثي الأبعاد",
+			"preset": {
+				"iso": "متساوي القياس",
+				"left": "يسار",
+				"right": "يمين"
+			}
 		}
 	},
 	"speed": {
@@ -28,7 +43,8 @@
 		"verticalStack": "تكدس عمودي",
 		"dualFrame": "إطار مزدوج",
 		"webcamShape": "شكل الكاميرا",
-		"webcamSize": "حجم كاميرا الويب"
+		"webcamSize": "حجم كاميرا الويب",
+		"noWebcam": "بدون كاميرا"
 	},
 	"effects": {
 		"title": "تأثيرات الفيديو",
@@ -38,20 +54,7 @@
 		"on": "تشغيل",
 		"shadow": "ظل",
 		"roundness": "الاستدارة",
-		"padding": "المسافة البادئة",
-		"cursorHighlight": {
-			"title": "تمييز المؤشر",
-			"style": "النمط",
-			"dot": "نقطة",
-			"ring": "حلقة",
-			"size": "الحجم",
-			"onlyOnClicks": "عند النقر فقط",
-			"color": "اللون",
-			"offsetX": "إزاحة X (لتسجيلات النوافذ)",
-			"offsetY": "إزاحة Y",
-			"accessibilityPermissionTitle": "مطلوب إذن الوصول",
-			"accessibilityPermissionDescription": "افتح إعدادات النظام ← الخصوصية والأمان ← إمكانية الوصول، وقم بتفعيل Openscreen، ثم أعد تشغيل التطبيق."
-		}
+		"padding": "المسافة البادئة"
 	},
 	"background": {
 		"title": "الخلفية",
@@ -82,10 +85,10 @@
 		"gifDescription": "صورة متحركة للمشاركة"
 	},
 	"exportQuality": {
-		"title": "جودة التصدير",
-		"low": "منخفضة",
-		"medium": "متوسطة",
-		"high": "عالية"
+		"title": "دقة التصدير",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "معدل إطارات GIF",
@@ -101,8 +104,9 @@
 		"gifButton": "تصدير GIF",
 		"chooseSaveLocation": "اختيار موقع الحفظ"
 	},
-	"links": {
+	"support": {
 		"reportBug": "الإبلاغ عن خطأ",
+		"saveDiagnostics": "حفظ التشخيصات",
 		"starOnGithub": "إعطاء نجمة على GitHub"
 	},
 	"imageUpload": {
@@ -187,6 +191,14 @@
 		"failedToAdd": "فشل في إضافة الخط",
 		"errorTimeout": "استغرق تحميل الخط وقتًا طويلاً. يرجى التحقق من الرابط والمحاولة مرة أخرى.",
 		"errorLoadFailed": "تعذر تحميل الخط. يرجى التحقق من صحة رابط خطوط Google."
+	},
+	"cursor": {
+		"show": "إظهار المؤشر",
+		"size": "الحجم",
+		"smoothing": "التنعيم",
+		"motionBlur": "ضبابية الحركة",
+		"clickBounce": "ارتداد النقر",
+		"clipToBounds": "القص ضمن اللوحة"
 	},
 	"language": {
 		"title": "اللغة"

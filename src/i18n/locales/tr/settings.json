@@ -16,6 +16,13 @@
 				"left": "Sol",
 				"right": "Sağ"
 			}
+		},
+		"customScale": "Özel Yakınlaştırma",
+		"position": {
+			"title": "Odak Konumu",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = en sol / en üst, 100 = en sağ / en alt"
 		}
 	},
 	"speed": {
@@ -36,7 +43,8 @@
 		"verticalStack": "Dikey Yığın",
 		"webcamShape": "Kamera Şekli",
 		"dualFrame": "Çift Kare",
-		"webcamSize": "Webcam Boyutu"
+		"webcamSize": "Webcam Boyutu",
+		"noWebcam": "Web kamerası yok"
 	},
 	"effects": {
 		"title": "Video Efektleri",
@@ -45,7 +53,8 @@
 		"off": "kapalı",
 		"shadow": "Gölge",
 		"roundness": "Yuvarlaklık",
-		"padding": "Dolgu"
+		"padding": "Dolgu",
+		"on": "açık"
 	},
 	"background": {
 		"title": "Arka Plan",
@@ -76,10 +85,10 @@
 		"gifDescription": "Paylaşım için hareketli görüntü"
 	},
 	"exportQuality": {
-		"title": "Dışa Aktarım Kalitesi",
-		"low": "Düşük",
-		"medium": "Orta",
-		"high": "Yüksek"
+		"title": "Dışa aktarma çözünürlüğü",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF Kare Hızı",
@@ -95,8 +104,9 @@
 		"gifButton": "GIF Olarak Dışa Aktar",
 		"chooseSaveLocation": "Kayıt Konumu Seç"
 	},
-	"links": {
+	"support": {
 		"reportBug": "Hata Bildir",
+		"saveDiagnostics": "Teşhis Verilerini Kaydet",
 		"starOnGithub": "GitHub'da Yıldızla"
 	},
 	"imageUpload": {
@@ -182,18 +192,15 @@
 		"errorTimeout": "Yazı tipinin yüklenmesi çok uzun sürdü. Lütfen URL'yi kontrol edip tekrar deneyin.",
 		"errorLoadFailed": "Yazı tipi yüklenemedi. Lütfen Google Fonts URL'sinin doğruluğunu kontrol edin."
 	},
+	"cursor": {
+		"show": "İmleci Göster",
+		"size": "Boyut",
+		"smoothing": "Yumuşatma",
+		"motionBlur": "Hareket Bulanıklığı",
+		"clickBounce": "Tıklama Sıçraması",
+		"clipToBounds": "Tuvale Kırp"
+	},
 	"language": {
 		"title": "Dil"
-	},
-	"audio": {
-		"title": "Ses",
-		"noiseReduction": "Gürültü Azaltma",
-		"level": "Seviye",
-		"nrLevel": {
-			"light": "Hafif",
-			"moderate": "Orta",
-			"aggressive": "Güçlü"
-		},
-		"nrDescription": "Yapay zeka destekli gürültü azaltma arka plan gürültüsünü temizler. Daha yüksek seviyeler daha agresiftir ancak ses kalitesini etkileyebilir."
 	}
 }

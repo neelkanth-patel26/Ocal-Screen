@@ -5,6 +5,13 @@ import { normalizeProjectMedia } from "@/lib/recordingSession";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import {
+	DEFAULT_EDITOR_APPEARANCE_SETTINGS,
+	DEFAULT_EDITOR_LAYOUT_SETTINGS,
+	DEFAULT_EXPORT_SETTINGS,
+	DEFAULT_GIF_SETTINGS,
+	DEFAULT_WEBCAM_SETTINGS,
+} from "./editorDefaults";
+import {
 	type AnnotationRegion,
 	type CropRegion,
 	clampPlaybackSpeed,
@@ -15,14 +22,10 @@ import {
 	DEFAULT_BLUR_DATA,
 	DEFAULT_BLUR_FREEHAND_POINTS,
 	DEFAULT_BLUR_INTENSITY,
-	DEFAULT_CROP_REGION,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
-	DEFAULT_WEBCAM_LAYOUT_PRESET,
-	DEFAULT_WEBCAM_MASK_SHAPE,
-	DEFAULT_WEBCAM_POSITION,
-	DEFAULT_WEBCAM_SIZE_PRESET,
 	DEFAULT_ZOOM_DEPTH,
+	DEFAULT_ZOOM_MOTION_BLUR,
 	MAX_BLUR_BLOCK_SIZE,
 	MAX_BLUR_INTENSITY,
 	MAX_PLAYBACK_SPEED,
@@ -80,7 +83,6 @@ export interface ProjectEditorState {
 	gifFrameRate: GifFrameRate;
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
-	cursorHighlight: import("./videoPlayback/cursorHighlight").CursorHighlightConfig;
 }
 
 export interface EditorProjectData {
@@ -105,13 +107,13 @@ function computeNormalizedWebcamLayoutPreset(
 		case "vertical-stack":
 			return isPortraitAspectRatio(normalizedAspectRatio)
 				? webcamLayoutPreset
-				: DEFAULT_WEBCAM_LAYOUT_PRESET;
+				: DEFAULT_WEBCAM_SETTINGS.layoutPreset;
 		case "dual-frame":
 			return isPortraitAspectRatio(normalizedAspectRatio)
-				? DEFAULT_WEBCAM_LAYOUT_PRESET
+				? DEFAULT_WEBCAM_SETTINGS.layoutPreset
 				: webcamLayoutPreset;
 		default:
-			return DEFAULT_WEBCAM_LAYOUT_PRESET;
+			return DEFAULT_WEBCAM_SETTINGS.layoutPreset;
 	}
 }
 
@@ -119,16 +121,14 @@ function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
 }
 
-function isFileUrl(value: string): boolean {
-	return /^file:\/\//i.test(value);
-}
-
 function encodePathSegments(pathname: string, keepWindowsDrive = false): string {
 	return pathname
 		.split("/")
 		.map((segment, index) => {
-			if (!segment) return "";
-			if (keepWindowsDrive && index === 1 && /^[a-zA-Z]:$/.test(segment)) {
+			if (!segment) {
+				return segment;
+			}
+			if (keepWindowsDrive && index === 0 && /^[a-zA-Z]:$/.test(segment)) {
 				return segment;
 			}
 			return encodeURIComponent(segment);
@@ -138,31 +138,25 @@ function encodePathSegments(pathname: string, keepWindowsDrive = false): string 
 
 export function toFileUrl(filePath: string): string {
 	const normalized = filePath.replace(/\\/g, "/");
-
-	// Windows drive path: C:/Users/...
-	if (/^[a-zA-Z]:\//.test(normalized)) {
-		return `file://${encodePathSegments(`/${normalized}`, true)}`;
+	if (normalized.match(/^[a-zA-Z]:/)) {
+		return `file:///${encodePathSegments(normalized, true)}`;
 	}
-
-	// UNC path: //server/share/...
 	if (normalized.startsWith("//")) {
-		const [host, ...pathParts] = normalized.replace(/^\/+/, "").split("/");
-		const encodedPath = pathParts.map((part) => encodeURIComponent(part)).join("/");
-		return encodedPath ? `file://${host}/${encodedPath}` : `file://${host}/`;
+		const withoutPrefix = normalized.slice(2);
+		const [host = "", ...segments] = withoutPrefix.split("/");
+		return `file://${host}/${encodePathSegments(segments.join("/"))}`;
 	}
-
 	const absolutePath = normalized.startsWith("/") ? normalized : `/${normalized}`;
 	return `file://${encodePathSegments(absolutePath)}`;
 }
 
 export function fromFileUrl(fileUrl: string): string {
-	const value = fileUrl.trim();
-	if (!isFileUrl(value)) {
+	if (!fileUrl.startsWith("file://")) {
 		return fileUrl;
 	}
 
 	try {
-		const url = new URL(value);
+		const url = new URL(fileUrl);
 		const pathname = decodeURIComponent(url.pathname);
 
 		if (url.host && url.host !== "localhost") {
@@ -175,13 +169,7 @@ export function fromFileUrl(fileUrl: string): string {
 
 		return pathname;
 	} catch {
-		const rawFallbackPath = value.replace(/^file:\/\//i, "");
-		let fallbackPath = rawFallbackPath;
-		try {
-			fallbackPath = decodeURIComponent(rawFallbackPath);
-		} catch {
-			// Keep raw best-effort path if percent decoding fails.
-		}
+		const fallbackPath = decodeURIComponent(fileUrl.replace(/^file:\/\//, ""));
 		return fallbackPath.replace(/^\/([a-zA-Z]:)/, "$1");
 	}
 }
@@ -226,7 +214,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		editor.aspectRatio as AspectRatio,
 	)
 		? (editor.aspectRatio as AspectRatio)
-		: "16:9";
+		: DEFAULT_EDITOR_LAYOUT_SETTINGS.aspectRatio;
 	const normalizedWebcamLayoutPreset = computeNormalizedWebcamLayoutPreset(
 		editor.webcamLayoutPreset,
 		normalizedAspectRatio,
@@ -241,7 +229,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					cx: clamp((editor.webcamPosition as WebcamPosition).cx, 0, 1),
 					cy: clamp((editor.webcamPosition as WebcamPosition).cy, 0, 1),
 				}
-			: DEFAULT_WEBCAM_POSITION;
+			: DEFAULT_WEBCAM_SETTINGS.position;
 
 	const normalizedZoomRegions: ZoomRegion[] = Array.isArray(editor.zoomRegions)
 		? editor.zoomRegions
@@ -428,16 +416,16 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 
 	const rawCropX = isFiniteNumber(editor.cropRegion?.x)
 		? editor.cropRegion.x
-		: DEFAULT_CROP_REGION.x;
+		: DEFAULT_EDITOR_LAYOUT_SETTINGS.cropRegion.x;
 	const rawCropY = isFiniteNumber(editor.cropRegion?.y)
 		? editor.cropRegion.y
-		: DEFAULT_CROP_REGION.y;
+		: DEFAULT_EDITOR_LAYOUT_SETTINGS.cropRegion.y;
 	const rawCropWidth = isFiniteNumber(editor.cropRegion?.width)
 		? editor.cropRegion.width
-		: DEFAULT_CROP_REGION.width;
+		: DEFAULT_EDITOR_LAYOUT_SETTINGS.cropRegion.width;
 	const rawCropHeight = isFiniteNumber(editor.cropRegion?.height)
 		? editor.cropRegion.height
-		: DEFAULT_CROP_REGION.height;
+		: DEFAULT_EDITOR_LAYOUT_SETTINGS.cropRegion.height;
 
 	const cropX = clamp(rawCropX, 0, 1);
 	const cropY = clamp(rawCropY, 0, 1);
@@ -448,18 +436,29 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		wallpaper:
 			typeof editor.wallpaper === "string"
 				? normalizeWallpaperValue(editor.wallpaper)
-				: DEFAULT_WALLPAPER,
-		shadowIntensity: typeof editor.shadowIntensity === "number" ? editor.shadowIntensity : 0,
-		showBlur: typeof editor.showBlur === "boolean" ? editor.showBlur : false,
+				: DEFAULT_EDITOR_LAYOUT_SETTINGS.wallpaper,
+		shadowIntensity:
+			typeof editor.shadowIntensity === "number"
+				? editor.shadowIntensity
+				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.shadowIntensity,
+		showBlur:
+			typeof editor.showBlur === "boolean"
+				? editor.showBlur
+				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.showBlur,
 		motionBlurAmount: isFiniteNumber(editor.motionBlurAmount)
 			? clamp(editor.motionBlurAmount, 0, 1)
 			: typeof (editor as { motionBlurEnabled?: unknown }).motionBlurEnabled === "boolean"
 				? (editor as { motionBlurEnabled?: boolean }).motionBlurEnabled
-					? 0.35
-					: 0
-				: 0,
-		borderRadius: typeof editor.borderRadius === "number" ? editor.borderRadius : 0,
-		padding: isFiniteNumber(editor.padding) ? clamp(editor.padding, 0, 100) : 50,
+					? DEFAULT_ZOOM_MOTION_BLUR
+					: DEFAULT_EDITOR_APPEARANCE_SETTINGS.motionBlurAmount
+				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.motionBlurAmount,
+		borderRadius:
+			typeof editor.borderRadius === "number"
+				? editor.borderRadius
+				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.borderRadius,
+		padding: isFiniteNumber(editor.padding)
+			? clamp(editor.padding, 0, 100)
+			: DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
 		cropRegion: {
 			x: cropX,
 			y: cropY,
@@ -478,77 +477,31 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.webcamMaskShape === "square" ||
 			editor.webcamMaskShape === "rounded"
 				? editor.webcamMaskShape
-				: DEFAULT_WEBCAM_MASK_SHAPE,
+				: DEFAULT_WEBCAM_SETTINGS.maskShape,
 		webcamSizePreset:
 			typeof editor.webcamSizePreset === "number" && isFiniteNumber(editor.webcamSizePreset)
 				? Math.max(10, Math.min(50, editor.webcamSizePreset))
-				: DEFAULT_WEBCAM_SIZE_PRESET,
+				: DEFAULT_WEBCAM_SETTINGS.sizePreset,
 		webcamPosition: normalizedWebcamPosition,
 		exportQuality:
 			editor.exportQuality === "medium" || editor.exportQuality === "source"
 				? editor.exportQuality
-				: "good",
-		exportFormat: editor.exportFormat === "gif" ? "gif" : "mp4",
+				: DEFAULT_EXPORT_SETTINGS.quality,
+		exportFormat: editor.exportFormat === "gif" ? "gif" : DEFAULT_EXPORT_SETTINGS.format,
 		gifFrameRate:
 			editor.gifFrameRate === 15 ||
 			editor.gifFrameRate === 20 ||
 			editor.gifFrameRate === 25 ||
 			editor.gifFrameRate === 30
 				? editor.gifFrameRate
-				: 15,
-		gifLoop: typeof editor.gifLoop === "boolean" ? editor.gifLoop : true,
+				: DEFAULT_GIF_SETTINGS.frameRate,
+		gifLoop: typeof editor.gifLoop === "boolean" ? editor.gifLoop : DEFAULT_GIF_SETTINGS.loop,
 		gifSizePreset:
 			editor.gifSizePreset === "medium" ||
 			editor.gifSizePreset === "large" ||
 			editor.gifSizePreset === "original"
 				? editor.gifSizePreset
-				: "medium",
-		cursorHighlight: normalizeCursorHighlight(editor.cursorHighlight),
-	};
-}
-
-function normalizeCursorHighlight(
-	value: unknown,
-): import("./videoPlayback/cursorHighlight").CursorHighlightConfig {
-	const fallback: import("./videoPlayback/cursorHighlight").CursorHighlightConfig = {
-		enabled: false,
-		style: "ring",
-		sizePx: 24,
-		color: "#FFD700",
-		opacity: 0.9,
-		onlyOnClicks: false,
-		clickEmphasisDurationMs: 350,
-		offsetXNorm: 0,
-		offsetYNorm: 0,
-	};
-	if (!value || typeof value !== "object") return fallback;
-	const v = value as Partial<import("./videoPlayback/cursorHighlight").CursorHighlightConfig>;
-	return {
-		enabled: typeof v.enabled === "boolean" ? v.enabled : fallback.enabled,
-		style: v.style === "dot" || v.style === "ring" ? v.style : fallback.style,
-		sizePx:
-			typeof v.sizePx === "number" && v.sizePx >= 10 && v.sizePx <= 36 ? v.sizePx : fallback.sizePx,
-		color:
-			typeof v.color === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v.color)
-				? v.color
-				: fallback.color,
-		opacity:
-			typeof v.opacity === "number" && v.opacity >= 0 && v.opacity <= 1
-				? v.opacity
-				: fallback.opacity,
-		onlyOnClicks: typeof v.onlyOnClicks === "boolean" ? v.onlyOnClicks : fallback.onlyOnClicks,
-		clickEmphasisDurationMs:
-			typeof v.clickEmphasisDurationMs === "number" && v.clickEmphasisDurationMs > 0
-				? v.clickEmphasisDurationMs
-				: fallback.clickEmphasisDurationMs,
-		offsetXNorm:
-			typeof v.offsetXNorm === "number" && Number.isFinite(v.offsetXNorm)
-				? Math.max(-1, Math.min(1, v.offsetXNorm))
-				: fallback.offsetXNorm,
-		offsetYNorm:
-			typeof v.offsetYNorm === "number" && Number.isFinite(v.offsetYNorm)
-				? Math.max(-1, Math.min(1, v.offsetYNorm))
-				: fallback.offsetYNorm,
+				: DEFAULT_GIF_SETTINGS.sizePreset,
 	};
 }
 

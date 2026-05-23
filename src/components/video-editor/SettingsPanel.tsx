@@ -1,7 +1,6 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import {
 	Bug,
-	ChevronDown,
 	Crop,
 	Download,
 	FileDown,
@@ -28,7 +27,6 @@ import {
 	AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -42,7 +40,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useScopedT } from "@/contexts/I18nContext";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
-import { GIF_FRAME_RATES, GIF_SIZE_PRESETS } from "@/lib/exporter";
+import {
+	calculateEffectiveSourceDimensions,
+	GIF_FRAME_RATES,
+	GIF_SIZE_PRESETS,
+} from "@/lib/exporter";
 import { cn } from "@/lib/utils";
 import { resolveImageWallpaperUrl, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
@@ -52,6 +54,15 @@ import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { BACKGROUND_IMAGE_ACCEPT, isSupportedBackgroundImageType } from "./backgroundImageUpload";
 import { CropControl } from "./CropControl";
+import { parseCustomPlaybackSpeedInput } from "./customPlaybackSpeed";
+import {
+	DEFAULT_CURSOR_SETTINGS,
+	DEFAULT_EDITOR_LAYOUT_SETTINGS,
+	DEFAULT_EXPORT_SETTINGS,
+	DEFAULT_GIF_SETTINGS,
+	DEFAULT_SOURCE_DIMENSIONS,
+	DEFAULT_WEBCAM_SETTINGS,
+} from "./editorDefaults";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
@@ -69,8 +80,6 @@ import type {
 	ZoomFocusMode,
 } from "./types";
 import {
-	DEFAULT_WEBCAM_SIZE_PRESET,
-	MAX_PLAYBACK_SPEED,
 	MAX_ZOOM_SCALE,
 	MIN_ZOOM_SCALE,
 	ROTATION_3D_PRESET_ORDER,
@@ -89,37 +98,38 @@ function CustomSpeedInput({
 	onError: () => void;
 }) {
 	const isPreset = SPEED_OPTIONS.some((o) => o.speed === value);
-	const [draft, setDraft] = useState(isPreset ? "" : String(Math.round(value)));
+	const [draft, setDraft] = useState(isPreset ? "" : String(value));
 	const [isFocused, setIsFocused] = useState(false);
 
 	const prevValue = useRef(value);
 	if (!isFocused && prevValue.current !== value) {
 		prevValue.current = value;
-		setDraft(isPreset ? "" : String(Math.round(value)));
+		setDraft(isPreset ? "" : String(value));
 	}
 
 	const handleChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
-			const digits = e.target.value.replace(/\D/g, "");
-			if (digits === "") {
-				setDraft("");
-				return;
-			}
-			const num = Number(digits);
-			if (num > MAX_PLAYBACK_SPEED) {
+			const result = parseCustomPlaybackSpeedInput(e.target.value);
+			if (result.status === "too-fast") {
 				onError();
 				return;
 			}
-			setDraft(digits);
-			if (num >= 1) onChange(num);
+
+			setDraft(result.draft);
+			if (result.status === "valid") {
+				onChange(result.speed);
+			}
 		},
 		[onChange, onError],
 	);
 
 	const handleBlur = useCallback(() => {
 		setIsFocused(false);
-		if (!draft || Number(draft) < 1) {
-			setDraft(isPreset ? "" : String(Math.round(value)));
+		const result = parseCustomPlaybackSpeedInput(draft);
+		if (result.status === "valid") {
+			setDraft(String(result.speed));
+		} else {
+			setDraft(isPreset ? "" : String(value));
 		}
 	}, [draft, isPreset, value]);
 
@@ -127,8 +137,8 @@ function CustomSpeedInput({
 		<div className="flex items-center gap-1">
 			<input
 				type="text"
-				inputMode="numeric"
-				pattern="[0-9]*"
+				inputMode="decimal"
+				pattern="[0-9]*[.]?[0-9]*"
 				placeholder="--"
 				value={draft}
 				onFocus={() => setIsFocused(true)}
@@ -222,12 +232,6 @@ const GRADIENTS = [
 ];
 
 interface SettingsPanelProps {
-	cursorHighlight?: import("./videoPlayback/cursorHighlight").CursorHighlightConfig;
-	onCursorHighlightChange?: (
-		next: import("./videoPlayback/cursorHighlight").CursorHighlightConfig,
-	) => void;
-	// macOS only — gates the "Only on clicks" toggle (needs uiohook).
-	cursorHighlightSupportsClicks?: boolean;
 	selected: string;
 	onWallpaperChange: (path: string) => void;
 	selectedZoomDepth?: ZoomDepth | null;
@@ -310,6 +314,20 @@ interface SettingsPanelProps {
 	onWebcamSizePresetChange?: (size: WebcamSizePreset) => void;
 	onWebcamSizePresetCommit?: () => void;
 	onSaveDiagnostic?: () => Promise<void>;
+	showCursor?: boolean;
+	onShowCursorChange?: (show: boolean) => void;
+	cursorSize?: number;
+	onCursorSizeChange?: (size: number) => void;
+	cursorSmoothing?: number;
+	onCursorSmoothingChange?: (smoothing: number) => void;
+	cursorMotionBlur?: number;
+	onCursorMotionBlurChange?: (blur: number) => void;
+	cursorClickBounce?: number;
+	onCursorClickBounceChange?: (bounce: number) => void;
+	cursorClipToBounds?: boolean;
+	onCursorClipToBoundsChange?: (clip: boolean) => void;
+	hasCursorData?: boolean;
+	showCursorSettings?: boolean;
 }
 
 export default SettingsPanel;
@@ -325,10 +343,24 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 
 type SettingsPanelMode = "background" | "effects" | "layout" | "cursor" | "export";
 
+const MP4_EXPORT_SHORT_SIDES = {
+	medium: 720,
+	good: 1080,
+} as const;
+
+function formatSourceDimensions(videoElement?: HTMLVideoElement | null, cropRegion?: CropRegion) {
+	const width = videoElement?.videoWidth ?? 0;
+	const height = videoElement?.videoHeight ?? 0;
+
+	if (width <= 0 || height <= 0) {
+		return null;
+	}
+
+	const dimensions = calculateEffectiveSourceDimensions(width, height, cropRegion);
+	return { ...dimensions, shortSide: Math.min(dimensions.width, dimensions.height) };
+}
+
 export function SettingsPanel({
-	cursorHighlight,
-	onCursorHighlightChange,
-	cursorHighlightSupportsClicks = false,
 	selected,
 	onWallpaperChange,
 	selectedZoomDepth,
@@ -359,24 +391,24 @@ export function SettingsPanel({
 	borderRadius = 0,
 	onBorderRadiusChange,
 	onBorderRadiusCommit,
-	padding = 50,
+	padding = DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
 	onPaddingChange,
 	onPaddingCommit,
 	cropRegion,
 	onCropChange,
 	aspectRatio,
 	videoElement,
-	exportQuality = "good",
+	exportQuality = DEFAULT_EXPORT_SETTINGS.quality,
 	onExportQualityChange,
-	exportFormat = "mp4",
+	exportFormat = DEFAULT_EXPORT_SETTINGS.format,
 	onExportFormatChange,
-	gifFrameRate = 15,
+	gifFrameRate = DEFAULT_GIF_SETTINGS.frameRate,
 	onGifFrameRateChange,
-	gifLoop = true,
+	gifLoop = DEFAULT_GIF_SETTINGS.loop,
 	onGifLoopChange,
-	gifSizePreset = "medium",
+	gifSizePreset = DEFAULT_GIF_SETTINGS.sizePreset,
 	onGifSizePresetChange,
-	gifOutputDimensions = { width: 1280, height: 720 },
+	gifOutputDimensions = DEFAULT_GIF_SETTINGS.outputDimensions,
 	onExport,
 	unsavedExport,
 	onSaveUnsavedExport,
@@ -398,17 +430,32 @@ export function SettingsPanel({
 	onSpeedChange,
 	onSpeedDelete,
 	hasWebcam = false,
-	webcamLayoutPreset = "picture-in-picture",
+	webcamLayoutPreset = DEFAULT_WEBCAM_SETTINGS.layoutPreset,
 	onWebcamLayoutPresetChange,
-	webcamMaskShape = "rectangle",
+	webcamMaskShape = DEFAULT_WEBCAM_SETTINGS.maskShape,
 	onWebcamMaskShapeChange,
-	webcamSizePreset = DEFAULT_WEBCAM_SIZE_PRESET,
+	webcamSizePreset = DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	onWebcamSizePresetChange,
 	onWebcamSizePresetCommit,
 	onSaveDiagnostic,
+	showCursor = DEFAULT_CURSOR_SETTINGS.show,
+	onShowCursorChange,
+	cursorSize = DEFAULT_CURSOR_SETTINGS.size,
+	onCursorSizeChange,
+	cursorSmoothing = DEFAULT_CURSOR_SETTINGS.smoothing,
+	onCursorSmoothingChange,
+	cursorMotionBlur = DEFAULT_CURSOR_SETTINGS.motionBlur,
+	onCursorMotionBlurChange,
+	cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
+	onCursorClickBounceChange,
+	cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
+	onCursorClipToBoundsChange,
+	hasCursorData = false,
+	showCursorSettings = true,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [activePanelMode, setActivePanelMode] = useState<SettingsPanelMode>("background");
+	const sourceDimensions = formatSourceDimensions(videoElement, cropRegion);
 	// Resolved URLs are for DOM rendering only (backgroundImage). The canonical
 	// `/wallpapers/wallpaperN.jpg` form in WALLPAPER_PATHS is what gets persisted
 	// on click — never the machine-specific file:// URL.
@@ -436,14 +483,12 @@ export function SettingsPanel({
 
 	const [selectedColor, setSelectedColor] = useState("#ADADAD");
 	const [gradient, setGradient] = useState<string>(GRADIENTS[0]);
-	const [showCropModal, setShowCropModal] = useState(false);
-	const cropSnapshotRef = useRef<CropRegion | null>(null);
 	const [cropAspectLocked, setCropAspectLocked] = useState(false);
 	const [cropAspectRatio, setCropAspectRatio] = useState("");
 	const isPortraitCanvas = isPortraitAspectRatio(aspectRatio);
 
-	const videoWidth = videoElement?.videoWidth || 1920;
-	const videoHeight = videoElement?.videoHeight || 1080;
+	const videoWidth = videoElement?.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width;
+	const videoHeight = videoElement?.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height;
 
 	const handleCropNumericChange = useCallback(
 		(field: "x" | "y" | "width" | "height", pixelValue: number) => {
@@ -538,10 +583,13 @@ export function SettingsPanel({
 		},
 		[cropRegion, videoWidth, videoHeight],
 	);
+	const [showCropDropdown, setShowCropDropdown] = useState(false);
+	const handleCropToggle = () => setShowCropDropdown((open) => !open);
 
 	const zoomEnabled = Boolean(selectedZoomDepth);
 	const trimEnabled = Boolean(selectedTrimId);
 	const hasTimelineSelection = Boolean(selectedZoomId || selectedTrimId || selectedSpeedId);
+	const hasCursorPanel = showCursorSettings && hasCursorData;
 	const panelModes: Array<{
 		id: SettingsPanelMode;
 		label: string;
@@ -551,7 +599,15 @@ export function SettingsPanel({
 		{ id: "background", label: t("background.title"), icon: Palette },
 		{ id: "effects", label: t("effects.title"), icon: SlidersHorizontal },
 		{ id: "layout", label: t("layout.title"), icon: LayoutPanelTop, disabled: !hasWebcam },
-		{ id: "cursor", label: t("effects.cursorHighlight.title"), icon: MousePointerClick },
+		...(hasCursorPanel
+			? [
+					{
+						id: "cursor" as const,
+						label: t("effects.title"),
+						icon: MousePointerClick,
+					},
+				]
+			: []),
 	];
 	const exportPanelMode = {
 		id: "export" as const,
@@ -624,20 +680,6 @@ export function SettingsPanel({
 		}
 	};
 
-	const handleCropToggle = () => {
-		if (!showCropModal && cropRegion) {
-			cropSnapshotRef.current = { ...cropRegion };
-		}
-		setShowCropModal(!showCropModal);
-	};
-
-	const handleCropCancel = () => {
-		if (cropSnapshotRef.current && onCropChange) {
-			onCropChange(cropSnapshotRef.current);
-		}
-		setShowCropModal(false);
-	};
-
 	// Find selected annotation
 	const selectedAnnotation = selectedAnnotationId
 		? annotationRegions.find((a) => a.id === selectedAnnotationId)
@@ -657,7 +699,7 @@ export function SettingsPanel({
 				className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
 			>
 				<Bug className="w-3 h-3 text-[#34B27B]" />
-				{t("links.reportBug")}
+				{t("support.reportBug")}
 			</button>
 			{onSaveDiagnostic && (
 				<button
@@ -666,7 +708,7 @@ export function SettingsPanel({
 					className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
 				>
 					<FileDown className="w-3 h-3 text-slate-400" />
-					Save Diagnostics
+					{t("support.saveDiagnostics")}
 				</button>
 			)}
 			<button
@@ -677,7 +719,7 @@ export function SettingsPanel({
 				className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
 			>
 				<Star className="w-3 h-3 text-yellow-400" />
-				{t("links.starOnGithub")}
+				{t("support.starOnGithub")}
 			</button>
 		</div>
 	);
@@ -773,6 +815,7 @@ export function SettingsPanel({
 						<Crop className="h-4 w-4" />
 					</button>
 					<button
+						data-testid={getTestId("export-panel-button")}
 						type="button"
 						title={exportPanelMode.label}
 						onClick={() => setActivePanelMode(exportPanelMode.id)}
@@ -1264,11 +1307,7 @@ export function SettingsPanel({
 											) : (
 												<SlidersHorizontal className="w-4 h-4 text-[#34B27B]" />
 											)}
-											<span className="text-xs font-medium">
-												{activePanelMode === "cursor"
-													? t("effects.cursorHighlight.title")
-													: t("effects.title")}
-											</span>
+											<span className="text-xs font-medium">{t("effects.title")}</span>
 										</div>
 									</AccordionTrigger>
 									<AccordionContent className="pb-3">
@@ -1373,218 +1412,107 @@ export function SettingsPanel({
 											</>
 										)}
 
-										{activePanelMode === "cursor" && cursorHighlight && onCursorHighlightChange && (
-											<div className="p-2 rounded-lg editor-control-surface mt-2 space-y-2">
+										{activePanelMode === "cursor" && showCursorSettings && hasCursorData && (
+											<div className="p-2 rounded-lg editor-control-surface mt-2 space-y-3">
 												<div className="flex items-center justify-between">
 													<div className="text-[10px] font-medium text-slate-300">
-														{t("effects.cursorHighlight.title")}
+														{t("cursor.show")}
 													</div>
-													<button
-														type="button"
-														onClick={() =>
-															onCursorHighlightChange({
-																...cursorHighlight,
-																enabled: !cursorHighlight.enabled,
-															})
-														}
-														className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-															cursorHighlight.enabled
-																? "bg-[#34B27B]/20 border-[#34B27B]/50 text-[#34B27B]"
-																: "bg-white/5 border-white/10 text-slate-400"
-														}`}
-													>
-														{cursorHighlight.enabled ? t("effects.on") : t("effects.off")}
-													</button>
-												</div>
-												<div
-													className={`grid grid-cols-2 gap-1 ${cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}`}
-												>
-													{(["dot", "ring"] as const).map((style) => (
-														<button
-															key={style}
-															type="button"
-															onClick={() => onCursorHighlightChange({ ...cursorHighlight, style })}
-															className={`text-[10px] px-2 py-1 rounded border capitalize transition-colors ${
-																cursorHighlight.style === style
-																	? "bg-[#34B27B]/20 border-[#34B27B]/50 text-[#34B27B]"
-																	: "bg-white/5 border-white/10 text-slate-300 hover:border-white/20"
-															}`}
-														>
-															{t(`effects.cursorHighlight.${style}`)}
-														</button>
-													))}
-												</div>
-												<div
-													className={
-														cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"
-													}
-												>
-													<div className="flex items-center justify-between mb-1">
-														<div className="text-[10px] text-slate-400">
-															{t("effects.cursorHighlight.size")}
-														</div>
-														<span className="text-[10px] text-slate-500 font-mono">
-															{cursorHighlight.sizePx}px
-														</span>
-													</div>
-													<Slider
-														value={[cursorHighlight.sizePx]}
-														onValueChange={(values) =>
-															onCursorHighlightChange({
-																...cursorHighlight,
-																sizePx: values[0],
-															})
-														}
-														min={10}
-														max={36}
-														step={1}
-														className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+													<Switch
+														checked={showCursor}
+														onCheckedChange={onShowCursorChange}
+														className="data-[state=checked]:bg-[#34B27B] scale-90"
 													/>
 												</div>
-												{cursorHighlightSupportsClicks && (
-													<div
-														className={`flex items-center justify-between ${cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"}`}
-													>
-														<div className="text-[10px] text-slate-400">
-															{t("effects.cursorHighlight.onlyOnClicks")}
-														</div>
-														<button
-															type="button"
-															onClick={async () => {
-																const turningOn = !cursorHighlight.onlyOnClicks;
-																if (turningOn) {
-																	try {
-																		const result =
-																			await window.electronAPI?.requestAccessibilityAccess?.();
-																		if (!result?.granted) {
-																			toast.message(
-																				t("effects.cursorHighlight.accessibilityPermissionTitle"),
-																				{
-																					description: t(
-																						"effects.cursorHighlight.accessibilityPermissionDescription",
-																					),
-																				},
-																			);
-																			return;
-																		}
-																	} catch (err) {
-																		console.warn("Accessibility request failed:", err);
-																	}
-																}
-																onCursorHighlightChange({
-																	...cursorHighlight,
-																	onlyOnClicks: turningOn,
-																});
-															}}
-															className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-																cursorHighlight.onlyOnClicks
-																	? "bg-[#34B27B]/20 border-[#34B27B]/50 text-[#34B27B]"
-																	: "bg-white/5 border-white/10 text-slate-400"
-															}`}
-														>
-															{cursorHighlight.onlyOnClicks ? t("effects.on") : t("effects.off")}
-														</button>
-													</div>
-												)}
-												<div
-													className={
-														cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"
-													}
-												>
-													<div className="text-[10px] text-slate-400 mb-1">
-														{t("effects.cursorHighlight.color")}
-													</div>
-													<Popover>
-														<PopoverTrigger asChild>
-															<Button
-																variant="outline"
-																className="w-full h-8 justify-start gap-2 bg-white/5 border-white/10 hover:bg-white/10 px-2"
-															>
-																<div
-																	className="w-4 h-4 rounded-full border border-white/20"
-																	style={{ backgroundColor: cursorHighlight.color }}
-																/>
-																<span className="text-[10px] text-slate-300 truncate flex-1 text-left font-mono">
-																	{cursorHighlight.color}
-																</span>
-																<ChevronDown className="h-3 w-3 opacity-50" />
-															</Button>
-														</PopoverTrigger>
-														<PopoverContent
-															side="top"
-															className="w-[260px] p-3 bg-[#1a1a1c] border border-white/10 rounded-xl shadow-xl"
-														>
-															<ColorPicker
-																selectedColor={cursorHighlight.color}
-																colorPalette={colorPalette}
-																translations={{
-																	colorWheel: t("background.colorWheel"),
-																	colorPalette: t("background.colorPalette"),
-																}}
-																onUpdateColor={(color) =>
-																	onCursorHighlightChange({
-																		...cursorHighlight,
-																		color,
-																	})
-																}
+												{showCursor && (
+													<>
+														<div className="flex items-center justify-between">
+															<div className="text-[10px] font-medium text-slate-300">
+																{t("cursor.clipToBounds")}
+															</div>
+															<Switch
+																checked={cursorClipToBounds}
+																onCheckedChange={onCursorClipToBoundsChange}
+																className="data-[state=checked]:bg-[#34B27B] scale-90"
+																aria-label={t("cursor.clipToBounds")}
 															/>
-														</PopoverContent>
-													</Popover>
-												</div>
-												<div
-													className={
-														cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"
-													}
-												>
-													<div className="flex items-center justify-between mb-1">
-														<div className="text-[10px] text-slate-400">
-															{t("effects.cursorHighlight.offsetX")}
 														</div>
-														<span className="text-[10px] text-slate-500 font-mono">
-															{(cursorHighlight.offsetXNorm * 100).toFixed(1)}%
-														</span>
-													</div>
-													<Slider
-														value={[cursorHighlight.offsetXNorm]}
-														onValueChange={(values) =>
-															onCursorHighlightChange({
-																...cursorHighlight,
-																offsetXNorm: values[0],
-															})
-														}
-														min={-0.25}
-														max={0.25}
-														step={0.005}
-														className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-													/>
-												</div>
-												<div
-													className={
-														cursorHighlight.enabled ? "" : "opacity-40 pointer-events-none"
-													}
-												>
-													<div className="flex items-center justify-between mb-1">
-														<div className="text-[10px] text-slate-400">
-															{t("effects.cursorHighlight.offsetY")}
+														<div className="grid grid-cols-2 gap-2">
+															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																<div className="flex items-center justify-between mb-1">
+																	<div className="text-[10px] font-medium text-slate-300">
+																		{t("cursor.size")}
+																	</div>
+																	<span className="text-[10px] text-slate-500 font-mono">
+																		{cursorSize.toFixed(1)}
+																	</span>
+																</div>
+																<Slider
+																	value={[cursorSize]}
+																	onValueChange={(values) => onCursorSizeChange?.(values[0])}
+																	min={0.5}
+																	max={10}
+																	step={0.1}
+																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																/>
+															</div>
+															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																<div className="flex items-center justify-between mb-1">
+																	<div className="text-[10px] font-medium text-slate-300">
+																		{t("cursor.smoothing")}
+																	</div>
+																	<span className="text-[10px] text-slate-500 font-mono">
+																		{Math.round(cursorSmoothing * 100)}%
+																	</span>
+																</div>
+																<Slider
+																	value={[cursorSmoothing]}
+																	onValueChange={(values) => onCursorSmoothingChange?.(values[0])}
+																	min={0}
+																	max={1}
+																	step={0.01}
+																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																/>
+															</div>
+															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																<div className="flex items-center justify-between mb-1">
+																	<div className="text-[10px] font-medium text-slate-300">
+																		{t("cursor.motionBlur")}
+																	</div>
+																	<span className="text-[10px] text-slate-500 font-mono">
+																		{Math.round(cursorMotionBlur * 100)}%
+																	</span>
+																</div>
+																<Slider
+																	value={[cursorMotionBlur]}
+																	onValueChange={(values) => onCursorMotionBlurChange?.(values[0])}
+																	min={0}
+																	max={1}
+																	step={0.01}
+																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																/>
+															</div>
+															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
+																<div className="flex items-center justify-between mb-1">
+																	<div className="text-[10px] font-medium text-slate-300">
+																		{t("cursor.clickBounce")}
+																	</div>
+																	<span className="text-[10px] text-slate-500 font-mono">
+																		{cursorClickBounce.toFixed(1)}
+																	</span>
+																</div>
+																<Slider
+																	value={[cursorClickBounce]}
+																	onValueChange={(values) => onCursorClickBounceChange?.(values[0])}
+																	min={0}
+																	max={5}
+																	step={0.1}
+																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+																/>
+															</div>
 														</div>
-														<span className="text-[10px] text-slate-500 font-mono">
-															{(cursorHighlight.offsetYNorm * 100).toFixed(1)}%
-														</span>
-													</div>
-													<Slider
-														value={[cursorHighlight.offsetYNorm]}
-														onValueChange={(values) =>
-															onCursorHighlightChange({
-																...cursorHighlight,
-																offsetYNorm: values[0],
-															})
-														}
-														min={-0.25}
-														max={0.25}
-														step={0.005}
-														className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-													/>
-												</div>
+													</>
+												)}
 											</div>
 										)}
 									</AccordionContent>
@@ -1744,11 +1672,11 @@ export function SettingsPanel({
 				</div>
 			</div>
 
-			{showCropModal && cropRegion && onCropChange && (
+			{showCropDropdown && cropRegion && onCropChange && (
 				<>
 					<div
 						className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 animate-in fade-in duration-200"
-						onClick={handleCropCancel}
+						onClick={() => setShowCropDropdown(false)}
 					/>
 					<div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] bg-[#09090b] rounded-2xl shadow-2xl border border-white/10 p-8 w-[90vw] max-w-5xl max-h-[90vh] overflow-auto animate-in zoom-in-95 duration-200">
 						<div className="flex items-center justify-between mb-6">
@@ -1759,7 +1687,7 @@ export function SettingsPanel({
 							<Button
 								variant="ghost"
 								size="icon"
-								onClick={handleCropCancel}
+								onClick={() => setShowCropDropdown(false)}
 								className="hover:bg-white/10 text-slate-400 hover:text-white"
 							>
 								<X className="w-5 h-5" />
@@ -1855,7 +1783,7 @@ export function SettingsPanel({
 
 							<div className="flex justify-end">
 								<Button
-									onClick={() => setShowCropModal(false)}
+									onClick={() => setShowCropDropdown(false)}
 									size="lg"
 									className="bg-[#34B27B] hover:bg-[#34B27B]/90 text-white"
 								>
@@ -1872,6 +1800,7 @@ export function SettingsPanel({
 					<>
 						<div className="flex items-center gap-2 mb-3">
 							<button
+								data-testid={getTestId("mp4-format-button")}
 								onClick={() => onExportFormatChange?.("mp4")}
 								className={cn(
 									"flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all text-xs font-medium",
@@ -1899,40 +1828,82 @@ export function SettingsPanel({
 						</div>
 
 						{exportFormat === "mp4" && (
-							<div className="mb-3 bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 h-7 rounded-lg">
-								<button
-									onClick={() => onExportQualityChange?.("medium")}
-									className={cn(
-										"rounded-md transition-all text-[10px] font-medium",
-										exportQuality === "medium"
-											? "bg-white text-black"
-											: "text-slate-400 hover:text-slate-200",
-									)}
-								>
-									{t("exportQuality.low")}
-								</button>
-								<button
-									onClick={() => onExportQualityChange?.("good")}
-									className={cn(
-										"rounded-md transition-all text-[10px] font-medium",
-										exportQuality === "good"
-											? "bg-white text-black"
-											: "text-slate-400 hover:text-slate-200",
-									)}
-								>
-									{t("exportQuality.medium")}
-								</button>
-								<button
-									onClick={() => onExportQualityChange?.("source")}
-									className={cn(
-										"rounded-md transition-all text-[10px] font-medium",
-										exportQuality === "source"
-											? "bg-white text-black"
-											: "text-slate-400 hover:text-slate-200",
-									)}
-								>
-									{t("exportQuality.high")}
-								</button>
+							<div className="mb-3 space-y-1.5">
+								{sourceDimensions && (
+									<div className="flex items-center justify-between px-0.5 text-[10px] leading-none text-slate-500">
+										<span>{t("exportQuality.title")}</span>
+										<span>
+											Source {sourceDimensions.width}x{sourceDimensions.height}
+										</span>
+									</div>
+								)}
+								<div className="bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 h-9 rounded-lg">
+									<button
+										onClick={() => onExportQualityChange?.("medium")}
+										className={cn(
+											"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
+											exportQuality === "medium"
+												? "bg-white text-black"
+												: "text-slate-400 hover:text-slate-200",
+										)}
+									>
+										<span>{t("exportQuality.low")}</span>
+										{sourceDimensions &&
+											sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.medium && (
+												<span
+													className={cn(
+														"text-[8px] font-medium",
+														exportQuality === "medium" ? "text-black/55" : "text-amber-300/80",
+													)}
+												>
+													Upscale
+												</span>
+											)}
+									</button>
+									<button
+										onClick={() => onExportQualityChange?.("good")}
+										className={cn(
+											"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
+											exportQuality === "good"
+												? "bg-white text-black"
+												: "text-slate-400 hover:text-slate-200",
+										)}
+									>
+										<span>{t("exportQuality.medium")}</span>
+										{sourceDimensions &&
+											sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.good && (
+												<span
+													className={cn(
+														"text-[8px] font-medium",
+														exportQuality === "good" ? "text-black/55" : "text-amber-300/80",
+													)}
+												>
+													Upscale
+												</span>
+											)}
+									</button>
+									<button
+										onClick={() => onExportQualityChange?.("source")}
+										className={cn(
+											"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
+											exportQuality === "source"
+												? "bg-white text-black"
+												: "text-slate-400 hover:text-slate-200",
+										)}
+									>
+										<span>{t("exportQuality.high")}</span>
+										{sourceDimensions && (
+											<span
+												className={cn(
+													"text-[8px] font-medium",
+													exportQuality === "source" ? "text-black/55" : "text-slate-500",
+												)}
+											>
+												{sourceDimensions.shortSide}p
+											</span>
+										)}
+									</button>
+								</div>
 							</div>
 						)}
 

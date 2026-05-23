@@ -54,20 +54,7 @@
 		"on": "on",
 		"shadow": "Shadow",
 		"roundness": "Roundness",
-		"padding": "Padding",
-		"cursorHighlight": {
-			"title": "Cursor highlight",
-			"style": "Style",
-			"dot": "Dot",
-			"ring": "Ring",
-			"size": "Size",
-			"onlyOnClicks": "Only on clicks",
-			"color": "Color",
-			"offsetX": "Offset X (window recordings)",
-			"offsetY": "Offset Y",
-			"accessibilityPermissionTitle": "Accessibility permission needed",
-			"accessibilityPermissionDescription": "Open System Settings → Privacy & Security → Accessibility, enable Openscreen, then restart the app."
-		}
+		"padding": "Padding"
 	},
 	"background": {
 		"title": "Background",
@@ -98,10 +85,10 @@
 		"gifDescription": "Animated image for sharing"
 	},
 	"exportQuality": {
-		"title": "Export Quality",
-		"low": "Low",
-		"medium": "Medium",
-		"high": "High"
+		"title": "Export resolution",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF Frame Rate",
@@ -117,8 +104,9 @@
 		"gifButton": "Export GIF",
 		"chooseSaveLocation": "Choose Save Location"
 	},
-	"links": {
+	"support": {
 		"reportBug": "Report Bug",
+		"saveDiagnostics": "Save Diagnostics",
 		"starOnGithub": "Star on GitHub"
 	},
 	"imageUpload": {
@@ -203,6 +191,14 @@
 		"failedToAdd": "Failed to add font",
 		"errorTimeout": "Font took too long to load. Please check the URL and try again.",
 		"errorLoadFailed": "The font could not be loaded. Please verify the Google Fonts URL is correct."
+	},
+	"cursor": {
+		"show": "Show Cursor",
+		"size": "Size",
+		"smoothing": "Smoothing",
+		"motionBlur": "Motion Blur",
+		"clickBounce": "Click Bounce",
+		"clipToBounds": "Clip to Canvas"
 	},
 	"language": {
 		"title": "Language"

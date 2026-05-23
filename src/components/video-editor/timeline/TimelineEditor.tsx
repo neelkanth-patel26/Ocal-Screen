@@ -51,6 +51,7 @@ const SUGGESTION_SPACING_MS = 1800;
 
 interface TimelineEditorProps {
 	videoDuration: number;
+	hasVideoSource?: boolean;
 	currentTime: number;
 	onSeek?: (time: number) => void;
 	cursorTelemetry?: CursorTelemetryPoint[];
@@ -234,6 +235,31 @@ function formatPlayheadTime(ms: number): string {
 	const sec = s % 60;
 	if (min > 0) return `${min}:${sec.toFixed(1).padStart(4, "0")}`;
 	return `${sec.toFixed(1)}s`;
+}
+
+function shouldStartTimelineScrub(target: EventTarget | null, timelineElement: HTMLElement) {
+	if (!(target instanceof HTMLElement)) {
+		return false;
+	}
+
+	for (let element: HTMLElement | null = target; element && element !== timelineElement; ) {
+		const className = element.className;
+		const classText = typeof className === "string" ? className : "";
+
+		if (
+			classText.split(/\s+/).includes("group") ||
+			classText.includes("cursor-grab") ||
+			classText.includes("cursor-grabbing") ||
+			classText.includes("cursor-ew-resize") ||
+			element.style.cursor === "col-resize"
+		) {
+			return false;
+		}
+
+		element = element.parentElement;
+	}
+
+	return true;
 }
 
 function PlaybackCursor({
@@ -562,6 +588,8 @@ function Timeline({
 	const t = useScopedT("timeline");
 	const { setTimelineRef, style, sidebarWidth, range, pixelsToValue } = useTimelineContext();
 	const localTimelineRef = useRef<HTMLDivElement | null>(null);
+	const isScrubbingTimelineRef = useRef(false);
+	const scrubPointerIdRef = useRef<number | null>(null);
 
 	const setRefs = useCallback(
 		(node: HTMLDivElement | null) => {
@@ -571,42 +599,104 @@ function Timeline({
 		[setTimelineRef],
 	);
 
-	const handleTimelineClick = useCallback(
-		(e: React.MouseEvent<HTMLDivElement>) => {
-			if (!onSeek || videoDurationMs <= 0) return;
+	const seekTimelineAtClientX = useCallback(
+		(timelineElement: HTMLDivElement, clientX: number) => {
+			if (!onSeek || videoDurationMs <= 0) return false;
 
-			// Only clear selection if clicking on empty space (not on items)
-			// This is handled by event propagation - items stop propagation
-			onSelectZoom?.(null);
-			onSelectTrim?.(null);
-			onSelectAnnotation?.(null);
-			onSelectBlur?.(null);
-			onSelectSpeed?.(null);
+			const rect = timelineElement.getBoundingClientRect();
+			const clickX = clientX - rect.left - sidebarWidth;
 
-			const rect = e.currentTarget.getBoundingClientRect();
-			const clickX = e.clientX - rect.left - sidebarWidth;
-
-			if (clickX < 0) return;
+			if (clickX < 0) return false;
 
 			const relativeMs = pixelsToValue(clickX);
 			const absoluteMs = Math.max(0, Math.min(range.start + relativeMs, videoDurationMs));
-			const timeInSeconds = absoluteMs / 1000;
 
-			onSeek(timeInSeconds);
+			onSeek(absoluteMs / 1000);
+			return true;
 		},
-		[
-			onSeek,
-			onSelectZoom,
-			onSelectTrim,
-			onSelectAnnotation,
-			onSelectBlur,
-			onSelectSpeed,
-			videoDurationMs,
-			sidebarWidth,
-			range.start,
-			pixelsToValue,
-		],
+		[onSeek, videoDurationMs, sidebarWidth, pixelsToValue, range.start],
 	);
+
+	const clearTimelineSelection = useCallback(() => {
+		onSelectZoom?.(null);
+		onSelectTrim?.(null);
+		onSelectAnnotation?.(null);
+		onSelectBlur?.(null);
+		onSelectSpeed?.(null);
+	}, [onSelectZoom, onSelectTrim, onSelectAnnotation, onSelectBlur, onSelectSpeed]);
+
+	const handleTimelineClick = useCallback(
+		(e: React.MouseEvent<HTMLDivElement>) => {
+			// Only clear selection if clicking on empty space (not on items)
+			// This is handled by event propagation - items stop propagation
+			clearTimelineSelection();
+			seekTimelineAtClientX(e.currentTarget, e.clientX);
+		},
+		[clearTimelineSelection, seekTimelineAtClientX],
+	);
+
+	const handleTimelinePointerDown = useCallback(
+		(e: React.PointerEvent<HTMLDivElement>) => {
+			if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) {
+				return;
+			}
+
+			if (!shouldStartTimelineScrub(e.target, e.currentTarget)) {
+				return;
+			}
+
+			if (!seekTimelineAtClientX(e.currentTarget, e.clientX)) {
+				return;
+			}
+
+			clearTimelineSelection();
+			isScrubbingTimelineRef.current = true;
+			scrubPointerIdRef.current = e.pointerId;
+			e.currentTarget.setPointerCapture(e.pointerId);
+			e.preventDefault();
+		},
+		[clearTimelineSelection, seekTimelineAtClientX],
+	);
+
+	const handleTimelinePointerMove = useCallback(
+		(e: React.PointerEvent<HTMLDivElement>) => {
+			if (!isScrubbingTimelineRef.current || scrubPointerIdRef.current !== e.pointerId) {
+				return;
+			}
+
+			seekTimelineAtClientX(e.currentTarget, e.clientX);
+			e.preventDefault();
+		},
+		[seekTimelineAtClientX],
+	);
+
+	const stopTimelineScrub = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+		if (!isScrubbingTimelineRef.current || scrubPointerIdRef.current !== e.pointerId) {
+			return;
+		}
+
+		isScrubbingTimelineRef.current = false;
+		scrubPointerIdRef.current = null;
+		if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+			e.currentTarget.releasePointerCapture(e.pointerId);
+		}
+	}, []);
+
+	const handleTimelinePointerLeave = useCallback(
+		(e: React.PointerEvent<HTMLDivElement>) => {
+			if (isScrubbingTimelineRef.current && scrubPointerIdRef.current === e.pointerId) {
+				seekTimelineAtClientX(e.currentTarget, e.clientX);
+			}
+		},
+		[seekTimelineAtClientX],
+	);
+
+	const handleTimelineLostPointerCapture = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+		if (scrubPointerIdRef.current === e.pointerId) {
+			isScrubbingTimelineRef.current = false;
+			scrubPointerIdRef.current = null;
+		}
+	}, []);
 
 	const handleTimelineWheel = useCallback(
 		(event: React.WheelEvent<HTMLDivElement>) => {
@@ -657,9 +747,15 @@ function Timeline({
 	return (
 		<div
 			ref={setRefs}
-			style={style}
+			style={{ ...style, touchAction: "none" }}
 			className="select-none bg-[#0b0c0f] min-h-[190px] relative cursor-pointer group"
 			onClick={handleTimelineClick}
+			onPointerDown={handleTimelinePointerDown}
+			onPointerMove={handleTimelinePointerMove}
+			onPointerUp={stopTimelineScrub}
+			onPointerCancel={stopTimelineScrub}
+			onPointerLeave={handleTimelinePointerLeave}
+			onLostPointerCapture={handleTimelineLostPointerCapture}
 			onWheel={handleTimelineWheel}
 		>
 			<div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px)] bg-[length:24px_100%] pointer-events-none" />
@@ -766,6 +862,7 @@ function Timeline({
 
 export default function TimelineEditor({
 	videoDuration,
+	hasVideoSource = false,
 	currentTime,
 	onSeek,
 	cursorTelemetry = [],
@@ -1439,8 +1536,14 @@ export default function TimelineEditor({
 					<Plus className="w-6 h-6 text-slate-600" />
 				</div>
 				<div className="text-center">
-					<p className="text-sm font-medium text-slate-300">{t("emptyState.noVideo")}</p>
-					<p className="text-xs text-slate-500 mt-1">{t("emptyState.dragAndDrop")}</p>
+					<p className="text-sm font-medium text-slate-300">
+						{hasVideoSource ? "Loading Timeline" : "No Video Loaded"}
+					</p>
+					<p className="text-xs text-slate-500 mt-1">
+						{hasVideoSource
+							? "Video opened, waiting for duration metadata"
+							: "Drag and drop a video to start editing"}
+					</p>
 				</div>
 			</div>
 		);
