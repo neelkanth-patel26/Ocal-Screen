@@ -35,10 +35,10 @@ import type {
 	ZoomFocus,
 	ZoomRegion,
 } from "../types";
+import BackgroundWaveform from "./BackgroundWaveform";
 import Item from "./Item";
 import KeyframeMarkers from "./KeyframeMarkers";
 import Row from "./Row";
-import RowWaveform from "./RowWaveform";
 import TimelineWrapper from "./TimelineWrapper";
 import { detectZoomDwellCandidates, normalizeCursorTelemetry } from "./zoomSuggestionUtils";
 
@@ -803,7 +803,7 @@ function Timeline({
 				hint={t("hints.pressTrim")}
 				background={
 					showTrimWaveform ? (
-						<RowWaveform peaks={peaks} videoDurationMs={videoDurationMs} />
+						<BackgroundWaveform peaks={peaks} videoDurationMs={videoDurationMs} />
 					) : undefined
 				}
 			>
