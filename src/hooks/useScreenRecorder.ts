@@ -989,8 +989,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					enabled: webcamEnabled,
 					deviceId: webcamDeviceId,
 					deviceName: webcamDeviceName,
-					width: WEBCAM_TARGET_WIDTH,
-					height: WEBCAM_TARGET_HEIGHT,
+					width: 0,
+					height: 0,
 					fps: WEBCAM_TARGET_FRAME_RATE,
 				},
 				cursor: {
