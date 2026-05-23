@@ -82,6 +82,7 @@ type RecorderHandle = {
 type NativeWindowsRecordingHandle = {
 	recordingId: number;
 	finalizing: boolean;
+	paused: boolean;
 	webcamRecorder: RecorderHandle | null;
 };
 
@@ -148,9 +149,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const webcamAcquireId = useRef(0);
 	const canPauseRecording =
 		recording &&
-		!nativeWindowsRecording.current &&
 		Boolean(
-			(nativeMacRecording.current && !nativeMacRecording.current.finalizing) ||
+			(nativeWindowsRecording.current && !nativeWindowsRecording.current.finalizing) ||
+				(nativeMacRecording.current && !nativeMacRecording.current.finalizing) ||
 				(screenRecorder.current && screenRecorder.current.recorder.state !== "inactive"),
 		);
 
@@ -875,6 +876,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			nativeWindowsRecording.current = {
 				recordingId: result.recordingId,
 				finalizing: false,
+				paused: false,
 				webcamRecorder: browserWebcamRecorder,
 			};
 			webcamRecorder.current = browserWebcamRecorder;
@@ -1403,6 +1405,39 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	};
 
 	const togglePaused = () => {
+		const activeNativeWindowsRecording = nativeWindowsRecording.current;
+		if (activeNativeWindowsRecording && !activeNativeWindowsRecording.finalizing) {
+			void (async () => {
+				try {
+					if (activeNativeWindowsRecording.paused) {
+						const result = await window.electronAPI.resumeNativeWindowsRecording();
+						if (!result.success) {
+							throw new Error(result.error ?? "Failed to resume native Windows recording");
+						}
+						activeNativeWindowsRecording.paused = false;
+						segmentStartedAt.current = Date.now();
+						setPaused(false);
+						return;
+					}
+
+					const pausedAtMs = getRecordingDurationMs();
+					const result = await window.electronAPI.pauseNativeWindowsRecording();
+					if (!result.success) {
+						throw new Error(result.error ?? "Failed to pause native Windows recording");
+					}
+					activeNativeWindowsRecording.paused = true;
+					accumulatedDurationMs.current = pausedAtMs;
+					segmentStartedAt.current = null;
+					setElapsedSeconds(Math.floor(accumulatedDurationMs.current / 1000));
+					setPaused(true);
+				} catch (error) {
+					console.error("Failed to toggle native Windows pause state:", error);
+					toast.error(error instanceof Error ? error.message : "Failed to toggle pause state");
+				}
+			})();
+			return;
+		}
+
 		const activeNativeMacRecording = nativeMacRecording.current;
 		if (activeNativeMacRecording && !activeNativeMacRecording.finalizing) {
 			void (async () => {
