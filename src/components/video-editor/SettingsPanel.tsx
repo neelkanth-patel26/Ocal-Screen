@@ -1,6 +1,6 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import {
-	AudioWaveform,
+	Brackets,
 	Bug,
 	Crop,
 	Download,
@@ -608,7 +608,7 @@ export function SettingsPanel({
 		{ id: "background", label: t("background.title"), icon: Palette },
 		{ id: "effects", label: t("effects.title"), icon: SlidersHorizontal },
 		{ id: "layout", label: t("layout.title"), icon: LayoutPanelTop, disabled: !hasWebcam },
-		{ id: "timeline", label: "Timeline", icon: AudioWaveform },
+		{ id: "timeline", label: "Timeline", icon: Brackets },
 		...(hasCursorPanel
 			? [
 					{
@@ -1708,20 +1708,20 @@ export function SettingsPanel({
 								<AccordionItem value="timeline" className="editor-panel-section px-3">
 									<AccordionTrigger className="py-2.5 hover:no-underline">
 										<div className="flex items-center gap-2">
-											<AudioWaveform className="w-4 h-4 text-[#34B27B]" />
+											<Brackets className="w-4 h-4 text-[#34B27B]" />
 											<span className="text-xs font-medium">Timeline</span>
 										</div>
 									</AccordionTrigger>
 									<AccordionContent className="pb-3">
-										<div className="grid grid-cols-2 gap-2">
-											<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
-												<div className="text-[10px] font-medium text-slate-300">Waveform</div>
-												<Switch
-													checked={showTrimWaveform}
-													onCheckedChange={onTrimWaveformChange}
-													className="data-[state=checked]:bg-[#34B27B] scale-90"
-												/>
+										<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
+											<div className="text-[10px] font-medium text-slate-300">
+												Show Audio Waveform on Trim Track
 											</div>
+											<Switch
+												checked={showTrimWaveform}
+												onCheckedChange={onTrimWaveformChange}
+												className="data-[state=checked]:bg-[#34B27B] scale-90 ml-2 shrink-0"
+											/>
 										</div>
 									</AccordionContent>
 								</AccordionItem>
