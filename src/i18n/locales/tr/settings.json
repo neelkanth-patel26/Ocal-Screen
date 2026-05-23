@@ -1,5 +1,6 @@
 {
 	"zoom": {
+		"previewHold": "Yakınlaştırma efektini önizlemek için basılı tutun",
 		"level": "Yakınlaştırma Seviyesi",
 		"selectRegion": "Ayarlamak için bir yakınlaştırma bölgesi seçin",
 		"deleteZoom": "Yakınlaştırmayı Sil",
