@@ -180,6 +180,7 @@ export class StreamingVideoDecoder {
 	private cancelled = false;
 	private metadata: DecodedVideoInfo | null = null;
 
+	/** Loads the video file and returns it as both a Blob and a File for WebDemuxer. */
 	private async loadSourceFile(videoUrl: string): Promise<{ file: File; blob: Blob }> {
 		const buffer = await this.withTimeout(
 			loadFileAsArrayBuffer(videoUrl),
@@ -616,6 +617,10 @@ export class StreamingVideoDecoder {
 		}
 	}
 
+	/**
+	 * Converts trim regions into the segments that should be kept.
+	 * Returns a single full-duration segment when no trim regions are present.
+	 */
 	private computeSegments(
 		totalDuration: number,
 		trimRegions?: TrimRegion[],
@@ -644,6 +649,11 @@ export class StreamingVideoDecoder {
 		return segments;
 	}
 
+	/**
+	 * Calculates the effective output duration (in seconds) and total frame count
+	 * for a given combination of trim and speed regions at the target frame rate.
+	 * Requires `loadMetadata()` to have been called first.
+	 */
 	getExportMetrics(
 		targetFrameRate: number,
 		trimRegions?: TrimRegion[],
@@ -664,6 +674,10 @@ export class StreamingVideoDecoder {
 		};
 	}
 
+	/**
+	 * Splits keep-segments by overlapping speed regions, annotating each
+	 * sub-segment with its playback speed multiplier (defaults to 1×).
+	 */
 	private splitBySpeed(
 		segments: Array<{ startSec: number; endSec: number }>,
 		speedRegions?: SpeedRegion[],
@@ -696,14 +710,17 @@ export class StreamingVideoDecoder {
 		return result.filter((s) => s.endSec - s.startSec > 0.0001);
 	}
 
+	/** Returns the underlying WebDemuxer instance, or null if not yet loaded. */
 	getDemuxer(): WebDemuxer | null {
 		return this.demuxer;
 	}
 
+	/** Signals the decoder to stop processing at the next cancellation checkpoint. */
 	cancel(): void {
 		this.cancelled = true;
 	}
 
+	/** Cancels decoding and releases the VideoDecoder and WebDemuxer resources. */
 	destroy(): void {
 		this.cancelled = true;
 
@@ -726,6 +743,7 @@ export class StreamingVideoDecoder {
 		}
 	}
 
+	/** Wraps a promise with a hard timeout, rejecting with `message` if it exceeds `timeoutMs`. */
 	private withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
 		return new Promise<T>((resolve, reject) => {
 			const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadFileAsArrayBuffer } from "@/lib/exporter/streamingDecoder";
 
 let _audioCtx: AudioContext | null = null;
+/** Returns the shared AudioContext, creating it lazily on first call. */
 function getAudioCtx(): AudioContext {
 	if (!_audioCtx) _audioCtx = new AudioContext();
 	return _audioCtx;
