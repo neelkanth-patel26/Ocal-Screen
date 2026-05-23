@@ -53,6 +53,7 @@ import ColorPicker from "../ui/color-picker";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { CropControl } from "./CropControl";
+import { parseCustomPlaybackSpeedInput } from "./customPlaybackSpeed";
 import {
 	DEFAULT_CURSOR_SETTINGS,
 	DEFAULT_EDITOR_LAYOUT_SETTINGS,
@@ -61,7 +62,6 @@ import {
 	DEFAULT_SOURCE_DIMENSIONS,
 	DEFAULT_WEBCAM_SETTINGS,
 } from "./editorDefaults";
-import { parseCustomPlaybackSpeedInput } from "./customPlaybackSpeed";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
@@ -79,8 +79,6 @@ import type {
 	ZoomFocusMode,
 } from "./types";
 import {
-	MAX_PLAYBACK_SPEED,
-	DEFAULT_WEBCAM_SIZE_PRESET,
 	MAX_ZOOM_SCALE,
 	MIN_ZOOM_SCALE,
 	ROTATION_3D_PRESET_ORDER,
