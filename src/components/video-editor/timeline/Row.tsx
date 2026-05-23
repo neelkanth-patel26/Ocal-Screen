@@ -19,7 +19,7 @@ export default function Row({ id, children, hint, isEmpty, background }: RowProp
 			{background}
 			{isEmpty && hint && (
 				<div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10">
-					<span className="text-[11px] text-white/[0.25] font-medium">{hint}</span>
+					<span className="text-[11px] text-white/[0.12] font-medium">{hint}</span>
 				</div>
 			)}
 			<div ref={setNodeRef} style={rowStyle}>
