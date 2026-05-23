@@ -346,7 +346,7 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 	{ depth: 6, label: "5×" },
 ];
 
-type SettingsPanelMode = "background" | "effects" | "layout" | "cursor" | "export";
+type SettingsPanelMode = "background" | "effects" | "layout" | "cursor" | "export" | "timeline";
 
 const MP4_EXPORT_SHORT_SIDES = {
 	medium: 720,
@@ -392,7 +392,7 @@ export function SettingsPanel({
 	onShadowCommit,
 	showBlur,
 	onBlurChange,
-	showTrimWaveform = true,
+	showTrimWaveform = false,
 	onTrimWaveformChange,
 	motionBlurAmount = 0,
 	onMotionBlurChange,
@@ -608,6 +608,7 @@ export function SettingsPanel({
 		{ id: "background", label: t("background.title"), icon: Palette },
 		{ id: "effects", label: t("effects.title"), icon: SlidersHorizontal },
 		{ id: "layout", label: t("layout.title"), icon: LayoutPanelTop, disabled: !hasWebcam },
+		{ id: "timeline", label: "Timeline", icon: AudioWaveform },
 		...(hasCursorPanel
 			? [
 					{
@@ -629,8 +630,10 @@ export function SettingsPanel({
 			: selectedSpeedId
 				? t("speed.playbackSpeed")
 				: t("trim.deleteRegion")
-		: ([...panelModes, exportPanelMode].find((mode) => mode.id === activePanelMode)?.label ??
-			t("background.title"));
+		: activePanelMode === "timeline"
+			? "Timeline"
+			: ([...panelModes, exportPanelMode].find((mode) => mode.id === activePanelMode)?.label ??
+				t("background.title"));
 
 	const handleDeleteClick = () => {
 		if (selectedZoomId && onZoomDelete) {
@@ -1183,11 +1186,7 @@ export function SettingsPanel({
 					)}
 
 					{!hasTimelineSelection && (
-						<Accordion
-							type="multiple"
-							value={[activePanelMode, "timeline-settings"]}
-							className="space-y-2"
-						>
+						<Accordion type="multiple" value={[activePanelMode]} className="space-y-2">
 							{hasWebcam && activePanelMode === "layout" && (
 								<AccordionItem value="layout" className="editor-panel-section px-3">
 									<AccordionTrigger className="py-2.5 hover:no-underline">
@@ -1705,27 +1704,28 @@ export function SettingsPanel({
 									</AccordionContent>
 								</AccordionItem>
 							)}
-							{/* Timeline Settings — always visible regardless of active panel mode */}
-							<AccordionItem value="timeline-settings" className="editor-panel-section px-3">
-								<AccordionTrigger className="py-2.5 hover:no-underline">
-									<div className="flex items-center gap-2">
-										<AudioWaveform className="w-4 h-4 text-[#34B27B]" />
-										<span className="text-xs font-medium">Timeline</span>
-									</div>
-								</AccordionTrigger>
-								<AccordionContent className="pb-3">
-									<div className="grid grid-cols-2 gap-2">
-										<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
-											<div className="text-[10px] font-medium text-slate-300">Waveform</div>
-											<Switch
-												checked={showTrimWaveform}
-												onCheckedChange={onTrimWaveformChange}
-												className="data-[state=checked]:bg-[#34B27B] scale-90"
-											/>
+							{activePanelMode === "timeline" && (
+								<AccordionItem value="timeline" className="editor-panel-section px-3">
+									<AccordionTrigger className="py-2.5 hover:no-underline">
+										<div className="flex items-center gap-2">
+											<AudioWaveform className="w-4 h-4 text-[#34B27B]" />
+											<span className="text-xs font-medium">Timeline</span>
 										</div>
-									</div>
-								</AccordionContent>
-							</AccordionItem>
+									</AccordionTrigger>
+									<AccordionContent className="pb-3">
+										<div className="grid grid-cols-2 gap-2">
+											<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
+												<div className="text-[10px] font-medium text-slate-300">Waveform</div>
+												<Switch
+													checked={showTrimWaveform}
+													onCheckedChange={onTrimWaveformChange}
+													className="data-[state=checked]:bg-[#34B27B] scale-90"
+												/>
+											</div>
+										</div>
+									</AccordionContent>
+								</AccordionItem>
+							)}
 						</Accordion>
 					)}
 				</div>

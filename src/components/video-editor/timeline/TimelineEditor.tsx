@@ -37,8 +37,8 @@ import type {
 import Item from "./Item";
 import KeyframeMarkers from "./KeyframeMarkers";
 import Row from "./Row";
-import TimelineWrapper from "./TimelineWrapper";
 import RowWaveform from "./RowWaveform";
+import TimelineWrapper from "./TimelineWrapper";
 import { detectZoomDwellCandidates, normalizeCursorTelemetry } from "./zoomSuggestionUtils";
 
 const ZOOM_ROW_ID = "row-zoom";
@@ -571,7 +571,7 @@ function Timeline({
 	selectedSpeedId,
 	keyframes = [],
 	videoUrl,
-	showTrimWaveform = true,
+	showTrimWaveform = false,
 }: {
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
@@ -799,7 +799,11 @@ function Timeline({
 				id={TRIM_ROW_ID}
 				isEmpty={trimItems.length === 0}
 				hint={t("hints.pressTrim")}
-				background={showTrimWaveform ? <RowWaveform videoUrl={videoUrl} videoDurationMs={videoDurationMs} /> : undefined}
+				background={
+					showTrimWaveform ? (
+						<RowWaveform videoUrl={videoUrl} videoDurationMs={videoDurationMs} />
+					) : undefined
+				}
 			>
 				{trimItems.map((item) => (
 					<Item
@@ -912,7 +916,7 @@ export default function TimelineEditor({
 	aspectRatio,
 	onAspectRatioChange,
 	videoUrl,
-	showTrimWaveform = true,
+	showTrimWaveform = false,
 }: TimelineEditorProps) {
 	const t = useScopedT("timeline");
 	const totalMs = useMemo(() => Math.max(0, Math.round(videoDuration * 1000)), [videoDuration]);
