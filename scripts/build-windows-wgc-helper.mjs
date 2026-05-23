@@ -104,9 +104,19 @@ if (!fs.existsSync(outputPath)) {
 	throw new Error(`WGC helper build completed but ${outputPath} was not found.`);
 }
 
+const cursorSamplerOutputPath = path.join(BUILD_DIR, "cursor-sampler.exe");
+if (!fs.existsSync(cursorSamplerOutputPath)) {
+	throw new Error(`WGC helper build completed but ${cursorSamplerOutputPath} was not found.`);
+}
+
 fs.mkdirSync(BIN_DIR, { recursive: true });
 const distributablePath = path.join(BIN_DIR, "wgc-capture.exe");
 fs.copyFileSync(outputPath, distributablePath);
 
+const cursorSamplerDistributablePath = path.join(BIN_DIR, "cursor-sampler.exe");
+fs.copyFileSync(cursorSamplerOutputPath, cursorSamplerDistributablePath);
+
 console.log(`Built ${outputPath}`);
 console.log(`Copied ${distributablePath}`);
+console.log(`Built ${cursorSamplerOutputPath}`);
+console.log(`Copied ${cursorSamplerDistributablePath}`);

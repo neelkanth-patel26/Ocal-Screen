@@ -53,6 +53,7 @@ import ColorPicker from "../ui/color-picker";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { CropControl } from "./CropControl";
+import { parseCustomPlaybackSpeedInput } from "./customPlaybackSpeed";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
@@ -71,7 +72,6 @@ import type {
 } from "./types";
 import {
 	DEFAULT_WEBCAM_SIZE_PRESET,
-	MAX_PLAYBACK_SPEED,
 	MAX_ZOOM_SCALE,
 	MIN_ZOOM_SCALE,
 	ROTATION_3D_PRESET_ORDER,
@@ -90,37 +90,38 @@ function CustomSpeedInput({
 	onError: () => void;
 }) {
 	const isPreset = SPEED_OPTIONS.some((o) => o.speed === value);
-	const [draft, setDraft] = useState(isPreset ? "" : String(Math.round(value)));
+	const [draft, setDraft] = useState(isPreset ? "" : String(value));
 	const [isFocused, setIsFocused] = useState(false);
 
 	const prevValue = useRef(value);
 	if (!isFocused && prevValue.current !== value) {
 		prevValue.current = value;
-		setDraft(isPreset ? "" : String(Math.round(value)));
+		setDraft(isPreset ? "" : String(value));
 	}
 
 	const handleChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
-			const digits = e.target.value.replace(/\D/g, "");
-			if (digits === "") {
-				setDraft("");
-				return;
-			}
-			const num = Number(digits);
-			if (num > MAX_PLAYBACK_SPEED) {
+			const result = parseCustomPlaybackSpeedInput(e.target.value);
+			if (result.status === "too-fast") {
 				onError();
 				return;
 			}
-			setDraft(digits);
-			if (num >= 1) onChange(num);
+
+			setDraft(result.draft);
+			if (result.status === "valid") {
+				onChange(result.speed);
+			}
 		},
 		[onChange, onError],
 	);
 
 	const handleBlur = useCallback(() => {
 		setIsFocused(false);
-		if (!draft || Number(draft) < 1) {
-			setDraft(isPreset ? "" : String(Math.round(value)));
+		const result = parseCustomPlaybackSpeedInput(draft);
+		if (result.status === "valid") {
+			setDraft(String(result.speed));
+		} else {
+			setDraft(isPreset ? "" : String(value));
 		}
 	}, [draft, isPreset, value]);
 
@@ -128,8 +129,8 @@ function CustomSpeedInput({
 		<div className="flex items-center gap-1">
 			<input
 				type="text"
-				inputMode="numeric"
-				pattern="[0-9]*"
+				inputMode="decimal"
+				pattern="[0-9]*[.]?[0-9]*"
 				placeholder="--"
 				value={draft}
 				onFocus={() => setIsFocused(true)}
@@ -696,7 +697,7 @@ export function SettingsPanel({
 				className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
 			>
 				<Bug className="w-3 h-3 text-[#34B27B]" />
-				{t("links.reportBug")}
+				{t("support.reportBug")}
 			</button>
 			{onSaveDiagnostic && (
 				<button
@@ -705,7 +706,7 @@ export function SettingsPanel({
 					className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
 				>
 					<FileDown className="w-3 h-3 text-slate-400" />
-					Save Diagnostics
+					{t("support.saveDiagnostics")}
 				</button>
 			)}
 			<button
@@ -716,7 +717,7 @@ export function SettingsPanel({
 				className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
 			>
 				<Star className="w-3 h-3 text-yellow-400" />
-				{t("links.starOnGithub")}
+				{t("support.starOnGithub")}
 			</button>
 		</div>
 	);
@@ -812,6 +813,7 @@ export function SettingsPanel({
 						<Crop className="h-4 w-4" />
 					</button>
 					<button
+						data-testid={getTestId("export-panel-button")}
 						type="button"
 						title={exportPanelMode.label}
 						onClick={() => setActivePanelMode(exportPanelMode.id)}
@@ -1821,6 +1823,7 @@ export function SettingsPanel({
 					<>
 						<div className="flex items-center gap-2 mb-3">
 							<button
+								data-testid={getTestId("mp4-format-button")}
 								onClick={() => onExportFormatChange?.("mp4")}
 								className={cn(
 									"flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all text-xs font-medium",

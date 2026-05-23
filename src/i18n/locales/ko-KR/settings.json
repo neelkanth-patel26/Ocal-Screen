@@ -2,6 +2,7 @@
 	"zoom": {
 		"previewHold": "누르고 있으면 줌 효과 미리보기",
 		"level": "줌 레벨",
+		"customScale": "커스텀 줌",
 		"selectRegion": "조정할 줌 구간을 선택하세요",
 		"deleteZoom": "줌 삭제",
 		"focusMode": {
@@ -18,9 +19,8 @@
 				"right": "오른쪽"
 			}
 		},
-		"customScale": "사용자 지정 확대",
 		"position": {
-			"title": "초점 위치",
+			"title": "포커스 위치",
 			"x": "X (%)",
 			"y": "Y (%)",
 			"hint": "0 = 가장 왼쪽 / 위쪽, 100 = 가장 오른쪽 / 아래쪽"
@@ -52,10 +52,10 @@
 		"blurBg": "배경 흐림",
 		"motionBlur": "모션 블러",
 		"off": "끄기",
+		"on": "켜기",
 		"shadow": "그림자",
 		"roundness": "모서리 둥글기",
-		"padding": "여백",
-		"on": "켜짐"
+		"padding": "여백"
 	},
 	"background": {
 		"title": "배경",
@@ -105,8 +105,9 @@
 		"gifButton": "GIF 내보내기",
 		"chooseSaveLocation": "저장 위치 선택"
 	},
-	"links": {
+	"support": {
 		"reportBug": "버그 신고",
+		"saveDiagnostics": "Save Diagnostics",
 		"starOnGithub": "GitHub에 Star 남기기"
 	},
 	"imageUpload": {

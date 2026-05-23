@@ -865,11 +865,10 @@ export default function VideoEditor() {
 				customScale: ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH],
 				focus: clampFocusToDepth(focus, DEFAULT_ZOOM_DEPTH),
 			};
+			// Bulk suggest must not steal selection — keeping a zoom selected hides
+			// the export panel (SettingsPanel gates it on !hasTimelineSelection),
+			// trapping users who just want to export after auto-zoom.
 			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
-			setSelectedZoomId(id);
-			setSelectedTrimId(null);
-			setSelectedAnnotationId(null);
-			setSelectedBlurId(null);
 		},
 		[pushState],
 	);

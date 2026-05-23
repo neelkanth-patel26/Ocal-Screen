@@ -105,8 +105,9 @@
 		"gifButton": "导出 GIF",
 		"chooseSaveLocation": "选择保存位置"
 	},
-	"links": {
+	"support": {
 		"reportBug": "报告错误",
+		"saveDiagnostics": "保存诊断信息",
 		"starOnGithub": "在 GitHub 上加星"
 	},
 	"imageUpload": {
