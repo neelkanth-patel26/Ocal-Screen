@@ -29,6 +29,8 @@ export interface UserPreferences {
 	exportFormat: ExportFormat;
 	/** Folder used for the most recent successful export, if any */
 	exportFolder: string | null;
+	/** Recording HUD control layout */
+	trayLayout: "horizontal" | "vertical";
 }
 
 export const DEFAULT_PREFS: UserPreferences = {
@@ -37,6 +39,7 @@ export const DEFAULT_PREFS: UserPreferences = {
 	exportQuality: DEFAULT_EXPORT_SETTINGS.quality,
 	exportFormat: DEFAULT_EXPORT_SETTINGS.format,
 	exportFolder: null,
+	trayLayout: "horizontal",
 };
 
 function safeJsonParse(text: string | null): Record<string, unknown> | null {
@@ -87,6 +90,10 @@ export function loadUserPreferences(): UserPreferences {
 			typeof raw.exportFolder === "string" && raw.exportFolder.length > 0
 				? raw.exportFolder
 				: DEFAULT_PREFS.exportFolder,
+		trayLayout:
+			raw.trayLayout === "horizontal" || raw.trayLayout === "vertical"
+				? raw.trayLayout
+				: DEFAULT_PREFS.trayLayout,
 	};
 }
 
