@@ -113,7 +113,7 @@
 	},
 	"imageUpload": {
 		"invalidFileType": "Type de fichier invalide",
-		"jpgOnly": "Veuillez téléverser un fichier image JPG ou JPEG.",
+		"jpgOnly": "Veuillez téléverser un fichier image JPG, JPEG ou PNG.",
 		"uploadSuccess": "Image personnalisée téléversée avec succès !",
 		"failedToUpload": "Échec du téléversement de l'image",
 		"errorReading": "Une erreur s'est produite lors de la lecture du fichier."

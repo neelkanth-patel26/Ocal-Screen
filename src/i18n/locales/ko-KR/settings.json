@@ -112,7 +112,7 @@
 	},
 	"imageUpload": {
 		"invalidFileType": "지원하지 않는 파일 형식입니다",
-		"jpgOnly": "JPG 또는 JPEG 이미지 파일을 업로드해 주세요.",
+		"jpgOnly": "JPG, JPEG 또는 PNG 이미지 파일을 업로드해 주세요.",
 		"uploadSuccess": "커스텀 이미지가 성공적으로 업로드되었습니다!",
 		"failedToUpload": "이미지 업로드에 실패했습니다",
 		"errorReading": "파일을 읽는 중 오류가 발생했습니다."

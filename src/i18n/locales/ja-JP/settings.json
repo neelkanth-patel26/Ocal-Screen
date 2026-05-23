@@ -112,7 +112,7 @@
 	},
 	"imageUpload": {
 		"invalidFileType": "無効なファイル形式",
-		"jpgOnly": "JPG または JPEG 画像ファイルを選択してください。",
+		"jpgOnly": "JPG、PNG、GIF、またはWebP画像ファイルを選択してください。",
 		"uploadSuccess": "カスタム画像を読み込みました。",
 		"failedToUpload": "画像の読み込みに失敗しました",
 		"errorReading": "ファイルの読み取り中にエラーが発生しました。"
