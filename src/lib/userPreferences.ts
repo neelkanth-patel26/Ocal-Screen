@@ -42,6 +42,7 @@ export const DEFAULT_PREFS: UserPreferences = {
 	trayLayout: "horizontal",
 };
 
+/** Parses stored preferences without throwing on malformed JSON. */
 function safeJsonParse(text: string | null): Record<string, unknown> | null {
 	if (!text) return null;
 	try {

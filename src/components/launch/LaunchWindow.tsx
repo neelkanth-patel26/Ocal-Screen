@@ -60,6 +60,7 @@ const ICON_CONFIG = {
 
 type IconName = keyof typeof ICON_CONFIG;
 
+/** Renders the configured icon for a HUD control. */
 function getIcon(name: IconName, className?: string) {
 	const { icon: Icon, size } = ICON_CONFIG[name];
 	return <Icon size={size} className={className} />;
@@ -81,6 +82,7 @@ const hudSidebarClasses = "ml-0.5 pl-1.5 border-l border-white/10 flex items-cen
 const hudSidebarVerticalClasses =
 	"mt-0.5 pt-1.5 border-t border-white/10 flex flex-col items-center gap-0.5";
 
+/** Launches the floating recording HUD and its recorder controls. */
 export function LaunchWindow() {
 	const t = useScopedT("launch");
 	const availableLocales = getAvailableLocales();
@@ -371,6 +373,7 @@ export function LaunchWindow() {
 			window.electronAPI.hudOverlayClose();
 		}
 	};
+	/** Switches the HUD between horizontal and vertical tray layouts. */
 	const toggleTrayLayout = () => {
 		const nextLayout = trayLayout === "horizontal" ? "vertical" : "horizontal";
 		setTrayLayout(nextLayout);
