@@ -503,9 +503,7 @@ export class StreamingVideoDecoder {
 				segment.startSec + (segmentFrameIndex / targetFrameRate) * segment.speed;
 			if (sourceTimeSec >= segment.endSec - EPSILON_SEC) return false;
 
-			const clone = new VideoFrame(heldFrame, {
-				timestamp: heldFrame.timestamp,
-			});
+			const clone = new VideoFrame(heldFrame, { timestamp: heldFrame.timestamp });
 			await onFrame(clone, exportFrameIndex * frameDurationUs, sourceTimeSec * 1000);
 			segmentFrameIndex++;
 			exportFrameIndex++;
@@ -577,9 +575,7 @@ export class StreamingVideoDecoder {
 					break;
 				}
 
-				const clone = new VideoFrame(heldFrame, {
-					timestamp: heldFrame.timestamp,
-				});
+				const clone = new VideoFrame(heldFrame, { timestamp: heldFrame.timestamp });
 				await onFrame(clone, exportFrameIndex * frameDurationUs, sourceTimeSec * 1000);
 				segmentFrameIndex++;
 				exportFrameIndex++;
