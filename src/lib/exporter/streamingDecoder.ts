@@ -161,36 +161,24 @@ export function shouldFailDecodeEndedEarly({
 }
 
 /**
- * Loads a video file as an ArrayBuffer, using the Electron IPC bridge for
- * local paths and falling back to `fetch` for remote / blob / data URLs.
- * Also returns the `contentType` from the response headers (empty string for
- * local IPC reads where no Content-Type is available).
- * This is the single canonical place for reading raw video bytes in the renderer.
+ * Loads a video file as an ArrayBuffer, delegating to
+ * `StreamingVideoDecoder.loadLocalSourceFile` for local paths (Electron IPC)
+ * and `StreamingVideoDecoder.loadRemoteSourceFile` for remote / blob / data URLs.
+ * Also returns the `contentType` derived from the blob (empty string for local
+ * IPC reads where no Content-Type is available).
  */
 export async function loadFileAsArrayBuffer(
 	videoUrl: string,
 ): Promise<{ data: ArrayBuffer; contentType: string }> {
 	const isRemoteUrl = /^(https?:|blob:|data:)/i.test(videoUrl);
 
-	if (!isRemoteUrl && window.electronAPI?.readBinaryFile) {
-		const result = await window.electronAPI.readBinaryFile(videoUrl);
-		if (!result.success || !result.data) {
-			throw new Error(
-				result.message ?? result.error ?? "Failed to read video file",
-			);
-		}
-		return { data: result.data, contentType: "" };
+	if (!isRemoteUrl && window.electronAPI) {
+		const { blob } = await StreamingVideoDecoder.loadLocalSourceFile(videoUrl);
+		return { data: await blob.arrayBuffer(), contentType: "" };
 	}
 
-	const response = await fetch(videoUrl);
-	if (!response.ok) {
-		throw new Error(
-			`Failed to fetch video file: ${response.status} ${response.statusText}`,
-		);
-	}
-	const contentType =
-		response.headers.get("content-type")?.split(";")[0].trim() ?? "";
-	return { data: await response.arrayBuffer(), contentType };
+	const { blob } = await StreamingVideoDecoder.loadRemoteSourceFile(videoUrl);
+	return { data: await blob.arrayBuffer(), contentType: blob.type };
 }
 
 /** Caller must close the VideoFrame after use. */
@@ -219,20 +207,24 @@ export class StreamingVideoDecoder {
 	): Promise<{ file: File; blob: Blob }> {
 		const isRemoteUrl = /^(https?:|blob:|data:)/i.test(videoUrl);
 		if (!isRemoteUrl && window.electronAPI) {
-			return this.loadLocalSourceFile(videoUrl);
+			return this.withTimeout(
+				StreamingVideoDecoder.loadLocalSourceFile(videoUrl),
+				SOURCE_LOAD_TIMEOUT_MS,
+				"Timed out while loading the source video.",
+			);
 		}
-		return this.loadRemoteSourceFile(videoUrl);
-	}
-
-	/** Loads a local video file via the Electron IPC bridge. */
-	private async loadLocalSourceFile(
-		videoUrl: string,
-	): Promise<{ file: File; blob: Blob }> {
-		const result = await this.withTimeout(
-			window.electronAPI.readBinaryFile(videoUrl),
+		return this.withTimeout(
+			StreamingVideoDecoder.loadRemoteSourceFile(videoUrl),
 			SOURCE_LOAD_TIMEOUT_MS,
 			"Timed out while loading the source video.",
 		);
+	}
+
+	/** Loads a local video file via the Electron IPC bridge. */
+	static async loadLocalSourceFile(
+		videoUrl: string,
+	): Promise<{ file: File; blob: Blob }> {
+		const result = await window.electronAPI.readBinaryFile(videoUrl);
 		if (!result.success || !result.data) {
 			throw new Error(
 				result.message || result.error || "Failed to read source video",
@@ -250,24 +242,16 @@ export class StreamingVideoDecoder {
 	}
 
 	/** Loads a remote or blob video URL via fetch. */
-	private async loadRemoteSourceFile(
+	static async loadRemoteSourceFile(
 		videoUrl: string,
 	): Promise<{ file: File; blob: Blob }> {
-		const response = await this.withTimeout(
-			fetch(videoUrl),
-			SOURCE_LOAD_TIMEOUT_MS,
-			"Timed out while loading the source video.",
-		);
+		const response = await fetch(videoUrl);
 		if (!response.ok) {
 			throw new Error(
 				`Failed to fetch source video: ${response.status} ${response.statusText}`,
 			);
 		}
-		const blob = await this.withTimeout(
-			response.blob(),
-			SOURCE_LOAD_TIMEOUT_MS,
-			"Timed out while reading the source video.",
-		);
+		const blob = await response.blob();
 		const filename = videoUrl.split("/").pop() || "video";
 		return {
 			blob,
