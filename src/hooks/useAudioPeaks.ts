@@ -94,7 +94,7 @@ export function useAudioPeaks(videoUrl?: string): Float32Array | null {
 
 		(async () => {
 			try {
-				const arrayBuffer = await loadFileAsArrayBuffer(videoUrl);
+				const { data: arrayBuffer } = await loadFileAsArrayBuffer(videoUrl);
 				if (cancelled) return;
 				const audioBuffer = await getAudioCtx().decodeAudioData(arrayBuffer);
 				if (cancelled) return;

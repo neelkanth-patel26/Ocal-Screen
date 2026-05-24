@@ -140,9 +140,13 @@ export function shouldFailDecodeEndedEarly({
 /**
  * Loads a video file as an ArrayBuffer, using the Electron IPC bridge for
  * local paths and falling back to `fetch` for remote / blob / data URLs.
+ * Also returns the `contentType` from the response headers (empty string for
+ * local IPC reads where no Content-Type is available).
  * This is the single canonical place for reading raw video bytes in the renderer.
  */
-export async function loadFileAsArrayBuffer(videoUrl: string): Promise<ArrayBuffer> {
+export async function loadFileAsArrayBuffer(
+	videoUrl: string,
+): Promise<{ data: ArrayBuffer; contentType: string }> {
 	const isRemoteUrl = /^(https?:|blob:|data:)/i.test(videoUrl);
 
 	if (!isRemoteUrl && window.electronAPI?.readBinaryFile) {
@@ -150,14 +154,15 @@ export async function loadFileAsArrayBuffer(videoUrl: string): Promise<ArrayBuff
 		if (!result.success || !result.data) {
 			throw new Error(result.message ?? result.error ?? "Failed to read video file");
 		}
-		return result.data;
+		return { data: result.data, contentType: "" };
 	}
 
 	const response = await fetch(videoUrl);
 	if (!response.ok) {
 		throw new Error(`Failed to fetch video file: ${response.status} ${response.statusText}`);
 	}
-	return response.arrayBuffer();
+	const contentType = response.headers.get("content-type")?.split(";")[0].trim() ?? "";
+	return { data: await response.arrayBuffer(), contentType };
 }
 
 /** Caller must close the VideoFrame after use. */
@@ -182,7 +187,7 @@ export class StreamingVideoDecoder {
 
 	/** Loads the video file and returns it as both a Blob and a File for WebDemuxer. */
 	private async loadSourceFile(videoUrl: string): Promise<{ file: File; blob: Blob }> {
-		const buffer = await this.withTimeout(
+		const { data: buffer, contentType } = await this.withTimeout(
 			loadFileAsArrayBuffer(videoUrl),
 			SOURCE_LOAD_TIMEOUT_MS,
 			"Timed out while loading the source video.",
@@ -198,6 +203,7 @@ export class StreamingVideoDecoder {
 			const ext = mime.split("/")[1]?.replace(/[^a-z0-9]/gi, "") ?? "";
 			filename = ext ? `video.${ext}` : "video";
 		} else {
+			mime = contentType;
 			filename = videoUrl.split(/[\\/]/).pop() || "video";
 		}
 
