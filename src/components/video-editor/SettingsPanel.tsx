@@ -80,6 +80,7 @@ import type {
 	ZoomFocusMode,
 } from "./types";
 import {
+	DEFAULT_WEBCAM_MIRRORED,
 	MAX_ZOOM_SCALE,
 	MIN_ZOOM_SCALE,
 	ROTATION_3D_PRESET_ORDER,
@@ -440,7 +441,7 @@ export function SettingsPanel({
 	onWebcamLayoutPresetChange,
 	webcamMaskShape = DEFAULT_WEBCAM_SETTINGS.maskShape,
 	onWebcamMaskShapeChange,
-	webcamMirrored = false,
+	webcamMirrored = DEFAULT_WEBCAM_MIRRORED,
 	onWebcamMirroredChange,
 	webcamSizePreset = DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	onWebcamSizePresetChange,
