@@ -2264,6 +2264,11 @@ export default function VideoEditor() {
 											: getAspectRatioValue(aspectRatio),
 									)}
 									onExport={handleOpenExportDialog}
+									onExportPanelOpen={() => {
+										setSelectedZoomId(null);
+										setSelectedTrimId(null);
+										setSelectedSpeedId(null);
+									}}
 									selectedAnnotationId={selectedAnnotationId}
 									annotationRegions={annotationOnlyRegions}
 									onAnnotationContentChange={handleAnnotationContentChange}
