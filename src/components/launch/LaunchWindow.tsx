@@ -32,6 +32,7 @@ import { AudioLevelMeter } from "../ui/audio-level-meter";
 import { Button } from "../ui/button";
 import { Tooltip } from "../ui/tooltip";
 import styles from "./LaunchWindow.module.css";
+import { openSourceSelectorWithPermissionRetry } from "./openSourceSelectorFlow";
 
 const ICON_SIZE = 20;
 
@@ -326,9 +327,12 @@ export function LaunchWindow() {
 		return () => clearInterval(interval);
 	}, []);
 
-	const openSourceSelector = () => {
+	const openSourceSelector = async () => {
 		if (window.electronAPI) {
-			window.electronAPI.openSourceSelector();
+			await openSourceSelectorWithPermissionRetry({
+				openSourceSelector: () => window.electronAPI.openSourceSelector(),
+				requestScreenAccess: () => window.electronAPI.requestScreenAccess(),
+			});
 		}
 	};
 
