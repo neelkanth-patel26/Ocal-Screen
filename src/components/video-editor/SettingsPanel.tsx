@@ -1410,7 +1410,7 @@ export function SettingsPanel({
 															onValueChange={(values) => onBorderRadiusChange?.(values[0])}
 															onValueCommit={() => onBorderRadiusCommit?.()}
 															min={0}
-															max={16}
+															max={64}
 															step={0.5}
 															className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
 														/>
