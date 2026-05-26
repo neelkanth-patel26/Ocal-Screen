@@ -205,6 +205,26 @@ describe("createRecorderHandle", () => {
 		expect(blob.size).toBe(2);
 	});
 
+	it("buffers in memory when appendRecordingChunk is unavailable (version skew)", async () => {
+		const openRecordingStream = vi.fn(async () => ({ success: true }));
+		// appendRecordingChunk intentionally omitted to simulate renderer/main skew.
+		stubElectronAPI({ openRecordingStream });
+
+		const handle = createRecorderHandle({} as MediaStream, { mimeType: "video/webm" }, "rec.webm");
+		const fake = driver(handle);
+
+		fake.emit(new Blob(["a"]));
+		await tick();
+		fake.emit(new Blob(["b"]));
+		fake.stop();
+
+		const blob = await handle.recordedBlobPromise;
+		// Never even attempts to open the stream when it can't append to it.
+		expect(openRecordingStream).not.toHaveBeenCalled();
+		expect(handle.isStreaming()).toBe(false);
+		expect(blob.size).toBe(2);
+	});
+
 	it("discard closes the disk stream for a streamed recording", async () => {
 		const closeRecordingStream = vi.fn(async () => ({ success: true }));
 		stubElectronAPI({

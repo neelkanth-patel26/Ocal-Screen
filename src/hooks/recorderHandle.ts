@@ -76,8 +76,14 @@ export function createRecorderHandle(
 		});
 	};
 
+	// Require BOTH stream IPC methods before attempting to stream. If only
+	// openRecordingStream exists (renderer/main version skew), streaming would
+	// open but every append would silently no-op, saving an empty file — so in
+	// that case fall through to in-memory buffering instead.
 	const openPromise: Promise<{ success: boolean; error?: string }> =
-		fileName && api?.openRecordingStream
+		fileName !== undefined &&
+		typeof api?.openRecordingStream === "function" &&
+		typeof api?.appendRecordingChunk === "function"
 			? api.openRecordingStream(fileName)
 			: Promise.resolve({ success: false });
 
