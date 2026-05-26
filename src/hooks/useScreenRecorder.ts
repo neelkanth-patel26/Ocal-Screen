@@ -328,10 +328,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			window.electronAPI?.setRecordingState(false);
 
 			void (async () => {
-				// Set once the recording is safely stored. Until then any disk stream
-				// is still open, so the finally block closes it and removes the partial
-				// file on the discard or error paths.
-				let savedToDisk = false;
+				// Each disk stream must end up either saved or explicitly discarded.
+				// store-recorded-session finalizes the streams included in a successful
+				// save; the finally block discards everything else.
+				let storeSucceeded = false;
+				let webcamIncludedInSave = false;
 				try {
 					const screenBlob = await activeScreenRecorder.recordedBlobPromise;
 					if (discardRecordingId.current === activeRecordingId) {
@@ -364,6 +365,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 							webcamVideoData = new ArrayBuffer(0);
 						}
 					}
+					webcamIncludedInSave = webcamVideoData !== undefined;
 
 					const result = await window.electronAPI.storeRecordedSession({
 						screen: {
@@ -383,8 +385,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						console.error("Failed to store recording session:", result.message);
 						return;
 					}
-					// store-recorded-session has flushed and closed the disk streams.
-					savedToDisk = true;
+					// store-recorded-session has flushed and closed the saved streams.
+					storeSucceeded = true;
 
 					if (result.session) {
 						await window.electronAPI.setCurrentRecordingSession(result.session);
@@ -396,12 +398,15 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				} catch (error) {
 					console.error("Error saving recording:", error);
 				} finally {
-					if (!savedToDisk) {
-						// Discarded, or failed before a successful save — close any
-						// dangling disk streams and remove their partial files so a
-						// cancelled or failed run doesn't leak a descriptor or orphan.
+					// Discard any recorder whose data was not part of a successful save
+					// — a discarded run, a failed save, or a webcam whose disk write
+					// failed (so it was omitted while the screen still saved) — so no
+					// stream or partial file is left open or orphaned.
+					if (!storeSucceeded) {
 						await activeScreenRecorder.discard().catch(() => undefined);
-						await activeWebcamRecorder?.discard().catch(() => undefined);
+					}
+					if (activeWebcamRecorder && !(storeSucceeded && webcamIncludedInSave)) {
+						await activeWebcamRecorder.discard().catch(() => undefined);
 					}
 					if (finalizingRecordingId.current === activeRecordingId) {
 						finalizingRecordingId.current = null;

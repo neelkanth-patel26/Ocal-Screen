@@ -90,6 +90,29 @@ describe("createRecorderHandle", () => {
 		expect(decode(await blob.arrayBuffer())).toBe("abc");
 	});
 
+	it("falls back to in-memory buffering when the open IPC call rejects", async () => {
+		const openRecordingStream = vi.fn(async () => {
+			throw new Error("ipc channel closed");
+		});
+		stubElectronAPI({
+			openRecordingStream,
+			appendRecordingChunk: vi.fn(async () => ({ success: true })),
+		});
+
+		const handle = createRecorderHandle({} as MediaStream, { mimeType: "video/webm" }, "rec.webm");
+		const fake = driver(handle);
+
+		fake.emit(new Blob(["a"]));
+		await tick(); // open rejects -> treated as a failed open, keep buffering
+		fake.emit(new Blob(["b"]));
+		fake.stop();
+
+		const blob = await handle.recordedBlobPromise;
+		expect(handle.isStreaming()).toBe(false);
+		expect(blob.size).toBe(2);
+		expect(decode(await blob.arrayBuffer())).toBe("ab");
+	});
+
 	it("waits for in-flight chunk writes before stop resolves (no truncation)", async () => {
 		let releaseAppend: () => void = () => undefined;
 		const appendGate = new Promise<void>((resolve) => {
@@ -139,6 +162,26 @@ describe("createRecorderHandle", () => {
 		fake.stop();
 
 		await expect(handle.recordedBlobPromise).rejects.toThrow(/disk full/);
+		expect(handle.isStreaming()).toBe(false);
+	});
+
+	it("treats a rejected append the same as a failed write", async () => {
+		stubElectronAPI({
+			openRecordingStream: vi.fn(async () => ({ success: true })),
+			appendRecordingChunk: vi.fn(async () => {
+				throw new Error("kernel said no");
+			}),
+			closeRecordingStream: vi.fn(async () => ({ success: true })),
+		});
+
+		const handle = createRecorderHandle({} as MediaStream, { mimeType: "video/webm" }, "rec.webm");
+		const fake = driver(handle);
+
+		await tick();
+		fake.emit(new Blob(["a"]));
+		fake.stop();
+
+		await expect(handle.recordedBlobPromise).rejects.toThrow(/kernel said no/);
 		expect(handle.isStreaming()).toBe(false);
 	});
 

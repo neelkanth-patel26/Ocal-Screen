@@ -61,10 +61,17 @@ export function createRecorderHandle(
 			if (appendError || !fileName || !api?.appendRecordingChunk) {
 				return;
 			}
-			const buffer = await chunk.arrayBuffer();
-			const result = await api.appendRecordingChunk(fileName, buffer);
-			if (!result.success) {
-				appendError = new Error(result.error ?? "Failed to write recording chunk to disk");
+			// Capture both outcomes — a `{ success: false }` result and an outright
+			// rejection (channel/handler error) — into appendError, so writeChain
+			// never rejects and isStreaming() stays consistent after a failure.
+			try {
+				const buffer = await chunk.arrayBuffer();
+				const result = await api.appendRecordingChunk(fileName, buffer);
+				if (!result.success) {
+					appendError = new Error(result.error ?? "Failed to write recording chunk to disk");
+				}
+			} catch (error) {
+				appendError = error instanceof Error ? error : new Error(String(error));
 			}
 		});
 	};
@@ -74,18 +81,25 @@ export function createRecorderHandle(
 			? api.openRecordingStream(fileName)
 			: Promise.resolve({ success: false });
 
-	void openPromise.then((result) => {
-		if (result.success) {
-			streamOpened = true;
-			mode = "streaming";
-			for (const chunk of memoryChunks) {
-				enqueueWrite(chunk);
+	void openPromise.then(
+		(result) => {
+			if (result.success) {
+				streamOpened = true;
+				mode = "streaming";
+				for (const chunk of memoryChunks) {
+					enqueueWrite(chunk);
+				}
+				memoryChunks.length = 0;
+			} else {
+				mode = "buffering";
 			}
-			memoryChunks.length = 0;
-		} else {
+		},
+		() => {
+			// The IPC call itself rejected (channel or handler error). Treat it the
+			// same as a failed open: keep buffering in memory so nothing is lost.
 			mode = "buffering";
-		}
-	});
+		},
+	);
 
 	const recordedBlobPromise = new Promise<Blob>((resolve, reject) => {
 		recorder.ondataavailable = (event: BlobEvent) => {
