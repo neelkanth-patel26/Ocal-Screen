@@ -81,14 +81,12 @@ interface Window {
 			message?: string;
 			error?: string;
 		}>;
-		openRecordingStream: (
-			recordingId: number,
-			fileName: string,
-		) => Promise<{ success: boolean; error?: string }>;
+		openRecordingStream: (fileName: string) => Promise<{ success: boolean; error?: string }>;
 		appendRecordingChunk: (
-			recordingId: number,
+			fileName: string,
 			chunk: ArrayBuffer,
 		) => Promise<{ success: boolean; error?: string }>;
+		closeRecordingStream: (fileName: string) => Promise<{ success: boolean; error?: string }>;
 		getRecordedVideoPath: () => Promise<{
 			success: boolean;
 			path?: string;

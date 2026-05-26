@@ -1,6 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { createWriteStream, constants as fsConstants, type WriteStream } from "node:fs";
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -42,6 +42,7 @@ import { requestMacCursorAccessibilityAccess } from "../native-bridge/cursor/rec
 import type { CursorRecordingSession } from "../native-bridge/cursor/recording/session";
 import { patchWebmDurationOnDisk } from "../recording/webm-duration";
 import { registerNativeBridgeHandlers } from "./nativeBridge";
+import { RecordingStreamRegistry, registerRecordingStreamHandlers } from "./recordingStream";
 
 const PROJECT_FILE_EXTENSION = "openscreen";
 const SHORTCUTS_FILE = path.join(app.getPath("userData"), "shortcuts.json");
@@ -264,6 +265,30 @@ function resolveRecordingOutputPath(fileName: string): string {
 	}
 
 	return path.join(RECORDINGS_DIR, parsedPath.base);
+}
+
+function isValidDurationMs(value: number | undefined): value is number {
+	return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+/**
+ * Finalize a single recording file: if it was streamed to disk, flush and close
+ * the stream; otherwise (a short recording, or the stream failed to open and the
+ * renderer fell back to in-memory buffering) write the buffered bytes. Returns
+ * whether the file was streamed, which the caller uses to decide whether the
+ * WebM duration needs patching on disk.
+ */
+async function finalizeRecordingFile(
+	registry: RecordingStreamRegistry,
+	fileName: string,
+	filePath: string,
+	videoData?: ArrayBuffer,
+): Promise<boolean> {
+	const streamed = await registry.finalize(fileName);
+	if (!streamed && videoData && videoData.byteLength > 0) {
+		await fs.writeFile(filePath, Buffer.from(videoData));
+	}
+	return streamed;
 }
 
 async function getApprovedProjectSession(
@@ -2142,46 +2167,11 @@ export function registerIpcHandlers(
 		},
 	);
 
-	// Streaming chunk writers — keyed by recordingId. Chunks are appended directly
-	// to disk as they arrive from ondataavailable so the renderer never holds the
-	// full video in memory.
-	const activeWriteStreams = new Map<number, WriteStream>();
-
-	ipcMain.handle(
-		"open-recording-stream",
-		async (
-			_,
-			recordingId: number,
-			fileName: string,
-		): Promise<{ success: boolean; error?: string }> => {
-			try {
-				const filePath = resolveRecordingOutputPath(fileName);
-				const ws = createWriteStream(filePath, { flags: "w" });
-				activeWriteStreams.set(recordingId, ws);
-				return { success: true };
-			} catch (error) {
-				return { success: false, error: String(error) };
-			}
-		},
-	);
-
-	ipcMain.handle(
-		"append-recording-chunk",
-		async (
-			_,
-			recordingId: number,
-			chunk: ArrayBuffer,
-		): Promise<{ success: boolean; error?: string }> => {
-			const ws = activeWriteStreams.get(recordingId);
-			if (!ws) return { success: false, error: "No active stream for recordingId " + recordingId };
-			return new Promise((resolve) => {
-				ws.write(Buffer.from(chunk), (err) => {
-					if (err) resolve({ success: false, error: err.message });
-					else resolve({ success: true });
-				});
-			});
-		},
-	);
+	// On-disk write streams for in-progress recordings, keyed by output file name.
+	// Chunks are appended as they arrive from ondataavailable so the renderer
+	// never buffers the full video in memory (the #616 fix).
+	const recordingStreams = new RecordingStreamRegistry();
+	registerRecordingStreamHandlers(ipcMain, recordingStreams, resolveRecordingOutputPath);
 
 	ipcMain.handle("store-recorded-session", async (_, payload: StoreRecordedSessionInput) => {
 		try {
@@ -2203,56 +2193,37 @@ export function registerIpcHandlers(
 				: Date.now();
 		const cursorCaptureMode = normalizeCursorCaptureMode(payload.cursorCaptureMode);
 		const screenVideoPath = resolveRecordingOutputPath(payload.screen.fileName);
-
-		// Close the streaming write stream if one was used; otherwise fall back to
-		// writing the full buffer (short recordings that never opened a stream).
-		const screenWs = activeWriteStreams.get(createdAt);
-		let screenStreamed = false;
-		if (screenWs) {
-			await new Promise<void>((resolve, reject) =>
-				screenWs.end((err?: Error | null) => (err ? reject(err) : resolve())),
-			);
-			activeWriteStreams.delete(createdAt);
-			screenStreamed = true;
-		} else if (payload.screen.videoData && payload.screen.videoData.byteLength > 0) {
-			await fs.writeFile(screenVideoPath, Buffer.from(payload.screen.videoData));
-		}
+		const screenStreamed = await finalizeRecordingFile(
+			recordingStreams,
+			payload.screen.fileName,
+			screenVideoPath,
+			payload.screen.videoData,
+		);
 
 		let webcamVideoPath: string | undefined;
 		let webcamStreamed = false;
 		if (payload.webcam) {
 			webcamVideoPath = resolveRecordingOutputPath(payload.webcam.fileName);
-			const webcamWs = activeWriteStreams.get(createdAt + 1); // webcam stream keyed as recordingId+1
-			if (webcamWs) {
-				await new Promise<void>((resolve, reject) =>
-					webcamWs.end((err?: Error | null) => (err ? reject(err) : resolve())),
-				);
-				activeWriteStreams.delete(createdAt + 1);
-				webcamStreamed = true;
-			} else if (payload.webcam.videoData && payload.webcam.videoData.byteLength > 0) {
-				await fs.writeFile(webcamVideoPath, Buffer.from(payload.webcam.videoData));
-			}
+			webcamStreamed = await finalizeRecordingFile(
+				recordingStreams,
+				payload.webcam.fileName,
+				webcamVideoPath,
+				payload.webcam.videoData,
+			);
 		}
 
-		// Streamed files lack the WebM Duration header (renderer no longer holds the
-		// blob to patch). Patch on disk so the editor's seek bar and timeline work.
-		// Best-effort: log on failure but don't block, since the file is still playable.
-		if (
-			screenStreamed &&
-			typeof payload.durationMs === "number" &&
-			Number.isFinite(payload.durationMs) &&
-			payload.durationMs > 0
-		) {
-			await patchWebmDurationOnDisk(screenVideoPath, payload.durationMs);
-		}
-		if (
-			webcamStreamed &&
-			webcamVideoPath &&
-			typeof payload.durationMs === "number" &&
-			Number.isFinite(payload.durationMs) &&
-			payload.durationMs > 0
-		) {
-			await patchWebmDurationOnDisk(webcamVideoPath, payload.durationMs);
+		// Streamed files lack the WebM Duration header (the renderer no longer holds
+		// the blob to patch). Patch on disk so the editor's seek bar and timeline
+		// work. Best-effort and independent per file, so the patches run together.
+		if (isValidDurationMs(payload.durationMs)) {
+			const patches: Promise<unknown>[] = [];
+			if (screenStreamed) {
+				patches.push(patchWebmDurationOnDisk(screenVideoPath, payload.durationMs));
+			}
+			if (webcamStreamed && webcamVideoPath) {
+				patches.push(patchWebmDurationOnDisk(webcamVideoPath, payload.durationMs));
+			}
+			await Promise.all(patches);
 		}
 
 		const session: RecordingSession = webcamVideoPath

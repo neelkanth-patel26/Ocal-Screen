@@ -13,6 +13,7 @@ import {
 } from "@/lib/nativeWindowsRecording";
 import type { CursorCaptureMode, RecordedVideoAssetInput } from "@/lib/recordingSession";
 import { requestCameraAccess } from "@/lib/requestCameraAccess";
+import { createRecorderHandle, type RecorderHandle } from "./recorderHandle";
 
 const TARGET_FRAME_RATE = 60;
 const MIN_FRAME_RATE = 30;
@@ -34,7 +35,6 @@ const DEFAULT_HEIGHT = 1080;
 
 const CODEC_ALIGNMENT = 2;
 
-const RECORDER_TIMESLICE_MS = 1000;
 const BITS_PER_MEGABIT = 1_000_000;
 const CHROME_MEDIA_SOURCE = "desktop";
 const RECORDING_FILE_PREFIX = "recording-";
@@ -74,12 +74,6 @@ type UseScreenRecorderReturn = {
 	setCursorCaptureMode: (mode: CursorCaptureMode) => void;
 };
 
-type RecorderHandle = {
-	recorder: MediaRecorder;
-	recordedBlobPromise: Promise<Blob>;
-	streaming: boolean;
-};
-
 type NativeWindowsRecordingHandle = {
 	recordingId: number;
 	finalizing: boolean;
@@ -92,90 +86,6 @@ type NativeMacRecordingHandle = {
 	finalizing: boolean;
 	paused: boolean;
 };
-
-function createRecorderHandle(
-	stream: MediaStream,
-	options: MediaRecorderOptions,
-	recordingId?: number,
-	fileName?: string,
-): RecorderHandle {
-	const recorder = new MediaRecorder(stream, options);
-	const mimeType = options.mimeType || "video/webm";
-
-	// Stream chunks to disk only when a target (recordingId + fileName) is given.
-	// The main screen recorder and the browser-only webcam recorder pass a target
-	// so long recordings never buffer the whole video in the renderer (the #616
-	// fix). Native-capture webcam sidecars omit the target and buffer in-memory,
-	// because their finalize path reads recordedBlobPromise directly to attach the
-	// webcam file; an empty streamed blob would silently drop their webcam track.
-	const streamTarget =
-		recordingId !== undefined && fileName !== undefined ? { recordingId, fileName } : null;
-
-	const pendingChunks: ArrayBuffer[] = [];
-	let streamReady = false;
-	let streamFailed = streamTarget === null;
-
-	if (streamTarget) {
-		const streamOpenPromise =
-			window.electronAPI?.openRecordingStream?.(streamTarget.recordingId, streamTarget.fileName) ??
-			Promise.resolve({ success: false });
-
-		streamOpenPromise.then((result) => {
-			if (result.success) {
-				streamReady = true;
-				for (const chunk of pendingChunks) {
-					void window.electronAPI.appendRecordingChunk(streamTarget.recordingId, chunk);
-				}
-				pendingChunks.length = 0;
-			} else {
-				streamFailed = true;
-			}
-		});
-	}
-
-	const fallbackChunks: Blob[] = [];
-
-	const recordedBlobPromise = new Promise<Blob>((resolve, reject) => {
-		recorder.ondataavailable = (event: BlobEvent) => {
-			if (!event.data || event.data.size === 0) return;
-
-			if (streamFailed) {
-				fallbackChunks.push(event.data);
-				return;
-			}
-
-			void event.data.arrayBuffer().then((buf) => {
-				if (streamFailed) {
-					fallbackChunks.push(new Blob([buf], { type: mimeType }));
-					return;
-				}
-				if (streamReady && streamTarget) {
-					void window.electronAPI.appendRecordingChunk(streamTarget.recordingId, buf);
-				} else {
-					pendingChunks.push(buf);
-				}
-			});
-		};
-
-		recorder.onerror = () => {
-			reject(new Error("Recording failed"));
-		};
-
-		recorder.onstop = () => {
-			if (streamFailed) {
-				// Not streaming, or the stream failed to open — return the full
-				// in-memory blob (the buffered fallback).
-				resolve(new Blob(fallbackChunks, { type: mimeType }));
-			} else {
-				// Streaming succeeded — the main process already has the data on disk.
-				resolve(new Blob([], { type: mimeType }));
-			}
-		};
-	});
-
-	recorder.start(RECORDER_TIMESLICE_MS);
-	return { recorder, recordedBlobPromise, streaming: !streamFailed };
-}
 
 export function useScreenRecorder(): UseScreenRecorderReturn {
 	const t = useScopedT("editor");
@@ -418,6 +328,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			window.electronAPI?.setRecordingState(false);
 
 			void (async () => {
+				// Set once the recording is safely stored. Until then any disk stream
+				// is still open, so the finally block closes it and removes the partial
+				// file on the discard or error paths.
+				let savedToDisk = false;
 				try {
 					const screenBlob = await activeScreenRecorder.recordedBlobPromise;
 					if (discardRecordingId.current === activeRecordingId) {
@@ -425,16 +339,17 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						return;
 					}
 					// When streaming succeeded the blob is empty — the data is already on disk.
-					if (!activeScreenRecorder.streaming && screenBlob.size === 0) {
+					if (!activeScreenRecorder.isStreaming() && screenBlob.size === 0) {
 						return;
 					}
 
 					const screenFileName = `${RECORDING_FILE_PREFIX}${activeRecordingId}${VIDEO_FILE_EXTENSION}`;
 					const webcamFileName = `${RECORDING_FILE_PREFIX}${activeRecordingId}${WEBCAM_FILE_SUFFIX}${VIDEO_FILE_EXTENSION}`;
 
-					// Only fix duration / convert to ArrayBuffer if we have in-memory data.
+					// Only fix duration / convert to ArrayBuffer for in-memory data;
+					// streamed recordings are patched on disk by the main process.
 					let screenVideoData: ArrayBuffer = new ArrayBuffer(0);
-					if (!activeScreenRecorder.streaming && screenBlob.size > 0) {
+					if (!activeScreenRecorder.isStreaming() && screenBlob.size > 0) {
 						const fixedScreenBlob = await fixWebmDuration(screenBlob, duration);
 						screenVideoData = await fixedScreenBlob.arrayBuffer();
 					}
@@ -442,10 +357,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					let webcamVideoData: ArrayBuffer | undefined;
 					if (activeWebcamRecorder) {
 						const webcamBlob = await activeWebcamRecorder.recordedBlobPromise.catch(() => null);
-						if (!activeWebcamRecorder.streaming && webcamBlob && webcamBlob.size > 0) {
+						if (!activeWebcamRecorder.isStreaming() && webcamBlob && webcamBlob.size > 0) {
 							const fixedWebcamBlob = await fixWebmDuration(webcamBlob, duration);
 							webcamVideoData = await fixedWebcamBlob.arrayBuffer();
-						} else if (activeWebcamRecorder.streaming) {
+						} else if (activeWebcamRecorder.isStreaming()) {
 							webcamVideoData = new ArrayBuffer(0);
 						}
 					}
@@ -468,6 +383,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						console.error("Failed to store recording session:", result.message);
 						return;
 					}
+					// store-recorded-session has flushed and closed the disk streams.
+					savedToDisk = true;
 
 					if (result.session) {
 						await window.electronAPI.setCurrentRecordingSession(result.session);
@@ -479,6 +396,13 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				} catch (error) {
 					console.error("Error saving recording:", error);
 				} finally {
+					if (!savedToDisk) {
+						// Discarded, or failed before a successful save — close any
+						// dangling disk streams and remove their partial files so a
+						// cancelled or failed run doesn't leak a descriptor or orphan.
+						await activeScreenRecorder.discard().catch(() => undefined);
+						await activeWebcamRecorder?.discard().catch(() => undefined);
+					}
 					if (finalizingRecordingId.current === activeRecordingId) {
 						finalizingRecordingId.current = null;
 					}
@@ -1418,7 +1342,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						? { audioBitsPerSecond: systemAudioTrack ? AUDIO_BITRATE_SYSTEM : AUDIO_BITRATE_VOICE }
 						: {}),
 				},
-				activeRecordingId,
 				`${RECORDING_FILE_PREFIX}${activeRecordingId}${VIDEO_FILE_EXTENSION}`,
 			);
 			screenRecorder.current.recorder.addEventListener(
@@ -1433,7 +1356,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				webcamRecorder.current = createRecorderHandle(
 					webcamStream.current,
 					{ mimeType, videoBitsPerSecond: Math.min(videoBitsPerSecond, BITRATE_BASE) },
-					activeRecordingId + 1,
 					`${RECORDING_FILE_PREFIX}${activeRecordingId}${WEBCAM_FILE_SUFFIX}${VIDEO_FILE_EXTENSION}`,
 				);
 			}
