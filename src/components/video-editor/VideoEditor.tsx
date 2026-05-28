@@ -814,6 +814,7 @@ export default function VideoEditor() {
 		setSelectedZoomId(id);
 		if (id) {
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
 		}
@@ -823,6 +824,7 @@ export default function VideoEditor() {
 		setSelectedTrimId(id);
 		if (id) {
 			setSelectedZoomId(null);
+			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
 		}
@@ -833,6 +835,7 @@ export default function VideoEditor() {
 		if (id) {
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
 			setSelectedBlurId(null);
 		}
 	}, []);
@@ -861,6 +864,7 @@ export default function VideoEditor() {
 			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
 			setSelectedZoomId(id);
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
 		},
@@ -897,6 +901,7 @@ export default function VideoEditor() {
 			pushState((prev) => ({ trimRegions: [...prev.trimRegions, newRegion] }));
 			setSelectedTrimId(id);
 			setSelectedZoomId(null);
+			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
 		},
@@ -1132,6 +1137,7 @@ export default function VideoEditor() {
 			setSelectedAnnotationId(id);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
 			setSelectedBlurId(null);
 		},
 		[pushState],
@@ -1205,6 +1211,8 @@ export default function VideoEditor() {
 			setSelectedAnnotationId(duplicateId);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -2264,6 +2272,11 @@ export default function VideoEditor() {
 											: getAspectRatioValue(aspectRatio),
 									)}
 									onExport={handleOpenExportDialog}
+									onExportPanelOpen={() => {
+										setSelectedZoomId(null);
+										setSelectedTrimId(null);
+										setSelectedSpeedId(null);
+									}}
 									selectedAnnotationId={selectedAnnotationId}
 									annotationRegions={annotationOnlyRegions}
 									onAnnotationContentChange={handleAnnotationContentChange}

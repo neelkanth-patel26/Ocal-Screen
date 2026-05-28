@@ -64,6 +64,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	storeRecordedSession: (payload: StoreRecordedSessionInput) => {
 		return ipcRenderer.invoke("store-recorded-session", payload);
 	},
+	openRecordingStream: (fileName: string) => {
+		return ipcRenderer.invoke("open-recording-stream", fileName);
+	},
+	appendRecordingChunk: (fileName: string, chunk: ArrayBuffer) => {
+		return ipcRenderer.invoke("append-recording-chunk", fileName, chunk);
+	},
+	closeRecordingStream: (fileName: string) => {
+		return ipcRenderer.invoke("close-recording-stream", fileName);
+	},
 
 	getRecordedVideoPath: () => {
 		return ipcRenderer.invoke("get-recorded-video-path");

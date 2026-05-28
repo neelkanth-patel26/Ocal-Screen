@@ -287,6 +287,7 @@ interface SettingsPanelProps {
 	onGifSizePresetChange?: (preset: GifSizePreset) => void;
 	gifOutputDimensions?: { width: number; height: number };
 	onExport?: () => void;
+	onExportPanelOpen?: () => void;
 	unsavedExport?: {
 		arrayBuffer: ArrayBuffer;
 		fileName: string;
@@ -419,6 +420,7 @@ export function SettingsPanel({
 	onGifSizePresetChange,
 	gifOutputDimensions = DEFAULT_GIF_SETTINGS.outputDimensions,
 	onExport,
+	onExportPanelOpen,
 	unsavedExport,
 	onSaveUnsavedExport,
 	selectedAnnotationId,
@@ -830,7 +832,10 @@ export function SettingsPanel({
 						data-testid={getTestId("export-panel-button")}
 						type="button"
 						title={exportPanelMode.label}
-						onClick={() => setActivePanelMode(exportPanelMode.id)}
+						onClick={() => {
+							setActivePanelMode(exportPanelMode.id);
+							onExportPanelOpen?.();
+						}}
 						className={cn(
 							"mt-auto flex h-8 w-8 items-center justify-center rounded-lg border transition-all",
 							activePanelMode === "export" && !hasTimelineSelection
@@ -1418,7 +1423,7 @@ export function SettingsPanel({
 															onValueChange={(values) => onBorderRadiusChange?.(values[0])}
 															onValueCommit={() => onBorderRadiusCommit?.()}
 															min={0}
-															max={16}
+															max={64}
 															step={0.5}
 															className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
 														/>
