@@ -5,18 +5,29 @@ export interface BackgroundWaveformProps {
 	/** Pre-computed peaks array: pairs of [min, max] per block (length = 2 * N). */
 	peaks: Float32Array | null;
 	videoDurationMs: number;
+	/**
+	 * Vertical inset in CSS pixels applied to the top and bottom of the canvas
+	 * so the waveform aligns with the item content height rather than the full
+	 * row height. Defaults to 0.
+	 */
+	verticalInset?: number;
 }
 
 /**
- * Renders a faint audio waveform on a `<canvas>` that fills its containing
- * block. Designed to be passed as the `background` prop of `<Row>`, which
- * already provides `relative overflow-hidden` — no wrapper element needed.
+ * Renders a rectified (half-wave) audio waveform on a `<canvas>` that fills
+ * its containing block. Designed to be passed as the `background` prop of
+ * `<Row>`, which already provides `relative overflow-hidden` — no wrapper
+ * element needed.
  *
  * - Accepts pre-computed `peaks` from the caller (see `useAudioPeaks`).
  * - Redraws whenever the timeline zoom/pan range changes.
  * - `pointer-events: none` — never blocks drag-to-create interactions.
  */
-export default function BackgroundWaveform({ peaks, videoDurationMs }: BackgroundWaveformProps) {
+export default function BackgroundWaveform({
+	peaks,
+	videoDurationMs,
+	verticalInset = 0,
+}: BackgroundWaveformProps) {
 	const { range } = useTimelineContext();
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
@@ -57,7 +68,9 @@ export default function BackgroundWaveform({ peaks, videoDurationMs }: Backgroun
 		if (rangeMs <= 0 || videoDurationMs <= 0) return;
 
 		const N = peaks.length / 2;
-		const amp = H * 0.9; // full-height amplitude for rectified display
+		// Amplitude scaled to fill the canvas height minus the vertical inset on
+		// each side, so the waveform top/bottom aligns with the item content bounds.
+		const amp = H * 0.9;
 
 		// Rectified (half-wave): amplitude = max(|min|, |max|), drawn from the bottom up.
 		const colAmp = new Float32Array(W);
@@ -99,5 +112,11 @@ export default function BackgroundWaveform({ peaks, videoDurationMs }: Backgroun
 		ctx.stroke();
 	}, [peaks, range, canvasSize, videoDurationMs]);
 
-	return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full" />;
+	return (
+		<canvas
+			ref={canvasRef}
+			className="absolute left-0 right-0 pointer-events-none w-full"
+			style={{ top: verticalInset, bottom: verticalInset }}
+		/>
+	);
 }

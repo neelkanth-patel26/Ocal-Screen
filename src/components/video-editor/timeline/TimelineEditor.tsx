@@ -803,7 +803,7 @@ function Timeline({
 				hint={t("hints.pressTrim")}
 				background={
 					showTrimWaveform ? (
-						<BackgroundWaveform peaks={peaks} videoDurationMs={videoDurationMs} />
+						<BackgroundWaveform peaks={peaks} videoDurationMs={videoDurationMs} verticalInset={3} />
 					) : undefined
 				}
 			>
