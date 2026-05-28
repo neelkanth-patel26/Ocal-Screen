@@ -6,11 +6,15 @@ export interface BackgroundWaveformProps {
 	peaks: Float32Array | null;
 	videoDurationMs: number;
 	/**
-	 * Vertical inset in CSS pixels applied to the top and bottom of the canvas
-	 * so the waveform aligns with the item content height rather than the full
-	 * row height. Defaults to 0.
+	 * Pixels to inset the drawn waveform from the top of the canvas row,
+	 * so it aligns with the item content top edge. Defaults to 0.
 	 */
-	verticalInset?: number;
+	topInset?: number;
+	/**
+	 * Pixels to inset the drawn waveform from the bottom of the canvas row,
+	 * so it aligns with the item content bottom edge. Defaults to 0.
+	 */
+	bottomInset?: number;
 }
 
 /**
@@ -19,6 +23,11 @@ export interface BackgroundWaveformProps {
  * `<Row>`, which already provides `relative overflow-hidden` — no wrapper
  * element needed.
  *
+ * The canvas always uses `inset-0` (full row height). Vertical alignment with
+ * the item content is achieved via `topInset`/`bottomInset` in the draw calls
+ * rather than CSS positioning, so the result is immune to sub-pixel CSS layout
+ * differences.
+ *
  * - Accepts pre-computed `peaks` from the caller (see `useAudioPeaks`).
  * - Redraws whenever the timeline zoom/pan range changes.
  * - `pointer-events: none` — never blocks drag-to-create interactions.
@@ -26,7 +35,8 @@ export interface BackgroundWaveformProps {
 export default function BackgroundWaveform({
 	peaks,
 	videoDurationMs,
-	verticalInset = 0,
+	topInset = 0,
+	bottomInset = 0,
 }: BackgroundWaveformProps) {
 	const { range } = useTimelineContext();
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,12 +77,17 @@ export default function BackgroundWaveform({
 		const rangeMs = range.end - range.start;
 		if (rangeMs <= 0 || videoDurationMs <= 0) return;
 
-		const N = peaks.length / 2;
-		// Amplitude scaled to fill the canvas height minus the vertical inset on
-		// each side, so the waveform top/bottom aligns with the item content bounds.
-		const amp = H * 0.9;
+		// Draw within [topY, bottomY] so the waveform aligns with item bounds
+		// regardless of CSS sub-pixel rounding on the canvas element itself.
+		const topY = topInset;
+		const bottomY = H - bottomInset;
+		const drawHeight = bottomY - topY;
+		if (drawHeight <= 0) return;
 
-		// Rectified (half-wave): amplitude = max(|min|, |max|), drawn from the bottom up.
+		const N = peaks.length / 2;
+		const amp = drawHeight * 0.9;
+
+		// Rectified (half-wave): amplitude = max(|min|, |max|), drawn upward from bottomY.
 		const colAmp = new Float32Array(W);
 		for (let x = 0; x < W; x++) {
 			const startMs = range.start + (x / W) * rangeMs;
@@ -92,31 +107,25 @@ export default function BackgroundWaveform({
 
 		// Filled polygon: bottom-left → top silhouette → bottom-right.
 		ctx.beginPath();
-		ctx.moveTo(0, H);
+		ctx.moveTo(0, bottomY);
 		for (let x = 0; x < W; x++) {
-			ctx.lineTo(x, H - colAmp[x] * amp);
+			ctx.lineTo(x, bottomY - colAmp[x] * amp);
 		}
-		ctx.lineTo(W, H);
+		ctx.lineTo(W, bottomY);
 		ctx.closePath();
 		ctx.fillStyle = "rgba(74, 222, 128, 0.55)";
 		ctx.fill();
 
 		// Crisp top-edge stroke for the sharp silhouette.
 		ctx.beginPath();
-		ctx.moveTo(0, H - colAmp[0] * amp);
+		ctx.moveTo(0, bottomY - colAmp[0] * amp);
 		for (let x = 1; x < W; x++) {
-			ctx.lineTo(x, H - colAmp[x] * amp);
+			ctx.lineTo(x, bottomY - colAmp[x] * amp);
 		}
 		ctx.strokeStyle = "rgba(74, 222, 128, 0.85)";
 		ctx.lineWidth = 1;
 		ctx.stroke();
-	}, [peaks, range, canvasSize, videoDurationMs]);
+	}, [peaks, range, canvasSize, videoDurationMs, topInset, bottomInset]);
 
-	return (
-		<canvas
-			ref={canvasRef}
-			className="absolute left-0 right-0 pointer-events-none w-full"
-			style={{ top: verticalInset, bottom: verticalInset }}
-		/>
-	);
+	return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full" />;
 }
