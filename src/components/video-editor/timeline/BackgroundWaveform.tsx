@@ -60,10 +60,9 @@ export default function BackgroundWaveform({ peaks, videoDurationMs }: Backgroun
 
 		const N = peaks.length / 2;
 
-		ctx.beginPath();
-		ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-		ctx.lineWidth = 1;
-
+		// Pre-compute per-column peaks so we can draw a single filled polygon.
+		const colMax = new Float32Array(W);
+		const colMin = new Float32Array(W);
 		for (let x = 0; x < W; x++) {
 			const startMs = range.start + (x / W) * rangeMs;
 			const endMs = range.start + ((x + 1) / W) * rangeMs;
@@ -78,11 +77,41 @@ export default function BackgroundWaveform({ peaks, videoDurationMs }: Backgroun
 				if (mn < minVal) minVal = mn;
 				if (mx > maxVal) maxVal = mx;
 			}
-
-			ctx.moveTo(x + 0.5, mid - maxVal * amp);
-			ctx.lineTo(x + 0.5, mid - minVal * amp);
+			colMax[x] = maxVal;
+			colMin[x] = minVal;
 		}
 
+		// Filled waveform polygon: upper edge (max) left→right, lower edge (min) right→left.
+		ctx.beginPath();
+		ctx.moveTo(0, mid - colMax[0] * amp);
+		for (let x = 1; x < W; x++) {
+			ctx.lineTo(x, mid - colMax[x] * amp);
+		}
+		for (let x = W - 1; x >= 0; x--) {
+			ctx.lineTo(x, mid - colMin[x] * amp);
+		}
+		ctx.closePath();
+		ctx.fillStyle = "rgba(74, 222, 128, 0.55)";
+		ctx.fill();
+
+		// Crisp top-edge stroke for the "pro app" sharp silhouette.
+		ctx.beginPath();
+		ctx.moveTo(0, mid - colMax[0] * amp);
+		for (let x = 1; x < W; x++) {
+			ctx.lineTo(x, mid - colMax[x] * amp);
+		}
+		ctx.strokeStyle = "rgba(74, 222, 128, 0.80)";
+		ctx.lineWidth = 1;
+		ctx.stroke();
+
+		// Mirror: bottom edge stroke.
+		ctx.beginPath();
+		ctx.moveTo(0, mid - colMin[0] * amp);
+		for (let x = 1; x < W; x++) {
+			ctx.lineTo(x, mid - colMin[x] * amp);
+		}
+		ctx.strokeStyle = "rgba(74, 222, 128, 0.80)";
+		ctx.lineWidth = 1;
 		ctx.stroke();
 	}, [peaks, range, canvasSize, videoDurationMs]);
 
