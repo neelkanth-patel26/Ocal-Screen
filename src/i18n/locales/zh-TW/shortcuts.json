@@ -14,6 +14,7 @@
 	"savedToast": "鍵盤快捷鍵已儲存",
 	"resetToast": "已還原預設快捷鍵 — 點擊儲存以套用",
 	"actions": {
+		"openApp": "開啟應用程式",
 		"addZoom": "新增縮放",
 		"addTrim": "新增剪輯",
 		"addSpeed": "新增速度",

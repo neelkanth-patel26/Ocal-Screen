@@ -14,6 +14,7 @@
 	"savedToast": "Keyboard shortcuts saved",
 	"resetToast": "Reset to default shortcuts — click Save to apply",
 	"actions": {
+		"openApp": "Open App",
 		"addZoom": "Add Zoom",
 		"addTrim": "Add Trim",
 		"addSpeed": "Add Speed",

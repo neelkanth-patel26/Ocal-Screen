@@ -14,6 +14,7 @@
 	"savedToast": "Đã lưu phím tắt",
 	"resetToast": "Đã đặt lại về phím tắt mặc định — nhấp Lưu để áp dụng",
 	"actions": {
+		"openApp": "Mở ứng dụng",
 		"addZoom": "Thêm Thu phóng",
 		"addTrim": "Thêm Cắt",
 		"addSpeed": "Thêm Tốc độ",

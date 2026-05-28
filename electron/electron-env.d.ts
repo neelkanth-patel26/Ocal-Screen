@@ -248,6 +248,12 @@ interface Window {
 		) => Promise<{ success: boolean; error?: string; message?: string }>;
 		getShortcuts: () => Promise<Record<string, unknown> | null>;
 		saveShortcuts: (shortcuts: unknown) => Promise<{ success: boolean; error?: string }>;
+		updateGlobalShortcut: (binding: {
+			key: string;
+			ctrl?: boolean;
+			shift?: boolean;
+			alt?: boolean;
+		}) => Promise<void>;
 		hudOverlayHide: () => void;
 		hudOverlayClose: () => void;
 		setHudOverlayIgnoreMouseEvents: (ignore: boolean) => void;

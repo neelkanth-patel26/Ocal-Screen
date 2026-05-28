@@ -14,6 +14,7 @@
 	"savedToast": "Atajos de teclado guardados",
 	"resetToast": "Restablecido a los atajos predeterminados — haz clic en Guardar para aplicar",
 	"actions": {
+		"openApp": "Abrir aplicación",
 		"addZoom": "Agregar zoom",
 		"addTrim": "Agregar recorte",
 		"addSpeed": "Agregar velocidad",

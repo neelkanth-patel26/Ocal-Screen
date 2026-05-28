@@ -14,6 +14,7 @@
 	"savedToast": "키보드 단축키가 저장되었습니다",
 	"resetToast": "기본 단축키로 초기화되었습니다 — 저장을 클릭해 적용하세요",
 	"actions": {
+		"openApp": "앱 열기",
 		"addZoom": "줌 추가",
 		"addTrim": "트림 추가",
 		"addSpeed": "속도 추가",

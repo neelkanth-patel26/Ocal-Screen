@@ -43,7 +43,7 @@ import type { CursorRecordingSession } from "../native-bridge/cursor/recording/s
 import { registerNativeBridgeHandlers } from "./nativeBridge";
 
 const PROJECT_FILE_EXTENSION = "openscreen";
-const SHORTCUTS_FILE = path.join(app.getPath("userData"), "shortcuts.json");
+export const SHORTCUTS_FILE = path.join(app.getPath("userData"), "shortcuts.json");
 const RECORDING_FILE_PREFIX = "recording-";
 const RECORDING_SESSION_SUFFIX = ".session.json";
 const ALLOWED_IMPORT_VIDEO_EXTENSIONS = new Set([".webm", ".mp4", ".mov", ".avi", ".mkv"]);

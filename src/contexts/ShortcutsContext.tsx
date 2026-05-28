@@ -54,7 +54,9 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
 
 	const persistShortcuts = useCallback(
 		async (config?: ShortcutsConfig) => {
-			await window.electronAPI.saveShortcuts?.(config ?? shortcuts);
+			const configToSave = config ?? shortcuts;
+			await window.electronAPI.saveShortcuts?.(configToSave);
+			await window.electronAPI.updateGlobalShortcut?.(configToSave.openApp);
 		},
 		[shortcuts],
 	);

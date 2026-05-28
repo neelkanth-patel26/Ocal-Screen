@@ -3,6 +3,7 @@ import type { NativeMacRecordingRequest } from "../src/lib/nativeMacRecording";
 import type { NativeWindowsRecordingRequest } from "../src/lib/nativeWindowsRecording";
 import type { RecordingSession, StoreRecordedSessionInput } from "../src/lib/recordingSession";
 import { NATIVE_BRIDGE_CHANNEL, type NativeBridgeRequest } from "../src/native/contracts";
+import type { ShortcutBinding } from "./globalShortcut";
 
 // Asset base URL is passed from the main process via webPreferences.additionalArguments
 // (see windows.ts). Sandboxed preloads cannot import node:path / node:url, so we
@@ -192,6 +193,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	saveShortcuts: (shortcuts: unknown) => {
 		return ipcRenderer.invoke("save-shortcuts", shortcuts);
+	},
+	updateGlobalShortcut: (binding: ShortcutBinding) => {
+		return ipcRenderer.invoke("update-global-shortcut", binding);
 	},
 	setLocale: (locale: string) => {
 		return ipcRenderer.invoke("set-locale", locale);

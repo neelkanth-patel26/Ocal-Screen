@@ -11,6 +11,12 @@ import {
 	systemPreferences,
 	Tray,
 } from "electron";
+import {
+	loadAndRegisterGlobalShortcut,
+	registerOpenAppShortcut,
+	ShortcutBinding,
+	unregisterAllGlobalShortcuts,
+} from "./globalShortcut";
 import { mainT, setMainLocale } from "./i18n";
 import { getSelectedDesktopSource, registerIpcHandlers } from "./ipc/handlers";
 import {
@@ -440,6 +446,10 @@ app.on("activate", () => {
 	}
 });
 
+app.on("will-quit", () => {
+	unregisterAllGlobalShortcuts();
+});
+
 // Register all IPC handlers when app is ready
 app.whenReady().then(async () => {
 	// Force the app into "regular" activation policy so the Dock icon appears.
@@ -512,6 +522,10 @@ app.whenReady().then(async () => {
 		updateTrayMenu();
 	});
 
+	ipcMain.handle("update-global-shortcut", (_, binding: ShortcutBinding) => {
+		registerOpenAppShortcut(binding, showMainWindow);
+	});
+
 	createTray();
 	updateTrayMenu();
 	setupApplicationMenu();
@@ -545,5 +559,8 @@ app.whenReady().then(async () => {
 		},
 		switchToHudWrapper,
 	);
+
+	await loadAndRegisterGlobalShortcut(showMainWindow);
+
 	createWindow();
 });

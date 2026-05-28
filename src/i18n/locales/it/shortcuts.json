@@ -14,6 +14,7 @@
 	"savedToast": "Scorciatoie tastiera salvate",
 	"resetToast": "Ripristino alle scorciatoie predefinite — clicca Salva per applicare",
 	"actions": {
+		"openApp": "Apri applicazione",
 		"addZoom": "Aggiungi zoom",
 		"addTrim": "Aggiungi taglio",
 		"addSpeed": "Aggiungi velocità",

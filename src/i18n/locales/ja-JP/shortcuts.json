@@ -14,6 +14,7 @@
 	"savedToast": "キーボードショートカットが保存されました",
 	"resetToast": "デフォルトのショートカットにリセット — 保存をクリックして適用",
 	"actions": {
+		"openApp": "アプリを開く",
 		"addZoom": "ズームを追加",
 		"addTrim": "トリムを追加",
 		"addSpeed": "速度を追加",
