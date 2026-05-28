@@ -1,3 +1,4 @@
+import { normalizeTextAnimation } from "@/lib/annotationTextAnimation";
 import { normalizeBlurColor, normalizeBlurType } from "@/lib/blurEffects";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
@@ -366,6 +367,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						style: {
 							...DEFAULT_ANNOTATION_STYLE,
 							...(region.style && typeof region.style === "object" ? region.style : {}),
+							textAnimation: normalizeTextAnimation(region.style?.textAnimation),
 						},
 						zIndex: isFiniteNumber(region.zIndex) ? region.zIndex : index + 1,
 						figureData: region.figureData

@@ -1,4 +1,5 @@
 import { type AnnotationRegion, type ArrowDirection } from "@/components/video-editor/types";
+import { getTextAnimationState } from "@/lib/annotationTextAnimation";
 import {
 	applyMosaicToImageData,
 	getBlurOverlayColor,
@@ -242,10 +243,20 @@ function renderText(
 	width: number,
 	height: number,
 	scaleFactor: number,
+	currentTimeMs: number,
 ) {
 	const style = annotation.style;
+	const animationState = getTextAnimationState(annotation, currentTimeMs);
 
 	ctx.save();
+
+	const transformOriginX = x + width / 2;
+	const transformOriginY = y + height / 2;
+	ctx.translate(transformOriginX, transformOriginY);
+	ctx.translate(animationState.translateX * scaleFactor, animationState.translateY * scaleFactor);
+	ctx.scale(animationState.scale, animationState.scale);
+	ctx.translate(-transformOriginX, -transformOriginY);
+	ctx.globalAlpha *= animationState.opacity;
 
 	// Clip text to annotation box bounds (matches editor's overflow: hidden)
 	ctx.beginPath();
@@ -301,9 +312,13 @@ function renderText(
 
 	lines.forEach((line, index) => {
 		const currentY = startY + index * lineHeight;
+		const revealProgress = animationState.revealProgress;
+		const visibleLine =
+			revealProgress >= 1 ? line : line.slice(0, Math.ceil(line.length * revealProgress));
+		if (!visibleLine && revealProgress < 1) return;
 
 		if (style.backgroundColor && style.backgroundColor !== "transparent") {
-			const metrics = ctx.measureText(line);
+			const metrics = ctx.measureText(visibleLine);
 			const verticalPadding = scaledFontSize * 0.1;
 			const horizontalPadding = scaledFontSize * 0.2;
 			const borderRadius = 4 * scaleFactor;
@@ -328,10 +343,10 @@ function renderText(
 		}
 
 		ctx.fillStyle = style.color;
-		ctx.fillText(line, textX, currentY);
+		ctx.fillText(visibleLine, textX, currentY);
 
 		if (style.textDecoration === "underline") {
-			const metrics = ctx.measureText(line);
+			const metrics = ctx.measureText(visibleLine);
 			let underlineX = textX;
 			const underlineY = currentY + scaledFontSize * 0.15;
 
@@ -420,7 +435,7 @@ export async function renderAnnotations(
 
 		switch (annotation.type) {
 			case "text":
-				renderText(ctx, annotation, x, y, width, height, scaleFactor);
+				renderText(ctx, annotation, x, y, width, height, scaleFactor, currentTimeMs);
 				break;
 
 			case "image":

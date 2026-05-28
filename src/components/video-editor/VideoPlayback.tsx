@@ -2044,6 +2044,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										}
 										previewSourceCanvas={previewSnapshotCanvas}
 										previewFrameVersion={Math.round(currentTime * 1000)}
+										currentTimeMs={Math.round(currentTime * 1000)}
 									/>
 								));
 							})()}
