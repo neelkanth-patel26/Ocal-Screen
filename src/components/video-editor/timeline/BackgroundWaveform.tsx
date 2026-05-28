@@ -53,64 +53,48 @@ export default function BackgroundWaveform({ peaks, videoDurationMs }: Backgroun
 
 		const W = canvasSize.w;
 		const H = canvasSize.h;
-		const mid = H / 2;
-		const amp = mid * 0.9;
 		const rangeMs = range.end - range.start;
 		if (rangeMs <= 0 || videoDurationMs <= 0) return;
 
 		const N = peaks.length / 2;
+		const amp = H * 0.9; // full-height amplitude for rectified display
 
-		// Pre-compute per-column peaks so we can draw a single filled polygon.
-		const colMax = new Float32Array(W);
-		const colMin = new Float32Array(W);
+		// Rectified (half-wave): amplitude = max(|min|, |max|), drawn from the bottom up.
+		const colAmp = new Float32Array(W);
 		for (let x = 0; x < W; x++) {
 			const startMs = range.start + (x / W) * rangeMs;
 			const endMs = range.start + ((x + 1) / W) * rangeMs;
 			const lo = Math.max(0, Math.floor((startMs / videoDurationMs) * N));
 			const hi = Math.min(N - 1, Math.ceil((endMs / videoDurationMs) * N));
 
-			let minVal = 0;
-			let maxVal = 0;
+			let absMax = 0;
 			for (let i = lo; i <= hi; i++) {
-				const mn = peaks[i * 2];
-				const mx = peaks[i * 2 + 1];
-				if (mn < minVal) minVal = mn;
-				if (mx > maxVal) maxVal = mx;
+				const a = Math.abs(peaks[i * 2]);
+				const b = Math.abs(peaks[i * 2 + 1]);
+				if (a > absMax) absMax = a;
+				if (b > absMax) absMax = b;
 			}
-			colMax[x] = maxVal;
-			colMin[x] = minVal;
+			colAmp[x] = absMax;
 		}
 
-		// Filled waveform polygon: upper edge (max) left→right, lower edge (min) right→left.
+		// Filled polygon: bottom-left → top silhouette → bottom-right.
 		ctx.beginPath();
-		ctx.moveTo(0, mid - colMax[0] * amp);
-		for (let x = 1; x < W; x++) {
-			ctx.lineTo(x, mid - colMax[x] * amp);
+		ctx.moveTo(0, H);
+		for (let x = 0; x < W; x++) {
+			ctx.lineTo(x, H - colAmp[x] * amp);
 		}
-		for (let x = W - 1; x >= 0; x--) {
-			ctx.lineTo(x, mid - colMin[x] * amp);
-		}
+		ctx.lineTo(W, H);
 		ctx.closePath();
 		ctx.fillStyle = "rgba(74, 222, 128, 0.55)";
 		ctx.fill();
 
-		// Crisp top-edge stroke for the "pro app" sharp silhouette.
+		// Crisp top-edge stroke for the sharp silhouette.
 		ctx.beginPath();
-		ctx.moveTo(0, mid - colMax[0] * amp);
+		ctx.moveTo(0, H - colAmp[0] * amp);
 		for (let x = 1; x < W; x++) {
-			ctx.lineTo(x, mid - colMax[x] * amp);
+			ctx.lineTo(x, H - colAmp[x] * amp);
 		}
-		ctx.strokeStyle = "rgba(74, 222, 128, 0.80)";
-		ctx.lineWidth = 1;
-		ctx.stroke();
-
-		// Mirror: bottom edge stroke.
-		ctx.beginPath();
-		ctx.moveTo(0, mid - colMin[0] * amp);
-		for (let x = 1; x < W; x++) {
-			ctx.lineTo(x, mid - colMin[x] * amp);
-		}
-		ctx.strokeStyle = "rgba(74, 222, 128, 0.80)";
+		ctx.strokeStyle = "rgba(74, 222, 128, 0.85)";
 		ctx.lineWidth = 1;
 		ctx.stroke();
 	}, [peaks, range, canvasSize, videoDurationMs]);
