@@ -11,10 +11,10 @@ import {
 	systemPreferences,
 	Tray,
 } from "electron";
+import { ShortcutBinding } from "../src/lib/shortcuts";
 import {
 	loadAndRegisterGlobalShortcut,
 	registerOpenAppShortcut,
-	ShortcutBinding,
 	unregisterAllGlobalShortcuts,
 } from "./globalShortcut";
 import { mainT, setMainLocale } from "./i18n";
