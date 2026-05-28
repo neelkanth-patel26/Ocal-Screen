@@ -105,32 +105,25 @@ export default function BackgroundWaveform({
 			colAmp[x] = absMax;
 		}
 
-		// Draw one filled bar per column. Silent columns (height < 0.5 px) are
-		// skipped entirely so no flat baseline appears in quiet sections.
+		// Filled polygon: bottom-left → top silhouette → bottom-right.
+		ctx.beginPath();
+		ctx.moveTo(0, bottomY);
+		for (let x = 0; x < W; x++) {
+			ctx.lineTo(x, bottomY - colAmp[x] * amp);
+		}
+		ctx.lineTo(W, bottomY);
+		ctx.closePath();
 		ctx.fillStyle = "rgba(74, 222, 128, 0.55)";
+		ctx.fill();
+
+		// Crisp top-edge stroke for the sharp silhouette.
+		ctx.beginPath();
+		ctx.moveTo(0, bottomY - colAmp[0] * amp);
+		for (let x = 1; x < W; x++) {
+			ctx.lineTo(x, bottomY - colAmp[x] * amp);
+		}
 		ctx.strokeStyle = "rgba(74, 222, 128, 0.85)";
 		ctx.lineWidth = 1;
-
-		ctx.beginPath();
-		let edgeOpen = false;
-
-		for (let x = 0; x < W; x++) {
-			const barH = colAmp[x] * amp;
-			if (barH < 0.5) {
-				edgeOpen = false;
-				continue;
-			}
-			// Filled bar
-			ctx.fillRect(x, bottomY - barH, 1, barH);
-			// Top-edge stroke — lift pen on gaps, continue on runs
-			const topPx = bottomY - barH;
-			if (!edgeOpen) {
-				ctx.moveTo(x, topPx);
-				edgeOpen = true;
-			} else {
-				ctx.lineTo(x, topPx);
-			}
-		}
 		ctx.stroke();
 	}, [peaks, range, canvasSize, videoDurationMs, topInset, bottomInset]);
 
