@@ -806,8 +806,8 @@ function Timeline({
 						<BackgroundWaveform
 							peaks={peaks}
 							videoDurationMs={videoDurationMs}
-							topInset={0}
-							bottomInset={6}
+							topInset={3}
+							bottomInset={3}
 						/>
 					) : undefined
 				}
