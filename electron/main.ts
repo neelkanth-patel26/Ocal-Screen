@@ -523,7 +523,8 @@ app.whenReady().then(async () => {
 	});
 
 	ipcMain.handle("update-global-shortcut", (_, binding: ShortcutBinding) => {
-		registerOpenAppShortcut(binding, showMainWindow);
+		const success = registerOpenAppShortcut(binding, showMainWindow);
+		return { success };
 	});
 
 	createTray();

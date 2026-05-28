@@ -253,7 +253,7 @@ interface Window {
 			ctrl?: boolean;
 			shift?: boolean;
 			alt?: boolean;
-		}) => Promise<void>;
+		}) => Promise<{ success: boolean }>;
 		hudOverlayHide: () => void;
 		hudOverlayClose: () => void;
 		setHudOverlayIgnoreMouseEvents: (ignore: boolean) => void;

@@ -63,7 +63,6 @@ export async function loadAndRegisterGlobalShortcut(onTrigger: () => void): Prom
 		const binding = shortcuts.openApp || DEFAULT_OPEN_APP_BINDING;
 		registerOpenAppShortcut(binding, onTrigger);
 	} catch {
-		// File doesn't exist or parse error, use default
 		registerOpenAppShortcut(DEFAULT_OPEN_APP_BINDING, onTrigger);
 	}
 }
