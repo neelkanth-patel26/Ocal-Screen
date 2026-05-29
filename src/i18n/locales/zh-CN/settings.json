@@ -1,5 +1,6 @@
 {
 	"zoom": {
+		"previewHold": "按住预览放大效果",
 		"level": "缩放级别",
 		"selectRegion": "选择要调整的缩放区域",
 		"deleteZoom": "删除缩放",
@@ -16,6 +17,13 @@
 				"left": "左",
 				"right": "右"
 			}
+		},
+		"customScale": "自定义缩放",
+		"position": {
+			"title": "焦点位置",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = 最左 / 最上，100 = 最右 / 最下"
 		}
 	},
 	"speed": {
@@ -36,7 +44,8 @@
 		"verticalStack": "垂直堆叠",
 		"dualFrame": "双画框",
 		"webcamShape": "摄像头形状",
-		"webcamSize": "摄像头大小"
+		"webcamSize": "摄像头大小",
+		"noWebcam": "无摄像头"
 	},
 	"effects": {
 		"title": "视频效果",
@@ -45,7 +54,8 @@
 		"off": "关",
 		"shadow": "阴影",
 		"roundness": "圆角",
-		"padding": "内边距"
+		"padding": "内边距",
+		"on": "开"
 	},
 	"background": {
 		"title": "背景",
@@ -76,10 +86,10 @@
 		"gifDescription": "可分享的动态图片"
 	},
 	"exportQuality": {
-		"title": "导出质量",
-		"low": "低",
-		"medium": "中",
-		"high": "高"
+		"title": "导出分辨率",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF 帧率",
@@ -95,13 +105,14 @@
 		"gifButton": "导出 GIF",
 		"chooseSaveLocation": "选择保存位置"
 	},
-	"links": {
+	"support": {
 		"reportBug": "报告错误",
+		"saveDiagnostics": "保存诊断信息",
 		"starOnGithub": "在 GitHub 上加星"
 	},
 	"imageUpload": {
 		"invalidFileType": "无效的文件类型",
-		"jpgOnly": "请上传 JPG 或 JPEG 格式的图片文件。",
+		"jpgOnly": "请上传 JPG、JPEG 或 PNG 格式的图片文件。",
 		"uploadSuccess": "自定义图片上传成功！",
 		"failedToUpload": "上传图片失败",
 		"errorReading": "读取文件时出错。"
@@ -182,7 +193,19 @@
 		"errorTimeout": "字体加载时间过长。请检查 URL 并重试。",
 		"errorLoadFailed": "无法加载该字体。请确认 Google Fonts URL 是否正确。"
 	},
+	"cursor": {
+		"show": "显示光标",
+		"size": "大小",
+		"smoothing": "平滑",
+		"motionBlur": "运动模糊",
+		"clickBounce": "点击弹跳",
+		"clipToBounds": "裁剪到画布"
+	},
 	"language": {
 		"title": "语言"
+	},
+	"timeline": {
+		"title": "时间轴",
+		"waveform": "在剪辑轨道上显示音频波形"
 	}
 }

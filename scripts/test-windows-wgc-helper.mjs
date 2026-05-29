@@ -23,6 +23,9 @@ const WITH_WINDOW =
 	process.env.OPENSCREEN_WGC_TEST_WINDOW === "true" || process.argv.includes("--window");
 const WITH_WEBCAM =
 	process.env.OPENSCREEN_WGC_TEST_WEBCAM === "true" || process.argv.includes("--webcam");
+const CAPTURE_CURSOR =
+	process.env.OPENSCREEN_WGC_TEST_CAPTURE_CURSOR === "true" ||
+	process.argv.includes("--capture-cursor");
 
 function runHelper(config) {
 	return new Promise((resolve, reject) => {
@@ -227,6 +230,7 @@ const outputPath = path.join(
 	os.tmpdir(),
 	`openscreen-wgc-helper-${WITH_WEBCAM ? "webcam" : WITH_WINDOW ? "window" : WITH_SYSTEM_AUDIO || WITH_MICROPHONE ? "audio" : "video"}-${process.pid}-${Date.now()}-${randomUUID()}.mp4`,
 );
+const webcamOutputPath = WITH_WEBCAM ? outputPath.replace(/\.mp4$/i, "-webcam.mp4") : null;
 
 const fixtureWindow = WITH_WINDOW ? await startFixtureWindow() : null;
 
@@ -247,6 +251,7 @@ const config = {
 	hasDisplayBounds: true,
 	captureSystemAudio: WITH_SYSTEM_AUDIO,
 	captureMic: WITH_MICROPHONE,
+	captureCursor: CAPTURE_CURSOR,
 	microphoneDeviceId: process.env.OPENSCREEN_WGC_TEST_MICROPHONE_DEVICE_ID ?? "default",
 	microphoneDeviceName: process.env.OPENSCREEN_WGC_TEST_MICROPHONE_DEVICE_NAME ?? "",
 	microphoneGain: 1.4,
@@ -259,7 +264,10 @@ const config = {
 	webcamWidth: 640,
 	webcamHeight: 360,
 	webcamFps: 30,
-	outputs: { screenPath: outputPath },
+	outputs: {
+		screenPath: outputPath,
+		...(webcamOutputPath ? { webcamPath: webcamOutputPath } : {}),
+	},
 };
 
 let result;
@@ -285,8 +293,13 @@ if (result.code !== 0) {
 if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
 	throw new Error(`WGC helper did not produce a video at ${outputPath}`);
 }
+if (WITH_WEBCAM && (!fs.existsSync(webcamOutputPath) || fs.statSync(webcamOutputPath).size === 0)) {
+	throw new Error(`WGC helper did not produce a webcam video at ${webcamOutputPath}`);
+}
 
 const streams = probeStreams(outputPath);
+const webcamStreams =
+	webcamOutputPath && fs.existsSync(webcamOutputPath) ? probeStreams(webcamOutputPath) : [];
 const hasVideo = streams.some((stream) => stream.codec_type === "video");
 const hasAudio = streams.some((stream) => stream.codec_type === "audio");
 const webcamFormatLine = result.stdout
@@ -297,6 +310,10 @@ const audioFormatLine = result.stdout
 	.split(/\r?\n/)
 	.find((line) => line.includes('"event":"audio-format"'));
 const audioFormat = audioFormatLine ? JSON.parse(audioFormatLine) : null;
+const cursorCaptureLine = result.stdout
+	.split(/\r?\n/)
+	.find((line) => line.includes('"event":"cursor-capture"'));
+const cursorCapture = cursorCaptureLine ? JSON.parse(cursorCaptureLine) : null;
 const nativeWebcamDiagnostics = result.stderr
 	.split(/\r?\n/)
 	.filter((line) => line.includes("Native webcam candidate"));
@@ -309,6 +326,18 @@ const nativeMicrophoneDiagnostics = result.stderr
 	);
 if (!hasVideo) {
 	throw new Error(`WGC helper output has no video stream: ${outputPath}`);
+}
+if (WITH_WEBCAM && !webcamStreams.some((stream) => stream.codec_type === "video")) {
+	throw new Error(`WGC helper webcam output has no video stream: ${webcamOutputPath}`);
+}
+if (
+	(CAPTURE_CURSOR && !cursorCapture) ||
+	(cursorCapture &&
+		(cursorCapture.requested !== CAPTURE_CURSOR || cursorCapture.applied !== CAPTURE_CURSOR))
+) {
+	throw new Error(
+		`WGC helper did not apply requested cursor capture mode (${CAPTURE_CURSOR}): ${result.stdout}`,
+	);
 }
 if ((WITH_SYSTEM_AUDIO || WITH_MICROPHONE) && !hasAudio) {
 	throw new Error(`WGC helper output has no audio stream: ${outputPath}`);
@@ -325,13 +354,27 @@ console.log(
 		{
 			success: true,
 			outputPath,
+			webcamOutputPath,
 			bytes: fs.statSync(outputPath).size,
+			webcamBytes:
+				webcamOutputPath && fs.existsSync(webcamOutputPath)
+					? fs.statSync(webcamOutputPath).size
+					: undefined,
 			streams: streams.map((stream) => ({
 				index: stream.index,
 				codecType: stream.codec_type,
 				codecName: stream.codec_name,
 				duration: stream.duration,
 			})),
+			webcamStreams: webcamStreams.map((stream) => ({
+				index: stream.index,
+				codecType: stream.codec_type,
+				codecName: stream.codec_name,
+				width: stream.width,
+				height: stream.height,
+				duration: stream.duration,
+			})),
+			cursorCapture,
 			selectedMicrophoneDeviceName: audioFormat?.microphoneDeviceName,
 			selectedWebcamDeviceName: webcamFormat?.deviceName,
 			nativeMicrophoneDiagnostics,

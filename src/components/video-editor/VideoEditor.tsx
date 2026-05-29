@@ -18,6 +18,8 @@ import { type Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
 import { hasNativeCursorRecordingData } from "@/lib/cursor/nativeCursor";
 import {
+	calculateEffectiveSourceDimensions,
+	calculateMp4ExportSettings,
 	calculateOutputDimensions,
 	type ExportFormat,
 	type ExportProgress,
@@ -47,6 +49,12 @@ import {
 	isPortraitAspectRatio,
 } from "@/utils/aspectRatioUtils";
 import { ExportDialog } from "./ExportDialog";
+import {
+	DEFAULT_CURSOR_SETTINGS,
+	DEFAULT_EXPORT_SETTINGS,
+	DEFAULT_GIF_SETTINGS,
+	DEFAULT_SOURCE_DIMENSIONS,
+} from "./editorDefaults";
 import PlaybackControls from "./PlaybackControls";
 import {
 	createProjectData,
@@ -69,10 +77,6 @@ import {
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
 	DEFAULT_BLUR_DATA,
-	DEFAULT_CURSOR_CLICK_BOUNCE,
-	DEFAULT_CURSOR_MOTION_BLUR,
-	DEFAULT_CURSOR_SIZE,
-	DEFAULT_CURSOR_SMOOTHING,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_ZOOM_DEPTH,
@@ -165,6 +169,7 @@ export default function VideoEditor() {
 		wallpaper,
 		shadowIntensity,
 		showBlur,
+		showTrimWaveform,
 		motionBlurAmount,
 		borderRadius,
 		padding,
@@ -191,6 +196,7 @@ export default function VideoEditor() {
 	const durationRef = useRef(duration);
 	durationRef.current = duration;
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
+	const [isPreviewingZoom, setIsPreviewingZoom] = useState(false);
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
 	const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
@@ -200,11 +206,15 @@ export default function VideoEditor() {
 	const [exportError, setExportError] = useState<string | null>(null);
 	const [showExportDialog, setShowExportDialog] = useState(false);
 	const [showNewRecordingDialog, setShowNewRecordingDialog] = useState(false);
-	const [exportQuality, setExportQuality] = useState<ExportQuality>("good");
-	const [exportFormat, setExportFormat] = useState<ExportFormat>("mp4");
-	const [gifFrameRate, setGifFrameRate] = useState<GifFrameRate>(15);
-	const [gifLoop, setGifLoop] = useState(true);
-	const [gifSizePreset, setGifSizePreset] = useState<GifSizePreset>("medium");
+	const [exportQuality, setExportQuality] = useState<ExportQuality>(
+		DEFAULT_EXPORT_SETTINGS.quality,
+	);
+	const [exportFormat, setExportFormat] = useState<ExportFormat>(DEFAULT_EXPORT_SETTINGS.format);
+	const [gifFrameRate, setGifFrameRate] = useState<GifFrameRate>(DEFAULT_GIF_SETTINGS.frameRate);
+	const [gifLoop, setGifLoop] = useState(DEFAULT_GIF_SETTINGS.loop);
+	const [gifSizePreset, setGifSizePreset] = useState<GifSizePreset>(
+		DEFAULT_GIF_SETTINGS.sizePreset,
+	);
 	const [exportedFilePath, setExportedFilePath] = useState<string | null>(null);
 	const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string | null>(null);
 	const [unsavedExport, setUnsavedExport] = useState<{
@@ -235,11 +245,14 @@ export default function VideoEditor() {
 	}, [cursorRecordingData, cursorTelemetry]);
 
 	// Cursor & motion blur visual settings (non-undoable preferences)
-	const [showCursor, setShowCursor] = useState(true);
-	const [cursorSize, setCursorSize] = useState(DEFAULT_CURSOR_SIZE);
-	const [cursorSmoothing, setCursorSmoothing] = useState(DEFAULT_CURSOR_SMOOTHING);
-	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_CURSOR_MOTION_BLUR);
-	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_CURSOR_CLICK_BOUNCE);
+	const [showCursor, setShowCursor] = useState(DEFAULT_CURSOR_SETTINGS.show);
+	const [cursorSize, setCursorSize] = useState(DEFAULT_CURSOR_SETTINGS.size);
+	const [cursorSmoothing, setCursorSmoothing] = useState(DEFAULT_CURSOR_SETTINGS.smoothing);
+	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_CURSOR_SETTINGS.motionBlur);
+	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_CURSOR_SETTINGS.clickBounce);
+	const [cursorClipToBounds, setCursorClipToBounds] = useState(
+		DEFAULT_CURSOR_SETTINGS.clipToBounds,
+	);
 	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
 	const [recordingCursorCaptureMode, setRecordingCursorCaptureMode] =
 		useState<CursorCaptureMode | null>(null);
@@ -251,13 +264,13 @@ export default function VideoEditor() {
 	const nextSpeedIdRef = useRef(1);
 
 	const { shortcuts, isMac } = useShortcuts();
-	// Windows-only: the synthetic cursor overlay + cursor customization settings
-	// only apply when there's an actual native cursor recording (cursor frames +
-	// position samples produced by WindowsNativeRecordingSession). Mac and Linux
-	// keep their telemetry positions for auto-zoom but never render a synthetic
-	// cursor or expose cursor customization settings.
+	// Native Windows recordings include captured cursor assets. Native macOS
+	// recordings hide the system cursor in ScreenCaptureKit and use telemetry
+	// samples with OpenScreen's default arrow asset for the editable overlay.
 	const hasEditableCursorRecording =
-		nativePlatform === "win32" && hasNativeCursorRecordingData(cursorRecordingData);
+		recordingCursorCaptureMode === "editable-overlay" &&
+		(nativePlatform === "win32" || nativePlatform === "darwin") &&
+		hasNativeCursorRecordingData(cursorRecordingData);
 	const effectiveShowCursor = showCursor && hasEditableCursorRecording;
 	const showCursorSettings = hasEditableCursorRecording;
 	const { locale, setLocale, t: rawT } = useI18n();
@@ -343,6 +356,7 @@ export default function VideoEditor() {
 				wallpaper: normalizedEditor.wallpaper,
 				shadowIntensity: normalizedEditor.shadowIntensity,
 				showBlur: normalizedEditor.showBlur,
+				showTrimWaveform: normalizedEditor.showTrimWaveform,
 				motionBlurAmount: normalizedEditor.motionBlurAmount,
 				borderRadius: normalizedEditor.borderRadius,
 				padding: normalizedEditor.padding,
@@ -414,6 +428,7 @@ export default function VideoEditor() {
 			wallpaper,
 			shadowIntensity,
 			showBlur,
+			showTrimWaveform,
 			motionBlurAmount,
 			borderRadius,
 			padding,
@@ -437,6 +452,7 @@ export default function VideoEditor() {
 		wallpaper,
 		shadowIntensity,
 		showBlur,
+		showTrimWaveform,
 		motionBlurAmount,
 		borderRadius,
 		padding,
@@ -560,6 +576,7 @@ export default function VideoEditor() {
 				wallpaper,
 				shadowIntensity,
 				showBlur,
+				showTrimWaveform,
 				motionBlurAmount,
 				borderRadius,
 				padding,
@@ -619,6 +636,7 @@ export default function VideoEditor() {
 			wallpaper,
 			shadowIntensity,
 			showBlur,
+			showTrimWaveform,
 			motionBlurAmount,
 			borderRadius,
 			padding,
@@ -796,6 +814,7 @@ export default function VideoEditor() {
 		setSelectedZoomId(id);
 		if (id) {
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
 		}
@@ -805,6 +824,7 @@ export default function VideoEditor() {
 		setSelectedTrimId(id);
 		if (id) {
 			setSelectedZoomId(null);
+			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
 		}
@@ -815,6 +835,7 @@ export default function VideoEditor() {
 		if (id) {
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
 			setSelectedBlurId(null);
 		}
 	}, []);
@@ -843,6 +864,7 @@ export default function VideoEditor() {
 			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
 			setSelectedZoomId(id);
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
 		},
@@ -860,11 +882,10 @@ export default function VideoEditor() {
 				customScale: ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH],
 				focus: clampFocusToDepth(focus, DEFAULT_ZOOM_DEPTH),
 			};
+			// Bulk suggest must not steal selection — keeping a zoom selected hides
+			// the export panel (SettingsPanel gates it on !hasTimelineSelection),
+			// trapping users who just want to export after auto-zoom.
 			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
-			setSelectedZoomId(id);
-			setSelectedTrimId(null);
-			setSelectedAnnotationId(null);
-			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -880,6 +901,7 @@ export default function VideoEditor() {
 			pushState((prev) => ({ trimRegions: [...prev.trimRegions, newRegion] }));
 			setSelectedTrimId(id);
 			setSelectedZoomId(null);
+			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
 		},
@@ -1115,6 +1137,7 @@ export default function VideoEditor() {
 			setSelectedAnnotationId(id);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
 			setSelectedBlurId(null);
 		},
 		[pushState],
@@ -1188,6 +1211,8 @@ export default function VideoEditor() {
 			setSelectedAnnotationId(duplicateId);
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
+			setSelectedBlurId(null);
 		},
 		[pushState],
 	);
@@ -1572,8 +1597,13 @@ export default function VideoEditor() {
 					videoPlaybackRef.current?.pause();
 				}
 
-				const sourceWidth = video.videoWidth || 1920;
-				const sourceHeight = video.videoHeight || 1080;
+				const sourceWidth = video.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width;
+				const sourceHeight = video.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height;
+				const effectiveSourceDimensions = calculateEffectiveSourceDimensions(
+					sourceWidth,
+					sourceHeight,
+					cropRegion,
+				);
 				const aspectRatioValue =
 					aspectRatio === "native"
 						? getNativeAspectRatioValue(sourceWidth, sourceHeight, cropRegion)
@@ -1582,8 +1612,8 @@ export default function VideoEditor() {
 				// Get preview CONTAINER dimensions for scaling
 				const playbackRef = videoPlaybackRef.current;
 				const containerElement = playbackRef?.containerRef?.current;
-				const previewWidth = containerElement?.clientWidth || 1920;
-				const previewHeight = containerElement?.clientHeight || 1080;
+				const previewWidth = containerElement?.clientWidth || DEFAULT_SOURCE_DIMENSIONS.width;
+				const previewHeight = containerElement?.clientHeight || DEFAULT_SOURCE_DIMENSIONS.height;
 
 				if (settings.format === "gif" && settings.gifConfig) {
 					// GIF Export
@@ -1612,6 +1642,7 @@ export default function VideoEditor() {
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
+						cursorClipToBounds,
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
@@ -1667,83 +1698,16 @@ export default function VideoEditor() {
 				} else {
 					// MP4 Export
 					const quality = settings.quality || exportQuality;
-					let exportWidth: number;
-					let exportHeight: number;
-					let bitrate: number;
-
-					if (quality === "source") {
-						exportWidth = sourceWidth;
-						exportHeight = sourceHeight;
-
-						// Use the source's longer dimension as the long axis of the export so
-						// a landscape recording can still fill a portrait target (and vice versa).
-						const sourceLongDim = Math.max(sourceWidth, sourceHeight);
-
-						if (aspectRatioValue === 1) {
-							const baseDimension = Math.floor(Math.min(sourceWidth, sourceHeight) / 2) * 2;
-							exportWidth = baseDimension;
-							exportHeight = baseDimension;
-						} else if (aspectRatioValue > 1) {
-							const baseWidth = Math.floor(sourceLongDim / 2) * 2;
-							let found = false;
-							for (let w = baseWidth; w >= 100 && !found; w -= 2) {
-								const h = Math.round(w / aspectRatioValue);
-								if (h % 2 === 0 && Math.abs(w / h - aspectRatioValue) < 0.0001) {
-									exportWidth = w;
-									exportHeight = h;
-									found = true;
-								}
-							}
-							if (!found) {
-								exportWidth = baseWidth;
-								exportHeight = Math.floor(baseWidth / aspectRatioValue / 2) * 2;
-							}
-						} else {
-							const baseHeight = Math.floor(sourceLongDim / 2) * 2;
-							let found = false;
-							for (let h = baseHeight; h >= 100 && !found; h -= 2) {
-								const w = Math.round(h * aspectRatioValue);
-								if (w % 2 === 0 && Math.abs(w / h - aspectRatioValue) < 0.0001) {
-									exportWidth = w;
-									exportHeight = h;
-									found = true;
-								}
-							}
-							if (!found) {
-								exportHeight = baseHeight;
-								exportWidth = Math.floor((baseHeight * aspectRatioValue) / 2) * 2;
-							}
-						}
-
-						const totalPixels = exportWidth * exportHeight;
-						bitrate = 30_000_000;
-						if (totalPixels > 1920 * 1080 && totalPixels <= 2560 * 1440) {
-							bitrate = 50_000_000;
-						} else if (totalPixels > 2560 * 1440) {
-							bitrate = 80_000_000;
-						}
-					} else {
-						// Quality presets target the SHORT side; the long side derives from the
-						// aspect ratio. This keeps 1080p portrait at 1080×1920 instead of 607×1080.
-						const targetShortDim = quality === "medium" ? 720 : 1080;
-
-						if (aspectRatioValue >= 1) {
-							exportHeight = Math.floor(targetShortDim / 2) * 2;
-							exportWidth = Math.floor((exportHeight * aspectRatioValue) / 2) * 2;
-						} else {
-							exportWidth = Math.floor(targetShortDim / 2) * 2;
-							exportHeight = Math.floor(exportWidth / aspectRatioValue / 2) * 2;
-						}
-
-						const totalPixels = exportWidth * exportHeight;
-						if (totalPixels <= 1280 * 720) {
-							bitrate = 10_000_000;
-						} else if (totalPixels <= 1920 * 1080) {
-							bitrate = 20_000_000;
-						} else {
-							bitrate = 30_000_000;
-						}
-					}
+					const {
+						width: exportWidth,
+						height: exportHeight,
+						bitrate,
+					} = calculateMp4ExportSettings({
+						quality,
+						sourceWidth: effectiveSourceDimensions.width,
+						sourceHeight: effectiveSourceDimensions.height,
+						aspectRatioValue,
+					});
 
 					const exporter = new VideoExporter({
 						videoUrl: videoPath,
@@ -1769,6 +1733,7 @@ export default function VideoEditor() {
 						cursorSmoothing,
 						cursorMotionBlur,
 						cursorClickBounce,
+						cursorClipToBounds,
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
@@ -1884,6 +1849,7 @@ export default function VideoEditor() {
 			cursorSmoothing,
 			cursorMotionBlur,
 			cursorClickBounce,
+			cursorClipToBounds,
 			t,
 		],
 	);
@@ -1901,15 +1867,20 @@ export default function VideoEditor() {
 		}
 
 		// Build export settings from current state
-		const sourceWidth = video.videoWidth || 1920;
-		const sourceHeight = video.videoHeight || 1080;
+		const sourceWidth = video.videoWidth || DEFAULT_SOURCE_DIMENSIONS.width;
+		const sourceHeight = video.videoHeight || DEFAULT_SOURCE_DIMENSIONS.height;
+		const effectiveSourceDimensions = calculateEffectiveSourceDimensions(
+			sourceWidth,
+			sourceHeight,
+			cropRegion,
+		);
 		const aspectRatioValue =
 			aspectRatio === "native"
 				? getNativeAspectRatioValue(sourceWidth, sourceHeight, cropRegion)
 				: getAspectRatioValue(aspectRatio);
 		const gifDimensions = calculateOutputDimensions(
-			sourceWidth,
-			sourceHeight,
+			effectiveSourceDimensions.width,
+			effectiveSourceDimensions.height,
 			gifSizePreset,
 			GIF_SIZE_PRESETS,
 			aspectRatioValue,
@@ -2101,8 +2072,10 @@ export default function VideoEditor() {
 												aspectRatio:
 													aspectRatio === "native"
 														? getNativeAspectRatioValue(
-																videoPlaybackRef.current?.video?.videoWidth || 1920,
-																videoPlaybackRef.current?.video?.videoHeight || 1080,
+																videoPlaybackRef.current?.video?.videoWidth ||
+																	DEFAULT_SOURCE_DIMENSIONS.width,
+																videoPlaybackRef.current?.video?.videoHeight ||
+																	DEFAULT_SOURCE_DIMENSIONS.height,
 																cropRegion,
 															)
 														: getAspectRatioValue(aspectRatio),
@@ -2161,6 +2134,8 @@ export default function VideoEditor() {
 												cursorSmoothing={cursorSmoothing}
 												cursorMotionBlur={cursorMotionBlur}
 												cursorClickBounce={cursorClickBounce}
+												cursorClipToBounds={cursorClipToBounds}
+												isPreviewingZoom={isPreviewingZoom}
 											/>
 										</div>
 									</div>
@@ -2196,6 +2171,8 @@ export default function VideoEditor() {
 									}
 									onZoomCustomScaleChange={handleZoomCustomScaleChange}
 									onZoomCustomScaleCommit={handleZoomCustomScaleCommit}
+									onZoomPreviewStart={() => setIsPreviewingZoom(true)}
+									onZoomPreviewEnd={() => setIsPreviewingZoom(false)}
 									selectedZoomFocusMode={
 										selectedZoomId
 											? (zoomRegions.find((z) => z.id === selectedZoomId)?.focusMode ?? "manual")
@@ -2229,6 +2206,8 @@ export default function VideoEditor() {
 									onShadowCommit={commitState}
 									showBlur={showBlur}
 									onBlurChange={(v) => pushState({ showBlur: v })}
+									showTrimWaveform={showTrimWaveform}
+									onTrimWaveformChange={(v) => pushState({ showTrimWaveform: v })}
 									motionBlurAmount={motionBlurAmount}
 									onMotionBlurChange={(v) => updateState({ motionBlurAmount: v })}
 									onMotionBlurCommit={commitState}
@@ -2266,19 +2245,38 @@ export default function VideoEditor() {
 									gifSizePreset={gifSizePreset}
 									onGifSizePresetChange={setGifSizePreset}
 									gifOutputDimensions={calculateOutputDimensions(
-										videoPlaybackRef.current?.video?.videoWidth || 1920,
-										videoPlaybackRef.current?.video?.videoHeight || 1080,
+										calculateEffectiveSourceDimensions(
+											videoPlaybackRef.current?.video?.videoWidth ||
+												DEFAULT_SOURCE_DIMENSIONS.width,
+											videoPlaybackRef.current?.video?.videoHeight ||
+												DEFAULT_SOURCE_DIMENSIONS.height,
+											cropRegion,
+										).width,
+										calculateEffectiveSourceDimensions(
+											videoPlaybackRef.current?.video?.videoWidth ||
+												DEFAULT_SOURCE_DIMENSIONS.width,
+											videoPlaybackRef.current?.video?.videoHeight ||
+												DEFAULT_SOURCE_DIMENSIONS.height,
+											cropRegion,
+										).height,
 										gifSizePreset,
 										GIF_SIZE_PRESETS,
 										aspectRatio === "native"
 											? getNativeAspectRatioValue(
-													videoPlaybackRef.current?.video?.videoWidth || 1920,
-													videoPlaybackRef.current?.video?.videoHeight || 1080,
+													videoPlaybackRef.current?.video?.videoWidth ||
+														DEFAULT_SOURCE_DIMENSIONS.width,
+													videoPlaybackRef.current?.video?.videoHeight ||
+														DEFAULT_SOURCE_DIMENSIONS.height,
 													cropRegion,
 												)
 											: getAspectRatioValue(aspectRatio),
 									)}
 									onExport={handleOpenExportDialog}
+									onExportPanelOpen={() => {
+										setSelectedZoomId(null);
+										setSelectedTrimId(null);
+										setSelectedSpeedId(null);
+									}}
 									selectedAnnotationId={selectedAnnotationId}
 									annotationRegions={annotationOnlyRegions}
 									onAnnotationContentChange={handleAnnotationContentChange}
@@ -2313,6 +2311,8 @@ export default function VideoEditor() {
 									onCursorMotionBlurChange={setCursorMotionBlur}
 									cursorClickBounce={cursorClickBounce}
 									onCursorClickBounceChange={setCursorClickBounce}
+									cursorClipToBounds={cursorClipToBounds}
+									onCursorClipToBoundsChange={setCursorClipToBounds}
 									hasCursorData={
 										cursorTelemetry.length > 0 || hasNativeCursorRecordingData(cursorRecordingData)
 									}
@@ -2376,6 +2376,8 @@ export default function VideoEditor() {
 												: webcamLayoutPreset,
 									})
 								}
+								videoUrl={videoPath ?? undefined}
+								showTrimWaveform={showTrimWaveform}
 							/>
 						</div>
 					</Panel>

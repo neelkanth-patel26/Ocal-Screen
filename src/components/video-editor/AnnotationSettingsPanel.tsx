@@ -50,7 +50,11 @@ interface AnnotationSettingsPanelProps {
 	onDelete: () => void;
 }
 
-const FONT_FAMILIES = [
+const FONT_FAMILIES: Array<
+	| { value: string; labelKey: string; name?: never }
+	| { value: string; labelKey?: never; name: string }
+> = [
+	{ value: "Inter", name: "Inter" },
 	{ value: "system-ui, -apple-system, sans-serif", labelKey: "classic" },
 	{ value: "Georgia, serif", labelKey: "editor" },
 	{ value: "Impact, Arial Black, sans-serif", labelKey: "strong" },
@@ -59,6 +63,21 @@ const FONT_FAMILIES = [
 	{ value: "Arial, sans-serif", labelKey: "simple" },
 	{ value: "Verdana, sans-serif", labelKey: "modern" },
 	{ value: "Trebuchet MS, sans-serif", labelKey: "clean" },
+	{ value: '"Plus Jakarta Sans", sans-serif', name: "Plus Jakarta Sans" },
+	{ value: '"Space Grotesk", sans-serif', name: "Space Grotesk" },
+	{ value: '"DM Sans", sans-serif', name: "DM Sans" },
+	{ value: "Sora, sans-serif", name: "Sora" },
+	{ value: "Manrope, sans-serif", name: "Manrope" },
+	{ value: '"IBM Plex Sans", sans-serif', name: "IBM Plex Sans" },
+	{ value: '"Playfair Display", Georgia, serif', name: "Playfair Display" },
+	{ value: "Merriweather, Georgia, serif", name: "Merriweather" },
+	{ value: "Lora, Georgia, serif", name: "Lora" },
+	{ value: '"IBM Plex Mono", monospace', name: "IBM Plex Mono" },
+	{ value: '"Fira Code", monospace', name: "Fira Code" },
+	{ value: '"Bebas Neue", sans-serif', name: "Bebas Neue" },
+	{ value: "Oswald, sans-serif", name: "Oswald" },
+	{ value: "Caveat, cursive", name: "Caveat" },
+	{ value: '"Permanent Marker", cursive', name: "Permanent Marker" },
 ];
 
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 80, 96, 128];
@@ -85,6 +104,8 @@ export function AnnotationSettingsPanel({
 		modern: t("fontStyles.modern"),
 		clean: t("fontStyles.clean"),
 	};
+	const getFontLabel = (font: (typeof FONT_FAMILIES)[number]) =>
+		font.labelKey ? fontStyleLabels[font.labelKey] : font.name;
 
 	// Load custom fonts on mount
 	useEffect(() => {
@@ -231,7 +252,7 @@ export function AnnotationSettingsPanel({
 													value={font.value}
 													style={{ fontFamily: font.value }}
 												>
-													{fontStyleLabels[font.labelKey]}
+													{getFontLabel(font)}
 												</SelectItem>
 											))}
 											{customFonts.length > 0 && (

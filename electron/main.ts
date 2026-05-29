@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import {
 	app,
 	BrowserWindow,
-	desktopCapturer,
 	ipcMain,
 	Menu,
 	nativeImage,
@@ -12,8 +11,14 @@ import {
 	systemPreferences,
 	Tray,
 } from "electron";
+import { ShortcutBinding } from "../src/lib/shortcuts";
+import {
+	loadAndRegisterGlobalShortcut,
+	registerOpenAppShortcut,
+	unregisterAllGlobalShortcuts,
+} from "./globalShortcut";
 import { mainT, setMainLocale } from "./i18n";
-import { registerIpcHandlers } from "./ipc/handlers";
+import { getSelectedDesktopSource, registerIpcHandlers } from "./ipc/handlers";
 import {
 	createCountdownOverlayWindow,
 	createEditorWindow,
@@ -441,6 +446,10 @@ app.on("activate", () => {
 	}
 });
 
+app.on("will-quit", () => {
+	unregisterAllGlobalShortcuts();
+});
+
 // Register all IPC handlers when app is ready
 app.whenReady().then(async () => {
 	// Force the app into "regular" activation policy so the Dock icon appears.
@@ -477,22 +486,29 @@ app.whenReady().then(async () => {
 		callback(allowed.includes(permission));
 	});
 
-	// Request microphone and screen recording permissions from macOS
+	session.defaultSession.setDisplayMediaRequestHandler(
+		(request, callback) => {
+			const source = getSelectedDesktopSource();
+			if (!request.videoRequested || !source) {
+				callback({});
+				return;
+			}
+
+			callback({
+				video: source,
+				...(request.audioRequested && process.platform === "win32" ? { audio: "loopback" } : {}),
+			});
+		},
+		{ useSystemPicker: false },
+	);
+
+	// Request microphone permission from macOS. Screen Recording is requested
+	// lazily from the source-picker action so the system prompt is not hidden
+	// behind OpenScreen's source selector window.
 	if (process.platform === "darwin") {
 		const micStatus = systemPreferences.getMediaAccessStatus("microphone");
 		if (micStatus !== "granted") {
 			await systemPreferences.askForMediaAccess("microphone");
-		}
-
-		// Screen recording has no askForMediaAccess equivalent — the TCC prompt is
-		// triggered by the first desktopCapturer.getSources() call. Firing it here
-		// at startup settles the permission state early and prevents repeated prompts
-		// driven by later getSources() calls (fixes repeated permission dialog).
-		const screenStatus = systemPreferences.getMediaAccessStatus("screen");
-		if (screenStatus === "not-determined") {
-			desktopCapturer.getSources({ types: ["screen"] }).catch(() => {
-				// This only triggers the system prompt; permission state is read separately.
-			});
 		}
 	}
 
@@ -504,6 +520,11 @@ app.whenReady().then(async () => {
 		setMainLocale(locale);
 		setupApplicationMenu();
 		updateTrayMenu();
+	});
+
+	ipcMain.handle("update-global-shortcut", (_, binding: ShortcutBinding) => {
+		const success = registerOpenAppShortcut(binding, showMainWindow);
+		return { success };
 	});
 
 	createTray();
@@ -539,5 +560,8 @@ app.whenReady().then(async () => {
 		},
 		switchToHudWrapper,
 	);
+
+	await loadAndRegisterGlobalShortcut(showMainWindow);
+
 	createWindow();
 });

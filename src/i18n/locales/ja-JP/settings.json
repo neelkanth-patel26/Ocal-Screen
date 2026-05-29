@@ -1,5 +1,6 @@
 {
 	"zoom": {
+		"previewHold": "押している間ズーム効果をプレビュー",
 		"level": "ズーム倍率",
 		"selectRegion": "ズーム範囲を選択して調整",
 		"deleteZoom": "ズームを削除",
@@ -16,6 +17,13 @@
 				"left": "左",
 				"right": "右"
 			}
+		},
+		"customScale": "カスタムズーム",
+		"position": {
+			"title": "フォーカス位置",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = 左端 / 上端、100 = 右端 / 下端"
 		}
 	},
 	"speed": {
@@ -36,7 +44,8 @@
 		"verticalStack": "縦並び",
 		"dualFrame": "デュアルフレーム",
 		"webcamShape": "カメラの形状",
-		"webcamSize": "カメラのサイズ"
+		"webcamSize": "カメラのサイズ",
+		"noWebcam": "Webカメラなし"
 	},
 	"effects": {
 		"title": "動画効果",
@@ -45,7 +54,8 @@
 		"off": "オフ",
 		"shadow": "影",
 		"roundness": "丸み",
-		"padding": "余白"
+		"padding": "余白",
+		"on": "オン"
 	},
 	"background": {
 		"title": "背景",
@@ -76,10 +86,10 @@
 		"gifDescription": "共有用のアニメーション画像"
 	},
 	"exportQuality": {
-		"title": "エクスポート品質",
-		"low": "低画質",
-		"medium": "中画質",
-		"high": "高画質"
+		"title": "書き出し解像度",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF フレームレート",
@@ -95,13 +105,14 @@
 		"gifButton": "GIF をエクスポート",
 		"chooseSaveLocation": "保存場所を選択"
 	},
-	"links": {
+	"support": {
 		"reportBug": "バグを報告",
+		"saveDiagnostics": "診断情報を保存",
 		"starOnGithub": "GitHub でスターを付ける"
 	},
 	"imageUpload": {
 		"invalidFileType": "無効なファイル形式",
-		"jpgOnly": "JPG または JPEG 画像ファイルを選択してください。",
+		"jpgOnly": "JPG、PNG、GIF、またはWebP画像ファイルを選択してください。",
 		"uploadSuccess": "カスタム画像を読み込みました。",
 		"failedToUpload": "画像の読み込みに失敗しました",
 		"errorReading": "ファイルの読み取り中にエラーが発生しました。"
@@ -182,7 +193,19 @@
 		"errorTimeout": "フォントの読み込みに時間がかかりすぎました。URLを確認して再試行してください。",
 		"errorLoadFailed": "フォントを読み込めませんでした。GoogleフォントのURLが正しいことを確認してください。"
 	},
+	"cursor": {
+		"show": "カーソルを表示",
+		"size": "サイズ",
+		"smoothing": "スムージング",
+		"motionBlur": "モーションブラー",
+		"clickBounce": "クリックバウンス",
+		"clipToBounds": "キャンバスにクリップ"
+	},
 	"language": {
 		"title": "言語"
+	},
+	"timeline": {
+		"title": "タイムライン",
+		"waveform": "トリムトラックに音声波形を表示"
 	}
 }

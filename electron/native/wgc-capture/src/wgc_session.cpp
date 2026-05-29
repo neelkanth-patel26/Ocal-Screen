@@ -140,11 +140,41 @@ bool WgcSession::createCaptureItem(HWND window) {
     return width_ > 0 && height_ > 0;
 }
 
-void WgcSession::applySessionOptions(bool captureCursor) {
+bool WgcSession::applySessionOptions(bool captureCursor) {
+    captureCursor_ = captureCursor;
+
     try {
-        session_.IsCursorCaptureEnabled(captureCursor);
+        auto session2 = session_.try_as<wgcap::IGraphicsCaptureSession2>();
+        if (!session2) {
+            if (!captureCursor) {
+                std::cerr << "ERROR: WGC cursor suppression is not supported by this Windows runtime"
+                          << std::endl;
+                return false;
+            }
+        } else {
+            session2.IsCursorCaptureEnabled(captureCursor);
+            const bool appliedCursorCapture = session2.IsCursorCaptureEnabled();
+            std::cout << "{\"event\":\"cursor-capture\",\"schemaVersion\":2,\"requested\":"
+                      << (captureCursor ? "true" : "false")
+                      << ",\"applied\":" << (appliedCursorCapture ? "true" : "false") << "}"
+                      << std::endl;
+
+            if (appliedCursorCapture != captureCursor) {
+                std::cerr << "ERROR: WGC cursor capture setting did not apply" << std::endl;
+                return false;
+            }
+        }
+    } catch (winrt::hresult_error const& error) {
+        std::cerr << "ERROR: Failed to configure WGC cursor capture (hr=0x" << std::hex
+                  << static_cast<uint32_t>(error.code()) << std::dec << ")" << std::endl;
+        if (!captureCursor) {
+            return false;
+        }
     } catch (...) {
-        // Older WGC builds can omit this property. They will keep the OS default.
+        std::cerr << "ERROR: Failed to configure WGC cursor capture" << std::endl;
+        if (!captureCursor) {
+            return false;
+        }
     }
 
     try {
@@ -152,6 +182,8 @@ void WgcSession::applySessionOptions(bool captureCursor) {
     } catch (...) {
         // IsBorderRequired is Windows 11-only. Ignore it on older builds.
     }
+
+    return true;
 }
 
 bool WgcSession::initialize(HMONITOR monitor, int fps, bool captureCursor) {
@@ -170,7 +202,9 @@ bool WgcSession::initialize(HMONITOR monitor, int fps, bool captureCursor) {
         item_.Size());
     session_ = framePool_.CreateCaptureSession(item_);
 
-    applySessionOptions(captureCursor);
+    if (!applySessionOptions(captureCursor)) {
+        return false;
+    }
 
     frameArrivedToken_ = framePool_.FrameArrived({this, &WgcSession::onFrameArrived});
     return true;
@@ -192,7 +226,9 @@ bool WgcSession::initialize(HWND window, int fps, bool captureCursor) {
         item_.Size());
     session_ = framePool_.CreateCaptureSession(item_);
 
-    applySessionOptions(captureCursor);
+    if (!applySessionOptions(captureCursor)) {
+        return false;
+    }
 
     frameArrivedToken_ = framePool_.FrameArrived({this, &WgcSession::onFrameArrived});
     return true;
@@ -205,6 +241,9 @@ void WgcSession::setFrameCallback(FrameCallback callback) {
 
 bool WgcSession::start() {
     if (!session_) {
+        return false;
+    }
+    if (!applySessionOptions(captureCursor_)) {
         return false;
     }
     session_.StartCapture();

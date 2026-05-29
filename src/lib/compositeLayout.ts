@@ -401,9 +401,23 @@ function centerRectInBounds(params: { bounds: RenderRect; size: Size; maxSize: S
 	const { x: boundsX, y: boundsY, width: boundsWidth, height: boundsHeight } = bounds;
 	const { width, height } = size;
 	const { width: maxWidth, height: maxHeight } = maxSize;
-	const scale = Math.min(maxWidth / width, maxHeight / height, 1);
+	const scale = Math.min(maxWidth / width, maxHeight / height);
 	const resolvedWidth = Math.round(width * scale);
 	const resolvedHeight = Math.round(height * scale);
+
+	if (
+		maxWidth >= boundsWidth &&
+		maxHeight >= boundsHeight &&
+		Math.abs(boundsWidth - resolvedWidth) <= 4 &&
+		Math.abs(boundsHeight - resolvedHeight) <= 4
+	) {
+		return {
+			x: boundsX,
+			y: boundsY,
+			width: boundsWidth,
+			height: boundsHeight,
+		};
+	}
 
 	return {
 		x: boundsX + Math.max(0, Math.floor((boundsWidth - resolvedWidth) / 2)),

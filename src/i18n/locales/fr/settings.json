@@ -1,5 +1,6 @@
 {
 	"zoom": {
+		"previewHold": "Maintenir pour prévisualiser l’effet de zoom",
 		"level": "Niveau de zoom",
 		"selectRegion": "Sélectionnez une région de zoom à ajuster",
 		"deleteZoom": "Supprimer le zoom",
@@ -9,13 +10,7 @@
 			"auto": "Auto",
 			"autoDescription": "La caméra suit la position du curseur enregistré"
 		},
-		"speed": {
-			"title": "Vitesse du zoom",
-			"instant": "Instantané",
-			"fast": "Rapide",
-			"smooth": "Fluide",
-			"lazy": "Lent"
-		},
+		"speed": {},
 		"threeD": {
 			"title": "Rotation 3D",
 			"preset": {
@@ -23,6 +18,13 @@
 				"left": "Gauche",
 				"right": "Droite"
 			}
+		},
+		"customScale": "Zoom personnalisé",
+		"position": {
+			"title": "Position du focus",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = tout à gauche / en haut, 100 = tout à droite / en bas"
 		}
 	},
 	"speed": {
@@ -43,7 +45,8 @@
 		"verticalStack": "Empilement vertical",
 		"dualFrame": "Double cadre",
 		"webcamShape": "Forme de la caméra",
-		"webcamSize": "Taille de la caméra"
+		"webcamSize": "Taille de la caméra",
+		"noWebcam": "Sans webcam"
 	},
 	"effects": {
 		"title": "Effets vidéo",
@@ -52,7 +55,8 @@
 		"off": "désactivé",
 		"shadow": "Ombre",
 		"roundness": "Arrondi",
-		"padding": "Marge"
+		"padding": "Marge",
+		"on": "activé"
 	},
 	"background": {
 		"title": "Arrière-plan",
@@ -83,10 +87,10 @@
 		"gifDescription": "Image animée pour le partage"
 	},
 	"exportQuality": {
-		"title": "Qualité d'export",
-		"low": "Faible",
-		"medium": "Moyenne",
-		"high": "Haute"
+		"title": "Résolution d'export",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "Fréquence d'images GIF",
@@ -102,13 +106,14 @@
 		"gifButton": "Exporter le GIF",
 		"chooseSaveLocation": "Choisir l'emplacement d'enregistrement"
 	},
-	"links": {
+	"support": {
 		"reportBug": "Signaler un bug",
+		"saveDiagnostics": "Enregistrer les diagnostics",
 		"starOnGithub": "Étoile sur GitHub"
 	},
 	"imageUpload": {
 		"invalidFileType": "Type de fichier invalide",
-		"jpgOnly": "Veuillez téléverser un fichier image JPG ou JPEG.",
+		"jpgOnly": "Veuillez téléverser un fichier image JPG, JPEG ou PNG.",
 		"uploadSuccess": "Image personnalisée téléversée avec succès !",
 		"failedToUpload": "Échec du téléversement de l'image",
 		"errorReading": "Une erreur s'est produite lors de la lecture du fichier."
@@ -189,7 +194,19 @@
 		"errorTimeout": "La police a mis trop de temps à charger. Vérifiez l'URL et réessayez.",
 		"errorLoadFailed": "La police n'a pas pu être chargée. Vérifiez que l'URL Google Fonts est correcte."
 	},
+	"cursor": {
+		"show": "Afficher le curseur",
+		"size": "Taille",
+		"smoothing": "Lissage",
+		"motionBlur": "Flou de mouvement",
+		"clickBounce": "Rebond au clic",
+		"clipToBounds": "Rogner au canevas"
+	},
 	"language": {
 		"title": "Langue"
+	},
+	"timeline": {
+		"title": "Montage",
+		"waveform": "Afficher la forme d'onde sur la piste de découpe"
 	}
 }

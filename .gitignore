@@ -16,7 +16,15 @@ dist-ssr
 
 # Native helper build outputs
 /electron/native/wgc-capture/build/
+/electron/native/screencapturekit/build/
+/electron/native/screencapturekit/.build/
+/electron/native/screencapturekit/.swiftpm/
 /electron/native/bin/
+
+# Native macOS generated files
+DerivedData/
+*.xcuserstate
+xcuserdata/
 
 # Editor directories and files
 .vscode/*
@@ -38,6 +46,7 @@ release/**
 test-results
 playwright-report/
 
+
 # Vitest browser mode screenshots
 __screenshots__/
 
@@ -50,3 +59,7 @@ result-*
 
 #kilocode
 .kilo/
+
+#others
+
+**/*.import
