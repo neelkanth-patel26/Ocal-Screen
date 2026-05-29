@@ -210,7 +210,8 @@ export class MacNativeCursorRecordingSession implements CursorRecordingSession {
 		try {
 			systemPreferences.isTrustedAccessibilityClient(true);
 		} catch {
-			// Link cursor detection degrades to arrow when Accessibility is unavailable.
+			// Without Accessibility, text/pointer affordance detection is unavailable;
+			// cursor bitmaps are still captured natively via NSCursor.
 		}
 
 		const helperPath = findMacCursorHelperPath();
@@ -333,7 +334,7 @@ export class MacNativeCursorRecordingSession implements CursorRecordingSession {
 		if (payload.type === "ready") {
 			if (payload.accessibilityTrusted === false) {
 				console.warn(
-					"[cursor-macos] Accessibility is not trusted; cursor shape detection will be arrow-only.",
+					"[cursor-macos] Accessibility is not trusted; text/pointer affordance detection disabled (bitmap capture still active).",
 				);
 			}
 			this.resolveReady();

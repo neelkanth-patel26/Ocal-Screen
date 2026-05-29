@@ -314,36 +314,39 @@ emit([
 	"mouseTapReady": mouseTapReady,
 ])
 
-var lastEmittedAssetId: String?
+// Process-wide set so each unique cursor shape is serialised at most once,
+// even if the user alternates between shapes (e.g. arrow → text → arrow).
+var emittedAssetIds = Set<String>()
 
 while true {
-	mouseTracker.pump()
-	let mouseEvents = mouseTracker.consume()
-	let asset = currentCursorAsset()
-	// Only ship the (large) base64 payload the first time a cursor shape is seen;
-	// subsequent samples reference it by assetId so stdout stays small.
-	var assetPayload: [String: Any]?
-	if let asset, asset.id != lastEmittedAssetId {
-		lastEmittedAssetId = asset.id
-		assetPayload = [
-			"id": asset.id,
-			"imageDataUrl": asset.imageDataUrl,
-			"width": asset.width,
-			"height": asset.height,
-			"hotspotX": asset.hotspotX,
-			"hotspotY": asset.hotspotY,
-			"scaleFactor": asset.scaleFactor,
-		]
+	autoreleasepool {
+		mouseTracker.pump()
+		let mouseEvents = mouseTracker.consume()
+		let asset = currentCursorAsset()
+		// Only ship the (large) base64 payload the first time a cursor shape is seen;
+		// subsequent samples reference it by assetId so stdout stays small.
+		var assetPayload: [String: Any]?
+		if let asset, emittedAssetIds.insert(asset.id).inserted {
+			assetPayload = [
+				"id": asset.id,
+				"imageDataUrl": asset.imageDataUrl,
+				"width": asset.width,
+				"height": asset.height,
+				"hotspotX": asset.hotspotX,
+				"hotspotY": asset.hotspotY,
+				"scaleFactor": asset.scaleFactor,
+			]
+		}
+		emit([
+			"type": "sample",
+			"timestampMs": timestampMs(),
+			"cursorType": currentCursorType(),
+			"assetId": asset?.id,
+			"asset": assetPayload,
+			"leftButtonDown": leftButtonDown(),
+			"leftButtonPressed": mouseEvents.leftDownCount > 0,
+			"leftButtonReleased": mouseEvents.leftUpCount > 0,
+		])
+		Thread.sleep(forTimeInterval: Double(intervalMs) / 1000.0)
 	}
-	emit([
-		"type": "sample",
-		"timestampMs": timestampMs(),
-		"cursorType": currentCursorType(),
-		"assetId": asset?.id,
-		"asset": assetPayload,
-		"leftButtonDown": leftButtonDown(),
-		"leftButtonPressed": mouseEvents.leftDownCount > 0,
-		"leftButtonReleased": mouseEvents.leftUpCount > 0,
-	])
-	Thread.sleep(forTimeInterval: Double(intervalMs) / 1000.0)
 }
