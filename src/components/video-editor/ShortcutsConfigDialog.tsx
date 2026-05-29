@@ -102,10 +102,14 @@ export function ShortcutsConfigDialog() {
 	const handleCancelConflict = useCallback(() => setConflict(null), []);
 
 	const handleSave = useCallback(async () => {
-		setShortcuts(draft);
-		await persistShortcuts(draft);
-		toast.success(t("savedToast"));
-		closeConfig();
+		const success = await persistShortcuts(draft);
+		if (success) {
+			setShortcuts(draft);
+			toast.success(t("savedToast"));
+			closeConfig();
+		} else {
+			toast.error(t("registrationFailed"));
+		}
 	}, [draft, setShortcuts, persistShortcuts, closeConfig, t]);
 
 	const handleReset = useCallback(() => {
