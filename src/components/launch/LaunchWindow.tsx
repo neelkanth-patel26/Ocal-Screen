@@ -21,6 +21,7 @@ import {
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
+import { getProjectFolder, parentDirectoryOf, saveUserPreferences } from "@/lib/userPreferences";
 import { nativeBridgeClient } from "@/native";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
 import { useCameraDevices } from "../../hooks/useCameraDevices";
@@ -350,8 +351,14 @@ export function LaunchWindow() {
 	};
 
 	const openProjectFile = async () => {
-		const result = await nativeBridgeClient.project.loadProjectFile();
+		const result = await nativeBridgeClient.project.loadProjectFile(getProjectFolder());
 		if (result.canceled || !result.success) return;
+		if (result.path) {
+			const folder = parentDirectoryOf(result.path);
+			if (folder) {
+				saveUserPreferences({ projectFolder: folder });
+			}
+		}
 		await window.electronAPI.switchToEditor();
 	};
 

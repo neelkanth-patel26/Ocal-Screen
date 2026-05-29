@@ -36,6 +36,7 @@ import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
 	getExportFolder,
+	getProjectFolder,
 	loadUserPreferences,
 	parentDirectoryOf,
 	saveUserPreferences,
@@ -712,7 +713,7 @@ export default function VideoEditor() {
 	}, []);
 
 	const handleLoadProject = useCallback(async () => {
-		const result = await nativeBridgeClient.project.loadProjectFile();
+		const result = await nativeBridgeClient.project.loadProjectFile(getProjectFolder());
 
 		if (result.canceled) {
 			return;
@@ -727,6 +728,13 @@ export default function VideoEditor() {
 		if (!restored) {
 			toast.error(t("project.invalidFormat"));
 			return;
+		}
+
+		if (result.path) {
+			const folder = parentDirectoryOf(result.path);
+			if (folder) {
+				saveUserPreferences({ projectFolder: folder });
+			}
 		}
 
 		toast.success(t("project.loadedFrom", { path: result.path ?? "" }));

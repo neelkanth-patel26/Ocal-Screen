@@ -2609,16 +2609,36 @@ export function registerIpcHandlers(
 		}
 	}
 
-	ipcMain.handle("load-project-file", async () => {
-		return loadProjectFile();
+	ipcMain.handle("load-project-file", async (_, projectFolder?: string) => {
+		return loadProjectFile(projectFolder);
 	});
 
-	async function loadProjectFile(): Promise<ProjectFileResult> {
+	async function loadProjectFile(projectFolder?: string): Promise<ProjectFileResult> {
 		try {
+			// Prefer the user's last opened-project folder if it still exists,
+			// otherwise fall back to RECORDINGS_DIR. Validation must happen here
+			// because the renderer can't stat the filesystem.
+			let defaultDir = RECORDINGS_DIR;
+			if (projectFolder) {
+				try {
+					const stats = await fs.stat(projectFolder);
+					if (stats.isDirectory()) {
+						defaultDir = projectFolder;
+					}
+				} catch (err) {
+					// Stat can fail because the folder was moved/deleted (expected) or
+					// because of a permission error (worth surfacing). Either way we
+					// fall back to RECORDINGS_DIR, but log so debugging isn't blind.
+					console.warn(
+						`Could not access remembered project folder "${projectFolder}", falling back to RECORDINGS_DIR:`,
+						err,
+					);
+				}
+			}
 			const dialogOptions = buildDialogOptions(
 				{
 					title: mainT("dialogs", "fileDialogs.openProject"),
-					defaultPath: RECORDINGS_DIR,
+					defaultPath: defaultDir,
 					filters: [
 						{
 							name: mainT("dialogs", "fileDialogs.openscreenProject"),

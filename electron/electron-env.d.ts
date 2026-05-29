@@ -229,7 +229,7 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
-		loadProjectFile: () => Promise<{
+		loadProjectFile: (projectFolder?: string) => Promise<{
 			success: boolean;
 			path?: string;
 			project?: unknown;
