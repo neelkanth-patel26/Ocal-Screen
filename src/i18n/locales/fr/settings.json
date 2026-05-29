@@ -204,5 +204,9 @@
 	},
 	"language": {
 		"title": "Langue"
+	},
+	"timeline": {
+		"title": "Montage",
+		"waveform": "Afficher la forme d'onde sur la piste de découpe"
 	}
 }
