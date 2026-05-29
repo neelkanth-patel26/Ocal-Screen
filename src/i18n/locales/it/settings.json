@@ -1,5 +1,6 @@
 {
 	"zoom": {
+		"previewHold": "Tieni premuto per vedere l'anteprima dell'effetto zoom",
 		"level": "Livello zoom",
 		"customScale": "Zoom personalizzato",
 		"selectRegion": "Seleziona una regione zoom da regolare",
