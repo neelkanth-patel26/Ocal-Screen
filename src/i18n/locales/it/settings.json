@@ -128,8 +128,6 @@
 		"textPlaceholder": "Inserisci il tuo testo...",
 		"fontStyle": "Stile carattere",
 		"selectStyle": "Seleziona stile",
-		"textAnimation": "Animazione testo",
-		"selectAnimation": "Seleziona animazione",
 		"size": "Dimensione",
 		"customFonts": "Caratteri personalizzati",
 		"textColor": "Colore testo",
@@ -175,6 +173,17 @@
 		"simple": "Semplice",
 		"modern": "Moderno",
 		"clean": "Pulito"
+	},
+	"textAnimation": {
+		"title": "Animazione testo",
+		"selectAnimation": "Seleziona animazione",
+		"none": "Nessuna",
+		"fade": "Dissolvenza",
+		"rise": "Ascesa",
+		"pop": "Apparizione",
+		"slideLeft": "Scivola a sinistra",
+		"typewriter": "Macchina da scrivere",
+		"pulse": "Pulsazione"
 	},
 	"customFont": {
 		"dialogTitle": "Aggiungi font Google",

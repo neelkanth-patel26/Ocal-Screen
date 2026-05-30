@@ -128,8 +128,6 @@
 		"textPlaceholder": "Enter your text...",
 		"fontStyle": "Font Style",
 		"selectStyle": "Select style",
-		"textAnimation": "Text Animation",
-		"selectAnimation": "Select animation",
 		"size": "Size",
 		"customFonts": "Custom Fonts",
 		"textColor": "Text Color",
@@ -175,6 +173,17 @@
 		"simple": "Simple",
 		"modern": "Modern",
 		"clean": "Clean"
+	},
+	"textAnimation": {
+		"title": "Text Animation",
+		"selectAnimation": "Select animation",
+		"none": "None",
+		"fade": "Fade",
+		"rise": "Rise",
+		"pop": "Pop",
+		"slideLeft": "Slide Left",
+		"typewriter": "Typewriter",
+		"pulse": "Pulse"
 	},
 	"customFont": {
 		"dialogTitle": "Add Google Font",
