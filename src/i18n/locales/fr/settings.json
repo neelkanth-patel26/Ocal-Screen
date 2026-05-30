@@ -1,6 +1,6 @@
 {
 	"zoom": {
-		"previewHold": "Maintenir pour prévisualiser l’effet de zoom",
+		"previewHold": "Maintenir pour prévisualiser l'effet de zoom",
 		"level": "Niveau de zoom",
 		"selectRegion": "Sélectionnez une région de zoom à ajuster",
 		"deleteZoom": "Supprimer le zoom",
@@ -10,7 +10,6 @@
 			"auto": "Auto",
 			"autoDescription": "La caméra suit la position du curseur enregistré"
 		},
-		"speed": {},
 		"threeD": {
 			"title": "Rotation 3D",
 			"preset": {
@@ -174,6 +173,17 @@
 		"simple": "Simple",
 		"modern": "Moderne",
 		"clean": "Épuré"
+	},
+	"textAnimation": {
+		"title": "Animation de texte",
+		"selectAnimation": "Sélectionner une animation",
+		"none": "Aucune",
+		"fade": "Fondu",
+		"rise": "Monter",
+		"pop": "Apparition",
+		"slideLeft": "Glisser à gauche",
+		"typewriter": "Machine à écrire",
+		"pulse": "Pulsation"
 	},
 	"customFont": {
 		"dialogTitle": "Ajouter une police Google",

@@ -174,6 +174,17 @@
 		"modern": "Moderno",
 		"clean": "Pulito"
 	},
+	"textAnimation": {
+		"title": "Animazione testo",
+		"selectAnimation": "Seleziona animazione",
+		"none": "Nessuna",
+		"fade": "Dissolvenza",
+		"rise": "Ascesa",
+		"pop": "Apparizione",
+		"slideLeft": "Scivola a sinistra",
+		"typewriter": "Macchina da scrivere",
+		"pulse": "Pulsazione"
+	},
 	"customFont": {
 		"dialogTitle": "Aggiungi font Google",
 		"urlLabel": "URL importazione Google Fonts",
