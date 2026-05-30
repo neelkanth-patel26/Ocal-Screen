@@ -34,6 +34,9 @@
 		"loading": "Loading sources...",
 		"screens": "Screens ({{count}})",
 		"windows": "Windows ({{count}})",
+		"emptyTitle": "No screens or windows found",
+		"emptyDescription": "If you just granted screen recording permission, reload this picker. On macOS you may need to reopen OpenScreen.",
+		"loadFailedDescription": "OpenScreen could not load capture sources. Reload this picker and try again.",
 		"defaultSourceName": "Screen"
 	},
 	"recording": {
