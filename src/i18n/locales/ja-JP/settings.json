@@ -128,6 +128,8 @@
 		"textPlaceholder": "テキストを入力してください...",
 		"fontStyle": "フォントスタイル",
 		"selectStyle": "スタイルを選択",
+		"textAnimation": "テキストアニメーション",
+		"selectAnimation": "アニメーションを選択",
 		"size": "サイズ",
 		"customFonts": "カスタムフォント",
 		"textColor": "文字色",

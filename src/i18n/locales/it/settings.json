@@ -128,6 +128,8 @@
 		"textPlaceholder": "Inserisci il tuo testo...",
 		"fontStyle": "Stile carattere",
 		"selectStyle": "Seleziona stile",
+		"textAnimation": "Animazione testo",
+		"selectAnimation": "Seleziona animazione",
 		"size": "Dimensione",
 		"customFonts": "Caratteri personalizzati",
 		"textColor": "Colore testo",

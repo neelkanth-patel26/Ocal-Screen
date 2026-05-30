@@ -127,6 +127,8 @@
 		"textPlaceholder": "텍스트를 입력하세요...",
 		"fontStyle": "폰트 스타일",
 		"selectStyle": "스타일 선택",
+		"textAnimation": "텍스트 애니메이션",
+		"selectAnimation": "애니메이션 선택",
 		"size": "크기",
 		"customFonts": "커스텀 폰트",
 		"textColor": "텍스트 색상",

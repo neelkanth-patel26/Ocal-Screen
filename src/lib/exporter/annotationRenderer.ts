@@ -18,6 +18,26 @@ let blurScratchCtx: CanvasRenderingContext2D | null = null;
 // property escapes require ES2018+; tsconfig target is ES2020.
 const CJK_CHAR = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 
+type GraphemeSegmenter = {
+	segment(value: string): Iterable<{ segment: string }>;
+};
+
+type IntlWithSegmenter = typeof Intl & {
+	Segmenter?: new (
+		locales?: string | string[],
+		options?: { granularity?: "grapheme" },
+	) => GraphemeSegmenter;
+};
+
+const Segmenter = (Intl as IntlWithSegmenter).Segmenter;
+const graphemeSegmenter =
+	typeof Segmenter === "function" ? new Segmenter(undefined, { granularity: "grapheme" }) : null;
+
+function splitGraphemes(value: string): string[] {
+	if (!graphemeSegmenter) return Array.from(value);
+	return Array.from(graphemeSegmenter.segment(value), ({ segment }) => segment);
+}
+
 function tokenizeForWrap(line: string): string[] {
 	// Split Latin text on whitespace (preserving the whitespace as its own token,
 	// matching the original behavior), and split CJK runs into individual
@@ -313,9 +333,22 @@ function renderText(
 	lines.forEach((line, index) => {
 		const currentY = startY + index * lineHeight;
 		const revealProgress = animationState.revealProgress;
-		const visibleLine =
-			revealProgress >= 1 ? line : line.slice(0, Math.ceil(line.length * revealProgress));
+		const graphemes = splitGraphemes(line);
+		const visibleCount = Math.ceil(graphemes.length * revealProgress);
+		const visibleLine = revealProgress >= 1 ? line : graphemes.slice(0, visibleCount).join("");
 		if (!visibleLine && revealProgress < 1) return;
+
+		const previousAlign = ctx.textAlign;
+		const fullMetrics = ctx.measureText(line);
+		let startX = textX;
+
+		if (ctx.textAlign === "center") {
+			startX = textX - fullMetrics.width / 2;
+			ctx.textAlign = "left";
+		} else if (ctx.textAlign === "right" || ctx.textAlign === "end") {
+			startX = textX - fullMetrics.width;
+			ctx.textAlign = "left";
+		}
 
 		if (style.backgroundColor && style.backgroundColor !== "transparent") {
 			const metrics = ctx.measureText(visibleLine);
@@ -323,17 +356,15 @@ function renderText(
 			const horizontalPadding = scaledFontSize * 0.2;
 			const borderRadius = 4 * scaleFactor;
 
-			let bgX = textX - horizontalPadding;
+			let bgX = startX - horizontalPadding;
 			const bgWidth = metrics.width + horizontalPadding * 2;
 
 			const contentHeight = scaledFontSize * 1.4;
 			const bgHeight = contentHeight + verticalPadding * 2;
 			const bgY = currentY - bgHeight / 2;
 
-			if (style.textAlign === "center") {
-				bgX = textX - bgWidth / 2;
-			} else if (style.textAlign === "right") {
-				bgX = textX - bgWidth;
+			if (previousAlign === "left" || previousAlign === "start") {
+				bgX = textX - horizontalPadding;
 			}
 
 			ctx.fillStyle = style.backgroundColor;
@@ -343,17 +374,15 @@ function renderText(
 		}
 
 		ctx.fillStyle = style.color;
-		ctx.fillText(visibleLine, textX, currentY);
+		ctx.fillText(visibleLine, startX, currentY);
 
 		if (style.textDecoration === "underline") {
 			const metrics = ctx.measureText(visibleLine);
-			let underlineX = textX;
+			let underlineX = startX;
 			const underlineY = currentY + scaledFontSize * 0.15;
 
-			if (style.textAlign === "center") {
-				underlineX = textX - metrics.width / 2;
-			} else if (style.textAlign === "right") {
-				underlineX = textX - metrics.width;
+			if (previousAlign === "left" || previousAlign === "start") {
+				underlineX = textX;
 			}
 
 			ctx.strokeStyle = style.color;
@@ -363,6 +392,8 @@ function renderText(
 			ctx.lineTo(underlineX + metrics.width, underlineY);
 			ctx.stroke();
 		}
+
+		ctx.textAlign = previousAlign;
 	});
 
 	ctx.restore();

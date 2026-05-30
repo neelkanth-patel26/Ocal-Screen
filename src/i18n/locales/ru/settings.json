@@ -128,6 +128,8 @@
 		"textPlaceholder": "Введите ваш текст...",
 		"fontStyle": "Стиль шрифта",
 		"selectStyle": "Выбрать стиль",
+		"textAnimation": "Анимация текста",
+		"selectAnimation": "Выберите анимацию",
 		"size": "Размер",
 		"customFonts": "Пользовательские шрифты",
 		"textColor": "Цвет текста",

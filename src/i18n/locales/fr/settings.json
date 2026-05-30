@@ -129,6 +129,8 @@
 		"textPlaceholder": "Saisissez votre texte...",
 		"fontStyle": "Style de police",
 		"selectStyle": "Choisir un style",
+		"textAnimation": "Animation du texte",
+		"selectAnimation": "Choisir une animation",
 		"size": "Taille",
 		"customFonts": "Polices personnalisées",
 		"textColor": "Couleur du texte",
