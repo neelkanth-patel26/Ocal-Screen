@@ -205,5 +205,9 @@
 	},
 	"language": {
 		"title": "Ngôn ngữ"
+	},
+	"timeline": {
+		"title": "Dòng thời gian",
+		"waveform": "Hiển thị dạng sóng âm thanh trên rãnh cắt"
 	}
 }

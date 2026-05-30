@@ -205,5 +205,9 @@
 	},
 	"language": {
 		"title": "Language"
+	},
+	"timeline": {
+		"title": "Timeline",
+		"waveform": "Show Audio Waveform on Trim Track"
 	}
 }

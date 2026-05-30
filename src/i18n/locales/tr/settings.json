@@ -205,5 +205,9 @@
 	},
 	"language": {
 		"title": "Dil"
+	},
+	"timeline": {
+		"title": "Zaman Tüneli",
+		"waveform": "Kırpma Parçasında Ses Dalgasını Göster"
 	}
 }

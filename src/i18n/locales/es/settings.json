@@ -205,5 +205,9 @@
 	},
 	"language": {
 		"title": "Idioma"
+	},
+	"timeline": {
+		"title": "Línea de tiempo",
+		"waveform": "Mostrar forma de onda en pista de recorte"
 	}
 }

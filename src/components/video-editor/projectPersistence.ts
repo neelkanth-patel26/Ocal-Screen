@@ -66,6 +66,7 @@ export interface ProjectEditorState {
 	wallpaper: string;
 	shadowIntensity: number;
 	showBlur: boolean;
+	showTrimWaveform: boolean;
 	motionBlurAmount: number;
 	borderRadius: number;
 	padding: number;
@@ -447,6 +448,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			typeof editor.showBlur === "boolean"
 				? editor.showBlur
 				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.showBlur,
+		showTrimWaveform:
+			typeof editor.showTrimWaveform === "boolean"
+				? editor.showTrimWaveform
+				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.showTrimWaveform,
 		motionBlurAmount: isFiniteNumber(editor.motionBlurAmount)
 			? clamp(editor.motionBlurAmount, 0, 1)
 			: typeof (editor as { motionBlurEnabled?: unknown }).motionBlurEnabled === "boolean"

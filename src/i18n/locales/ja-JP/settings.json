@@ -205,5 +205,9 @@
 	},
 	"language": {
 		"title": "言語"
+	},
+	"timeline": {
+		"title": "タイムライン",
+		"waveform": "トリムトラックに音声波形を表示"
 	}
 }
