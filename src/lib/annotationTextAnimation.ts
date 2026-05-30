@@ -12,15 +12,15 @@ export interface TextAnimationState {
 
 export const TEXT_ANIMATION_OPTIONS: Array<{
 	value: AnnotationTextAnimation;
-	label: string;
+	translationKey: string;
 }> = [
-	{ value: "none", label: "None" },
-	{ value: "fade", label: "Fade" },
-	{ value: "rise", label: "Rise" },
-	{ value: "pop", label: "Pop" },
-	{ value: "slide-left", label: "Slide" },
-	{ value: "typewriter", label: "Typewriter" },
-	{ value: "pulse", label: "Pulse" },
+	{ value: "none", translationKey: "textAnimation.none" },
+	{ value: "fade", translationKey: "textAnimation.fade" },
+	{ value: "rise", translationKey: "textAnimation.rise" },
+	{ value: "pop", translationKey: "textAnimation.pop" },
+	{ value: "slide-left", translationKey: "textAnimation.slideLeft" },
+	{ value: "typewriter", translationKey: "textAnimation.typewriter" },
+	{ value: "pulse", translationKey: "textAnimation.pulse" },
 ];
 
 function clamp(value: number, min = 0, max = 1) {

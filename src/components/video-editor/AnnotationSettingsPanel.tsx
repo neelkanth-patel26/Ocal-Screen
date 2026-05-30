@@ -323,7 +323,7 @@ export function AnnotationSettingsPanel({
 									<SelectContent className="max-h-[240px] border-white/10 bg-[#1a1a1c] text-slate-200">
 										{TEXT_ANIMATION_OPTIONS.map((option) => (
 											<SelectItem key={option.value} value={option.value}>
-												{option.label}
+												{t(option.translationKey)}
 											</SelectItem>
 										))}
 									</SelectContent>
