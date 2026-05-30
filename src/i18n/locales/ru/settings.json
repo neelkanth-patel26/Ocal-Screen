@@ -128,8 +128,6 @@
 		"textPlaceholder": "Введите ваш текст...",
 		"fontStyle": "Стиль шрифта",
 		"selectStyle": "Выбрать стиль",
-		"textAnimation": "Анимация текста",
-		"selectAnimation": "Выберите анимацию",
 		"size": "Размер",
 		"customFonts": "Пользовательские шрифты",
 		"textColor": "Цвет текста",
@@ -176,6 +174,17 @@
 		"modern": "Современный",
 		"clean": "Чистый"
 	},
+	"textAnimation": {
+		"title": "Анимация текста",
+		"selectAnimation": "Выбрать анимацию",
+		"none": "Нет",
+		"fade": "Затухание",
+		"rise": "Подъем",
+		"pop": "Всплытие",
+		"slideLeft": "Скольжение влево",
+		"typewriter": "Пишущая машинка",
+		"pulse": "Импульс"
+	},
 	"customFont": {
 		"dialogTitle": "Добавить шрифт Google",
 		"urlLabel": "URL импорта Google Fonts",
@@ -207,7 +216,7 @@
 		"title": "Язык"
 	},
 	"timeline": {
-		"title": "Таймлайн",
-		"waveform": "Показать волну на дорожке обрезки"
+		"title": "Шкала времени",
+		"waveform": "Показывать форму волны на треке обрезки"
 	}
 }
