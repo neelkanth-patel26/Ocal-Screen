@@ -12,6 +12,7 @@ import trDialogs from "@/i18n/locales/tr/dialogs.json";
 import viDialogs from "@/i18n/locales/vi/dialogs.json";
 import zhCNDialogs from "@/i18n/locales/zh-CN/dialogs.json";
 import zhTWDialogs from "@/i18n/locales/zh-TW/dialogs.json";
+import ptBRDialogs from "@/i18n/locales/pt-BR/dialogs.json";
 
 const tutorialHelpKeys = [
 	"triggerLabel",
@@ -49,6 +50,7 @@ const dialogsByLocale = {
 	ru: ruDialogs,
 	tr: trDialogs,
 	vi: viDialogs,
+	"pt-BR": ptBRDialogs,
 	"zh-CN": zhCNDialogs,
 	"zh-TW": zhTWDialogs,
 } satisfies Record<Locale, { tutorial: Record<string, unknown> }>;
