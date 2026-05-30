@@ -606,7 +606,7 @@ export function LaunchWindow() {
 				data-tray-layout={trayLayout}
 				className={`fixed bottom-5 left-1/2 -translate-x-1/2 flex rounded-2xl border border-white/[0.10] bg-[#07080a]/90 shadow-[0_20px_60px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl backdrop-saturate-[140%] ${
 					trayLayout === "vertical"
-						? "max-h-[calc(100vh-2.5rem)] flex-col items-center gap-1.5 overflow-y-auto px-1.5 py-2"
+						? "max-h-[calc(100vh-2.5rem)] flex-col items-center gap-1 overflow-y-auto px-1 py-1.5"
 						: "items-center gap-1.5 px-2 py-1.5"
 				}`}
 				onPointerEnter={() => setHudMouseEventsEnabled(true)}
@@ -620,7 +620,7 @@ export function LaunchWindow() {
 			>
 				{/* Drag handle */}
 				<div
-					className={`flex h-8 w-7 cursor-grab items-center justify-center active:cursor-grabbing ${styles.electronNoDrag}`}
+					className={`flex ${trayLayout === "vertical" ? "h-6 w-8" : "h-8 w-7"} cursor-grab items-center justify-center active:cursor-grabbing ${styles.electronNoDrag}`}
 					onPointerDown={handleHudDragPointerDown}
 					onPointerMove={handleHudDragPointerMove}
 					onPointerUp={handleHudDragPointerEnd}
@@ -658,13 +658,16 @@ export function LaunchWindow() {
 
 				{/* Source selector */}
 				<button
-					className={`${hudGroupClasses} h-8 px-2.5 ${styles.electronNoDrag}`}
+					className={`${hudGroupClasses} h-8 ${trayLayout === "vertical" ? "w-8 justify-center px-0" : "px-2.5"} ${styles.electronNoDrag}`}
 					onClick={openSourceSelector}
 					disabled={recording}
 					title={selectedSource}
+					aria-label={selectedSource}
 				>
 					{getIcon("monitor", "text-white/80")}
-					<span className="max-w-[86px] truncate text-[11px] font-medium text-white/75">
+					<span
+						className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[86px]"} truncate text-[11px] font-medium text-white/75`}
+					>
 						{selectedSource}
 					</span>
 				</button>
@@ -837,10 +840,15 @@ export function LaunchWindow() {
 							aria-expanded={isLanguageMenuOpen}
 							aria-haspopup="menu"
 							onClick={() => setIsLanguageMenuOpen((open) => !open)}
-							className={`flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.045] px-2 text-white/85 shadow-none transition-colors hover:bg-white/10 ${styles.electronNoDrag}`}
+							title={activeLanguageLabel}
+							className={`flex h-8 items-center rounded-lg border border-white/10 bg-white/[0.045] text-white/85 shadow-none transition-colors hover:bg-white/10 ${
+								trayLayout === "vertical" ? "w-8 justify-center px-0" : "gap-1.5 px-2"
+							} ${styles.electronNoDrag}`}
 						>
 							<Languages size={13} className="text-white/70" />
-							<span className="max-w-[54px] truncate text-[10px] font-semibold text-white/75">
+							<span
+								className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[54px]"} truncate text-[10px] font-semibold text-white/75`}
+							>
 								{activeLanguageLabel}
 							</span>
 						</button>
