@@ -98,7 +98,8 @@
 	},
 	"project": {
 		"save": "Projeyi Kaydet",
-		"load": "Proje Yükle"
+		"load": "Proje Yükle",
+		"new": "Yeni Proje"
 	},
 	"export": {
 		"videoButton": "Videoyu Dışa Aktar",
