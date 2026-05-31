@@ -48,7 +48,17 @@ const PROJECT_FILE_EXTENSION = "openscreen";
 export const SHORTCUTS_FILE = path.join(app.getPath("userData"), "shortcuts.json");
 const RECORDING_FILE_PREFIX = "recording-";
 const RECORDING_SESSION_SUFFIX = ".session.json";
-const ALLOWED_IMPORT_VIDEO_EXTENSIONS = new Set([".webm", ".mp4", ".mov", ".avi", ".mkv"]);
+const ALLOWED_IMPORT_VIDEO_EXTENSIONS = new Set([
+	".webm",
+	".mp4",
+	".mov",
+	".avi",
+	".mkv",
+	".m4v",
+	".wmv",
+	".flv",
+	".ts",
+]);
 const PREVIEW_AUDIO_DIR = path.join(app.getPath("userData"), "preview-audio");
 const nativeMacCaptureEvents = new EventEmitter();
 
@@ -1430,10 +1440,10 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("switch-to-editor", () => {
-		const mainWin = getMainWindow();
-		if (mainWin) {
-			mainWin.close();
-		}
+		// createEditorWindow is createEditorWindowWrapper — it already closes
+		// the current mainWindow (the HUD) before opening the editor. Closing
+		// it here too causes a double-close which leaves ghost transparent
+		// windows and makes the HUD shadow compound on each cycle.
 		createEditorWindow();
 	});
 
@@ -1453,14 +1463,17 @@ export function registerIpcHandlers(
 			return;
 		}
 
-		if (!overlayWindow.isVisible()) {
-			overlayWindow.showInactive();
-		}
-
+		// Wait for the first frame to be painted before showing the window.
+		// Showing before ready-to-show produces a black rectangle flash because
+		// Chromium hasn't rendered any pixels yet.
 		if (overlayWindow.webContents.isLoading()) {
 			await new Promise<void>((resolve) => {
-				overlayWindow.webContents.once("did-finish-load", () => resolve());
+				overlayWindow.once("ready-to-show", resolve);
 			});
+		}
+
+		if (!overlayWindow.isVisible()) {
+			overlayWindow.showInactive();
 		}
 
 		overlayWindow.webContents.send("countdown-overlay-value", value, runId);
@@ -2430,7 +2443,7 @@ export function registerIpcHandlers(
 					filters: [
 						{
 							name: mainT("dialogs", "fileDialogs.videoFiles"),
-							extensions: ["webm", "mp4", "mov", "avi", "mkv"],
+							extensions: ["webm", "mp4", "mov", "avi", "mkv", "m4v", "wmv", "flv", "ts"],
 						},
 						{ name: mainT("dialogs", "fileDialogs.allFiles"), extensions: ["*"] },
 					],
@@ -2658,6 +2671,51 @@ export function registerIpcHandlers(
 		}
 	}
 
+	ipcMain.handle("load-project-file-from-path", async (_event, filePath: string) => {
+		return loadProjectFileFromPath(filePath);
+	});
+
+	async function loadProjectFileFromPath(filePath: string): Promise<ProjectFileResult> {
+		try {
+			if (!filePath || typeof filePath !== "string") {
+				return { success: false, message: "Invalid file path" };
+			}
+			// Validate extension and readability
+			if (path.extname(filePath).toLowerCase() !== `.${PROJECT_FILE_EXTENSION}`) {
+				return { success: false, message: "Not an Openscreen project file" };
+			}
+			const stats = await fs.stat(filePath).catch(() => null);
+			if (!stats?.isFile()) {
+				return { success: false, message: "File not found" };
+			}
+			const content = await fs.readFile(filePath, "utf-8");
+			const project = JSON.parse(content);
+			currentProjectPath = filePath;
+
+			// Approve session paths; tolerate failures (e.g. video moved outside
+			// trusted dirs) so the project still loads and the renderer can surface
+			// a "video not found" error rather than a generic load failure.
+			let session: import("../../src/lib/recordingSession").RecordingSession | null = null;
+			try {
+				session = await getApprovedProjectSession(project, filePath);
+			} catch (sessionError) {
+				console.warn(
+					"[loadProjectFileFromPath] Could not approve session paths, proceeding without session:",
+					sessionError,
+				);
+			}
+			setCurrentRecordingSessionState(session);
+			return { success: true, path: filePath, project };
+		} catch (error) {
+			console.error("Failed to load project file from path:", error);
+			return {
+				success: false,
+				message: "Failed to load project file",
+				error: String(error),
+			};
+		}
+	}
+
 	ipcMain.handle("load-current-project-file", async () => {
 		return loadCurrentProjectFile();
 	});
@@ -2740,6 +2798,8 @@ export function registerIpcHandlers(
 
 	function clearCurrentVideoPath(): ProjectPathResult {
 		currentVideoPath = null;
+		currentProjectPath = null;
+		setCurrentRecordingSessionState(null);
 		return { success: true };
 	}
 
@@ -2814,6 +2874,7 @@ export function registerIpcHandlers(
 		saveProjectFile,
 		loadProjectFile,
 		loadCurrentProjectFile,
+		loadProjectFileFromPath,
 		setCurrentVideoPath,
 		getCurrentVideoPathResult,
 		clearCurrentVideoPath,
