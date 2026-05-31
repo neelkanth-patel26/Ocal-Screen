@@ -174,6 +174,17 @@
 		"modern": "モダン",
 		"clean": "クリーン"
 	},
+	"textAnimation": {
+		"title": "テキストアニメーション",
+		"selectAnimation": "アニメーションを選択",
+		"none": "なし",
+		"fade": "フェード",
+		"rise": "上昇",
+		"pop": "ポップ",
+		"slideLeft": "左へスライド",
+		"typewriter": "タイプライター",
+		"pulse": "パルス"
+	},
 	"customFont": {
 		"dialogTitle": "Googleフォントを追加",
 		"urlLabel": "GoogleフォントのインポートURL",
@@ -206,6 +217,6 @@
 	},
 	"timeline": {
 		"title": "タイムライン",
-		"waveform": "トリムトラックに音声波形を表示"
+		"waveform": "トリムトラックにオーディオ波形を表示"
 	}
 }

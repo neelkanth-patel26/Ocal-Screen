@@ -1517,13 +1517,30 @@ export default function TimelineEditor({
 		return [...zooms, ...trims, ...annotations, ...blurs, ...speeds];
 	}, [zoomRegions, trimRegions, annotationRegions, blurRegions, speedRegions, t]);
 
-	// Flat list of all non-annotation region spans for neighbour-clamping during drag/resize
+	// Spans that participate in overlap resolution (clampToNeighbours).
+	// Excludes annotation/blur deliberately — those are allowed to overlap and
+	// must NOT act as hard constraints when a zoom/trim/speed drag is being
+	// resolved.
 	const allRegionSpans = useMemo(() => {
 		const zooms = zoomRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
 		const trims = trimRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
 		const speeds = speedRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
 		return [...zooms, ...trims, ...speeds];
 	}, [zoomRegions, trimRegions, speedRegions]);
+
+	// Additional snap targets that are NOT clamping constraints. Their edges
+	// pull during snap, but they don't push anyone away.
+	const softSnapSpans = useMemo(() => {
+		const annotations = annotationRegions.map((r) => ({
+			id: r.id,
+			start: r.startMs,
+			end: r.endMs,
+		}));
+		const blurs = blurRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
+		return [...annotations, ...blurs];
+	}, [annotationRegions, blurRegions]);
+
+	const keyframeTimesMs = useMemo(() => keyframes.map((kf) => kf.time), [keyframes]);
 
 	const handleItemSpanChange = useCallback(
 		(id: string, span: Span) => {
@@ -1699,6 +1716,9 @@ export default function TimelineEditor({
 					minVisibleRangeMs={timelineScale.minVisibleRangeMs}
 					onItemSpanChange={handleItemSpanChange}
 					allRegionSpans={allRegionSpans}
+					softSnapSpans={softSnapSpans}
+					currentTimeMs={currentTimeMs}
+					keyframeTimesMs={keyframeTimesMs}
 				>
 					<KeyframeMarkers
 						keyframes={keyframes}

@@ -31,6 +31,8 @@ export interface UserPreferences {
 	exportFolder: string | null;
 	/** Folder of the most recently opened project, if any */
 	projectFolder: string | null;
+	/** Recording HUD control layout */
+	trayLayout: "horizontal" | "vertical";
 }
 
 export const DEFAULT_PREFS: UserPreferences = {
@@ -40,8 +42,10 @@ export const DEFAULT_PREFS: UserPreferences = {
 	exportFormat: DEFAULT_EXPORT_SETTINGS.format,
 	exportFolder: null,
 	projectFolder: null,
+	trayLayout: "horizontal",
 };
 
+/** Parses stored preferences without throwing on malformed JSON. */
 function safeJsonParse(text: string | null): Record<string, unknown> | null {
 	if (!text) return null;
 	try {
@@ -94,6 +98,10 @@ export function loadUserPreferences(): UserPreferences {
 			typeof raw.projectFolder === "string" && raw.projectFolder.length > 0
 				? raw.projectFolder
 				: DEFAULT_PREFS.projectFolder,
+		trayLayout:
+			raw.trayLayout === "horizontal" || raw.trayLayout === "vertical"
+				? raw.trayLayout
+				: DEFAULT_PREFS.trayLayout,
 	};
 }
 
