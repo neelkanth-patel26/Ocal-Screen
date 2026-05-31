@@ -245,6 +245,17 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
+		getPathForFile: (file: File) => string;
+		loadProjectFileFromPath: (filePath: string) => Promise<{
+			success: boolean;
+			path?: string;
+			project?: unknown;
+			message?: string;
+			canceled?: boolean;
+			error?: string;
+		}>;
+		onMenuNewProject: (callback: () => void) => () => void;
+		onMenuImportVideo: (callback: () => void) => () => void;
 		onMenuLoadProject: (callback: () => void) => () => void;
 		onMenuSaveProject: (callback: () => void) => () => void;
 		onMenuSaveProjectAs: (callback: () => void) => () => void;

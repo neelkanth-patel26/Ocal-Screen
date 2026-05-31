@@ -98,7 +98,8 @@
 	},
 	"project": {
 		"save": "保存项目",
-		"load": "加载项目"
+		"load": "加载项目",
+		"new": "新建项目"
 	},
 	"export": {
 		"videoButton": "导出视频",

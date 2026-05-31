@@ -130,6 +130,11 @@ export function useEditorHistory(initial: EditorState = INITIAL_EDITOR_STATE) {
 		dirtyRef.current = false;
 	}, []);
 
+	const resetState = useCallback((newInitial: EditorState = INITIAL_EDITOR_STATE) => {
+		setHistory({ past: [], present: newInitial, future: [] });
+		dirtyRef.current = false;
+	}, []);
+
 	return {
 		state: history.present,
 		pushState,
@@ -137,6 +142,7 @@ export function useEditorHistory(initial: EditorState = INITIAL_EDITOR_STATE) {
 		commitState,
 		undo,
 		redo,
+		resetState,
 		canUndo: history.past.length > 0,
 		canRedo: history.future.length > 0,
 	};
