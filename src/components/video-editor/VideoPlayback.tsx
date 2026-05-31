@@ -50,22 +50,23 @@ import {
 } from "@/utils/aspectRatioUtils";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import {
+	DEFAULT_CURSOR_SETTINGS,
+	DEFAULT_EDITOR_LAYOUT_SETTINGS,
+	DEFAULT_SOURCE_DIMENSIONS,
+} from "./editorDefaults";
+import {
 	type AnnotationRegion,
 	type BlurData,
 	type CursorTelemetryPoint,
 	computeRotation3DContainScale,
-	DEFAULT_CURSOR_CLICK_BOUNCE,
-	DEFAULT_CURSOR_MOTION_BLUR,
-	DEFAULT_CURSOR_SIZE,
-	DEFAULT_CURSOR_SMOOTHING,
 	DEFAULT_ROTATION_3D,
+	getZoomScale,
 	isRotation3DIdentity,
 	lerpRotation3D,
 	rotation3DPerspective,
 	type SpeedRegion,
 	type TrimRegion,
 	ZOOM_DEPTH_SCALES,
-	type ZoomDepth,
 	type ZoomFocus,
 	type ZoomRegion,
 } from "./types";
@@ -83,7 +84,7 @@ import {
 	PixiCursorOverlay,
 	preloadCursorAssets,
 } from "./videoPlayback/cursorRenderer";
-import { clampFocusToStage as clampFocusToStageUtil } from "./videoPlayback/focusUtils";
+import { clampFocusToScale } from "./videoPlayback/focusUtils";
 import { layoutVideoContent as layoutVideoContentUtil } from "./videoPlayback/layoutUtils";
 import { clamp01 } from "./videoPlayback/mathUtils";
 import { updateOverlayIndicator } from "./videoPlayback/overlayUtils";
@@ -148,6 +149,10 @@ interface VideoPlaybackProps {
 	cursorSmoothing?: number;
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
+	cursorClipToBounds?: boolean;
+	// When true, render the selected zoom at the playhead even while paused —
+	// lets the editor preview the zoom effect without leaving the focus-edit view.
+	isPreviewingZoom?: boolean;
 }
 
 export interface VideoPlaybackRef {
@@ -195,6 +200,26 @@ function getEndedVideoDuration(video: HTMLVideoElement): number | null {
 	return null;
 }
 
+type AudioTrackListLike = {
+	length: number;
+	[index: number]: { enabled: boolean };
+};
+
+type VideoElementWithAudioTracks = HTMLVideoElement & {
+	audioTracks?: AudioTrackListLike;
+};
+
+function enableAllPreviewAudioTracks(video: HTMLVideoElement) {
+	const audioTracks = (video as VideoElementWithAudioTracks).audioTracks;
+	if (!audioTracks || audioTracks.length <= 1) {
+		return;
+	}
+
+	for (let index = 0; index < audioTracks.length; index += 1) {
+		audioTracks[index].enabled = true;
+	}
+}
+
 const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 	(
 		{
@@ -223,7 +248,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			showBlur,
 			motionBlurAmount = 0,
 			borderRadius = 0,
-			padding = 50,
+			padding = DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
 			cropRegion,
 			trimRegions = [],
 			speedRegions = [],
@@ -244,14 +269,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorTelemetry = [],
 			cursorClickTimestamps = [],
 			showCursor = false,
-			cursorSize = DEFAULT_CURSOR_SIZE,
-			cursorSmoothing = DEFAULT_CURSOR_SMOOTHING,
-			cursorMotionBlur = DEFAULT_CURSOR_MOTION_BLUR,
-			cursorClickBounce = DEFAULT_CURSOR_CLICK_BOUNCE,
+			cursorSize = DEFAULT_CURSOR_SETTINGS.size,
+			cursorSmoothing = DEFAULT_CURSOR_SETTINGS.smoothing,
+			cursorMotionBlur = DEFAULT_CURSOR_SETTINGS.motionBlur,
+			cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
+			cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
+			isPreviewingZoom = false,
 		},
 		ref,
 	) => {
 		const videoRef = useRef<HTMLVideoElement | null>(null);
+		const supplementalAudioRef = useRef<HTMLAudioElement | null>(null);
 		const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
 		const containerRef = useRef<HTMLDivElement | null>(null);
 		const appRef = useRef<Application | null>(null);
@@ -261,6 +289,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const timeUpdateAnimationRef = useRef<number | null>(null);
 		const [pixiReady, setPixiReady] = useState(false);
 		const [videoReady, setVideoReady] = useState(false);
+		const [supplementalAudioPath, setSupplementalAudioPath] = useState<string | null>(null);
 		const [overlaySize, setOverlaySize] = useState({ width: 800, height: 600 });
 		const [overlayElement, setOverlayElement] = useState<HTMLDivElement | null>(null);
 		const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -316,6 +345,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorSmoothingRef = useRef(cursorSmoothing);
 		const cursorMotionBlurRef = useRef(cursorMotionBlur);
 		const cursorClickBounceRef = useRef(cursorClickBounce);
+		const cursorClipToBoundsRef = useRef(cursorClipToBounds);
+		const isPreviewingZoomRef = useRef(isPreviewingZoom);
 		const motionBlurStateRef = useRef<MotionBlurState>(createMotionBlurState());
 		const onTimeUpdateRef = useRef(onTimeUpdate);
 		const onPlayStateChangeRef = useRef(onPlayStateChange);
@@ -334,6 +365,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const nativeCursorImageIdRef = useRef<string | null>(null);
 		const nativeCursorSmoothingStateRef = useRef(createNativeCursorSmoothingState());
 		const nativeCursorMotionBlurStateRef = useRef(createNativeCursorMotionBlurState());
+		const nativeCursorClipRef = useRef<HTMLDivElement | null>(null);
+		const borderRadiusRef = useRef<number>(0);
 
 		const hasNativeCursorRecording = useMemo(
 			() => hasNativeCursorRecordingData(cursorRecordingData),
@@ -444,8 +477,19 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			[onDurationChange, syncResolvedDuration],
 		);
 
-		const clampFocusToStage = useCallback((focus: ZoomFocus, depth: ZoomDepth) => {
-			return clampFocusToStageUtil(focus, depth, stageSizeRef.current);
+		// IMPORTANT: must use clampFocusToScale(focus, getZoomScale(region)) here,
+		// NOT clampFocusToStage(focus, region.depth).
+		//
+		// region.depth is the preset slot (1×/2×/4×) and ignores customScale entirely.
+		// getZoomScale(region) returns customScale when set, falling back to the preset
+		// depth scale — so drag-to-reposition respects the actual zoom level the user
+		// configured, not the preset bucket it sits in.
+		//
+		// This was previously broken (invisible drag boundaries near canvas edges) and
+		// has been fixed twice. If you're refactoring this drag handler, keep this call
+		// as clampFocusForRegion(focus, region) — do not switch it back to region.depth.
+		const clampFocusForRegion = useCallback((focus: ZoomFocus, region: ZoomRegion) => {
+			return clampFocusToScale(focus, getZoomScale(region));
 		}, []);
 
 		const updateOverlayForRegion = useCallback(
@@ -531,6 +575,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				baseScaleRef.current = result.baseScale;
 				baseOffsetRef.current = result.baseOffset;
 				baseMaskRef.current = result.maskRect;
+				borderRadiusRef.current = result.maskBorderRadius;
 				cropBoundsRef.current = result.cropBounds;
 				setWebcamLayout(result.webcamRect);
 
@@ -582,10 +627,19 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				if (!vid) return;
 				try {
 					allowPlaybackRef.current = true;
+					enableAllPreviewAudioTracks(vid);
 					await vid.play().catch((err) => {
 						console.log("PLAY ERROR:", err);
 						throw err;
 					});
+					const supplementalAudio = supplementalAudioRef.current;
+					if (supplementalAudio) {
+						supplementalAudio.currentTime = vid.currentTime;
+						supplementalAudio.playbackRate = vid.playbackRate;
+						await supplementalAudio.play().catch(() => {
+							// The main video remains the source of truth for playback state.
+						});
+					}
 				} catch (error) {
 					allowPlaybackRef.current = false;
 					throw error;
@@ -598,6 +652,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					return;
 				}
 				video.pause();
+				supplementalAudioRef.current?.pause();
 			},
 		}));
 
@@ -628,7 +683,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				cx: clamp01(localX / stageWidth),
 				cy: clamp01(localY / stageHeight),
 			};
-			const clampedFocus = clampFocusToStage(unclampedFocus, region.depth);
+			const clampedFocus = clampFocusForRegion(unclampedFocus, region);
 
 			onZoomFocusChange(region.id, clampedFocus);
 			updateOverlayForRegion({ ...region, focus: clampedFocus }, clampedFocus);
@@ -789,6 +844,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		useEffect(() => {
 			cursorClickBounceRef.current = cursorClickBounce;
 		}, [cursorClickBounce]);
+
+		useEffect(() => {
+			cursorClipToBoundsRef.current = cursorClipToBounds;
+		}, [cursorClipToBounds]);
+
+		useEffect(() => {
+			isPreviewingZoomRef.current = isPreviewingZoom;
+		}, [isPreviewingZoom]);
 
 		// Sync cursor overlay config when settings change
 		useEffect(() => {
@@ -1005,11 +1068,30 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				lastResolvedDurationRef.current = null;
 				isResolvingDurationRef.current = false;
 				setVideoReady(false);
+				setSupplementalAudioPath(null);
 				return;
 			}
 
+			let cancelled = false;
+			window.electronAPI
+				?.preparePreviewAudioTrack?.(videoPath)
+				.then((result) => {
+					if (!cancelled) {
+						setSupplementalAudioPath(result.success ? (result.path ?? null) : null);
+					}
+				})
+				.catch(() => {
+					if (!cancelled) {
+						setSupplementalAudioPath(null);
+					}
+				});
+
 			const video = videoRef.current;
-			if (!video) return;
+			if (!video) {
+				return () => {
+					cancelled = true;
+				};
+			}
 			video.pause();
 			video.currentTime = 0;
 			allowPlaybackRef.current = false;
@@ -1026,7 +1108,41 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				videoReadyRafRef.current = null;
 			}
 			video.load();
+
+			return () => {
+				cancelled = true;
+			};
 		}, [videoPath]);
+
+		useEffect(() => {
+			const video = videoRef.current;
+			const supplementalAudio = supplementalAudioRef.current;
+			if (!video || !supplementalAudio || !supplementalAudioPath) {
+				return;
+			}
+
+			const activeSpeedRegion =
+				speedRegions.find(
+					(region) => currentTime * 1000 >= region.startMs && currentTime * 1000 < region.endMs,
+				) ?? null;
+			supplementalAudio.playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
+
+			if (!isPlaying) {
+				supplementalAudio.pause();
+				if (Math.abs(supplementalAudio.currentTime - currentTime) > 0.05) {
+					supplementalAudio.currentTime = currentTime;
+				}
+				return;
+			}
+
+			if (Math.abs(supplementalAudio.currentTime - video.currentTime) > 0.15) {
+				supplementalAudio.currentTime = video.currentTime;
+			}
+
+			supplementalAudio.play().catch(() => {
+				// Keep video playback running even if supplemental preview audio is unavailable.
+			});
+		}, [currentTime, isPlaying, speedRegions, supplementalAudioPath]);
 
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
@@ -1214,7 +1330,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				// If a zoom is selected but video is not playing, show default unzoomed view
 				const selectedId = selectedZoomIdRef.current;
 				const hasSelectedZoom = selectedId !== null;
-				const shouldShowUnzoomedView = hasSelectedZoom && !isPlayingRef.current;
+				const shouldShowUnzoomedView =
+					hasSelectedZoom && !isPlayingRef.current && !isPreviewingZoomRef.current;
 
 				if (region && strength > 0 && !shouldShowUnzoomedView) {
 					const zoomScale = blendedScale ?? ZOOM_DEPTH_SCALES[region.depth];
@@ -1396,6 +1513,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						nativeCursorImage.style.display = "none";
 						nativeCursorImage.style.filter = "none";
 					}
+					if (nativeCursorClipRef.current) {
+						nativeCursorClipRef.current.style.clipPath = "";
+					}
 					resetNativeCursorSmoothingState(nativeCursorSmoothingStateRef.current);
 					resetNativeCursorMotionBlurState(nativeCursorMotionBlurStateRef.current);
 				};
@@ -1436,11 +1556,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										})
 									: null;
 							if (projectedLocalPoint && projectedStagePoint) {
-								const renderAsset = resolveNativeCursorRenderAsset(
-									frame.asset,
-									window.devicePixelRatio || 1,
-									displaySample,
-								);
+								// Pass deviceScaleFactor=1 — asset.scaleFactor already encodes DPR.
+								// Size is normalized below so preview matches export proportionally.
+								const renderAsset = resolveNativeCursorRenderAsset(frame.asset, 1, displaySample);
 								const bounceProgress = getNativeCursorClickBounceProgress(
 									cursorRecordingDataRef.current,
 									timeMs,
@@ -1448,7 +1566,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								const scale =
 									Math.max(0, cursorSizeRef.current) *
 									getNativeCursorClickBounceScale(cursorClickBounceRef.current, bounceProgress);
-								const transformedScale = scale * Math.abs(cameraContainer?.scale.x || 1);
+								// Normalize cursor size to the displayed video width so the cursor
+								// appears at the same fraction of the video in both preview and export.
+								const crop = cropRegionRef.current ?? { x: 0, y: 0, width: 1, height: 1 };
+								const croppedVideoWidth = (videoRef.current?.videoWidth ?? 0) * crop.width;
+								const sizeNorm =
+									croppedVideoWidth > 0 ? baseMaskRef.current.width / croppedVideoWidth : 1;
+								const transformedScale = scale * Math.abs(cameraContainer?.scale.x || 1) * sizeNorm;
 								const blurPx =
 									!isPlayingRef.current || isSeekingRef.current
 										? 0
@@ -1463,10 +1587,32 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									nativeCursorImageIdRef.current = renderAsset.id;
 								}
 								nativeCursorImage.style.display = "block";
+								// Update clip-path on nativeCursorClipRef to the camera-aware video boundary.
+								// clip-path works correctly here because nativeCursorClipRef is outside preserve-3d.
+								// When cursorClipToBounds is off, allow the cursor to overflow the canvas.
+								if (nativeCursorClipRef.current) {
+									if (!cursorClipToBoundsRef.current) {
+										nativeCursorClipRef.current.style.clipPath = "none";
+									} else {
+										const mask = baseMaskRef.current;
+										const stage = stageSizeRef.current;
+										const br = borderRadiusRef.current;
+										const s = cameraContainer ? Math.abs(cameraContainer.scale.x) : 1;
+										const camX = cameraContainer ? cameraContainer.position.x : 0;
+										const camY = cameraContainer ? cameraContainer.position.y : 0;
+										const clipLeft = camX + s * mask.x;
+										const clipTop = camY + s * mask.y;
+										const clipRight = camX + s * (mask.x + mask.width);
+										const clipBottom = camY + s * (mask.y + mask.height);
+										nativeCursorClipRef.current.style.clipPath = `inset(${clipTop}px ${stage.width - clipRight}px ${stage.height - clipBottom}px ${clipLeft}px round ${br * s}px)`;
+									}
+								}
 								nativeCursorImage.style.width = `${renderAsset.width * transformedScale}px`;
 								nativeCursorImage.style.height = `${renderAsset.height * transformedScale}px`;
 								nativeCursorImage.style.filter =
 									blurPx > 0 ? `blur(${blurPx.toFixed(2)}px)` : "none";
+								// translate3d is relative to nativeCursorClipRef (absolute inset-0 = stage origin).
+								// projectedStagePoint.x is the stage-space cursor position — no offset needed.
 								nativeCursorImage.style.transform = `translate3d(${
 									projectedStagePoint.x - renderAsset.hotspotX * transformedScale
 								}px, ${projectedStagePoint.y - renderAsset.hotspotY * transformedScale}px, 0)`;
@@ -1510,6 +1656,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							composite3D.style.willChange = "auto";
 							lastTransformIsIdentity = true;
 						}
+						if (nativeCursorClipRef.current) {
+							nativeCursorClipRef.current.style.transform = "";
+						}
 						if (lastPerspectiveValue !== 0) {
 							outerWrapper.style.perspective = "";
 							lastPerspectiveValue = 0;
@@ -1526,6 +1675,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						);
 						composite3D.style.transform = `scale(${containScale}) rotateX(${effectiveRotation.rotationX}deg) rotateY(${effectiveRotation.rotationY}deg) rotateZ(${effectiveRotation.rotationZ}deg)`;
 						composite3D.style.willChange = "transform";
+						if (nativeCursorClipRef.current) {
+							nativeCursorClipRef.current.style.transform = composite3D.style.transform;
+						}
 						lastTransformIsIdentity = false;
 						if (persp !== lastPerspectiveValue) {
 							outerWrapper.style.perspective = `${persp}px`;
@@ -1545,6 +1697,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
 			const video = e.currentTarget;
+			enableAllPreviewAudioTracks(video);
 			const hasResolvedDuration = syncResolvedDuration(video);
 			if (!hasResolvedDuration) {
 				forceResolveDuration(video);
@@ -1693,8 +1846,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						aspectRatio,
 						aspectRatio === "native"
 							? getNativeAspectRatioValue(
-									lockedVideoDimensionsRef.current?.width || 1920,
-									lockedVideoDimensionsRef.current?.height || 1080,
+									lockedVideoDimensionsRef.current?.width || DEFAULT_SOURCE_DIMENSIONS.width,
+									lockedVideoDimensionsRef.current?.height || DEFAULT_SOURCE_DIMENSIONS.height,
 									cropRegion,
 								)
 							: undefined,
@@ -1725,18 +1878,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								showShadow && shadowIntensity > 0
 									? `drop-shadow(0 ${shadowIntensity * 12}px ${shadowIntensity * 48}px rgba(0,0,0,${shadowIntensity * 0.7})) drop-shadow(0 ${shadowIntensity * 4}px ${shadowIntensity * 16}px rgba(0,0,0,${shadowIntensity * 0.5})) drop-shadow(0 ${shadowIntensity * 2}px ${shadowIntensity * 8}px rgba(0,0,0,${shadowIntensity * 0.3}))`
 									: "none",
-						}}
-					/>
-					<img
-						ref={nativeCursorImageRef}
-						alt=""
-						aria-hidden="true"
-						className="absolute left-0 top-0 select-none"
-						style={{
-							display: "none",
-							pointerEvents: "none",
-							transformOrigin: "0 0",
-							zIndex: 18,
 						}}
 					/>
 					{webcamVideoPath &&
@@ -1914,11 +2055,33 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										}
 										previewSourceCanvas={previewSnapshotCanvas}
 										previewFrameVersion={Math.round(currentTime * 1000)}
+										currentTimeMs={Math.round(currentTime * 1000)}
 									/>
 								));
 							})()}
 						</div>
 					)}
+				</div>
+				{/* Clip the native cursor overlay to the exact video canvas boundary.
+				    Placed OUTSIDE composite3DRef (preserve-3d) so clip-path works
+				    correctly even during 3D zoom rotation regions.
+				    clip-path is set dynamically to the camera-aware video bounds. */}
+				<div
+					ref={nativeCursorClipRef}
+					className="absolute inset-0"
+					style={{ zIndex: 18, pointerEvents: "none" }}
+				>
+					<img
+						ref={nativeCursorImageRef}
+						alt=""
+						aria-hidden="true"
+						className="absolute left-0 top-0 select-none"
+						style={{
+							display: "none",
+							pointerEvents: "none",
+							transformOrigin: "0 0",
+						}}
+					/>
 				</div>
 				<video
 					ref={videoRef}
@@ -1928,22 +2091,28 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					playsInline
 					onLoadedMetadata={handleLoadedMetadata}
 					onDurationChange={(e) => {
+						enableAllPreviewAudioTracks(e.currentTarget);
 						if (!syncResolvedDuration(e.currentTarget)) {
 							forceResolveDuration(e.currentTarget);
 						}
 					}}
 					onLoadedData={(e) => {
+						enableAllPreviewAudioTracks(e.currentTarget);
 						if (!syncResolvedDuration(e.currentTarget)) {
 							forceResolveDuration(e.currentTarget);
 						}
 					}}
 					onCanPlay={(e) => {
+						enableAllPreviewAudioTracks(e.currentTarget);
 						if (!syncResolvedDuration(e.currentTarget)) {
 							forceResolveDuration(e.currentTarget);
 						}
 					}}
 					onError={() => onError("Failed to load video")}
 				/>
+				{supplementalAudioPath && (
+					<audio ref={supplementalAudioRef} src={supplementalAudioPath} preload="auto" />
+				)}
 			</div>
 		);
 	},

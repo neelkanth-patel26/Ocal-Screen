@@ -11,9 +11,9 @@ import type {
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
-import { AsyncVideoFrameQueue } from "./asyncVideoFrameQueue";
 import { FrameRenderer } from "./frameRenderer";
 import { StreamingVideoDecoder } from "./streamingDecoder";
+import { TimestampedVideoFrameQueue } from "./timestampedVideoFrameQueue";
 import type {
 	ExportProgress,
 	ExportResult,
@@ -53,6 +53,7 @@ interface GifExporterConfig {
 	cursorSmoothing?: number;
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
+	cursorClipToBounds?: boolean;
 	annotationRegions?: AnnotationRegion[];
 	previewWidth?: number;
 	previewHeight?: number;
@@ -123,7 +124,7 @@ export class GifExporter {
 	}
 
 	async export(): Promise<ExportResult> {
-		let webcamFrameQueue: AsyncVideoFrameQueue | null = null;
+		let webcamFrameQueue: TimestampedVideoFrameQueue | null = null;
 
 		const warnings: string[] = [];
 		const onWarning = (message: string) => warnings.push(message);
@@ -161,6 +162,7 @@ export class GifExporter {
 				cursorSmoothing: this.config.cursorSmoothing,
 				cursorMotionBlur: this.config.cursorMotionBlur,
 				cursorClickBounce: this.config.cursorClickBounce,
+				cursorClipToBounds: this.config.cursorClipToBounds,
 				videoWidth: videoInfo.width,
 				videoHeight: videoInfo.height,
 				webcamSize: webcamInfo ? { width: webcamInfo.width, height: webcamInfo.height } : null,
@@ -214,7 +216,7 @@ export class GifExporter {
 			console.log("[GifExporter] Using streaming decode (web-demuxer + VideoDecoder)");
 
 			let frameIndex = 0;
-			webcamFrameQueue = this.config.webcamVideoUrl ? new AsyncVideoFrameQueue() : null;
+			webcamFrameQueue = this.config.webcamVideoUrl ? new TimestampedVideoFrameQueue() : null;
 			let stopWebcamDecode = false;
 			let webcamDecodeError: Error | null = null;
 			const webcamDecodePromise =
@@ -226,7 +228,7 @@ export class GifExporter {
 									this.config.frameRate,
 									this.config.trimRegions,
 									this.config.speedRegions,
-									async (webcamFrame) => {
+									async (webcamFrame, _exportTimestampUs, webcamSourceTimestampMs) => {
 										while (queue.length >= 12 && !this.cancelled && !stopWebcamDecode) {
 											await new Promise((resolve) => setTimeout(resolve, 2));
 										}
@@ -234,7 +236,7 @@ export class GifExporter {
 											webcamFrame.close();
 											return;
 										}
-										queue.enqueue(webcamFrame);
+										queue.enqueue(webcamFrame, webcamSourceTimestampMs);
 									},
 									onWarning,
 								)
@@ -264,7 +266,9 @@ export class GifExporter {
 							return;
 						}
 
-						webcamFrame = webcamFrameQueue ? await webcamFrameQueue.dequeue() : null;
+						webcamFrame = webcamFrameQueue
+							? await webcamFrameQueue.frameAt(sourceTimestampMs)
+							: null;
 						const renderer = this.renderer;
 						if (this.cancelled || !renderer) {
 							return;

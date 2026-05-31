@@ -1,5 +1,6 @@
 {
 	"zoom": {
+		"previewHold": "Giữ để xem trước hiệu ứng phóng to",
 		"level": "Mức độ thu phóng",
 		"selectRegion": "Chọn vùng thu phóng để điều chỉnh",
 		"deleteZoom": "Xóa thu phóng",
@@ -8,6 +9,21 @@
 			"manual": "Thủ công",
 			"auto": "Tự động",
 			"autoDescription": "Máy ảnh đi theo vị trí con trỏ đã ghi"
+		},
+		"customScale": "Thu phóng tùy chỉnh",
+		"position": {
+			"title": "Vị trí tiêu điểm",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = ngoài cùng trái / trên, 100 = ngoài cùng phải / dưới"
+		},
+		"threeD": {
+			"title": "Xoay 3D",
+			"preset": {
+				"iso": "Đẳng phối",
+				"left": "Trái",
+				"right": "Phải"
+			}
 		}
 	},
 	"speed": {
@@ -28,7 +44,8 @@
 		"verticalStack": "Xếp chồng dọc",
 		"dualFrame": "Khung kép",
 		"webcamShape": "Hình dạng máy ảnh",
-		"webcamSize": "Kích thước Webcam"
+		"webcamSize": "Kích thước Webcam",
+		"noWebcam": "Không có webcam"
 	},
 	"effects": {
 		"title": "Hiệu ứng video",
@@ -37,7 +54,8 @@
 		"off": "tắt",
 		"shadow": "Bóng đổ",
 		"roundness": "Độ bo tròn",
-		"padding": "Phần đệm"
+		"padding": "Phần đệm",
+		"on": "bật"
 	},
 	"background": {
 		"title": "Nền",
@@ -45,7 +63,9 @@
 		"color": "Màu sắc",
 		"gradient": "Dải màu",
 		"uploadCustom": "Tải lên tùy chỉnh",
-		"gradientLabel": "Dải màu {{index}}"
+		"gradientLabel": "Dải màu {{index}}",
+		"colorPalette": "Bảng màu",
+		"colorWheel": "Vòng màu"
 	},
 	"crop": {
 		"title": "Cắt xén",
@@ -66,10 +86,10 @@
 		"gifDescription": "Hình ảnh động để chia sẻ"
 	},
 	"exportQuality": {
-		"title": "Chất lượng xuất",
-		"low": "Thấp",
-		"medium": "Trung bình",
-		"high": "Cao"
+		"title": "Độ phân giải xuất",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "Tốc độ khung hình GIF",
@@ -78,15 +98,17 @@
 	},
 	"project": {
 		"save": "Lưu dự án",
-		"load": "Tải dự án"
+		"load": "Tải dự án",
+		"new": "Dự án mới"
 	},
 	"export": {
 		"videoButton": "Xuất Video",
 		"gifButton": "Xuất GIF",
 		"chooseSaveLocation": "Chọn vị trí lưu"
 	},
-	"links": {
+	"support": {
 		"reportBug": "Báo cáo lỗi",
+		"saveDiagnostics": "Lưu thông tin chẩn đoán",
 		"starOnGithub": "Đánh giá sao trên GitHub"
 	},
 	"imageUpload": {
@@ -107,6 +129,8 @@
 		"textPlaceholder": "Nhập văn bản của bạn...",
 		"fontStyle": "Kiểu phông chữ",
 		"selectStyle": "Chọn kiểu",
+		"textAnimation": "Hoạt ảnh văn bản",
+		"selectAnimation": "Chọn hoạt ảnh",
 		"size": "Kích thước",
 		"customFonts": "Phông chữ tùy chỉnh",
 		"textColor": "Màu văn bản",
@@ -139,7 +163,9 @@
 		"invalidImageType": "Loại tệp không hợp lệ",
 		"imageFormatsOnly": "Vui lòng tải lên tệp hình ảnh JPG, PNG, GIF hoặc WebP.",
 		"imageUploadSuccess": "Tải lên hình ảnh thành công!",
-		"failedImageUpload": "Tải lên hình ảnh thất bại"
+		"failedImageUpload": "Tải lên hình ảnh thất bại",
+		"colorPalette": "Bảng màu",
+		"colorWheel": "Vòng màu"
 	},
 	"fontStyles": {
 		"classic": "Cổ điển",
@@ -170,7 +196,19 @@
 		"errorTimeout": "Tải phông chữ mất quá nhiều thời gian. Vui lòng kiểm tra URL và thử lại.",
 		"errorLoadFailed": "Không thể tải phông chữ. Vui lòng xác minh URL Google Fonts là chính xác."
 	},
+	"cursor": {
+		"show": "Hiện con trỏ",
+		"size": "Kích thước",
+		"smoothing": "Làm mượt",
+		"motionBlur": "Làm mờ chuyển động",
+		"clickBounce": "Nảy khi nhấp",
+		"clipToBounds": "Cắt theo khung"
+	},
 	"language": {
 		"title": "Ngôn ngữ"
+	},
+	"timeline": {
+		"title": "Dòng thời gian",
+		"waveform": "Hiển thị dạng sóng âm thanh trên rãnh cắt"
 	}
 }

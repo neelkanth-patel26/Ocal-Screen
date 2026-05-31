@@ -7,7 +7,9 @@
 		"pauseRecording": "إيقاف التسجيل مؤقتاً",
 		"resumeRecording": "استئناف التسجيل",
 		"openVideoFile": "فتح ملف فيديو",
-		"openProject": "فتح مشروع"
+		"openProject": "فتح مشروع",
+		"useVerticalTray": "استخدام الشريط العمودي",
+		"useHorizontalTray": "استخدام الشريط الأفقي"
 	},
 	"audio": {
 		"enableSystemAudio": "تفعيل صوت النظام",
@@ -39,5 +41,9 @@
 		"description": "اكتشفنا أن {{language}} هي لغة نظامك. هل تريد تبديل OpenScreen إلى {{language}}؟",
 		"switch": "التبديل إلى {{language}}",
 		"keepDefault": "الاحتفاظ باللغة الحالية"
+	},
+	"cursor": {
+		"useEditableCursor": "استخدام مؤشر قابل للتحرير",
+		"useSystemCursor": "استخدام مؤشر النظام"
 	}
 }

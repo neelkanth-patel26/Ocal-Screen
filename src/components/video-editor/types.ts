@@ -188,12 +188,16 @@ export interface CursorVisualSettings {
 	smoothing: number;
 	motionBlur: number;
 	clickBounce: number;
+	clipToBounds: boolean;
 }
 
 export const DEFAULT_CURSOR_SIZE = 3.0;
 export const DEFAULT_CURSOR_SMOOTHING = 0.67;
 export const DEFAULT_CURSOR_MOTION_BLUR = 0.35;
 export const DEFAULT_CURSOR_CLICK_BOUNCE = 2.5;
+// false = allow the cursor to overflow into the background by default.
+// true = clip the native cursor to the video canvas bounds.
+export const DEFAULT_CURSOR_CLIP_TO_BOUNDS = false;
 export const DEFAULT_ZOOM_MOTION_BLUR = 0.35;
 
 export interface TrimRegion {
@@ -251,6 +255,15 @@ export interface AnnotationSize {
 	height: number;
 }
 
+export type AnnotationTextAnimation =
+	| "none"
+	| "fade"
+	| "rise"
+	| "pop"
+	| "slide-left"
+	| "typewriter"
+	| "pulse";
+
 export interface AnnotationTextStyle {
 	color: string;
 	backgroundColor: string;
@@ -260,6 +273,7 @@ export interface AnnotationTextStyle {
 	fontStyle: "normal" | "italic";
 	textDecoration: "none" | "underline";
 	textAlign: "left" | "center" | "right";
+	textAnimation?: AnnotationTextAnimation;
 }
 
 export interface AnnotationRegion {
@@ -299,6 +313,7 @@ export const DEFAULT_ANNOTATION_STYLE: AnnotationTextStyle = {
 	fontStyle: "normal",
 	textDecoration: "none",
 	textAlign: "center",
+	textAnimation: "none",
 };
 
 export const DEFAULT_FIGURE_DATA: FigureData = {

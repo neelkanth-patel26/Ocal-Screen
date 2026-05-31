@@ -1,6 +1,8 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
+import type { NativeMacRecordingRequest } from "../src/lib/nativeMacRecording";
 import type { NativeWindowsRecordingRequest } from "../src/lib/nativeWindowsRecording";
 import type { RecordingSession, StoreRecordedSessionInput } from "../src/lib/recordingSession";
+import type { ShortcutBinding } from "../src/lib/shortcuts";
 import { NATIVE_BRIDGE_CHANNEL, type NativeBridgeRequest } from "../src/native/contracts";
 
 // Asset base URL is passed from the main process via webPreferences.additionalArguments
@@ -23,6 +25,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	setHudOverlayIgnoreMouseEvents: (ignore: boolean) => {
 		ipcRenderer.send("hud-overlay-ignore-mouse-events", ignore);
+	},
+	moveHudOverlayBy: (deltaX: number, deltaY: number) => {
+		ipcRenderer.send("hud-overlay-move-by", deltaX, deltaY);
 	},
 	getSources: async (opts: Electron.SourcesOptions) => {
 		return await ipcRenderer.invoke("get-sources", opts);
@@ -48,11 +53,26 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	requestCameraAccess: () => {
 		return ipcRenderer.invoke("request-camera-access");
 	},
+	requestScreenAccess: () => {
+		return ipcRenderer.invoke("request-screen-access");
+	},
+	requestNativeMacCursorAccess: () => {
+		return ipcRenderer.invoke("request-native-mac-cursor-access");
+	},
 	storeRecordedVideo: (videoData: ArrayBuffer, fileName: string) => {
 		return ipcRenderer.invoke("store-recorded-video", videoData, fileName);
 	},
 	storeRecordedSession: (payload: StoreRecordedSessionInput) => {
 		return ipcRenderer.invoke("store-recorded-session", payload);
+	},
+	openRecordingStream: (fileName: string) => {
+		return ipcRenderer.invoke("open-recording-stream", fileName);
+	},
+	appendRecordingChunk: (fileName: string, chunk: ArrayBuffer) => {
+		return ipcRenderer.invoke("append-recording-chunk", fileName, chunk);
+	},
+	closeRecordingStream: (fileName: string) => {
+		return ipcRenderer.invoke("close-recording-stream", fileName);
 	},
 
 	getRecordedVideoPath: () => {
@@ -68,11 +88,40 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	isNativeWindowsCaptureAvailable: () => {
 		return ipcRenderer.invoke("is-native-windows-capture-available");
 	},
+	isNativeMacCaptureAvailable: () => {
+		return ipcRenderer.invoke("is-native-mac-capture-available");
+	},
 	startNativeWindowsRecording: (request: NativeWindowsRecordingRequest) => {
 		return ipcRenderer.invoke("start-native-windows-recording", request);
 	},
 	stopNativeWindowsRecording: (discard?: boolean) => {
 		return ipcRenderer.invoke("stop-native-windows-recording", discard);
+	},
+	pauseNativeWindowsRecording: () => {
+		return ipcRenderer.invoke("pause-native-windows-recording");
+	},
+	resumeNativeWindowsRecording: () => {
+		return ipcRenderer.invoke("resume-native-windows-recording");
+	},
+	startNativeMacRecording: (request: NativeMacRecordingRequest) => {
+		return ipcRenderer.invoke("start-native-mac-recording", request);
+	},
+	pauseNativeMacRecording: () => {
+		return ipcRenderer.invoke("pause-native-mac-recording");
+	},
+	resumeNativeMacRecording: () => {
+		return ipcRenderer.invoke("resume-native-mac-recording");
+	},
+	stopNativeMacRecording: (discard?: boolean) => {
+		return ipcRenderer.invoke("stop-native-mac-recording", discard);
+	},
+	attachNativeMacWebcamRecording: (payload: {
+		screenVideoPath: string;
+		recordingId: number;
+		webcam: { fileName: string; videoData: ArrayBuffer };
+		cursorCaptureMode?: import("../src/lib/recordingSession").CursorCaptureMode;
+	}) => {
+		return ipcRenderer.invoke("attach-native-mac-webcam-recording", payload);
 	},
 	getCursorTelemetry: (videoPath?: string) => {
 		return ipcRenderer.invoke("get-cursor-telemetry", videoPath);
@@ -112,6 +161,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	readBinaryFile: (filePath: string) => {
 		return ipcRenderer.invoke("read-binary-file", filePath);
 	},
+	preparePreviewAudioTrack: (filePath: string) => {
+		return ipcRenderer.invoke("prepare-preview-audio-track", filePath);
+	},
 	clearCurrentVideoPath: () => {
 		return ipcRenderer.invoke("clear-current-video-path");
 	},
@@ -121,8 +173,28 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	loadProjectFile: () => {
 		return ipcRenderer.invoke("load-project-file");
 	},
+	loadProjectFileFromPath: (filePath: string) => {
+		return ipcRenderer.invoke("load-project-file-from-path", filePath);
+	},
+	getPathForFile: (file: File) => {
+		try {
+			return webUtils.getPathForFile(file);
+		} catch {
+			return "";
+		}
+	},
 	loadCurrentProjectFile: () => {
 		return ipcRenderer.invoke("load-current-project-file");
+	},
+	onMenuNewProject: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("menu-new-project", listener);
+		return () => ipcRenderer.removeListener("menu-new-project", listener);
+	},
+	onMenuImportVideo: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("menu-import-video", listener);
+		return () => ipcRenderer.removeListener("menu-import-video", listener);
 	},
 	onMenuLoadProject: (callback: () => void) => {
 		const listener = () => callback();
@@ -150,6 +222,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	saveShortcuts: (shortcuts: unknown) => {
 		return ipcRenderer.invoke("save-shortcuts", shortcuts);
+	},
+	updateGlobalShortcut: (binding: ShortcutBinding) => {
+		return ipcRenderer.invoke("update-global-shortcut", binding);
 	},
 	setLocale: (locale: string) => {
 		return ipcRenderer.invoke("set-locale", locale);

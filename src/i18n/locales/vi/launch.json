@@ -7,7 +7,9 @@
 		"pauseRecording": "Tạm dừng ghi hình",
 		"resumeRecording": "Tiếp tục ghi hình",
 		"openVideoFile": "Mở tệp video",
-		"openProject": "Mở dự án"
+		"openProject": "Mở dự án",
+		"useVerticalTray": "Dùng khay dọc",
+		"useHorizontalTray": "Dùng khay ngang"
 	},
 	"audio": {
 		"enableSystemAudio": "Bật âm thanh hệ thống",
@@ -39,5 +41,9 @@
 		"description": "Chúng tôi phát hiện {{language}} là ngôn ngữ hệ thống của bạn. Bạn có muốn chuyển OpenScreen sang {{language}} không?",
 		"switch": "Chuyển sang {{language}}",
 		"keepDefault": "Giữ ngôn ngữ hiện tại"
+	},
+	"cursor": {
+		"useEditableCursor": "Dùng con trỏ có thể chỉnh sửa",
+		"useSystemCursor": "Dùng con trỏ hệ thống"
 	}
 }

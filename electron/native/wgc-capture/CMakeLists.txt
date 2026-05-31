@@ -49,3 +49,19 @@ target_link_libraries(wgc-capture PRIVATE
   runtimeobject
   windowsapp
 )
+
+add_executable(cursor-sampler
+  src/cursor-sampler.cpp
+)
+
+target_compile_definitions(cursor-sampler PRIVATE
+  NOMINMAX
+  _WIN32_WINNT=0x0A00
+)
+
+target_compile_options(cursor-sampler PRIVATE /EHsc /W4 /utf-8)
+
+target_link_libraries(cursor-sampler PRIVATE
+  gdi32
+  gdiplus
+)

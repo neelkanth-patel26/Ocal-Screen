@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
+import { useAudioPeaks } from "@/hooks/useAudioPeaks";
 import { matchesShortcut } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { ASPECT_RATIOS, type AspectRatio, getAspectRatioLabel } from "@/utils/aspectRatioUtils";
@@ -34,6 +35,7 @@ import type {
 	ZoomFocus,
 	ZoomRegion,
 } from "../types";
+import BackgroundWaveform from "./BackgroundWaveform";
 import Item from "./Item";
 import KeyframeMarkers from "./KeyframeMarkers";
 import Row from "./Row";
@@ -88,6 +90,8 @@ interface TimelineEditorProps {
 	onSelectSpeed?: (id: string | null) => void;
 	aspectRatio: AspectRatio;
 	onAspectRatioChange: (aspectRatio: AspectRatio) => void;
+	videoUrl?: string;
+	showTrimWaveform?: boolean;
 }
 
 interface TimelineScaleConfig {
@@ -235,6 +239,31 @@ function formatPlayheadTime(ms: number): string {
 	const sec = s % 60;
 	if (min > 0) return `${min}:${sec.toFixed(1).padStart(4, "0")}`;
 	return `${sec.toFixed(1)}s`;
+}
+
+function shouldStartTimelineScrub(target: EventTarget | null, timelineElement: HTMLElement) {
+	if (!(target instanceof HTMLElement)) {
+		return false;
+	}
+
+	for (let element: HTMLElement | null = target; element && element !== timelineElement; ) {
+		const className = element.className;
+		const classText = typeof className === "string" ? className : "";
+
+		if (
+			classText.split(/\s+/).includes("group") ||
+			classText.includes("cursor-grab") ||
+			classText.includes("cursor-grabbing") ||
+			classText.includes("cursor-ew-resize") ||
+			element.style.cursor === "col-resize"
+		) {
+			return false;
+		}
+
+		element = element.parentElement;
+	}
+
+	return true;
 }
 
 function PlaybackCursor({
@@ -542,6 +571,8 @@ function Timeline({
 	selectedBlurId,
 	selectedSpeedId,
 	keyframes = [],
+	videoUrl,
+	showTrimWaveform = false,
 }: {
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
@@ -559,10 +590,15 @@ function Timeline({
 	selectedBlurId?: string | null;
 	selectedSpeedId?: string | null;
 	keyframes?: { id: string; time: number }[];
+	videoUrl?: string;
+	showTrimWaveform?: boolean;
 }) {
 	const t = useScopedT("timeline");
 	const { setTimelineRef, style, sidebarWidth, range, pixelsToValue } = useTimelineContext();
 	const localTimelineRef = useRef<HTMLDivElement | null>(null);
+	const isScrubbingTimelineRef = useRef(false);
+	const scrubPointerIdRef = useRef<number | null>(null);
+	const peaks = useAudioPeaks(showTrimWaveform ? videoUrl : undefined);
 
 	const setRefs = useCallback(
 		(node: HTMLDivElement | null) => {
@@ -572,42 +608,104 @@ function Timeline({
 		[setTimelineRef],
 	);
 
-	const handleTimelineClick = useCallback(
-		(e: React.MouseEvent<HTMLDivElement>) => {
-			if (!onSeek || videoDurationMs <= 0) return;
+	const seekTimelineAtClientX = useCallback(
+		(timelineElement: HTMLDivElement, clientX: number) => {
+			if (!onSeek || videoDurationMs <= 0) return false;
 
-			// Only clear selection if clicking on empty space (not on items)
-			// This is handled by event propagation - items stop propagation
-			onSelectZoom?.(null);
-			onSelectTrim?.(null);
-			onSelectAnnotation?.(null);
-			onSelectBlur?.(null);
-			onSelectSpeed?.(null);
+			const rect = timelineElement.getBoundingClientRect();
+			const clickX = clientX - rect.left - sidebarWidth;
 
-			const rect = e.currentTarget.getBoundingClientRect();
-			const clickX = e.clientX - rect.left - sidebarWidth;
-
-			if (clickX < 0) return;
+			if (clickX < 0) return false;
 
 			const relativeMs = pixelsToValue(clickX);
 			const absoluteMs = Math.max(0, Math.min(range.start + relativeMs, videoDurationMs));
-			const timeInSeconds = absoluteMs / 1000;
 
-			onSeek(timeInSeconds);
+			onSeek(absoluteMs / 1000);
+			return true;
 		},
-		[
-			onSeek,
-			onSelectZoom,
-			onSelectTrim,
-			onSelectAnnotation,
-			onSelectBlur,
-			onSelectSpeed,
-			videoDurationMs,
-			sidebarWidth,
-			range.start,
-			pixelsToValue,
-		],
+		[onSeek, videoDurationMs, sidebarWidth, pixelsToValue, range.start],
 	);
+
+	const clearTimelineSelection = useCallback(() => {
+		onSelectZoom?.(null);
+		onSelectTrim?.(null);
+		onSelectAnnotation?.(null);
+		onSelectBlur?.(null);
+		onSelectSpeed?.(null);
+	}, [onSelectZoom, onSelectTrim, onSelectAnnotation, onSelectBlur, onSelectSpeed]);
+
+	const handleTimelineClick = useCallback(
+		(e: React.MouseEvent<HTMLDivElement>) => {
+			// Only clear selection if clicking on empty space (not on items)
+			// This is handled by event propagation - items stop propagation
+			clearTimelineSelection();
+			seekTimelineAtClientX(e.currentTarget, e.clientX);
+		},
+		[clearTimelineSelection, seekTimelineAtClientX],
+	);
+
+	const handleTimelinePointerDown = useCallback(
+		(e: React.PointerEvent<HTMLDivElement>) => {
+			if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) {
+				return;
+			}
+
+			if (!shouldStartTimelineScrub(e.target, e.currentTarget)) {
+				return;
+			}
+
+			if (!seekTimelineAtClientX(e.currentTarget, e.clientX)) {
+				return;
+			}
+
+			clearTimelineSelection();
+			isScrubbingTimelineRef.current = true;
+			scrubPointerIdRef.current = e.pointerId;
+			e.currentTarget.setPointerCapture(e.pointerId);
+			e.preventDefault();
+		},
+		[clearTimelineSelection, seekTimelineAtClientX],
+	);
+
+	const handleTimelinePointerMove = useCallback(
+		(e: React.PointerEvent<HTMLDivElement>) => {
+			if (!isScrubbingTimelineRef.current || scrubPointerIdRef.current !== e.pointerId) {
+				return;
+			}
+
+			seekTimelineAtClientX(e.currentTarget, e.clientX);
+			e.preventDefault();
+		},
+		[seekTimelineAtClientX],
+	);
+
+	const stopTimelineScrub = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+		if (!isScrubbingTimelineRef.current || scrubPointerIdRef.current !== e.pointerId) {
+			return;
+		}
+
+		isScrubbingTimelineRef.current = false;
+		scrubPointerIdRef.current = null;
+		if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+			e.currentTarget.releasePointerCapture(e.pointerId);
+		}
+	}, []);
+
+	const handleTimelinePointerLeave = useCallback(
+		(e: React.PointerEvent<HTMLDivElement>) => {
+			if (isScrubbingTimelineRef.current && scrubPointerIdRef.current === e.pointerId) {
+				seekTimelineAtClientX(e.currentTarget, e.clientX);
+			}
+		},
+		[seekTimelineAtClientX],
+	);
+
+	const handleTimelineLostPointerCapture = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+		if (scrubPointerIdRef.current === e.pointerId) {
+			isScrubbingTimelineRef.current = false;
+			scrubPointerIdRef.current = null;
+		}
+	}, []);
 
 	const handleTimelineWheel = useCallback(
 		(event: React.WheelEvent<HTMLDivElement>) => {
@@ -658,9 +756,15 @@ function Timeline({
 	return (
 		<div
 			ref={setRefs}
-			style={style}
+			style={{ ...style, touchAction: "none" }}
 			className="select-none bg-[#0b0c0f] min-h-[190px] relative cursor-pointer group"
 			onClick={handleTimelineClick}
+			onPointerDown={handleTimelinePointerDown}
+			onPointerMove={handleTimelinePointerMove}
+			onPointerUp={stopTimelineScrub}
+			onPointerCancel={stopTimelineScrub}
+			onPointerLeave={handleTimelinePointerLeave}
+			onLostPointerCapture={handleTimelineLostPointerCapture}
 			onWheel={handleTimelineWheel}
 		>
 			<div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px)] bg-[length:24px_100%] pointer-events-none" />
@@ -693,7 +797,21 @@ function Timeline({
 				))}
 			</Row>
 
-			<Row id={TRIM_ROW_ID} isEmpty={trimItems.length === 0} hint={t("hints.pressTrim")}>
+			<Row
+				id={TRIM_ROW_ID}
+				isEmpty={trimItems.length === 0}
+				hint={t("hints.pressTrim")}
+				background={
+					showTrimWaveform ? (
+						<BackgroundWaveform
+							peaks={peaks}
+							videoDurationMs={videoDurationMs}
+							topInset={3}
+							bottomInset={3}
+						/>
+					) : undefined
+				}
+			>
 				{trimItems.map((item) => (
 					<Item
 						id={item.id}
@@ -804,6 +922,8 @@ export default function TimelineEditor({
 	onSelectSpeed,
 	aspectRatio,
 	onAspectRatioChange,
+	videoUrl,
+	showTrimWaveform = false,
 }: TimelineEditorProps) {
 	const t = useScopedT("timeline");
 	const totalMs = useMemo(() => Math.max(0, Math.round(videoDuration * 1000)), [videoDuration]);
@@ -1397,13 +1517,30 @@ export default function TimelineEditor({
 		return [...zooms, ...trims, ...annotations, ...blurs, ...speeds];
 	}, [zoomRegions, trimRegions, annotationRegions, blurRegions, speedRegions, t]);
 
-	// Flat list of all non-annotation region spans for neighbour-clamping during drag/resize
+	// Spans that participate in overlap resolution (clampToNeighbours).
+	// Excludes annotation/blur deliberately — those are allowed to overlap and
+	// must NOT act as hard constraints when a zoom/trim/speed drag is being
+	// resolved.
 	const allRegionSpans = useMemo(() => {
 		const zooms = zoomRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
 		const trims = trimRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
 		const speeds = speedRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
 		return [...zooms, ...trims, ...speeds];
 	}, [zoomRegions, trimRegions, speedRegions]);
+
+	// Additional snap targets that are NOT clamping constraints. Their edges
+	// pull during snap, but they don't push anyone away.
+	const softSnapSpans = useMemo(() => {
+		const annotations = annotationRegions.map((r) => ({
+			id: r.id,
+			start: r.startMs,
+			end: r.endMs,
+		}));
+		const blurs = blurRegions.map((r) => ({ id: r.id, start: r.startMs, end: r.endMs }));
+		return [...annotations, ...blurs];
+	}, [annotationRegions, blurRegions]);
+
+	const keyframeTimesMs = useMemo(() => keyframes.map((kf) => kf.time), [keyframes]);
 
 	const handleItemSpanChange = useCallback(
 		(id: string, span: Span) => {
@@ -1579,6 +1716,9 @@ export default function TimelineEditor({
 					minVisibleRangeMs={timelineScale.minVisibleRangeMs}
 					onItemSpanChange={handleItemSpanChange}
 					allRegionSpans={allRegionSpans}
+					softSnapSpans={softSnapSpans}
+					currentTimeMs={currentTimeMs}
+					keyframeTimesMs={keyframeTimesMs}
 				>
 					<KeyframeMarkers
 						keyframes={keyframes}
@@ -1605,6 +1745,8 @@ export default function TimelineEditor({
 						selectedBlurId={selectedBlurId}
 						selectedSpeedId={selectedSpeedId}
 						keyframes={keyframes}
+						videoUrl={videoUrl}
+						showTrimWaveform={showTrimWaveform}
 					/>
 				</TimelineWrapper>
 			</div>

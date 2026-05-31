@@ -1,5 +1,6 @@
 {
 	"zoom": {
+		"previewHold": "按住預覽放大效果",
 		"level": "縮放級別",
 		"selectRegion": "選擇要調整的縮放區域",
 		"deleteZoom": "刪除縮放",
@@ -9,13 +10,7 @@
 			"auto": "自動",
 			"autoDescription": "攝影機跟隨錄製時的游標位置"
 		},
-		"speed": {
-			"title": "縮放速度",
-			"instant": "即時",
-			"fast": "快速",
-			"smooth": "平滑",
-			"lazy": "緩慢"
-		},
+		"speed": {},
 		"threeD": {
 			"title": "3D 旋轉",
 			"preset": {
@@ -23,6 +18,13 @@
 				"left": "左",
 				"right": "右"
 			}
+		},
+		"customScale": "自訂縮放",
+		"position": {
+			"title": "焦點位置",
+			"x": "X (%)",
+			"y": "Y (%)",
+			"hint": "0 = 最左 / 最上，100 = 最右 / 最下"
 		}
 	},
 	"speed": {
@@ -43,7 +45,8 @@
 		"verticalStack": "垂直堆疊",
 		"dualFrame": "雙畫框",
 		"webcamShape": "攝影機形狀",
-		"webcamSize": "攝影機大小"
+		"webcamSize": "攝影機大小",
+		"noWebcam": "無網路攝影機"
 	},
 	"effects": {
 		"title": "影片效果",
@@ -52,7 +55,8 @@
 		"off": "關",
 		"shadow": "陰影",
 		"roundness": "圓角",
-		"padding": "內邊距"
+		"padding": "內邊距",
+		"on": "開"
 	},
 	"background": {
 		"title": "背景",
@@ -83,10 +87,10 @@
 		"gifDescription": "可分享的動態圖片"
 	},
 	"exportQuality": {
-		"title": "匯出品質",
-		"low": "低",
-		"medium": "中",
-		"high": "高"
+		"title": "匯出解析度",
+		"low": "720p",
+		"medium": "1080p",
+		"high": "Source"
 	},
 	"gifSettings": {
 		"frameRate": "GIF 影格率",
@@ -95,20 +99,22 @@
 	},
 	"project": {
 		"save": "儲存專案",
-		"load": "載入專案"
+		"load": "載入專案",
+		"new": "新增專案"
 	},
 	"export": {
 		"videoButton": "匯出影片",
 		"gifButton": "匯出 GIF",
 		"chooseSaveLocation": "選擇儲存位置"
 	},
-	"links": {
+	"support": {
 		"reportBug": "回報錯誤",
+		"saveDiagnostics": "儲存診斷資料",
 		"starOnGithub": "在 GitHub 上加星"
 	},
 	"imageUpload": {
 		"invalidFileType": "無效的檔案類型",
-		"jpgOnly": "請上傳 JPG 或 JPEG 格式的圖片檔案。",
+		"jpgOnly": "請上傳 JPG、JPEG 或 PNG 格式的圖片檔案。",
 		"uploadSuccess": "自訂圖片上傳成功！",
 		"failedToUpload": "上傳圖片失敗",
 		"errorReading": "讀取檔案時出錯。"
@@ -124,6 +130,8 @@
 		"textPlaceholder": "輸入您的文字...",
 		"fontStyle": "字體樣式",
 		"selectStyle": "選擇樣式",
+		"textAnimation": "文字動畫",
+		"selectAnimation": "選擇動畫",
 		"size": "大小",
 		"customFonts": "自訂字體",
 		"textColor": "文字顏色",
@@ -189,7 +197,19 @@
 		"errorTimeout": "字體載入時間過長。請檢查 URL 並重試。",
 		"errorLoadFailed": "無法載入該字體。請確認 Google Fonts URL 是否正確。"
 	},
+	"cursor": {
+		"show": "顯示游標",
+		"size": "大小",
+		"smoothing": "平滑",
+		"motionBlur": "動態模糊",
+		"clickBounce": "點擊彈跳",
+		"clipToBounds": "裁切至畫布"
+	},
 	"language": {
 		"title": "語言"
+	},
+	"timeline": {
+		"title": "時間軸",
+		"waveform": "在剪輯軌道上顯示音訊波形"
 	}
 }

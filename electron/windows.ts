@@ -30,6 +30,20 @@ ipcMain.on("hud-overlay-ignore-mouse-events", (_event, ignore: boolean) => {
 	}
 });
 
+ipcMain.on("hud-overlay-move-by", (_event, deltaX: number, deltaY: number) => {
+	if (
+		!hudOverlayWindow ||
+		hudOverlayWindow.isDestroyed() ||
+		!Number.isFinite(deltaX) ||
+		!Number.isFinite(deltaY)
+	) {
+		return;
+	}
+
+	const [x, y] = hudOverlayWindow.getPosition();
+	hudOverlayWindow.setPosition(Math.round(x + deltaX), Math.round(y + deltaY), false);
+});
+
 /**
  * Creates the always-on-top HUD overlay window centred at the bottom of the
  * primary display. The window is frameless, transparent, and follows the user
@@ -60,7 +74,7 @@ export function createHudOverlayWindow(): BrowserWindow {
 		alwaysOnTop: true,
 		skipTaskbar: true,
 		hasShadow: false,
-		show: !HEADLESS,
+		show: false, // shown via ready-to-show to avoid black rectangle flash
 		webPreferences: {
 			preload: path.join(__dirname, "preload.mjs"),
 			additionalArguments: [ASSET_BASE_URL_ARG],
@@ -76,6 +90,12 @@ export function createHudOverlayWindow(): BrowserWindow {
 	if (process.platform === "darwin") {
 		win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 	}
+
+	// Show only once content is painted — prevents the black rectangle flash
+	// that appears when a transparent window is shown before its first paint.
+	win.once("ready-to-show", () => {
+		if (!HEADLESS) win.show();
+	});
 
 	win.webContents.on("did-finish-load", () => {
 		win?.webContents.send("main-process-message", new Date().toLocaleString());
@@ -121,8 +141,8 @@ export function createEditorWindow(): BrowserWindow {
 		alwaysOnTop: false,
 		skipTaskbar: false,
 		title: "OpenScreen",
-		backgroundColor: "#000000",
-		show: !HEADLESS,
+		backgroundColor: "#09090b",
+		show: false, // shown via ready-to-show to avoid white flash on first load
 		webPreferences: {
 			preload: path.join(__dirname, "preload.mjs"),
 			additionalArguments: [ASSET_BASE_URL_ARG],
@@ -135,6 +155,19 @@ export function createEditorWindow(): BrowserWindow {
 
 	// Maximize the window by default
 	win.maximize();
+
+	// Show only once content is painted — prevents white flash on cold Vite start.
+	win.once("ready-to-show", () => {
+		if (!HEADLESS) win.show();
+	});
+
+	// Inject dark background before any React paint so the sub-titlebar area
+	// never flashes white even on the very first cold Vite load.
+	win.webContents.on("dom-ready", () => {
+		win.webContents.insertCSS("html, body, #root { background: #09090b !important; }").catch(() => {
+			// Best-effort cosmetic; ignore if the page is mid-teardown.
+		});
+	});
 
 	win.webContents.on("did-finish-load", () => {
 		win?.webContents.send("main-process-message", new Date().toLocaleString());

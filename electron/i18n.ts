@@ -9,10 +9,14 @@ import commonEs from "../src/i18n/locales/es/common.json";
 import dialogsEs from "../src/i18n/locales/es/dialogs.json";
 import commonFr from "../src/i18n/locales/fr/common.json";
 import dialogsFr from "../src/i18n/locales/fr/dialogs.json";
+import commonIt from "../src/i18n/locales/it/common.json";
+import dialogsIt from "../src/i18n/locales/it/dialogs.json";
 import commonJa from "../src/i18n/locales/ja-JP/common.json";
 import dialogsJa from "../src/i18n/locales/ja-JP/dialogs.json";
 import commonKo from "../src/i18n/locales/ko-KR/common.json";
 import dialogsKo from "../src/i18n/locales/ko-KR/dialogs.json";
+import commonRu from "../src/i18n/locales/ru/common.json";
+import dialogsRu from "../src/i18n/locales/ru/dialogs.json";
 import commonTr from "../src/i18n/locales/tr/common.json";
 import dialogsTr from "../src/i18n/locales/tr/dialogs.json";
 import commonVi from "../src/i18n/locales/vi/common.json";
@@ -22,21 +26,35 @@ import dialogsZh from "../src/i18n/locales/zh-CN/dialogs.json";
 import commonZhTw from "../src/i18n/locales/zh-TW/common.json";
 import dialogsZhTw from "../src/i18n/locales/zh-TW/dialogs.json";
 
-type Locale = "en" | "zh-CN" | "zh-TW" | "es" | "fr" | "ja-JP" | "ko-KR" | "tr" | "ar" | "vi";
+type Locale =
+	| "en"
+	| "ar"
+	| "es"
+	| "fr"
+	| "it"
+	| "ja-JP"
+	| "ko-KR"
+	| "ru"
+	| "tr"
+	| "vi"
+	| "zh-CN"
+	| "zh-TW";
 type Namespace = "common" | "dialogs";
 type MessageMap = Record<string, unknown>;
 
 const messages: Record<Locale, Record<Namespace, MessageMap>> = {
 	en: { common: commonEn, dialogs: dialogsEn },
-	"zh-CN": { common: commonZh, dialogs: dialogsZh },
-	"zh-TW": { common: commonZhTw, dialogs: dialogsZhTw },
+	ar: { common: commonAr, dialogs: dialogsAr },
 	es: { common: commonEs, dialogs: dialogsEs },
 	fr: { common: commonFr, dialogs: dialogsFr },
+	it: { common: commonIt, dialogs: dialogsIt },
 	"ja-JP": { common: commonJa, dialogs: dialogsJa },
 	"ko-KR": { common: commonKo, dialogs: dialogsKo },
+	ru: { common: commonRu, dialogs: dialogsRu },
 	tr: { common: commonTr, dialogs: dialogsTr },
-	ar: { common: commonAr, dialogs: dialogsAr },
 	vi: { common: commonVi, dialogs: dialogsVi },
+	"zh-CN": { common: commonZh, dialogs: dialogsZh },
+	"zh-TW": { common: commonZhTw, dialogs: dialogsZhTw },
 };
 
 let currentLocale: Locale = "en";
@@ -44,15 +62,17 @@ let currentLocale: Locale = "en";
 export function setMainLocale(locale: string) {
 	if (
 		locale === "en" ||
-		locale === "zh-CN" ||
-		locale === "zh-TW" ||
+		locale === "ar" ||
 		locale === "es" ||
 		locale === "fr" ||
+		locale === "it" ||
 		locale === "ja-JP" ||
 		locale === "ko-KR" ||
+		locale === "ru" ||
 		locale === "tr" ||
-		locale === "ar" ||
-		locale === "vi"
+		locale === "vi" ||
+		locale === "zh-CN" ||
+		locale === "zh-TW"
 	) {
 		currentLocale = locale;
 	}

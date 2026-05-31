@@ -7,7 +7,9 @@
 		"pauseRecording": "Приостановить запись",
 		"resumeRecording": "Возобновить запись",
 		"openVideoFile": "Открыть видеофайл",
-		"openProject": "Открыть проект"
+		"openProject": "Открыть проект",
+		"useVerticalTray": "Использовать вертикальную панель",
+		"useHorizontalTray": "Использовать горизонтальную панель"
 	},
 	"audio": {
 		"enableSystemAudio": "Включить системное аудио",
@@ -39,5 +41,9 @@
 		"description": "Мы обнаружили {{language}} как системный язык. Хотите переключить OpenScreen на {{language}}?",
 		"switch": "Переключить на {{language}}",
 		"keepDefault": "Оставить текущий язык"
+	},
+	"cursor": {
+		"useEditableCursor": "Использовать редактируемый курсор",
+		"useSystemCursor": "Использовать системный курсор"
 	}
 }
