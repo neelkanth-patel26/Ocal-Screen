@@ -110,11 +110,19 @@ After granting either permission in System Settings, **fully quit and relaunch**
 ### P1 — click detection
 
 - [ ] Record several left-clicks. In the editor, confirm the click-bounce animation fires on each click.
-- [ ] Confirm `interactionType: "click"` and `"mouseup"` events are present in the recording session sidecar (`cursor-recording-data` inside the project file).
+- [ ] Confirm `interactionType: "click"` and `"mouseup"` events are present in the recording session sidecar (`cursorRecordingData` inside `<videoPath>.cursor.json`).
 
 ### P2 — graceful degradation
 
-- [ ] Remove the helper binary (`mv electron/native/screencapturekit/build/openscreen-macos-cursor-helper /tmp/`) and start a recording. The session should succeed with `provider: "none"` (position-only telemetry, default arrow rendered). Restore the binary afterward.
+- [ ] Remove **both** build-output copies of the helper binary and start a recording. The session should succeed with `provider: "none"` (position-only telemetry, default arrow rendered). Restore both binaries afterward.
+  ```bash
+  ARCH=$([ "$(uname -m)" = "arm64" ] && echo darwin-arm64 || echo darwin-x64)
+  mv electron/native/screencapturekit/build/openscreen-macos-cursor-helper /tmp/cursor-helper-build
+  mv electron/native/bin/$ARCH/openscreen-macos-cursor-helper /tmp/cursor-helper-bin
+  # ... start recording, then restore:
+  mv /tmp/cursor-helper-bin electron/native/bin/$ARCH/openscreen-macos-cursor-helper
+  mv /tmp/cursor-helper-build electron/native/screencapturekit/build/openscreen-macos-cursor-helper
+  ```
 - [ ] Revoke Accessibility. Confirm recording still works and cursors render from bitmaps (no SVG substitution).
 
 ### P2 — multi-display
@@ -127,7 +135,7 @@ After granting either permission in System Settings, **fully quit and relaunch**
 
 ## What a healthy recording looks like
 
-Inspect the project's embedded `cursorRecordingData` from the saved `.openscreen` file:
+Inspect the cursor sidecar file written alongside the recorded video (`<videoPath>.cursor.json`). For a recording saved to `/tmp/rec.mp4`, the sidecar is `/tmp/rec.mp4.cursor.json`:
 
 ```json
 {
