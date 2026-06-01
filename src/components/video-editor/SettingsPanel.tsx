@@ -1,5 +1,6 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import {
+	Brackets,
 	Bug,
 	Crop,
 	Download,
@@ -259,6 +260,8 @@ interface SettingsPanelProps {
 	onShadowCommit?: () => void;
 	showBlur?: boolean;
 	onBlurChange?: (showBlur: boolean) => void;
+	showTrimWaveform?: boolean;
+	onTrimWaveformChange?: (show: boolean) => void;
 	motionBlurAmount?: number;
 	onMotionBlurChange?: (amount: number) => void;
 	onMotionBlurCommit?: () => void;
@@ -285,6 +288,7 @@ interface SettingsPanelProps {
 	onGifSizePresetChange?: (preset: GifSizePreset) => void;
 	gifOutputDimensions?: { width: number; height: number };
 	onExport?: () => void;
+	onExportPanelOpen?: () => void;
 	unsavedExport?: {
 		arrayBuffer: ArrayBuffer;
 		fileName: string;
@@ -346,7 +350,7 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 	{ depth: 6, label: "5×" },
 ];
 
-type SettingsPanelMode = "background" | "effects" | "layout" | "cursor" | "export";
+type SettingsPanelMode = "background" | "effects" | "layout" | "cursor" | "export" | "timeline";
 
 const MP4_EXPORT_SHORT_SIDES = {
 	medium: 720,
@@ -392,6 +396,8 @@ export function SettingsPanel({
 	onShadowCommit,
 	showBlur,
 	onBlurChange,
+	showTrimWaveform = false,
+	onTrimWaveformChange,
 	motionBlurAmount = 0,
 	onMotionBlurChange,
 	onMotionBlurCommit,
@@ -417,6 +423,7 @@ export function SettingsPanel({
 	onGifSizePresetChange,
 	gifOutputDimensions = DEFAULT_GIF_SETTINGS.outputDimensions,
 	onExport,
+	onExportPanelOpen,
 	unsavedExport,
 	onSaveUnsavedExport,
 	selectedAnnotationId,
@@ -608,6 +615,7 @@ export function SettingsPanel({
 		{ id: "background", label: t("background.title"), icon: Palette },
 		{ id: "effects", label: t("effects.title"), icon: SlidersHorizontal },
 		{ id: "layout", label: t("layout.title"), icon: LayoutPanelTop, disabled: !hasWebcam },
+		{ id: "timeline", label: t("timeline.title"), icon: Brackets },
 		...(hasCursorPanel
 			? [
 					{
@@ -629,8 +637,10 @@ export function SettingsPanel({
 			: selectedSpeedId
 				? t("speed.playbackSpeed")
 				: t("trim.deleteRegion")
-		: ([...panelModes, exportPanelMode].find((mode) => mode.id === activePanelMode)?.label ??
-			t("background.title"));
+		: activePanelMode === "timeline"
+			? t("timeline.title")
+			: ([...panelModes, exportPanelMode].find((mode) => mode.id === activePanelMode)?.label ??
+				t("background.title"));
 
 	const handleDeleteClick = () => {
 		if (selectedZoomId && onZoomDelete) {
@@ -827,7 +837,10 @@ export function SettingsPanel({
 						data-testid={getTestId("export-panel-button")}
 						type="button"
 						title={exportPanelMode.label}
-						onClick={() => setActivePanelMode(exportPanelMode.id)}
+						onClick={() => {
+							setActivePanelMode(exportPanelMode.id);
+							onExportPanelOpen?.();
+						}}
 						className={cn(
 							"mt-auto flex h-8 w-8 items-center justify-center rounded-lg border transition-all",
 							activePanelMode === "export" && !hasTimelineSelection
@@ -1428,7 +1441,7 @@ export function SettingsPanel({
 															onValueChange={(values) => onBorderRadiusChange?.(values[0])}
 															onValueCommit={() => onBorderRadiusCommit?.()}
 															min={0}
-															max={16}
+															max={64}
 															step={0.5}
 															className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
 														/>
@@ -1711,6 +1724,28 @@ export function SettingsPanel({
 												</TabsContent>
 											</div>
 										</Tabs>
+									</AccordionContent>
+								</AccordionItem>
+							)}
+							{activePanelMode === "timeline" && (
+								<AccordionItem value="timeline" className="editor-panel-section px-3">
+									<AccordionTrigger className="py-2.5 hover:no-underline">
+										<div className="flex items-center gap-2">
+											<Brackets className="w-4 h-4 text-[#34B27B]" />
+											<span className="text-xs font-medium">{t("timeline.title")}</span>
+										</div>
+									</AccordionTrigger>
+									<AccordionContent className="pb-3">
+										<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
+											<div className="text-[10px] font-medium text-slate-300">
+												{t("timeline.waveform")}
+											</div>
+											<Switch
+												checked={showTrimWaveform}
+												onCheckedChange={onTrimWaveformChange}
+												className="data-[state=checked]:bg-[#34B27B] scale-90 ml-2 shrink-0"
+											/>
+										</div>
 									</AccordionContent>
 								</AccordionItem>
 							)}

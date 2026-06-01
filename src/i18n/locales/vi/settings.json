@@ -99,7 +99,8 @@
 	},
 	"project": {
 		"save": "Lưu dự án",
-		"load": "Tải dự án"
+		"load": "Tải dự án",
+		"new": "Dự án mới"
 	},
 	"export": {
 		"videoButton": "Xuất Video",
@@ -129,6 +130,8 @@
 		"textPlaceholder": "Nhập văn bản của bạn...",
 		"fontStyle": "Kiểu phông chữ",
 		"selectStyle": "Chọn kiểu",
+		"textAnimation": "Hoạt ảnh văn bản",
+		"selectAnimation": "Chọn hoạt ảnh",
 		"size": "Kích thước",
 		"customFonts": "Phông chữ tùy chỉnh",
 		"textColor": "Màu văn bản",
@@ -204,5 +207,9 @@
 	},
 	"language": {
 		"title": "Ngôn ngữ"
+	},
+	"timeline": {
+		"title": "Dòng thời gian",
+		"waveform": "Hiển thị dạng sóng âm thanh trên rãnh cắt"
 	}
 }

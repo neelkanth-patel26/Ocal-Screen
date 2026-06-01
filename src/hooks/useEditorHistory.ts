@@ -29,6 +29,7 @@ export interface EditorState {
 	wallpaper: string;
 	shadowIntensity: number;
 	showBlur: boolean;
+	showTrimWaveform: boolean;
 	motionBlurAmount: number;
 	borderRadius: number;
 	padding: number;
@@ -49,6 +50,7 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	wallpaper: DEFAULT_EDITOR_LAYOUT_SETTINGS.wallpaper,
 	shadowIntensity: DEFAULT_EDITOR_APPEARANCE_SETTINGS.shadowIntensity,
 	showBlur: DEFAULT_EDITOR_APPEARANCE_SETTINGS.showBlur,
+	showTrimWaveform: DEFAULT_EDITOR_APPEARANCE_SETTINGS.showTrimWaveform,
 	motionBlurAmount: DEFAULT_EDITOR_APPEARANCE_SETTINGS.motionBlurAmount,
 	borderRadius: DEFAULT_EDITOR_APPEARANCE_SETTINGS.borderRadius,
 	padding: DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
@@ -130,6 +132,11 @@ export function useEditorHistory(initial: EditorState = INITIAL_EDITOR_STATE) {
 		dirtyRef.current = false;
 	}, []);
 
+	const resetState = useCallback((newInitial: EditorState = INITIAL_EDITOR_STATE) => {
+		setHistory({ past: [], present: newInitial, future: [] });
+		dirtyRef.current = false;
+	}, []);
+
 	return {
 		state: history.present,
 		pushState,
@@ -137,6 +144,7 @@ export function useEditorHistory(initial: EditorState = INITIAL_EDITOR_STATE) {
 		commitState,
 		undo,
 		redo,
+		resetState,
 		canUndo: history.past.length > 0,
 		canRedo: history.future.length > 0,
 	};

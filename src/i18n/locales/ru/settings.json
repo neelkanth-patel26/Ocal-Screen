@@ -99,7 +99,8 @@
 	},
 	"project": {
 		"save": "Сохранить проект",
-		"load": "Загрузить проект"
+		"load": "Загрузить проект",
+		"new": "Новый проект"
 	},
 	"export": {
 		"videoButton": "Экспорт видео",
@@ -175,6 +176,17 @@
 		"modern": "Современный",
 		"clean": "Чистый"
 	},
+	"textAnimation": {
+		"title": "Анимация текста",
+		"selectAnimation": "Выбрать анимацию",
+		"none": "Нет",
+		"fade": "Затухание",
+		"rise": "Подъем",
+		"pop": "Всплытие",
+		"slideLeft": "Скольжение влево",
+		"typewriter": "Пишущая машинка",
+		"pulse": "Импульс"
+	},
 	"customFont": {
 		"dialogTitle": "Добавить шрифт Google",
 		"urlLabel": "URL импорта Google Fonts",
@@ -204,5 +216,9 @@
 	},
 	"language": {
 		"title": "Язык"
+	},
+	"timeline": {
+		"title": "Шкала времени",
+		"waveform": "Показывать форму волны на треке обрезки"
 	}
 }

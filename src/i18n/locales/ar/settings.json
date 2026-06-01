@@ -99,7 +99,8 @@
 	},
 	"project": {
 		"save": "حفظ المشروع",
-		"load": "تحميل المشروع"
+		"load": "تحميل المشروع",
+		"new": "مشروع جديد"
 	},
 	"export": {
 		"videoButton": "تصدير الفيديو",
@@ -129,6 +130,8 @@
 		"textPlaceholder": "أدخل النص هنا...",
 		"fontStyle": "نمط الخط",
 		"selectStyle": "حدد النمط",
+		"textAnimation": "تحريك النص",
+		"selectAnimation": "حدد الحركة",
 		"size": "الحجم",
 		"customFonts": "خطوط مخصصة",
 		"textColor": "لون النص",
@@ -204,5 +207,9 @@
 	},
 	"language": {
 		"title": "اللغة"
+	},
+	"timeline": {
+		"title": "المخطط الزمني",
+		"waveform": "عرض الموجة الصوتية على مسار القطع"
 	}
 }

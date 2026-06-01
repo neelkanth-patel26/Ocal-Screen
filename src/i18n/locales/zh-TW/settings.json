@@ -100,7 +100,8 @@
 	},
 	"project": {
 		"save": "儲存專案",
-		"load": "載入專案"
+		"load": "載入專案",
+		"new": "新增專案"
 	},
 	"export": {
 		"videoButton": "匯出影片",
@@ -130,6 +131,8 @@
 		"textPlaceholder": "輸入您的文字...",
 		"fontStyle": "字體樣式",
 		"selectStyle": "選擇樣式",
+		"textAnimation": "文字動畫",
+		"selectAnimation": "選擇動畫",
 		"size": "大小",
 		"customFonts": "自訂字體",
 		"textColor": "文字顏色",
@@ -205,5 +208,9 @@
 	},
 	"language": {
 		"title": "語言"
+	},
+	"timeline": {
+		"title": "時間軸",
+		"waveform": "在剪輯軌道上顯示音訊波形"
 	}
 }

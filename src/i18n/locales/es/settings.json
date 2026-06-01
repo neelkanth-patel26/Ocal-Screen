@@ -99,7 +99,8 @@
 	},
 	"project": {
 		"save": "Guardar proyecto",
-		"load": "Cargar proyecto"
+		"load": "Cargar proyecto",
+		"new": "Nuevo proyecto"
 	},
 	"export": {
 		"videoButton": "Exportar video",
@@ -175,6 +176,17 @@
 		"modern": "Moderno",
 		"clean": "Limpio"
 	},
+	"textAnimation": {
+		"title": "Animación de texto",
+		"selectAnimation": "Seleccionar animación",
+		"none": "Ninguna",
+		"fade": "Desvanecimiento",
+		"rise": "Ascender",
+		"pop": "Aparecer",
+		"slideLeft": "Deslizar izquierda",
+		"typewriter": "Máquina de escribir",
+		"pulse": "Pulso"
+	},
 	"customFont": {
 		"dialogTitle": "Agregar fuente de Google",
 		"urlLabel": "URL de importación de Google Fonts",
@@ -204,5 +216,9 @@
 	},
 	"language": {
 		"title": "Idioma"
+	},
+	"timeline": {
+		"title": "Línea de tiempo",
+		"waveform": "Mostrar forma de onda en pista de recorte"
 	}
 }

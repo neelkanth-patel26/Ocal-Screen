@@ -99,7 +99,8 @@
 	},
 	"project": {
 		"save": "Projeyi Kaydet",
-		"load": "Proje Yükle"
+		"load": "Proje Yükle",
+		"new": "Yeni Proje"
 	},
 	"export": {
 		"videoButton": "Videoyu Dışa Aktar",
@@ -129,6 +130,8 @@
 		"textPlaceholder": "Metninizi girin...",
 		"fontStyle": "Yazı Tipi Stili",
 		"selectStyle": "Stil seçin",
+		"textAnimation": "Metin Animasyonu",
+		"selectAnimation": "Animasyon seçin",
 		"size": "Boyut",
 		"customFonts": "Özel Yazı Tipleri",
 		"textColor": "Metin Rengi",
@@ -204,5 +207,9 @@
 	},
 	"language": {
 		"title": "Dil"
+	},
+	"timeline": {
+		"title": "Zaman Tüneli",
+		"waveform": "Kırpma Parçasında Ses Dalgasını Göster"
 	}
 }

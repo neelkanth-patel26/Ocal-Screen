@@ -99,7 +99,8 @@
 	},
 	"project": {
 		"save": "Save Project",
-		"load": "Load Project"
+		"load": "Load Project",
+		"new": "New Project"
 	},
 	"export": {
 		"videoButton": "Export Video",
@@ -175,6 +176,17 @@
 		"modern": "Modern",
 		"clean": "Clean"
 	},
+	"textAnimation": {
+		"title": "Text Animation",
+		"selectAnimation": "Select animation",
+		"none": "None",
+		"fade": "Fade",
+		"rise": "Rise",
+		"pop": "Pop",
+		"slideLeft": "Slide Left",
+		"typewriter": "Typewriter",
+		"pulse": "Pulse"
+	},
 	"customFont": {
 		"dialogTitle": "Add Google Font",
 		"urlLabel": "Google Fonts Import URL",
@@ -204,5 +216,9 @@
 	},
 	"language": {
 		"title": "Language"
+	},
+	"timeline": {
+		"title": "Timeline",
+		"waveform": "Show Audio Waveform on Trim Track"
 	}
 }
