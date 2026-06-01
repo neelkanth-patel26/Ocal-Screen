@@ -114,7 +114,7 @@ function isEditorWindow(window: BrowserWindow) {
 }
 
 function sendEditorMenuAction(
-	channel: "menu-load-project" | "menu-save-project" | "menu-save-project-as",
+	channel: "menu-load-project" | "menu-save-project" | "menu-save-project-as" | "menu-new-project",
 ) {
 	let targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
 
@@ -173,6 +173,12 @@ function setupApplicationMenu() {
 		{
 			label: mainT("common", "actions.file") || "File",
 			submenu: [
+				{
+					label: mainT("dialogs", "unsavedChanges.newProject") || "New Project",
+					accelerator: "CmdOrCtrl+N",
+					click: () => sendEditorMenuAction("menu-new-project"),
+				},
+				{ type: "separator" as const },
 				{
 					label: mainT("dialogs", "unsavedChanges.loadProject") || "Load Project…",
 					accelerator: "CmdOrCtrl+O",

@@ -180,6 +180,12 @@ export type NativeBridgeRequest =
 	  }
 	| {
 			domain: "project";
+			action: "loadProjectFileFromPath";
+			payload: { path: string };
+			requestId?: string;
+	  }
+	| {
+			domain: "project";
 			action: "setCurrentVideoPath";
 			payload: {
 				path: string;

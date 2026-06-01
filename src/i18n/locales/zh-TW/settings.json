@@ -99,7 +99,8 @@
 	},
 	"project": {
 		"save": "儲存專案",
-		"load": "載入專案"
+		"load": "載入專案",
+		"new": "新增專案"
 	},
 	"export": {
 		"videoButton": "匯出影片",

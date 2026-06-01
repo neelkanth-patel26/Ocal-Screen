@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { NativeMacRecordingRequest } from "../src/lib/nativeMacRecording";
 import type { NativeWindowsRecordingRequest } from "../src/lib/nativeWindowsRecording";
 import type { RecordingSession, StoreRecordedSessionInput } from "../src/lib/recordingSession";
@@ -173,8 +173,28 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	loadProjectFile: (projectFolder?: string) => {
 		return ipcRenderer.invoke("load-project-file", projectFolder);
 	},
+	loadProjectFileFromPath: (filePath: string) => {
+		return ipcRenderer.invoke("load-project-file-from-path", filePath);
+	},
+	getPathForFile: (file: File) => {
+		try {
+			return webUtils.getPathForFile(file);
+		} catch {
+			return "";
+		}
+	},
 	loadCurrentProjectFile: () => {
 		return ipcRenderer.invoke("load-current-project-file");
+	},
+	onMenuNewProject: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("menu-new-project", listener);
+		return () => ipcRenderer.removeListener("menu-new-project", listener);
+	},
+	onMenuImportVideo: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("menu-import-video", listener);
+		return () => ipcRenderer.removeListener("menu-import-video", listener);
 	},
 	onMenuLoadProject: (callback: () => void) => {
 		const listener = () => callback();

@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Columns3, Languages, Rows3 } from "lucide-react";
+import { Check, ChevronDown, Clapperboard, Columns3, Languages, Rows3 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
@@ -347,35 +347,6 @@ export function LaunchWindow() {
 				requestScreenAccess: () => window.electronAPI.requestScreenAccess(),
 			});
 		}
-	};
-
-	const openVideoFile = async () => {
-		const result = await window.electronAPI.openVideoFilePicker();
-
-		if (result.canceled) {
-			return;
-		}
-
-		if (result.success && result.path) {
-			const setVideoPathResult = await nativeBridgeClient.project.setCurrentVideoPath(result.path);
-			if (!setVideoPathResult.success) {
-				console.error("Failed to set current video path:", setVideoPathResult);
-				return;
-			}
-			await window.electronAPI.switchToEditor();
-		}
-	};
-
-	const openProjectFile = async () => {
-		const result = await nativeBridgeClient.project.loadProjectFile(getProjectFolder());
-		if (result.canceled || !result.success) return;
-		if (result.path) {
-			const folder = parentDirectoryOf(result.path);
-			if (folder) {
-				saveUserPreferences({ projectFolder: folder });
-			}
-		}
-		await window.electronAPI.switchToEditor();
 	};
 
 	const sendHudOverlayHide = () => {
@@ -818,29 +789,15 @@ export function LaunchWindow() {
 				)}
 
 				{!recording && (
-					<>
-						{/* Open video file */}
-						<Tooltip content={t("tooltips.openVideoFile")}>
-							<button
-								data-testid="launch-open-video-button"
-								className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
-								onClick={openVideoFile}
-							>
-								{getIcon("videoFile", "text-white/60")}
-							</button>
-						</Tooltip>
-
-						{/* Open project */}
-						<Tooltip content={t("tooltips.openProject")}>
-							<button
-								data-testid="launch-open-project-button"
-								className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
-								onClick={openProjectFile}
-							>
-								{getIcon("folder", "text-white/60")}
-							</button>
-						</Tooltip>
-					</>
+					<Tooltip content={t("tooltips.openStudio")}>
+						<button
+							data-testid="launch-open-studio-button"
+							className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
+							onClick={() => window.electronAPI.switchToEditor()}
+						>
+							<Clapperboard size={ICON_SIZE} className="text-white/60" />
+						</button>
+					</Tooltip>
 				)}
 
 				{/* Right sidebar controls */}

@@ -98,7 +98,8 @@
 	},
 	"project": {
 		"save": "Guardar proyecto",
-		"load": "Cargar proyecto"
+		"load": "Cargar proyecto",
+		"new": "Nuevo proyecto"
 	},
 	"export": {
 		"videoButton": "Exportar video",
