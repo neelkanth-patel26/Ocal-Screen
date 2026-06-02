@@ -1,6 +1,7 @@
 import type { Range, Span } from "dnd-timeline";
 import { useTimelineContext } from "dnd-timeline";
 import {
+	Captions,
 	Check,
 	ChevronDown,
 	Gauge,
@@ -92,6 +93,11 @@ interface TimelineEditorProps {
 	onAspectRatioChange: (aspectRatio: AspectRatio) => void;
 	videoUrl?: string;
 	showTrimWaveform?: boolean;
+	/** Opens the auto-captions flow. When omitted, the captions button is hidden. */
+	onGenerateCaptions?: () => void;
+	isGeneratingCaptions?: boolean;
+	/** Localized label for the auto-captions button (lives in the `editor` namespace). */
+	captionsLabel?: string;
 }
 
 interface TimelineScaleConfig {
@@ -924,6 +930,9 @@ export default function TimelineEditor({
 	onAspectRatioChange,
 	videoUrl,
 	showTrimWaveform = false,
+	onGenerateCaptions,
+	isGeneratingCaptions = false,
+	captionsLabel,
 }: TimelineEditorProps) {
 	const t = useScopedT("timeline");
 	const totalMs = useMemo(() => Math.max(0, Math.round(videoDuration * 1000)), [videoDuration]);
@@ -1659,6 +1668,18 @@ export default function TimelineEditor({
 					>
 						<Gauge className="w-4 h-4" />
 					</Button>
+					{onGenerateCaptions && (
+						<Button
+							onClick={onGenerateCaptions}
+							disabled={isGeneratingCaptions || !videoUrl}
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7 rounded-lg text-slate-400 hover:text-[#a78bfa] hover:bg-[#a78bfa]/10 transition-all"
+							title={captionsLabel}
+						>
+							<Captions className="w-4 h-4" />
+						</Button>
+					)}
 				</div>
 				<div className="flex items-center gap-1.5 min-w-0">
 					<DropdownMenu>

@@ -1,8 +1,9 @@
 import type { Span } from "dnd-timeline";
 import { FolderOpen, Languages, Save, Video } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -11,11 +12,28 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { INITIAL_EDITOR_STATE, useEditorHistory } from "@/hooks/useEditorHistory";
 import { type Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
+import {
+	captionSegmentsToAnnotationRegions,
+	extractMono16kFromVideoUrl,
+	MAX_CAPTION_AUDIO_SEC,
+	reconcileAutoCaptionTimelineGaps,
+	shiftTrimRegionsMsForCaptionBuffer,
+	transcribeMono16kToSegments,
+	trimLeadingSilenceMono16k,
+} from "@/lib/captioning";
 import { hasNativeCursorRecordingData } from "@/lib/cursor/nativeCursor";
 import {
 	calculateEffectiveSourceDimensions,
@@ -95,6 +113,9 @@ import {
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 
+/** Single Sonner slot for auto-caption progress so phases update in place instead of stacking. */
+const AUTO_CAPTION_PROGRESS_TOAST_ID = "auto-caption-progress";
+
 function isClickInteractionType(interactionType: string | null | undefined) {
 	return (
 		interactionType === "click" ||
@@ -150,6 +171,8 @@ function buildExportDiagnosticMessage(diagnostics: ExportDiagnostics) {
 function buildSaveDiagnosticMessage(formatLabel: "GIF" | "Video", reason?: string) {
 	return `${formatLabel} export save failed${reason ? `\nReason: ${reason}` : ""}`;
 }
+
+const CAPTION_WORD_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 export default function VideoEditor() {
 	const {
@@ -288,6 +311,11 @@ export default function VideoEditor() {
 
 	const nextAnnotationIdRef = useRef(1);
 	const nextAnnotationZIndexRef = useRef(1);
+	const isAutoCaptioningRef = useRef(false);
+	const [isAutoCaptioning, setIsAutoCaptioning] = useState(false);
+	const [showAutoCaptionsDialog, setShowAutoCaptionsDialog] = useState(false);
+	const [captionWordsMin, setCaptionWordsMin] = useState(2);
+	const [captionWordsMax, setCaptionWordsMax] = useState(7);
 	const exporterRef = useRef<VideoExporter | null>(null);
 
 	const annotationOnlyRegions = useMemo(
@@ -1268,8 +1296,11 @@ export default function VideoEditor() {
 
 	const handleAnnotationSpanChange = useCallback(
 		(id: string, span: Span) => {
-			pushState((prev) => ({
-				annotationRegions: prev.annotationRegions.map((region) =>
+			pushState((prev) => {
+				const editedAutoCaption =
+					prev.annotationRegions.find((region) => region.id === id)?.annotationSource ===
+					"auto-caption";
+				const next = prev.annotationRegions.map((region) =>
 					region.id === id
 						? {
 								...region,
@@ -1277,8 +1308,11 @@ export default function VideoEditor() {
 								endMs: Math.round(span.end),
 							}
 						: region,
-				),
-			}));
+				);
+				return {
+					annotationRegions: editedAutoCaption ? reconcileAutoCaptionTimelineGaps(next) : next,
+				};
+			});
 		},
 		[pushState],
 	);
@@ -1291,8 +1325,10 @@ export default function VideoEditor() {
 				const source = prev.annotationRegions.find((region) => region.id === id);
 				if (!source) return {};
 
+				const { annotationSource: _stripCaptionLink, ...sourceWithoutCaptionLink } = source;
+
 				const duplicate: AnnotationRegion = {
-					...source,
+					...sourceWithoutCaptionLink,
 					id: duplicateId,
 					zIndex: duplicateZIndex,
 					position: { x: source.position.x + 4, y: source.position.y + 4 },
@@ -1383,11 +1419,18 @@ export default function VideoEditor() {
 
 	const handleAnnotationStyleChange = useCallback(
 		(id: string, style: Partial<AnnotationRegion["style"]>) => {
-			pushState((prev) => ({
-				annotationRegions: prev.annotationRegions.map((region) =>
-					region.id === id ? { ...region, style: { ...region.style, ...style } } : region,
-				),
-			}));
+			pushState((prev) => {
+				const touched = prev.annotationRegions.find((r) => r.id === id);
+				const syncAutoCaptions = touched?.annotationSource === "auto-caption";
+				return {
+					annotationRegions: prev.annotationRegions.map((region) => {
+						if (syncAutoCaptions && region.annotationSource === "auto-caption") {
+							return { ...region, style: { ...region.style, ...style } };
+						}
+						return region.id === id ? { ...region, style: { ...region.style, ...style } } : region;
+					}),
+				};
+			});
 		},
 		[pushState],
 	);
@@ -1450,22 +1493,36 @@ export default function VideoEditor() {
 
 	const handleAnnotationPositionChange = useCallback(
 		(id: string, position: { x: number; y: number }) => {
-			pushState((prev) => ({
-				annotationRegions: prev.annotationRegions.map((region) =>
-					region.id === id ? { ...region, position } : region,
-				),
-			}));
+			pushState((prev) => {
+				const moved = prev.annotationRegions.find((r) => r.id === id);
+				const syncAutoCaptions = moved?.annotationSource === "auto-caption";
+				return {
+					annotationRegions: prev.annotationRegions.map((region) => {
+						if (syncAutoCaptions && region.annotationSource === "auto-caption") {
+							return { ...region, position };
+						}
+						return region.id === id ? { ...region, position } : region;
+					}),
+				};
+			});
 		},
 		[pushState],
 	);
 
 	const handleAnnotationSizeChange = useCallback(
 		(id: string, size: { width: number; height: number }) => {
-			pushState((prev) => ({
-				annotationRegions: prev.annotationRegions.map((region) =>
-					region.id === id ? { ...region, size } : region,
-				),
-			}));
+			pushState((prev) => {
+				const resized = prev.annotationRegions.find((r) => r.id === id);
+				const syncAutoCaptions = resized?.annotationSource === "auto-caption";
+				return {
+					annotationRegions: prev.annotationRegions.map((region) => {
+						if (syncAutoCaptions && region.annotationSource === "auto-caption") {
+							return { ...region, size };
+						}
+						return region.id === id ? { ...region, size } : region;
+					}),
+				};
+			});
 		},
 		[pushState],
 	);
@@ -2029,6 +2086,139 @@ export default function VideoEditor() {
 		}
 	}, []);
 
+	const generateAutoCaptions = useCallback(
+		async (minWords: number, maxWords: number) => {
+			if (!videoPath) {
+				toast.error(t("errors.noVideoLoaded"));
+				return;
+			}
+			if (isAutoCaptioningRef.current) {
+				toast.error(t("autoCaptions.busy"));
+				return;
+			}
+			const minW = Math.max(1, Math.min(minWords, maxWords));
+			const maxW = Math.max(minW, maxWords);
+
+			isAutoCaptioningRef.current = true;
+			setIsAutoCaptioning(true);
+			toast.loading(t("autoCaptions.generating"), { id: AUTO_CAPTION_PROGRESS_TOAST_ID });
+			try {
+				const { samples, truncated, durationSec } = await extractMono16kFromVideoUrl(videoPath);
+				if (!Number.isFinite(durationSec) || durationSec <= 0 || samples.length < 800) {
+					toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+					toast.error(t("autoCaptions.noAudio"));
+					return;
+				}
+
+				const { samples: speechSamples, trimSec } = trimLeadingSilenceMono16k(samples);
+				if (speechSamples.length < 800) {
+					toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+					toast.error(t("autoCaptions.noAudio"));
+					return;
+				}
+
+				const trimMs = Math.round(trimSec * 1000);
+				const trimRegionsForTranscribe = shiftTrimRegionsMsForCaptionBuffer(trimRegions, trimMs);
+
+				const transcribeOptions = {
+					onStatus: (phase: "model" | "transcribe") => {
+						if (phase === "model") {
+							toast.loading(t("autoCaptions.loadingModel"), {
+								id: AUTO_CAPTION_PROGRESS_TOAST_ID,
+							});
+						} else {
+							toast.loading(t("autoCaptions.transcribing"), {
+								id: AUTO_CAPTION_PROGRESS_TOAST_ID,
+							});
+						}
+					},
+				};
+
+				let { segments: segmentsRaw, granularity } = await transcribeMono16kToSegments(
+					speechSamples,
+					{
+						trimRegions: trimRegionsForTranscribe,
+						...transcribeOptions,
+					},
+				);
+				let transcribedFromTrimmedBuffer = true;
+
+				// Some recordings come back empty after leading-silence trimming even though the full
+				// source has recognizable speech. Retry once against the untouched audio buffer before
+				// giving up so we do not show "no speech detected" for a spoken clip.
+				if (segmentsRaw.length === 0 && trimSec > 0) {
+					({ segments: segmentsRaw, granularity } = await transcribeMono16kToSegments(samples, {
+						trimRegions,
+						...transcribeOptions,
+					}));
+					transcribedFromTrimmedBuffer = false;
+				}
+
+				const segments =
+					transcribedFromTrimmedBuffer && trimSec > 0
+						? segmentsRaw.map((s) => ({
+								...s,
+								startSec: s.startSec + trimSec,
+								endSec: s.endSec + trimSec,
+							}))
+						: segmentsRaw;
+
+				let { regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
+					segments,
+					nextAnnotationIdRef.current,
+					nextAnnotationZIndexRef.current,
+					{
+						minWordsPerCaption: minW,
+						maxWordsPerCaption: maxW,
+						timestampGranularity: granularity,
+					},
+				);
+
+				if (regions.length === 0 && segments.length > 0) {
+					({ regions, nextNumericId, nextZIndex } = captionSegmentsToAnnotationRegions(
+						segments,
+						nextAnnotationIdRef.current,
+						nextAnnotationZIndexRef.current,
+						{
+							minWordsPerCaption: 1,
+							maxWordsPerCaption: Number.MAX_SAFE_INTEGER,
+							timestampGranularity: granularity,
+						},
+					));
+				}
+
+				if (regions.length === 0) {
+					toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+					toast.info(t("autoCaptions.noneHeard"));
+					return;
+				}
+
+				pushState((prev) => ({ annotationRegions: [...prev.annotationRegions, ...regions] }));
+				nextAnnotationIdRef.current = nextNumericId;
+				nextAnnotationZIndexRef.current = nextZIndex;
+
+				toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+				const minutesTrunc = String(Math.round(MAX_CAPTION_AUDIO_SEC / 60));
+				if (truncated) {
+					toast.success(t("autoCaptions.done", { count: String(regions.length) }), {
+						description: t("autoCaptions.truncated", { minutes: minutesTrunc }),
+					});
+				} else {
+					toast.success(t("autoCaptions.done", { count: String(regions.length) }));
+				}
+			} catch (e) {
+				console.error(e);
+				toast.dismiss(AUTO_CAPTION_PROGRESS_TOAST_ID);
+				const detail = e instanceof Error ? e.message : String(e);
+				toast.error(t("autoCaptions.failed"), { description: detail });
+			} finally {
+				isAutoCaptioningRef.current = false;
+				setIsAutoCaptioning(false);
+			}
+		},
+		[videoPath, trimRegions, pushState, t],
+	);
+
 	const handleSaveDiagnostic = useCallback(async () => {
 		const result = await window.electronAPI.saveDiagnostic({
 			error: exportError ?? "Manual diagnostic export",
@@ -2071,7 +2261,7 @@ export default function VideoEditor() {
 			<Dialog open={showNewRecordingDialog} onOpenChange={setShowNewRecordingDialog}>
 				<DialogContent
 					className="sm:max-w-[425px]"
-					style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
 				>
 					<DialogHeader>
 						<DialogTitle>{t("newRecording.title")}</DialogTitle>
@@ -2096,13 +2286,92 @@ export default function VideoEditor() {
 				</DialogContent>
 			</Dialog>
 
+			<Dialog open={showAutoCaptionsDialog} onOpenChange={setShowAutoCaptionsDialog}>
+				<DialogContent
+					className="sm:max-w-md"
+					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
+				>
+					<DialogHeader>
+						<DialogTitle>{t("autoCaptions.dialogTitle")}</DialogTitle>
+						<DialogDescription>{t("autoCaptions.dialogDescription")}</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4 py-2">
+						<div className="grid gap-2">
+							<Label htmlFor="caption-min-words">{t("autoCaptions.minWords")}</Label>
+							<Select
+								value={String(captionWordsMin)}
+								onValueChange={(v) => {
+									const n = Number.parseInt(v, 10);
+									setCaptionWordsMin(n);
+									if (n > captionWordsMax) setCaptionWordsMax(n);
+								}}
+							>
+								<SelectTrigger id="caption-min-words" className="h-9">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{CAPTION_WORD_CHOICES.map((n) => (
+										<SelectItem key={`min-${n}`} value={String(n)}>
+											{t("autoCaptions.wordsCount", { count: String(n) })}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="caption-max-words">{t("autoCaptions.maxWords")}</Label>
+							<Select
+								value={String(captionWordsMax)}
+								onValueChange={(v) => {
+									const n = Number.parseInt(v, 10);
+									setCaptionWordsMax(n);
+									if (n < captionWordsMin) setCaptionWordsMin(n);
+								}}
+							>
+								<SelectTrigger id="caption-max-words" className="h-9">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{CAPTION_WORD_CHOICES.map((n) => (
+										<SelectItem key={`max-${n}`} value={String(n)}>
+											{t("autoCaptions.wordsCount", { count: String(n) })}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+					<DialogFooter className="gap-2 sm:gap-0">
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setShowAutoCaptionsDialog(false)}
+							className="border-white/20 bg-transparent text-white hover:bg-white/10"
+						>
+							{t("autoCaptions.dialogCancel")}
+						</Button>
+						<Button
+							type="button"
+							disabled={isAutoCaptioning}
+							onClick={() => {
+								setShowAutoCaptionsDialog(false);
+								void generateAutoCaptions(captionWordsMin, captionWordsMax);
+							}}
+							className="bg-[#34B27B] text-white hover:bg-[#34B27B]/90"
+						>
+							{t("autoCaptions.generate")}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
 			<div
 				className="h-11 flex-shrink-0 bg-[#070809]/85 backdrop-blur-xl border-b border-white/[0.07] flex items-center justify-between px-5 z-50 shadow-[0_1px_0_rgba(255,255,255,0.03)]"
-				style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+				style={{ WebkitAppRegion: "drag" } as CSSProperties}
 			>
 				<div
 					className="flex-1 flex items-center gap-1"
-					style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
 				>
 					<div
 						className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 ${isMac ? "ml-14" : "ml-2"}`}
@@ -2503,6 +2772,19 @@ export default function VideoEditor() {
 									}
 									videoUrl={videoPath ?? undefined}
 									showTrimWaveform={showTrimWaveform}
+									captionsLabel={t("autoCaptions.button")}
+									isGeneratingCaptions={isAutoCaptioning}
+									onGenerateCaptions={() => {
+										if (!videoPath) {
+											toast.error(t("errors.noVideoLoaded"));
+											return;
+										}
+										if (isAutoCaptioningRef.current) {
+											toast.error(t("autoCaptions.busy"));
+											return;
+										}
+										setShowAutoCaptionsDialog(true);
+									}}
 								/>
 							</div>
 						</Panel>
