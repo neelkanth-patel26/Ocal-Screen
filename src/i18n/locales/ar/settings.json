@@ -45,7 +45,8 @@
 		"dualFrame": "إطار مزدوج",
 		"webcamShape": "شكل الكاميرا",
 		"webcamSize": "حجم كاميرا الويب",
-		"noWebcam": "بدون كاميرا"
+		"noWebcam": "بدون كاميرا",
+		"mirrorWebcam": "عكس كاميرا الويب"
 	},
 	"effects": {
 		"title": "تأثيرات الفيديو",

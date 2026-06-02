@@ -14,6 +14,8 @@ export type WebcamMaskShape = "rectangle" | "circle" | "square" | "rounded";
 
 export const DEFAULT_WEBCAM_MASK_SHAPE: WebcamMaskShape = "rectangle";
 
+export const DEFAULT_WEBCAM_MIRRORED = false;
+
 export interface WebcamPosition {
 	cx: number; // normalized horizontal center (0-1)
 	cy: number; // normalized vertical center (0-1)

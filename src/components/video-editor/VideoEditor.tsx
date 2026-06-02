@@ -178,6 +178,7 @@ export default function VideoEditor() {
 		aspectRatio,
 		webcamLayoutPreset,
 		webcamMaskShape,
+		webcamMirrored,
 		webcamSizePreset,
 		webcamPosition,
 	} = editorState;
@@ -375,6 +376,7 @@ export default function VideoEditor() {
 				aspectRatio: normalizedEditor.aspectRatio,
 				webcamLayoutPreset: normalizedEditor.webcamLayoutPreset,
 				webcamMaskShape: normalizedEditor.webcamMaskShape,
+				webcamMirrored: normalizedEditor.webcamMirrored,
 				webcamSizePreset: normalizedEditor.webcamSizePreset,
 				webcamPosition: normalizedEditor.webcamPosition,
 			});
@@ -447,6 +449,8 @@ export default function VideoEditor() {
 			aspectRatio,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamMirrored,
+			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
 			exportFormat,
@@ -471,6 +475,8 @@ export default function VideoEditor() {
 		aspectRatio,
 		webcamLayoutPreset,
 		webcamMaskShape,
+		webcamMirrored,
+		webcamSizePreset,
 		webcamPosition,
 		exportQuality,
 		exportFormat,
@@ -595,6 +601,7 @@ export default function VideoEditor() {
 				aspectRatio,
 				webcamLayoutPreset,
 				webcamMaskShape,
+				webcamMirrored,
 				webcamSizePreset,
 				webcamPosition,
 				exportQuality,
@@ -655,6 +662,8 @@ export default function VideoEditor() {
 			aspectRatio,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamMirrored,
+			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
 			exportFormat,
@@ -663,7 +672,6 @@ export default function VideoEditor() {
 			gifSizePreset,
 			videoPath,
 			t,
-			webcamSizePreset,
 		],
 	);
 
@@ -1733,6 +1741,7 @@ export default function VideoEditor() {
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
+						webcamMirrored,
 						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
@@ -1824,6 +1833,7 @@ export default function VideoEditor() {
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
+						webcamMirrored,
 						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
@@ -1925,6 +1935,7 @@ export default function VideoEditor() {
 			aspectRatio,
 			webcamLayoutPreset,
 			webcamMaskShape,
+			webcamMirrored,
 			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
@@ -2197,6 +2208,7 @@ export default function VideoEditor() {
 													webcamVideoPath={webcamVideoPath || undefined}
 													webcamLayoutPreset={webcamLayoutPreset}
 													webcamMaskShape={webcamMaskShape}
+													webcamMirrored={webcamMirrored}
 													webcamSizePreset={webcamSizePreset}
 													webcamPosition={webcamPosition}
 													onWebcamPositionChange={(pos) => updateState({ webcamPosition: pos })}
@@ -2340,6 +2352,8 @@ export default function VideoEditor() {
 										}
 										webcamMaskShape={webcamMaskShape}
 										onWebcamMaskShapeChange={(shape) => pushState({ webcamMaskShape: shape })}
+										webcamMirrored={webcamMirrored}
+										onWebcamMirroredChange={(mirrored) => pushState({ webcamMirrored: mirrored })}
 										webcamSizePreset={webcamSizePreset}
 										onWebcamSizePresetChange={(v) => updateState({ webcamSizePreset: v })}
 										onWebcamSizePresetCommit={commitState}

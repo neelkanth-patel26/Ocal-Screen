@@ -81,6 +81,7 @@ import type {
 	ZoomFocusMode,
 } from "./types";
 import {
+	DEFAULT_WEBCAM_MIRRORED,
 	MAX_ZOOM_SCALE,
 	MIN_ZOOM_SCALE,
 	ROTATION_3D_PRESET_ORDER,
@@ -316,6 +317,8 @@ interface SettingsPanelProps {
 	onWebcamLayoutPresetChange?: (preset: WebcamLayoutPreset) => void;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
 	onWebcamMaskShapeChange?: (shape: import("./types").WebcamMaskShape) => void;
+	webcamMirrored?: boolean;
+	onWebcamMirroredChange?: (mirrored: boolean) => void;
 	webcamSizePreset?: WebcamSizePreset;
 	onWebcamSizePresetChange?: (size: WebcamSizePreset) => void;
 	onWebcamSizePresetCommit?: () => void;
@@ -445,6 +448,8 @@ export function SettingsPanel({
 	onWebcamLayoutPresetChange,
 	webcamMaskShape = DEFAULT_WEBCAM_SETTINGS.maskShape,
 	onWebcamMaskShapeChange,
+	webcamMirrored = DEFAULT_WEBCAM_MIRRORED,
+	onWebcamMirroredChange,
 	webcamSizePreset = DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	onWebcamSizePresetChange,
 	onWebcamSizePresetCommit,
@@ -1234,6 +1239,19 @@ export function SettingsPanel({
 												</SelectContent>
 											</Select>
 										</div>
+										{webcamLayoutPreset !== "no-webcam" && (
+											<div className="mt-2 flex items-center justify-between p-2 rounded-lg editor-control-surface">
+												<div className="text-[10px] font-medium text-slate-300">
+													{t("layout.mirrorWebcam")}
+												</div>
+												<Switch
+													checked={webcamMirrored}
+													onCheckedChange={onWebcamMirroredChange}
+													className="data-[state=checked]:bg-[#34B27B] scale-90"
+													aria-label={t("layout.mirrorWebcam")}
+												/>
+											</div>
+										)}
 										{webcamLayoutPreset === "picture-in-picture" && (
 											<div className="mt-2 p-2 rounded-lg editor-control-surface">
 												<div className="text-[10px] font-medium text-slate-300 mb-1.5">

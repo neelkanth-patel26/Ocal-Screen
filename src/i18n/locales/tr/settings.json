@@ -45,7 +45,8 @@
 		"webcamShape": "Kamera Şekli",
 		"dualFrame": "Çift Kare",
 		"webcamSize": "Webcam Boyutu",
-		"noWebcam": "Web kamerası yok"
+		"noWebcam": "Web kamerası yok",
+		"mirrorWebcam": "Web kamerasını aynala"
 	},
 	"effects": {
 		"title": "Video Efektleri",

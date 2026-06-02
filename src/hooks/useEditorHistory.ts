@@ -15,7 +15,7 @@ import type {
 	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
-import { DEFAULT_CROP_REGION } from "@/components/video-editor/types";
+import { DEFAULT_CROP_REGION, DEFAULT_WEBCAM_MIRRORED } from "@/components/video-editor/types";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
 // Undoable state — selection IDs are intentionally excluded (undoing a
@@ -36,6 +36,7 @@ export interface EditorState {
 	aspectRatio: AspectRatio;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape: WebcamMaskShape;
+	webcamMirrored: boolean;
 	webcamSizePreset: WebcamSizePreset;
 	webcamPosition: WebcamPosition | null;
 }
@@ -56,6 +57,7 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	aspectRatio: DEFAULT_EDITOR_LAYOUT_SETTINGS.aspectRatio,
 	webcamLayoutPreset: DEFAULT_WEBCAM_SETTINGS.layoutPreset,
 	webcamMaskShape: DEFAULT_WEBCAM_SETTINGS.maskShape,
+	webcamMirrored: DEFAULT_WEBCAM_MIRRORED,
 	webcamSizePreset: DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	webcamPosition: DEFAULT_WEBCAM_SETTINGS.position,
 };

@@ -45,7 +45,8 @@
 		"dualFrame": "Doppio frame",
 		"noWebcam": "Nessuna webcam",
 		"webcamShape": "Forma fotocamera",
-		"webcamSize": "Dimensione webcam"
+		"webcamSize": "Dimensione webcam",
+		"mirrorWebcam": "Specchia webcam"
 	},
 	"effects": {
 		"title": "Effetti video",
