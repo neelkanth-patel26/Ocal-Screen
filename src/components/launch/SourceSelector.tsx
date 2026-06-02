@@ -108,9 +108,12 @@ export function SourceSelector() {
 
 	const renderSourceCard = (source: DesktopSource) => {
 		const isSelected = selectedSource?.id === source.id;
+		const sourceKind = source.id.startsWith("screen:") ? "screen" : "window";
 		return (
 			<div
 				key={source.id}
+				data-testid="source-selector-card"
+				data-source-kind={sourceKind}
 				className={`${styles.sourceCard} ${isSelected ? styles.selected : ""} p-1.5`}
 				onClick={() => handleSourceSelect(source)}
 			>
