@@ -1,7 +1,6 @@
 import type { Span } from "dnd-timeline";
 import { FolderOpen, Languages, Save, Video } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MdClosedCaption } from "react-icons/md";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -2404,28 +2403,6 @@ export default function VideoEditor() {
 						<Save size={14} />
 						{ts("project.save")}
 					</button>
-					<Button
-						type="button"
-						variant="ghost"
-						size="sm"
-						disabled={isAutoCaptioning || !videoPath}
-						onClick={() => {
-							if (!videoPath) {
-								toast.error(t("errors.noVideoLoaded"));
-								return;
-							}
-							if (isAutoCaptioningRef.current) {
-								toast.error(t("autoCaptions.busy"));
-								return;
-							}
-							setShowAutoCaptionsDialog(true);
-						}}
-						className="h-7 px-2 text-white/50 hover:text-white/90 hover:bg-white/10 text-[11px] font-medium gap-1"
-						style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
-					>
-						<MdClosedCaption className="size-3.5 shrink-0" aria-hidden />
-						{t("autoCaptions.button")}
-					</Button>
 				</div>
 			</div>
 
@@ -2781,6 +2758,19 @@ export default function VideoEditor() {
 									}
 									videoUrl={videoPath ?? undefined}
 									showTrimWaveform={showTrimWaveform}
+									captionsLabel={t("autoCaptions.button")}
+									isGeneratingCaptions={isAutoCaptioning}
+									onGenerateCaptions={() => {
+										if (!videoPath) {
+											toast.error(t("errors.noVideoLoaded"));
+											return;
+										}
+										if (isAutoCaptioningRef.current) {
+											toast.error(t("autoCaptions.busy"));
+											return;
+										}
+										setShowAutoCaptionsDialog(true);
+									}}
 								/>
 							</div>
 						</Panel>

@@ -39,6 +39,11 @@ export default defineConfig({
 	optimizeDeps: {
 		exclude: ["@xenova/transformers"],
 	},
+	// The captioning worker dynamically imports @xenova/transformers, which makes the
+	// worker bundle code-split — unsupported by the default "iife" worker format.
+	worker: {
+		format: "es",
+	},
 	build: {
 		target: "esnext",
 		minify: "terser",
