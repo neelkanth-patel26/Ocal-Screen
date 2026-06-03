@@ -170,8 +170,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	saveProjectFile: (projectData: unknown, suggestedName?: string, existingProjectPath?: string) => {
 		return ipcRenderer.invoke("save-project-file", projectData, suggestedName, existingProjectPath);
 	},
-	loadProjectFile: () => {
-		return ipcRenderer.invoke("load-project-file");
+	loadProjectFile: (projectFolder?: string) => {
+		return ipcRenderer.invoke("load-project-file", projectFolder);
 	},
 	loadProjectFileFromPath: (filePath: string) => {
 		return ipcRenderer.invoke("load-project-file-from-path", filePath);

@@ -29,6 +29,8 @@ export interface UserPreferences {
 	exportFormat: ExportFormat;
 	/** Folder used for the most recent successful export, if any */
 	exportFolder: string | null;
+	/** Folder of the most recently opened project, if any */
+	projectFolder: string | null;
 	/** Recording HUD control layout */
 	trayLayout: "horizontal" | "vertical";
 }
@@ -39,6 +41,7 @@ export const DEFAULT_PREFS: UserPreferences = {
 	exportQuality: DEFAULT_EXPORT_SETTINGS.quality,
 	exportFormat: DEFAULT_EXPORT_SETTINGS.format,
 	exportFolder: null,
+	projectFolder: null,
 	trayLayout: "horizontal",
 };
 
@@ -91,6 +94,10 @@ export function loadUserPreferences(): UserPreferences {
 			typeof raw.exportFolder === "string" && raw.exportFolder.length > 0
 				? raw.exportFolder
 				: DEFAULT_PREFS.exportFolder,
+		projectFolder:
+			typeof raw.projectFolder === "string" && raw.projectFolder.length > 0
+				? raw.projectFolder
+				: DEFAULT_PREFS.projectFolder,
 		trayLayout:
 			raw.trayLayout === "horizontal" || raw.trayLayout === "vertical"
 				? raw.trayLayout
@@ -130,6 +137,15 @@ export function parentDirectoryOf(filePath: string): string | null {
  */
 export function getExportFolder(): string | undefined {
 	return loadUserPreferences().exportFolder ?? undefined;
+}
+
+/**
+ * Returns the remembered open-project folder as `string | undefined`,
+ * suitable for passing directly to IPC handlers that treat absence as
+ * "use the default".
+ */
+export function getProjectFolder(): string | undefined {
+	return loadUserPreferences().projectFolder ?? undefined;
 }
 
 /**

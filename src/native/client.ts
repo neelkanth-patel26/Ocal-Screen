@@ -84,10 +84,11 @@ export const nativeBridgeClient = {
 					existingProjectPath,
 				},
 			}),
-		loadProjectFile: () =>
+		loadProjectFile: (projectFolder?: string) =>
 			requireNativeBridgeData<ProjectFileResult>({
 				domain: "project",
 				action: "loadProjectFile",
+				payload: { projectFolder },
 			}),
 		loadCurrentProjectFile: () =>
 			requireNativeBridgeData<ProjectFileResult>({

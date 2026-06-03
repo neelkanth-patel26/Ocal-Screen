@@ -2,6 +2,7 @@ import { AlertCircle, Film, FolderOpen, Upload, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useScopedT } from "@/contexts/I18nContext";
+import { getProjectFolder, parentDirectoryOf, saveUserPreferences } from "@/lib/userPreferences";
 import { nativeBridgeClient } from "@/native";
 
 interface EditorEmptyStateProps {
@@ -35,8 +36,14 @@ export function EditorEmptyState({ onVideoImported, onProjectOpened }: EditorEmp
 	}, [onVideoImported]);
 
 	const handleLoadProject = useCallback(async () => {
-		const result = await nativeBridgeClient.project.loadProjectFile();
+		const result = await nativeBridgeClient.project.loadProjectFile(getProjectFolder());
 		if (result.canceled || !result.success || !result.project) return;
+		if (result.path) {
+			const folder = parentDirectoryOf(result.path);
+			if (folder) {
+				saveUserPreferences({ projectFolder: folder });
+			}
+		}
 		onProjectOpened(result.project, result.path ?? null);
 	}, [onProjectOpened]);
 
