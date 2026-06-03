@@ -44,6 +44,45 @@ ipcMain.on("hud-overlay-move-by", (_event, deltaX: number, deltaY: number) => {
 	hudOverlayWindow.setPosition(Math.round(x + deltaX), Math.round(y + deltaY), false);
 });
 
+// Resize the HUD to fit its rendered content (the renderer measures the bar and
+// its popups). The window is anchored by its bottom-centre so it stays put — and
+// respects wherever the user dragged it — while only growing/shrinking. This is
+// what lets the vertical tray layout become tall instead of scrolling inside a
+// fixed-height window.
+ipcMain.on("hud-overlay-set-size", (_event, width: number, height: number) => {
+	if (
+		!hudOverlayWindow ||
+		hudOverlayWindow.isDestroyed() ||
+		!Number.isFinite(width) ||
+		!Number.isFinite(height)
+	) {
+		return;
+	}
+
+	const bounds = hudOverlayWindow.getBounds();
+
+	// Clamp to the work area of the display the HUD currently sits on. The renderer
+	// reports the bar's natural size; on a short screen the vertical layout can be
+	// taller than the display, in which case the bar's own overflow scroll takes over.
+	const { workArea } = screen.getDisplayMatching(bounds);
+	const nextWidth = Math.min(workArea.width, Math.max(1, Math.round(width)));
+	const nextHeight = Math.min(workArea.height, Math.max(1, Math.round(height)));
+
+	if (bounds.width === nextWidth && bounds.height === nextHeight) {
+		return;
+	}
+
+	const centerX = bounds.x + bounds.width / 2;
+	const bottomY = bounds.y + bounds.height;
+
+	hudOverlayWindow.setBounds({
+		x: Math.round(centerX - nextWidth / 2),
+		y: Math.round(bottomY - nextHeight),
+		width: nextWidth,
+		height: nextHeight,
+	});
+});
+
 /**
  * Creates the always-on-top HUD overlay window centred at the bottom of the
  * primary display. The window is frameless, transparent, and follows the user
@@ -62,14 +101,22 @@ export function createHudOverlayWindow(): BrowserWindow {
 	const win = new BrowserWindow({
 		width: windowWidth,
 		height: windowHeight,
-		minWidth: 600,
-		maxWidth: 600,
-		minHeight: 160,
-		maxHeight: 160,
+		// Min/max are intentionally loose: the renderer resizes the window to fit
+		// its content via the "hud-overlay-set-size" channel (see above), which is
+		// required for the vertical tray layout to grow taller than the default.
+		minWidth: 120,
+		minHeight: 80,
 		x: x,
 		y: y,
 		frame: false,
 		transparent: true,
+		// Fully-transparent ARGB backing. Without this, macOS falls back to an
+		// opaque/translucent window material and draws it as a rounded glass panel
+		// with a border around the HUD content.
+		backgroundColor: "#00000000",
+		// Don't let macOS mask the (transparent) window into a rounded rect — the
+		// HUD bar provides its own rounding; the window itself must be invisible.
+		roundedCorners: false,
 		resizable: false,
 		alwaysOnTop: true,
 		skipTaskbar: true,
