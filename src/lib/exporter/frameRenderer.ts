@@ -1028,48 +1028,8 @@ export class FrameRenderer {
 			shadowCtx.drawImage(videoCanvas, 0, 0, w, h);
 			shadowCtx.restore();
 			fgCtx.drawImage(this.shadowCanvas, 0, 0, w, h);
-			// Erase square corners left by PIXI WebGL alpha, then redraw video with explicit
-			// 2D clip so shadow extends beyond the rounded area but video is precisely clipped.
-			// The clip is camera-aware so zoom doesn't crop the magnified video.
-			const shadowClip =
-				(this.layoutCache?.maskBorderRadius ?? 0) > 0 ? this.cameraAwareMaskRect() : null;
-			if (shadowClip) {
-				const { x: smx, y: smy, width: smw, height: smh, br: sbr } = shadowClip;
-				fgCtx.save();
-				fgCtx.globalCompositeOperation = "destination-out";
-				fgCtx.beginPath();
-				fgCtx.rect(smx, smy, smw, smh);
-				fgCtx.roundRect(smx, smy, smw, smh, sbr);
-				fgCtx.fill("evenodd");
-				fgCtx.restore();
-				fgCtx.save();
-				fgCtx.beginPath();
-				fgCtx.roundRect(smx, smy, smw, smh, sbr);
-				fgCtx.clip();
-				fgCtx.drawImage(videoCanvas, 0, 0, w, h);
-				fgCtx.restore();
-			}
 		} else {
-			// Direct path: explicit 2D clip guarantees rounded corners regardless of PIXI
-			// WebGL alpha. Camera-aware so zoom doesn't crop the magnified video.
-			const directClip =
-				(this.layoutCache?.maskBorderRadius ?? 0) > 0 ? this.cameraAwareMaskRect() : null;
-			if (directClip) {
-				fgCtx.save();
-				fgCtx.beginPath();
-				fgCtx.roundRect(
-					directClip.x,
-					directClip.y,
-					directClip.width,
-					directClip.height,
-					directClip.br,
-				);
-				fgCtx.clip();
-				fgCtx.drawImage(videoCanvas, 0, 0, w, h);
-				fgCtx.restore();
-			} else {
-				fgCtx.drawImage(videoCanvas, 0, 0, w, h);
-			}
+			fgCtx.drawImage(videoCanvas, 0, 0, w, h);
 		}
 
 		const webcamRect = this.layoutCache?.webcamRect ?? null;
