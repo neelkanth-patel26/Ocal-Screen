@@ -1,5 +1,11 @@
 import { useTimelineContext } from "dnd-timeline";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+/**
+ * Perceptual curve applied to normalized amplitude (exponent < 1 lifts quiet
+ * passages so they stay visible without a single loud spike flattening the rest).
+ */
+const WAVEFORM_GAMMA = 0.6;
 
 export interface BackgroundWaveformProps {
 	/** Pre-computed peaks array: pairs of [min, max] per block (length = 2 * N). */
@@ -42,6 +48,19 @@ export default function BackgroundWaveform({
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
 
+	// Normalize against the track's own loudest peak so quiet recordings (mic /
+	// system audio rarely approach full scale) still fill the row. Computed once
+	// per peaks change, not per zoom/pan, so the height stays stable as you scroll.
+	const normFactor = useMemo(() => {
+		if (!peaks || peaks.length === 0) return 0;
+		let globalMax = 0;
+		for (let i = 0; i < peaks.length; i++) {
+			const a = Math.abs(peaks[i]);
+			if (a > globalMax) globalMax = a;
+		}
+		return globalMax > 0 ? 1 / globalMax : 0;
+	}, [peaks]);
+
 	// Observe the canvas itself — Row's `relative overflow-hidden` parent
 	// makes it fill the row exactly, so no wrapper div is needed.
 	useEffect(() => {
@@ -70,7 +89,7 @@ export default function BackgroundWaveform({
 		ctx.scale(dpr, dpr);
 		ctx.clearRect(0, 0, canvasSize.w, canvasSize.h);
 
-		if (!peaks || peaks.length === 0) return;
+		if (!peaks || peaks.length === 0 || normFactor === 0) return;
 
 		const W = canvasSize.w;
 		const H = canvasSize.h;
@@ -87,8 +106,9 @@ export default function BackgroundWaveform({
 		const N = peaks.length / 2;
 		const amp = drawHeight * 0.9;
 
-		// Rectified (half-wave): amplitude = max(|min|, |max|), drawn upward from bottomY.
-		const colAmp = new Float32Array(W);
+		// Rectified (half-wave): amplitude = max(|min|, |max|), normalized to the
+		// track's loudest peak and perceptually curved, drawn upward from bottomY.
+		const colY = new Float32Array(W);
 		for (let x = 0; x < W; x++) {
 			const startMs = range.start + (x / W) * rangeMs;
 			const endMs = range.start + ((x + 1) / W) * rangeMs;
@@ -102,14 +122,16 @@ export default function BackgroundWaveform({
 				if (a > absMax) absMax = a;
 				if (b > absMax) absMax = b;
 			}
-			colAmp[x] = absMax;
+			const normalized = Math.min(1, absMax * normFactor);
+			const display = normalized > 0 ? normalized ** WAVEFORM_GAMMA : 0;
+			colY[x] = bottomY - display * amp;
 		}
 
 		// Filled polygon: bottom-left → top silhouette → bottom-right.
 		ctx.beginPath();
 		ctx.moveTo(0, bottomY);
 		for (let x = 0; x < W; x++) {
-			ctx.lineTo(x, bottomY - colAmp[x] * amp);
+			ctx.lineTo(x, colY[x]);
 		}
 		ctx.lineTo(W, bottomY);
 		ctx.closePath();
@@ -118,14 +140,14 @@ export default function BackgroundWaveform({
 
 		// Crisp top-edge stroke for the sharp silhouette.
 		ctx.beginPath();
-		ctx.moveTo(0, bottomY - colAmp[0] * amp);
+		ctx.moveTo(0, colY[0]);
 		for (let x = 1; x < W; x++) {
-			ctx.lineTo(x, bottomY - colAmp[x] * amp);
+			ctx.lineTo(x, colY[x]);
 		}
 		ctx.strokeStyle = "rgba(74, 222, 128, 0.85)";
 		ctx.lineWidth = 1;
 		ctx.stroke();
-	}, [peaks, range, canvasSize, videoDurationMs, topInset, bottomInset]);
+	}, [peaks, normFactor, range, canvasSize, videoDurationMs, topInset, bottomInset]);
 
 	return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none w-full h-full" />;
 }

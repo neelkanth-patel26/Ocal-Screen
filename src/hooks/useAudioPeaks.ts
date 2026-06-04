@@ -105,7 +105,9 @@ export function useAudioPeaks(videoUrl?: string): Float32Array | null {
 			} catch (err) {
 				// AbortError means the effect cleaned up — no state update needed.
 				if (err instanceof DOMException && err.name === "AbortError") return;
-				// No audio track or unsupported format — clear stale data silently.
+				// No audio track or unsupported format — degrade gracefully (no
+				// waveform), but log so an unexpectedly-missing waveform is diagnosable.
+				console.warn("useAudioPeaks: could not decode audio for waveform:", err);
 				if (!cancelled) setPeaks(null);
 			}
 		})();
