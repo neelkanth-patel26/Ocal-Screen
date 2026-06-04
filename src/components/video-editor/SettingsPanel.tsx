@@ -7,6 +7,7 @@ import {
 	FileDown,
 	Film,
 	Image,
+	Info,
 	LayoutPanelTop,
 	Lock,
 	MousePointerClick,
@@ -38,6 +39,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useScopedT } from "@/contexts/I18nContext";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
@@ -1487,8 +1489,20 @@ export function SettingsPanel({
 												{showCursor && (
 													<>
 														<div className="flex items-center justify-between">
-															<div className="text-[10px] font-medium text-slate-300">
-																{t("cursor.clipToBounds")}
+															<div className="flex items-center gap-1 text-[10px] font-medium text-slate-300">
+																<span>{t("cursor.clipToBounds")}</span>
+																<Tooltip
+																	content={t("cursor.clipToBoundsDescription")}
+																	className="max-w-[220px] leading-snug whitespace-normal"
+																>
+																	<button
+																		type="button"
+																		className="text-slate-400 transition-colors hover:text-slate-200"
+																		aria-label={t("cursor.clipToBoundsDescription")}
+																	>
+																		<Info size={11} />
+																	</button>
+																</Tooltip>
 															</div>
 															<Switch
 																checked={cursorClipToBounds}
