@@ -1069,9 +1069,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		try {
 			const platform = await window.electronAPI.getPlatform();
 			if (platform === "darwin" && cursorCaptureMode === "editable-overlay") {
+				// The main process shows a native dialog that deep-links to the
+				// Accessibility settings pane when access is missing, so we just stop
+				// here and let the user grant it and press record again.
 				const access = await window.electronAPI.requestNativeMacCursorAccess();
 				if (!access.granted) {
-					toast.info(t("recording.accessibilityAllowAndRetry"));
 					return;
 				}
 			}

@@ -1396,7 +1396,37 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("request-native-mac-cursor-access", async () => {
-		return requestMacCursorAccessibilityAccess();
+		const access = await requestMacCursorAccessibilityAccess();
+
+		// When the editable cursor can't get Accessibility trust, don't leave the
+		// user guessing where to enable it — pop a native dialog that deep-links
+		// straight to the Accessibility pane (mirrors the Screen Recording flow).
+		if (process.platform === "darwin" && !access.granted) {
+			const mainWin = getMainWindow();
+			const detail =
+				access.status === "missing-helper"
+					? "The cursor helper couldn't be found in this build, so the editable cursor can't be enabled. Rebuild the native helper (npm run build:native:mac) or switch the HUD cursor mode to system."
+					: "Allow OpenScreen under System Settings → Privacy & Security → Accessibility, then press record again to start the countdown.";
+			const messageOptions = {
+				type: "warning",
+				buttons: ["Open Accessibility Settings", "Cancel"],
+				defaultId: 0,
+				cancelId: 1,
+				message: "Accessibility access is required for the editable cursor",
+				detail,
+			} satisfies Electron.MessageBoxOptions;
+			const result =
+				mainWin && !mainWin.isDestroyed()
+					? await dialog.showMessageBox(mainWin, messageOptions)
+					: await dialog.showMessageBox(messageOptions);
+			if (result.response === 0) {
+				await shell.openExternal(
+					"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+				);
+			}
+		}
+
+		return access;
 	});
 
 	ipcMain.handle("open-source-selector", async () => {
