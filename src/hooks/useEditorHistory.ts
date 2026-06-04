@@ -22,6 +22,11 @@ import type { AspectRatio } from "@/utils/aspectRatioUtils";
 // selection change would feel surprising to the user).
 export interface EditorState {
 	zoomRegions: ZoomRegion[];
+	/** Magic-wand auto-zoom toggle. When on, fresh recordings get suggested zooms. */
+	autoZoomEnabled: boolean;
+	/** Global Auto-Focus toggle: when on, all zooms follow the cursor and the
+	 * per-zoom Focus Mode selector is locked. */
+	autoFocusAll: boolean;
 	trimRegions: TrimRegion[];
 	speedRegions: SpeedRegion[];
 	annotationRegions: AnnotationRegion[];
@@ -43,6 +48,8 @@ export interface EditorState {
 
 export const INITIAL_EDITOR_STATE: EditorState = {
 	zoomRegions: [],
+	autoZoomEnabled: true,
+	autoFocusAll: false,
 	trimRegions: [],
 	speedRegions: [],
 	annotationRegions: [],

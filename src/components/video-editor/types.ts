@@ -59,6 +59,13 @@ export function rotation3DPerspective(width: number, height: number): number {
 	return Math.min(width, height) * ROTATION_3D_PERSPECTIVE_FACTOR;
 }
 
+/**
+ * Origin of a zoom region. "auto" marks zooms added by the magic-wand auto-suggest
+ * pass; toggling the wand off removes only these. Editing an auto zoom promotes it
+ * to "manual" so it survives. Undefined is treated as "manual" for back-compat.
+ */
+export type ZoomRegionSource = "auto" | "manual";
+
 export interface ZoomRegion {
 	id: string;
 	startMs: number;
@@ -69,6 +76,7 @@ export interface ZoomRegion {
 	rotationPreset?: Rotation3DPreset;
 	/** Custom scale overriding the preset depth (1.0–5.0, two decimal precision). */
 	customScale?: number;
+	source?: ZoomRegionSource;
 }
 
 export function getRotation3D(region: Pick<ZoomRegion, "rotationPreset">): Rotation3D {

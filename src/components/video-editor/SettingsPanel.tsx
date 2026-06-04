@@ -247,6 +247,8 @@ interface SettingsPanelProps {
 	onZoomPreviewEnd?: () => void;
 	selectedZoomFocusMode?: ZoomFocusMode | null;
 	onZoomFocusModeChange?: (mode: ZoomFocusMode) => void;
+	/** When the global Auto-Focus toggle is on, the per-zoom selector is locked. */
+	focusModeLocked?: boolean;
 	selectedZoomFocus?: ZoomFocus | null;
 	onZoomFocusCoordinateChange?: (focus: ZoomFocus) => void;
 	onZoomFocusCoordinateCommit?: () => void;
@@ -383,6 +385,7 @@ export function SettingsPanel({
 	onZoomPreviewEnd,
 	selectedZoomFocusMode,
 	onZoomFocusModeChange,
+	focusModeLocked = false,
 	selectedZoomFocus,
 	onZoomFocusCoordinateChange,
 	onZoomFocusCoordinateCommit,
@@ -944,32 +947,42 @@ export function SettingsPanel({
 								</div>
 							)}
 							{zoomEnabled && hasCursorTelemetry && (
-								<div className="flex items-center justify-between gap-3">
-									<span className="text-[11px] font-medium text-slate-400">
-										{t("zoom.focusMode.title")}
-									</span>
-									<div className="grid w-32 grid-cols-2 gap-0.5 rounded-lg border border-white/[0.06] bg-white/[0.035] p-0.5">
-										{(["manual", "auto"] as const).map((mode) => {
-											const isActive = selectedZoomFocusMode === mode;
-											return (
-												<Button
-													key={mode}
-													type="button"
-													onClick={() => onZoomFocusModeChange?.(mode)}
-													className={cn(
-														"h-6 w-full rounded-md border px-1 text-center transition-all duration-150 ease-out cursor-pointer",
-														isActive
-															? "border-[#34B27B]/50 bg-[#34B27B] text-white"
-															: "border-transparent bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-200",
-													)}
-												>
-													<span className="text-[10px] font-semibold capitalize">
-														{t(`zoom.focusMode.${mode}`)}
-													</span>
-												</Button>
-											);
-										})}
+								<div className="space-y-1.5">
+									<div className="flex items-center justify-between gap-3">
+										<span className="text-[11px] font-medium text-slate-400">
+											{t("zoom.focusMode.title")}
+										</span>
+										<div className="grid w-32 grid-cols-2 gap-0.5 rounded-lg border border-white/[0.06] bg-white/[0.035] p-0.5">
+											{(["manual", "auto"] as const).map((mode) => {
+												const isActive = selectedZoomFocusMode === mode;
+												return (
+													<Button
+														key={mode}
+														type="button"
+														disabled={focusModeLocked}
+														onClick={() => !focusModeLocked && onZoomFocusModeChange?.(mode)}
+														className={cn(
+															"h-6 w-full rounded-md border px-1 text-center transition-all duration-150 ease-out",
+															isActive
+																? "border-[#34B27B]/50 bg-[#34B27B] text-white"
+																: "border-transparent bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-200",
+															focusModeLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+														)}
+													>
+														<span className="text-[10px] font-semibold capitalize">
+															{t(`zoom.focusMode.${mode}`)}
+														</span>
+													</Button>
+												);
+											})}
+										</div>
 									</div>
+									{focusModeLocked && (
+										<div className="flex items-start gap-1 text-[10px] leading-snug text-slate-500">
+											<Info size={11} className="mt-px shrink-0" />
+											<span>{t("zoom.focusMode.lockedDisclaimer")}</span>
+										</div>
+									)}
 								</div>
 							)}
 							{zoomEnabled && onZoomPreviewStart && onZoomPreviewEnd && (

@@ -89,6 +89,7 @@ import {
 } from "./projectPersistence";
 import { SettingsPanel } from "./SettingsPanel";
 import TimelineEditor from "./timeline/TimelineEditor";
+import { buildAutoZoomSuggestions } from "./timeline/zoomSuggestionUtils";
 import {
 	type AnnotationRegion,
 	type BlurData,
@@ -188,6 +189,8 @@ export default function VideoEditor() {
 
 	const {
 		zoomRegions,
+		autoZoomEnabled,
+		autoFocusAll,
 		trimRegions,
 		speedRegions,
 		annotationRegions,
@@ -389,6 +392,10 @@ export default function VideoEditor() {
 			setRecordingCursorCaptureMode(projectCursorCaptureMode);
 			setCurrentProjectPath(path ?? null);
 
+			// A loaded project keeps its zooms exactly as saved — never auto-suggest
+			// over it (even if it has zero zooms because the user deleted them all).
+			autoProcessedSourceRef.current = sourcePath;
+
 			pushState({
 				wallpaper: normalizedEditor.wallpaper,
 				shadowIntensity: normalizedEditor.shadowIntensity,
@@ -399,6 +406,8 @@ export default function VideoEditor() {
 				padding: normalizedEditor.padding,
 				cropRegion: normalizedEditor.cropRegion,
 				zoomRegions: normalizedEditor.zoomRegions,
+				autoZoomEnabled: normalizedEditor.autoZoomEnabled,
+				autoFocusAll: normalizedEditor.autoFocusAll,
 				trimRegions: normalizedEditor.trimRegions,
 				speedRegions: normalizedEditor.speedRegions,
 				annotationRegions: normalizedEditor.annotationRegions,
@@ -472,6 +481,8 @@ export default function VideoEditor() {
 			padding,
 			cropRegion,
 			zoomRegions,
+			autoZoomEnabled,
+			autoFocusAll,
 			trimRegions,
 			speedRegions,
 			annotationRegions,
@@ -498,6 +509,8 @@ export default function VideoEditor() {
 		padding,
 		cropRegion,
 		zoomRegions,
+		autoZoomEnabled,
+		autoFocusAll,
 		trimRegions,
 		speedRegions,
 		annotationRegions,
@@ -624,6 +637,8 @@ export default function VideoEditor() {
 				padding,
 				cropRegion,
 				zoomRegions,
+				autoZoomEnabled,
+				autoFocusAll,
 				trimRegions,
 				speedRegions,
 				annotationRegions,
@@ -685,6 +700,8 @@ export default function VideoEditor() {
 			padding,
 			cropRegion,
 			zoomRegions,
+			autoZoomEnabled,
+			autoFocusAll,
 			trimRegions,
 			speedRegions,
 			annotationRegions,
@@ -991,6 +1008,9 @@ export default function VideoEditor() {
 				depth: DEFAULT_ZOOM_DEPTH,
 				customScale: ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH],
 				focus: { cx: 0.5, cy: 0.5 },
+				// Auto-Focus toggle on → new zooms follow the cursor too.
+				focusMode: autoFocusAll ? "auto" : undefined,
+				source: "manual",
 			};
 			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
 			setSelectedZoomId(id);
@@ -999,24 +1019,94 @@ export default function VideoEditor() {
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
 		},
-		[pushState],
+		[pushState, autoFocusAll],
 	);
 
-	const handleZoomSuggested = useCallback(
-		(span: Span, focus: ZoomFocus) => {
-			const id = `zoom-${nextZoomIdRef.current++}`;
-			const newRegion: ZoomRegion = {
-				id,
-				startMs: Math.round(span.start),
-				endMs: Math.round(span.end),
+	// Builds fresh "auto" zoom regions from cursor telemetry, avoiding overlap with
+	// the regions already present. Used by both the on-load auto-suggest pass and
+	// the magic-wand toggle.
+	const buildAutoZoomRegions = useCallback(
+		(existingRegions: ZoomRegion[]): ZoomRegion[] => {
+			const totalMs = Math.round(duration * 1000);
+			const suggestions = buildAutoZoomSuggestions({
+				cursorTelemetry,
+				totalMs,
+				existingRegions,
+				defaultDurationMs: Math.max(1000, Math.round(totalMs * 0.05)),
+			});
+			return suggestions.map((suggestion) => ({
+				id: `zoom-${nextZoomIdRef.current++}`,
+				startMs: Math.round(suggestion.span.start),
+				endMs: Math.round(suggestion.span.end),
 				depth: DEFAULT_ZOOM_DEPTH,
 				customScale: ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH],
-				focus: clampFocusToDepth(focus, DEFAULT_ZOOM_DEPTH),
-			};
-			// Bulk suggest must not steal selection — keeping a zoom selected hides
-			// the export panel (SettingsPanel gates it on !hasTimelineSelection),
-			// trapping users who just want to export after auto-zoom.
-			pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, newRegion] }));
+				focus: clampFocusToDepth(suggestion.focus, DEFAULT_ZOOM_DEPTH),
+				focusMode: autoFocusAll ? ("auto" as const) : undefined,
+				source: "auto" as const,
+			}));
+		},
+		[cursorTelemetry, duration, autoFocusAll],
+	);
+
+	// Auto-suggest zooms once per fresh recording (no existing zooms, telemetry
+	// available, wand enabled). Loaded projects are marked processed elsewhere so
+	// they're never touched. The ref guard makes this run exactly once per source
+	// and survive undo.
+	const autoProcessedSourceRef = useRef<string | null>(null);
+	useEffect(() => {
+		if (!autoZoomEnabled || !cursorTelemetrySourcePath) return;
+		if (autoProcessedSourceRef.current === cursorTelemetrySourcePath) return;
+		if (cursorTelemetry.length < 2 || duration <= 0) return;
+		// Only auto-suggest for a fresh recording; don't disturb existing zooms.
+		if (zoomRegions.length > 0) {
+			autoProcessedSourceRef.current = cursorTelemetrySourcePath;
+			return;
+		}
+		const newRegions = buildAutoZoomRegions([]);
+		autoProcessedSourceRef.current = cursorTelemetrySourcePath;
+		if (newRegions.length === 0) return;
+		pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, ...newRegions] }));
+	}, [
+		autoZoomEnabled,
+		cursorTelemetrySourcePath,
+		cursorTelemetry,
+		duration,
+		zoomRegions,
+		buildAutoZoomRegions,
+		pushState,
+	]);
+
+	// Magic-wand toggle: ON regenerates suggestions around existing zooms; OFF
+	// removes only untouched auto zooms (manual + edited-to-manual survive).
+	const handleToggleAutoZoom = useCallback(
+		(enabled: boolean) => {
+			if (enabled) {
+				autoProcessedSourceRef.current = cursorTelemetrySourcePath;
+				pushState((prev) => ({
+					autoZoomEnabled: true,
+					zoomRegions: [...prev.zoomRegions, ...buildAutoZoomRegions(prev.zoomRegions)],
+				}));
+			} else {
+				pushState((prev) => ({
+					autoZoomEnabled: false,
+					zoomRegions: prev.zoomRegions.filter((region) => region.source !== "auto"),
+				}));
+			}
+		},
+		[pushState, buildAutoZoomRegions, cursorTelemetrySourcePath],
+	);
+
+	// Global Auto-Focus toggle: flip every zoom between auto (cursor-follow) and
+	// manual at once.
+	const handleToggleAutoFocusAll = useCallback(
+		(on: boolean) => {
+			pushState((prev) => ({
+				autoFocusAll: on,
+				zoomRegions: prev.zoomRegions.map((region) => ({
+					...region,
+					focusMode: on ? "auto" : "manual",
+				})),
+			}));
 		},
 		[pushState],
 	);
@@ -1048,6 +1138,7 @@ export default function VideoEditor() {
 								...region,
 								startMs: Math.round(span.start),
 								endMs: Math.round(span.end),
+								source: "manual",
 							}
 						: region,
 				),
@@ -1078,7 +1169,9 @@ export default function VideoEditor() {
 		(id: string, focus: ZoomFocus) => {
 			updateState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
-					region.id === id ? { ...region, focus: clampFocusToDepth(focus, region.depth) } : region,
+					region.id === id
+						? { ...region, focus: clampFocusToDepth(focus, region.depth), source: "manual" }
+						: region,
 				),
 			}));
 		},
@@ -1096,6 +1189,7 @@ export default function VideoEditor() {
 								depth,
 								customScale: ZOOM_DEPTH_SCALES[depth],
 								focus: clampFocusToDepth(region.focus, depth),
+								source: "manual",
 							}
 						: region,
 				),
@@ -1111,7 +1205,9 @@ export default function VideoEditor() {
 			if (!Number.isFinite(rounded)) return;
 			updateState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
-					region.id === selectedZoomId ? { ...region, customScale: rounded } : region,
+					region.id === selectedZoomId
+						? { ...region, customScale: rounded, source: "manual" }
+						: region,
 				),
 			}));
 		},
@@ -1127,7 +1223,7 @@ export default function VideoEditor() {
 			if (!selectedZoomId) return;
 			pushState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
-					region.id === selectedZoomId ? { ...region, focusMode } : region,
+					region.id === selectedZoomId ? { ...region, focusMode, source: "manual" } : region,
 				),
 			}));
 		},
@@ -1154,9 +1250,9 @@ export default function VideoEditor() {
 					if (region.id !== selectedZoomId) return region;
 					if (preset === null) {
 						const { rotationPreset: _p, ...rest } = region;
-						return rest;
+						return { ...rest, source: "manual" };
 					}
-					return { ...region, rotationPreset: preset };
+					return { ...region, rotationPreset: preset, source: "manual" };
 				}),
 			}));
 		},
@@ -2580,6 +2676,7 @@ export default function VideoEditor() {
 										onZoomFocusModeChange={(mode) =>
 											selectedZoomId && handleZoomFocusModeChange(mode)
 										}
+										focusModeLocked={autoFocusAll}
 										selectedZoomFocus={
 											selectedZoomId
 												? (zoomRegions.find((z) => z.id === selectedZoomId)?.focus ?? null)
@@ -2735,10 +2832,12 @@ export default function VideoEditor() {
 									videoDuration={duration}
 									currentTime={currentTime}
 									onSeek={handleSeek}
-									cursorTelemetry={cursorTelemetry}
 									zoomRegions={zoomRegions}
 									onZoomAdded={handleZoomAdded}
-									onZoomSuggested={handleZoomSuggested}
+									autoZoomEnabled={autoZoomEnabled}
+									onToggleAutoZoom={handleToggleAutoZoom}
+									autoFocusAll={autoFocusAll}
+									onToggleAutoFocusAll={handleToggleAutoFocusAll}
 									onZoomSpanChange={handleZoomSpanChange}
 									onZoomDelete={handleZoomDelete}
 									selectedZoomId={selectedZoomId}

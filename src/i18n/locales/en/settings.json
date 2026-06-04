@@ -9,7 +9,8 @@
 			"title": "Focus Mode",
 			"manual": "Manual",
 			"auto": "Auto",
-			"autoDescription": "Camera follows the recorded cursor position"
+			"autoDescription": "Camera follows the recorded cursor position",
+			"lockedDisclaimer": "Controlled by the global Auto-Focus toggle in the timeline. Turn it off to set focus mode per zoom."
 		},
 		"threeD": {
 			"title": "3D Rotation",

@@ -73,6 +73,8 @@ export interface ProjectEditorState {
 	padding: number;
 	cropRegion: CropRegion;
 	zoomRegions: ZoomRegion[];
+	autoZoomEnabled: boolean;
+	autoFocusAll: boolean;
 	trimRegions: TrimRegion[];
 	speedRegions: SpeedRegion[];
 	annotationRegions: AnnotationRegion[];
@@ -260,6 +262,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 							cy: clamp(isFiniteNumber(region.focus?.cy) ? region.focus.cy : 0.5, 0, 1),
 						},
 						focusMode: region.focusMode === "auto" ? "auto" : "manual",
+						source: region.source === "auto" ? "auto" : "manual",
 						...(validPreset ? { rotationPreset: validPreset } : {}),
 					};
 				})
@@ -477,6 +480,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			height: cropHeight,
 		},
 		zoomRegions: normalizedZoomRegions,
+		// Default on for legacy projects so re-opens behave like the new default;
+		// the on-load auto-suggest pass is gated separately so it won't add zooms.
+		autoZoomEnabled: typeof editor.autoZoomEnabled === "boolean" ? editor.autoZoomEnabled : true,
+		autoFocusAll: typeof editor.autoFocusAll === "boolean" ? editor.autoFocusAll : false,
 		trimRegions: normalizedTrimRegions,
 		speedRegions: normalizedSpeedRegions,
 		annotationRegions: normalizedAnnotationRegions,
