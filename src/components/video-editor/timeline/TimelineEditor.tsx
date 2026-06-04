@@ -29,6 +29,7 @@ import { matchesShortcut } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { ASPECT_RATIOS, type AspectRatio, getAspectRatioLabel } from "@/utils/aspectRatioUtils";
 import { formatShortcut } from "@/utils/platformUtils";
+import { BLUR_REGIONS_ENABLED } from "../featureFlags";
 import type { AnnotationRegion, SpeedRegion, TrimRegion, ZoomRegion } from "../types";
 import BackgroundWaveform from "./BackgroundWaveform";
 import Item from "./Item";
@@ -849,21 +850,23 @@ function Timeline({
 				))}
 			</Row>
 
-			<Row id={BLUR_ROW_ID} isEmpty={blurItems.length === 0} hint={t("hints.pressBlur")}>
-				{blurItems.map((item) => (
-					<Item
-						id={item.id}
-						key={item.id}
-						rowId={item.rowId}
-						span={item.span}
-						isSelected={item.id === selectedBlurId}
-						onSelect={() => onSelectBlur?.(item.id)}
-						variant={item.variant}
-					>
-						{item.label}
-					</Item>
-				))}
-			</Row>
+			{BLUR_REGIONS_ENABLED && (
+				<Row id={BLUR_ROW_ID} isEmpty={blurItems.length === 0} hint={t("hints.pressBlur")}>
+					{blurItems.map((item) => (
+						<Item
+							id={item.id}
+							key={item.id}
+							rowId={item.rowId}
+							span={item.span}
+							isSelected={item.id === selectedBlurId}
+							onSelect={() => onSelectBlur?.(item.id)}
+							variant={item.variant}
+						>
+							{item.label}
+						</Item>
+					))}
+				</Row>
+			)}
 
 			<Row id={SPEED_ROW_ID} isEmpty={speedItems.length === 0} hint={t("hints.pressSpeed")}>
 				{speedItems.map((item) => (
@@ -1276,7 +1279,7 @@ export default function TimelineEditor({
 			if (matchesShortcut(e, keyShortcuts.addAnnotation, isMac)) {
 				handleAddAnnotation();
 			}
-			if (matchesShortcut(e, keyShortcuts.addBlur, isMac)) {
+			if (BLUR_REGIONS_ENABLED && matchesShortcut(e, keyShortcuts.addBlur, isMac)) {
 				handleAddBlur();
 			}
 			if (matchesShortcut(e, keyShortcuts.addSpeed, isMac)) {
@@ -1558,25 +1561,27 @@ export default function TimelineEditor({
 					>
 						<MessageSquare className="w-4 h-4" />
 					</Button>
-					<Button
-						onClick={handleAddBlur}
-						variant="ghost"
-						size="icon"
-						className="h-7 w-7 rounded-lg text-slate-400 hover:text-[#7dd3fc] hover:bg-[#7dd3fc]/10 transition-all"
-						title={t("buttons.addBlur")}
-					>
-						<svg
-							className="w-4 h-4"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="2"
+					{BLUR_REGIONS_ENABLED && (
+						<Button
+							onClick={handleAddBlur}
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7 rounded-lg text-slate-400 hover:text-[#7dd3fc] hover:bg-[#7dd3fc]/10 transition-all"
+							title={t("buttons.addBlur")}
 						>
-							<circle cx="8" cy="12" r="3" />
-							<circle cx="16" cy="12" r="3" />
-							<path d="M6 6h12M6 18h12" />
-						</svg>
-					</Button>
+							<svg
+								className="w-4 h-4"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="2"
+							>
+								<circle cx="8" cy="12" r="3" />
+								<circle cx="16" cy="12" r="3" />
+								<path d="M6 6h12M6 18h12" />
+							</svg>
+						</Button>
+					)}
 					<Button
 						onClick={handleAddSpeed}
 						variant="ghost"

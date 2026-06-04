@@ -66,6 +66,7 @@ import {
 	DEFAULT_SOURCE_DIMENSIONS,
 	DEFAULT_WEBCAM_SETTINGS,
 } from "./editorDefaults";
+import { BLUR_REGIONS_ENABLED } from "./featureFlags";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
@@ -782,7 +783,7 @@ export function SettingsPanel({
 		);
 	}
 
-	if (selectedBlur && onBlurDataChange && onBlurDelete) {
+	if (BLUR_REGIONS_ENABLED && selectedBlur && onBlurDataChange && onBlurDelete) {
 		return (
 			<div className="editor-inspector-shell flex min-w-0 flex-col h-full overflow-hidden">
 				<div className="min-h-0 flex-1 overflow-hidden">
