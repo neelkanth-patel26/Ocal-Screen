@@ -191,6 +191,17 @@
 		"errorTimeout": "A fonte demorou muito para carregar. Por favor, verifique a URL e tente novamente.",
 		"errorLoadFailed": "A fonte não pôde ser carregada. Por favor, verifique se a URL do Google Fonts está correta."
 	},
+	"cursor": {
+		"theme": "Estilo do cursor",
+		"themeDefault": "Padrão",
+		"show": "Mostrar cursor",
+		"size": "Tamanho",
+		"smoothing": "Suavização",
+		"motionBlur": "Desfoque de movimento",
+		"clickBounce": "Rebote ao clicar",
+		"clipToBounds": "Recortar à tela",
+		"clipToBoundsDescription": "Mantém o cursor dentro do quadro do vídeo. Desative para permitir que o cursor ultrapasse as bordas — útil ao aplicar zoom ou ao deslocar."
+	},
 	"language": {
 		"title": "Idioma"
 	}

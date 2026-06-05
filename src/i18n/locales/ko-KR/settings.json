@@ -207,6 +207,8 @@
 		"errorLoadFailed": "폰트를 불러올 수 없습니다. Google Fonts URL이 올바른지 확인해 주세요."
 	},
 	"cursor": {
+		"theme": "커서 스타일",
+		"themeDefault": "기본",
 		"show": "커서 표시",
 		"size": "크기",
 		"smoothing": "부드러움",

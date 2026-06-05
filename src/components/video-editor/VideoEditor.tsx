@@ -288,6 +288,7 @@ export default function VideoEditor() {
 	const [cursorClipToBounds, setCursorClipToBounds] = useState(
 		DEFAULT_CURSOR_SETTINGS.clipToBounds,
 	);
+	const [cursorTheme, setCursorTheme] = useState(DEFAULT_CURSOR_SETTINGS.theme);
 	const [nativePlatform, setNativePlatform] = useState<NativePlatform | null>(null);
 	const [recordingCursorCaptureMode, setRecordingCursorCaptureMode] =
 		useState<CursorCaptureMode | null>(null);
@@ -423,6 +424,7 @@ export default function VideoEditor() {
 			setGifFrameRate(normalizedEditor.gifFrameRate);
 			setGifLoop(normalizedEditor.gifLoop);
 			setGifSizePreset(normalizedEditor.gifSizePreset);
+			setCursorTheme(normalizedEditor.cursorTheme);
 
 			setSelectedZoomId(null);
 			setSelectedTrimId(null);
@@ -497,9 +499,11 @@ export default function VideoEditor() {
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
+			cursorTheme,
 		});
 	}, [
 		currentProjectMedia,
+		cursorTheme,
 		wallpaper,
 		shadowIntensity,
 		showBlur,
@@ -653,6 +657,7 @@ export default function VideoEditor() {
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
+				cursorTheme,
 			};
 			const projectData = createProjectData(currentProjectMedia, editorState);
 
@@ -716,6 +721,7 @@ export default function VideoEditor() {
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
+			cursorTheme,
 			videoPath,
 			t,
 		],
@@ -849,6 +855,7 @@ export default function VideoEditor() {
 		setCursorMotionBlur(DEFAULT_CURSOR_SETTINGS.motionBlur);
 		setCursorClickBounce(DEFAULT_CURSOR_SETTINGS.clickBounce);
 		setCursorClipToBounds(DEFAULT_CURSOR_SETTINGS.clipToBounds);
+		setCursorTheme(DEFAULT_CURSOR_SETTINGS.theme);
 		// Reset region ID counters.
 		nextZoomIdRef.current = 1;
 		nextTrimIdRef.current = 1;
@@ -1899,6 +1906,7 @@ export default function VideoEditor() {
 						cursorMotionBlur,
 						cursorClickBounce,
 						cursorClipToBounds,
+						cursorTheme,
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
@@ -1991,6 +1999,7 @@ export default function VideoEditor() {
 						cursorMotionBlur,
 						cursorClickBounce,
 						cursorClipToBounds,
+						cursorTheme,
 						annotationRegions,
 						webcamLayoutPreset,
 						webcamMaskShape,
@@ -2109,6 +2118,7 @@ export default function VideoEditor() {
 			cursorMotionBlur,
 			cursorClickBounce,
 			cursorClipToBounds,
+			cursorTheme,
 			t,
 		],
 	);
@@ -2628,6 +2638,7 @@ export default function VideoEditor() {
 													cursorMotionBlur={cursorMotionBlur}
 													cursorClickBounce={cursorClickBounce}
 													cursorClipToBounds={cursorClipToBounds}
+													cursorTheme={cursorTheme}
 													isPreviewingZoom={isPreviewingZoom}
 												/>
 											</div>
@@ -2811,6 +2822,8 @@ export default function VideoEditor() {
 										onCursorClickBounceChange={setCursorClickBounce}
 										cursorClipToBounds={cursorClipToBounds}
 										onCursorClipToBoundsChange={setCursorClipToBounds}
+										cursorTheme={cursorTheme}
+										onCursorThemeChange={setCursorTheme}
 										hasCursorData={
 											cursorTelemetry.length > 0 ||
 											hasNativeCursorRecordingData(cursorRecordingData)

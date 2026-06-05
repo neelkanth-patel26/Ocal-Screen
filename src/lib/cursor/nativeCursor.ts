@@ -16,6 +16,8 @@ import textUrl from "@/assets/cursors/Cursor=Text-Cursor.svg";
 import upArrowUrl from "@/assets/cursors/Cursor=Up-Arrow.svg";
 import waitUrl from "@/assets/cursors/Cursor=Wait.svg";
 import type { CropRegion } from "@/components/video-editor/types";
+import { getAssetPath } from "@/lib/assetPath";
+import { DEFAULT_CURSOR_THEME_ID, getCursorTheme } from "@/lib/cursor/cursorThemes";
 import type {
 	CursorRecordingData,
 	CursorRecordingSample,
@@ -592,11 +594,83 @@ export function resolvePrettyNativeCursorAsset(
 		: resolveUntypedPrettyNativeCursorAsset(asset);
 }
 
+/**
+ * Infers "arrow" vs "pointer" from a captured cursor bitmap's hotspot, for platforms
+ * (notably macOS) that don't tag samples with a `cursorType`. The arrow's hotspot sits
+ * in the top-left tip; the pointing hand's fingertip hotspot sits in the upper-center
+ * band. Anything else (text I-beam, crosshair, resize) is left unclassified so it keeps
+ * its real captured cursor instead of being forced into a themed arrow/pointer.
+ */
+function classifyCapturedCursorType(asset: NativeCursorAsset): NativeCursorType | null {
+	if (asset.width <= 0 || asset.height <= 0) {
+		return null;
+	}
+	const hotspotXNorm = asset.hotspotX / asset.width;
+	const hotspotYNorm = asset.hotspotY / asset.height;
+	if (hotspotXNorm < 0.33 && hotspotYNorm < 0.33) {
+		return "arrow";
+	}
+	if (hotspotYNorm < 0.4 && hotspotXNorm >= 0.33 && hotspotXNorm <= 0.6) {
+		return "pointer";
+	}
+	return null;
+}
+
+/**
+ * Resolves the cursor-theme override for a given type, or null when the default
+ * theme is active or the theme has no art for that type. The bundled asset URL is
+ * resolved lazily (only when a theme is active) so this is safe to call from tests
+ * and non-renderer contexts. A resolution failure degrades to the default art.
+ */
+function resolveThemedCursorAsset(
+	themeId: string | null | undefined,
+	cursorType: NativeCursorType,
+): PrettyNativeCursorAsset | null {
+	if (!themeId || themeId === DEFAULT_CURSOR_THEME_ID) {
+		return null;
+	}
+	const themeAsset = getCursorTheme(themeId)?.assets[cursorType];
+	if (!themeAsset) {
+		return null;
+	}
+	try {
+		return {
+			imageDataUrl: getAssetPath(themeAsset.assetPath),
+			width: themeAsset.width,
+			height: themeAsset.height,
+			hotspotX: themeAsset.hotspotX,
+			hotspotY: themeAsset.hotspotY,
+		};
+	} catch {
+		return null;
+	}
+}
+
 export function resolveNativeCursorRenderAsset(
 	asset: NativeCursorAsset,
 	deviceScaleFactor: number,
 	sample?: CursorRecordingSample,
+	themeId?: string | null,
 ) {
+	const cursorType = sample?.cursorType ?? asset.cursorType ?? null;
+	if (themeId && themeId !== DEFAULT_CURSOR_THEME_ID) {
+		// A known type uses its override when the theme provides one. Untyped samples —
+		// common on macOS, where the cursor type isn't tagged — are classified from the
+		// captured bitmap's hotspot so arrow→themed-arrow and hand→themed-pointer.
+		const themedType = cursorType ?? classifyCapturedCursorType(asset);
+		const themedAsset = themedType ? resolveThemedCursorAsset(themeId, themedType) : null;
+		if (themedAsset && themedType) {
+			return {
+				id: `theme:${themeId}:${themedType}`,
+				imageDataUrl: themedAsset.imageDataUrl,
+				width: themedAsset.width,
+				height: themedAsset.height,
+				hotspotX: themedAsset.hotspotX,
+				hotspotY: themedAsset.hotspotY,
+			};
+		}
+	}
+
 	const prettyAsset = resolvePrettyNativeCursorAsset(asset, sample);
 	if (prettyAsset) {
 		return {

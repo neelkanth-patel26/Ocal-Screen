@@ -207,6 +207,8 @@
 		"errorLoadFailed": "No se pudo cargar la fuente. Por favor verifica que la URL de Google Fonts sea correcta."
 	},
 	"cursor": {
+		"theme": "Estilo del cursor",
+		"themeDefault": "Predeterminado",
 		"show": "Mostrar cursor",
 		"size": "Tamaño",
 		"smoothing": "Suavizado",

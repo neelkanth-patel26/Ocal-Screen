@@ -1,5 +1,6 @@
 import { normalizeTextAnimation } from "@/lib/annotationTextAnimation";
 import { normalizeBlurColor, normalizeBlurType } from "@/lib/blurEffects";
+import { normalizeCursorThemeId } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { normalizeProjectMedia } from "@/lib/recordingSession";
@@ -89,6 +90,7 @@ export interface ProjectEditorState {
 	gifFrameRate: GifFrameRate;
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
+	cursorTheme: string;
 }
 
 export interface EditorProjectData {
@@ -443,6 +445,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 	const cropHeight = clamp(rawCropHeight, 0.01, 1 - cropY);
 
 	return {
+		cursorTheme: normalizeCursorThemeId(editor.cursorTheme),
 		wallpaper:
 			typeof editor.wallpaper === "string"
 				? normalizeWallpaperValue(editor.wallpaper)

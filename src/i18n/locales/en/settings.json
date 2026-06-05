@@ -208,6 +208,8 @@
 		"errorLoadFailed": "The font could not be loaded. Please verify the Google Fonts URL is correct."
 	},
 	"cursor": {
+		"theme": "Cursor Style",
+		"themeDefault": "Default",
 		"show": "Show Cursor",
 		"size": "Size",
 		"smoothing": "Smoothing",

@@ -207,6 +207,8 @@
 		"errorLoadFailed": "フォントを読み込めませんでした。GoogleフォントのURLが正しいことを確認してください。"
 	},
 	"cursor": {
+		"theme": "カーソルのスタイル",
+		"themeDefault": "デフォルト",
 		"show": "カーソルを表示",
 		"size": "サイズ",
 		"smoothing": "スムージング",

@@ -198,6 +198,8 @@
 		"errorLoadFailed": "Yazı tipi yüklenemedi. Lütfen Google Fonts URL'sinin doğruluğunu kontrol edin."
 	},
 	"cursor": {
+		"theme": "İmleç Stili",
+		"themeDefault": "Varsayılan",
 		"show": "İmleci Göster",
 		"size": "Boyut",
 		"smoothing": "Yumuşatma",

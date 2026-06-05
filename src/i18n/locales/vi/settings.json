@@ -198,6 +198,8 @@
 		"errorLoadFailed": "Không thể tải phông chữ. Vui lòng xác minh URL Google Fonts là chính xác."
 	},
 	"cursor": {
+		"theme": "Kiểu con trỏ",
+		"themeDefault": "Mặc định",
 		"show": "Hiện con trỏ",
 		"size": "Kích thước",
 		"smoothing": "Làm mượt",

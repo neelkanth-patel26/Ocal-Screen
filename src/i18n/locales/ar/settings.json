@@ -198,6 +198,8 @@
 		"errorLoadFailed": "تعذر تحميل الخط. يرجى التحقق من صحة رابط خطوط Google."
 	},
 	"cursor": {
+		"theme": "نمط المؤشر",
+		"themeDefault": "افتراضي",
 		"show": "إظهار المؤشر",
 		"size": "الحجم",
 		"smoothing": "التنعيم",

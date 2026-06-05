@@ -94,6 +94,7 @@ interface FrameRenderConfig {
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
 	cursorClipToBounds?: boolean;
+	cursorTheme?: string;
 	videoWidth: number;
 	videoHeight: number;
 	webcamSize?: Size | null;
@@ -584,7 +585,12 @@ export class FrameRenderer {
 			return;
 		}
 
-		const renderAsset = resolveNativeCursorRenderAsset(activeNativeCursor.asset, 1, displaySample);
+		const renderAsset = resolveNativeCursorRenderAsset(
+			activeNativeCursor.asset,
+			1,
+			displaySample,
+			this.config.cursorTheme,
+		);
 		let image: HTMLImageElement;
 		try {
 			image = await this.getCursorImage(renderAsset);

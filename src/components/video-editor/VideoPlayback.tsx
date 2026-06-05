@@ -151,6 +151,7 @@ interface VideoPlaybackProps {
 	cursorMotionBlur?: number;
 	cursorClickBounce?: number;
 	cursorClipToBounds?: boolean;
+	cursorTheme?: string;
 	// When true, render the selected zoom at the playhead even while paused —
 	// lets the editor preview the zoom effect without leaving the focus-edit view.
 	isPreviewingZoom?: boolean;
@@ -276,6 +277,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorMotionBlur = DEFAULT_CURSOR_SETTINGS.motionBlur,
 			cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
 			cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
+			cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
 			isPreviewingZoom = false,
 		},
 		ref,
@@ -348,6 +350,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorMotionBlurRef = useRef(cursorMotionBlur);
 		const cursorClickBounceRef = useRef(cursorClickBounce);
 		const cursorClipToBoundsRef = useRef(cursorClipToBounds);
+		const cursorThemeRef = useRef(cursorTheme);
 		const isPreviewingZoomRef = useRef(isPreviewingZoom);
 		const motionBlurStateRef = useRef<MotionBlurState>(createMotionBlurState());
 		const onTimeUpdateRef = useRef(onTimeUpdate);
@@ -850,6 +853,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		useEffect(() => {
 			cursorClipToBoundsRef.current = cursorClipToBounds;
 		}, [cursorClipToBounds]);
+
+		useEffect(() => {
+			cursorThemeRef.current = cursorTheme;
+		}, [cursorTheme]);
 
 		useEffect(() => {
 			isPreviewingZoomRef.current = isPreviewingZoom;
@@ -1560,7 +1567,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							if (projectedLocalPoint && projectedStagePoint) {
 								// Pass deviceScaleFactor=1 — asset.scaleFactor already encodes DPR.
 								// Size is normalized below so preview matches export proportionally.
-								const renderAsset = resolveNativeCursorRenderAsset(frame.asset, 1, displaySample);
+								const renderAsset = resolveNativeCursorRenderAsset(
+									frame.asset,
+									1,
+									displaySample,
+									cursorThemeRef.current,
+								);
 								const bounceProgress = getNativeCursorClickBounceProgress(
 									cursorRecordingDataRef.current,
 									timeMs,

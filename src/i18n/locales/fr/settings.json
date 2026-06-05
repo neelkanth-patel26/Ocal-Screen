@@ -207,6 +207,8 @@
 		"errorLoadFailed": "La police n'a pas pu être chargée. Vérifiez que l'URL Google Fonts est correcte."
 	},
 	"cursor": {
+		"theme": "Style du curseur",
+		"themeDefault": "Par défaut",
 		"show": "Afficher le curseur",
 		"size": "Taille",
 		"smoothing": "Lissage",

@@ -199,6 +199,8 @@
 		"errorLoadFailed": "無法載入該字體。請確認 Google Fonts URL 是否正確。"
 	},
 	"cursor": {
+		"theme": "游標樣式",
+		"themeDefault": "預設",
 		"show": "顯示游標",
 		"size": "大小",
 		"smoothing": "平滑",

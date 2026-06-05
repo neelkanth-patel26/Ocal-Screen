@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { type ComponentType, useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import defaultCursorPreviewUrl from "@/assets/cursors/Cursor=Default.svg";
 import {
 	Accordion,
 	AccordionContent,
@@ -41,7 +42,9 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useScopedT } from "@/contexts/I18nContext";
+import { getAssetPath } from "@/lib/assetPath";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
+import { CURSOR_THEMES, DEFAULT_CURSOR_THEME_ID } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import {
 	calculateEffectiveSourceDimensions,
@@ -340,6 +343,8 @@ interface SettingsPanelProps {
 	onCursorClickBounceChange?: (bounce: number) => void;
 	cursorClipToBounds?: boolean;
 	onCursorClipToBoundsChange?: (clip: boolean) => void;
+	cursorTheme?: string;
+	onCursorThemeChange?: (theme: string) => void;
 	hasCursorData?: boolean;
 	showCursorSettings?: boolean;
 }
@@ -472,6 +477,8 @@ export function SettingsPanel({
 	onCursorClickBounceChange,
 	cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
 	onCursorClipToBoundsChange,
+	cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
+	onCursorThemeChange,
 	hasCursorData = false,
 	showCursorSettings = true,
 }: SettingsPanelProps) {
@@ -482,6 +489,26 @@ export function SettingsPanel({
 	// `/wallpapers/wallpaperN.jpg` form in WALLPAPER_PATHS is what gets persisted
 	// on click — never the machine-specific file:// URL.
 	const wallpaperPreviewUrls = useMemo(() => WALLPAPER_PATHS.map(resolveImageWallpaperUrl), []);
+	// "Default" (built-in art) plus each bundled cursor theme. Preview thumbnails use
+	// the theme's arrow asset; the persisted/selected value is the theme id.
+	const cursorThemeOptions = useMemo(
+		() => [
+			{
+				id: DEFAULT_CURSOR_THEME_ID,
+				name: t("cursor.themeDefault"),
+				previewUrl: defaultCursorPreviewUrl,
+			},
+			...CURSOR_THEMES.map((theme) => {
+				const previewPath = (theme.assets.arrow ?? theme.assets.pointer)?.assetPath;
+				return {
+					id: theme.id,
+					name: theme.name,
+					previewUrl: previewPath ? getAssetPath(previewPath) : defaultCursorPreviewUrl,
+				};
+			}),
+		],
+		[t],
+	);
 	const [customImages, setCustomImages] = useState<string[]>([]);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const colorPalette = [
@@ -1525,6 +1552,41 @@ export function SettingsPanel({
 																aria-label={t("cursor.clipToBounds")}
 															/>
 														</div>
+														{cursorThemeOptions.length > 1 && (
+															<div className="space-y-1.5">
+																<div className="text-[10px] font-medium text-slate-300">
+																	{t("cursor.theme")}
+																</div>
+																<div className="flex flex-wrap gap-1.5">
+																	{cursorThemeOptions.map((option) => {
+																		const isSelected = cursorTheme === option.id;
+																		return (
+																			<button
+																				type="button"
+																				key={option.id}
+																				title={option.name}
+																				aria-label={option.name}
+																				aria-pressed={isSelected}
+																				onClick={() => onCursorThemeChange?.(option.id)}
+																				className={cn(
+																					"flex items-center justify-center w-8 h-8 rounded-lg border overflow-hidden transition-all duration-150 shadow-sm bg-white/5",
+																					isSelected
+																						? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
+																						: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100",
+																				)}
+																			>
+																				<img
+																					src={option.previewUrl}
+																					alt=""
+																					className="w-5 h-5 object-contain"
+																					draggable={false}
+																				/>
+																			</button>
+																		);
+																	})}
+																</div>
+															</div>
+														)}
 														<div className="grid grid-cols-2 gap-2">
 															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
 																<div className="flex items-center justify-between mb-1">

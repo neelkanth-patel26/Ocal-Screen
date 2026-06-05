@@ -198,6 +198,8 @@
 		"errorLoadFailed": "无法加载该字体。请确认 Google Fonts URL 是否正确。"
 	},
 	"cursor": {
+		"theme": "光标样式",
+		"themeDefault": "默认",
 		"show": "显示光标",
 		"size": "大小",
 		"smoothing": "平滑",
