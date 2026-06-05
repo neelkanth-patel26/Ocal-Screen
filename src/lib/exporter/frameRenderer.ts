@@ -28,8 +28,6 @@ import {
 	AUTO_FOLLOW_SMOOTHING_FACTOR,
 	AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
 	DEFAULT_FOCUS,
-	ZOOM_SCALE_DEADZONE,
-	ZOOM_TRANSLATION_DEADZONE_PX,
 } from "@/components/video-editor/videoPlayback/constants";
 import {
 	adaptiveSmoothFactor,
@@ -37,6 +35,11 @@ import {
 } from "@/components/video-editor/videoPlayback/cursorFollowUtils";
 import { clampFocusToScale } from "@/components/video-editor/videoPlayback/focusUtils";
 import { findDominantRegion } from "@/components/video-editor/videoPlayback/zoomRegionUtils";
+import {
+	createZoomSpringState,
+	resetZoomSpring,
+	stepZoomSpring,
+} from "@/components/video-editor/videoPlayback/zoomSpring";
 import {
 	applyZoomTransform,
 	computeFocusFromTransform,
@@ -163,6 +166,7 @@ export class FrameRenderer {
 	private nativeCursorMotionBlurState = createNativeCursorMotionBlurState();
 	private smoothedAutoFocus: { cx: number; cy: number } | null = null;
 	private prevAnimationTimeMs: number | null = null;
+	private zoomSpringState = createZoomSpringState();
 	private prevTargetProgress = 0;
 	private isLinux = false;
 
@@ -903,18 +907,24 @@ export class FrameRenderer {
 			focusY: state.focusY,
 		});
 
-		const appliedScale =
-			Math.abs(projectedTransform.scale - prevScale) < ZOOM_SCALE_DEADZONE
-				? projectedTransform.scale
-				: projectedTransform.scale;
-		const appliedX =
-			Math.abs(projectedTransform.x - prevX) < ZOOM_TRANSLATION_DEADZONE_PX
-				? projectedTransform.x
-				: projectedTransform.x;
-		const appliedY =
-			Math.abs(projectedTransform.y - prevY) < ZOOM_TRANSLATION_DEADZONE_PX
-				? projectedTransform.y
-				: projectedTransform.y;
+		// Spring-chase the eased target (same as preview) so exported motion glides without the
+		// jerk at the steep start of the ease. Stepped by content time; snapped on the first frame
+		// or any large time jump.
+		const dtMs = this.prevAnimationTimeMs != null ? timeMs - this.prevAnimationTimeMs : 0;
+		let appliedScale: number;
+		let appliedX: number;
+		let appliedY: number;
+		if (this.prevAnimationTimeMs == null || dtMs <= 0 || dtMs > 80) {
+			resetZoomSpring(this.zoomSpringState, projectedTransform);
+			appliedScale = projectedTransform.scale;
+			appliedX = projectedTransform.x;
+			appliedY = projectedTransform.y;
+		} else {
+			const sprung = stepZoomSpring(this.zoomSpringState, projectedTransform, dtMs);
+			appliedScale = sprung.scale;
+			appliedX = sprung.x;
+			appliedY = sprung.y;
+		}
 
 		state.x = appliedX;
 		state.y = appliedY;

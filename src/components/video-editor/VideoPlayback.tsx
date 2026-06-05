@@ -74,8 +74,6 @@ import {
 	AUTO_FOLLOW_SMOOTHING_FACTOR,
 	AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
 	DEFAULT_FOCUS,
-	ZOOM_SCALE_DEADZONE,
-	ZOOM_TRANSLATION_DEADZONE_PX,
 } from "./videoPlayback/constants";
 import { adaptiveSmoothFactor, smoothCursorFocus } from "./videoPlayback/cursorFollowUtils";
 import {
@@ -89,6 +87,7 @@ import { clamp01 } from "./videoPlayback/mathUtils";
 import { updateOverlayIndicator } from "./videoPlayback/overlayUtils";
 import { createVideoEventHandlers } from "./videoPlayback/videoEventHandlers";
 import { findDominantRegion } from "./videoPlayback/zoomRegionUtils";
+import { createZoomSpringState, resetZoomSpring, stepZoomSpring } from "./videoPlayback/zoomSpring";
 import {
 	applyZoomTransform,
 	computeFocusFromTransform,
@@ -322,6 +321,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			y: 0,
 			appliedScale: 1,
 		});
+		// Spring that chases the eased zoom target so the camera glides instead of jerking.
+		const zoomSpringRef = useRef(createZoomSpringState());
+		const prevZoomTimeMsRef = useRef<number | null>(null);
 		const blurFilterRef = useRef<BlurFilter | null>(null);
 		const motionBlurFilterRef = useRef<MotionBlurFilter | null>(null);
 		const isDraggingFocusRef = useRef(false);
@@ -1485,18 +1487,29 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					focusY: state.focusY,
 				});
 
-				const appliedScale =
-					Math.abs(projectedTransform.scale - prevScale) < ZOOM_SCALE_DEADZONE
-						? projectedTransform.scale
-						: projectedTransform.scale;
-				const appliedX =
-					Math.abs(projectedTransform.x - prevX) < ZOOM_TRANSLATION_DEADZONE_PX
-						? projectedTransform.x
-						: projectedTransform.x;
-				const appliedY =
-					Math.abs(projectedTransform.y - prevY) < ZOOM_TRANSLATION_DEADZONE_PX
-						? projectedTransform.y
-						: projectedTransform.y;
+				// Chase the eased target with a spring so the camera glides (no jerk at the steep
+				// start of the ease, no snap at close-region seams). Step by content time while
+				// playing; snap to the deterministic target when paused/seeking/scrubbing so those
+				// frames are crisp and exact.
+				const nowMs = currentTimeRef.current;
+				const prevMs = prevZoomTimeMsRef.current;
+				const animating = isPlayingRef.current && !isSeekingRef.current && !isScrubbingRef.current;
+				const dtMs = prevMs === null ? 0 : nowMs - prevMs;
+				let appliedScale: number;
+				let appliedX: number;
+				let appliedY: number;
+				if (!animating || prevMs === null || dtMs <= 0 || dtMs > 80) {
+					resetZoomSpring(zoomSpringRef.current, projectedTransform);
+					appliedScale = projectedTransform.scale;
+					appliedX = projectedTransform.x;
+					appliedY = projectedTransform.y;
+				} else {
+					const sprung = stepZoomSpring(zoomSpringRef.current, projectedTransform, dtMs);
+					appliedScale = sprung.scale;
+					appliedX = sprung.x;
+					appliedY = sprung.y;
+				}
+				prevZoomTimeMsRef.current = nowMs;
 
 				const motionIntensity = Math.max(
 					Math.abs(appliedScale - prevScale),
