@@ -46,7 +46,9 @@
 		"webcamShape": "摄像头形状",
 		"webcamSize": "摄像头大小",
 		"noWebcam": "无摄像头",
-		"mirrorWebcam": "镜像摄像头"
+		"mirrorWebcam": "镜像摄像头",
+		"reactiveWebcam": "缩放时缩小",
+		"reactiveWebcamDescription": "放大视频时摄像头会平滑缩小，以免遮挡内容。"
 	},
 	"effects": {
 		"title": "视频效果",

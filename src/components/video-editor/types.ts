@@ -16,6 +16,9 @@ export const DEFAULT_WEBCAM_MASK_SHAPE: WebcamMaskShape = "rectangle";
 
 export const DEFAULT_WEBCAM_MIRRORED = false;
 
+/** When true, the picture-in-picture webcam scales inversely with zoom (shrinks as you zoom in). */
+export const DEFAULT_WEBCAM_REACTIVE_ZOOM = true;
+
 export interface WebcamPosition {
 	cx: number; // normalized horizontal center (0-1)
 	cy: number; // normalized vertical center (0-1)

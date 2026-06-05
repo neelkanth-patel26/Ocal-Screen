@@ -46,7 +46,9 @@
 		"dualFrame": "Çift Kare",
 		"webcamSize": "Webcam Boyutu",
 		"noWebcam": "Web kamerası yok",
-		"mirrorWebcam": "Web kamerasını aynala"
+		"mirrorWebcam": "Web kamerasını aynala",
+		"reactiveWebcam": "Yakınlaştırınca küçült",
+		"reactiveWebcamDescription": "Video yakınlaştırıldığında kamera yumuşakça küçülür, böylece yoldan çekilir."
 	},
 	"effects": {
 		"title": "Video Efektleri",

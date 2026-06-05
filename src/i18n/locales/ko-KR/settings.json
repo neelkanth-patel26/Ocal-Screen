@@ -46,7 +46,9 @@
 		"webcamSize": "웹캠 크기",
 		"dualFrame": "듀얼 프레임",
 		"noWebcam": "웹캠 없음",
-		"mirrorWebcam": "웹캠 미러링"
+		"mirrorWebcam": "웹캠 미러링",
+		"reactiveWebcam": "확대 시 축소",
+		"reactiveWebcamDescription": "확대하는 동안 카메라가 부드럽게 작아져 방해되지 않습니다."
 	},
 	"effects": {
 		"title": "비디오 효과",

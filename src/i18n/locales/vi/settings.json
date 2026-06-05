@@ -46,7 +46,9 @@
 		"webcamShape": "Hình dạng máy ảnh",
 		"webcamSize": "Kích thước Webcam",
 		"noWebcam": "Không có webcam",
-		"mirrorWebcam": "Lật webcam"
+		"mirrorWebcam": "Lật webcam",
+		"reactiveWebcam": "Thu nhỏ khi phóng to",
+		"reactiveWebcamDescription": "Camera thu nhỏ mượt mà khi video được phóng to, để không che khuất."
 	},
 	"effects": {
 		"title": "Hiệu ứng video",

@@ -46,7 +46,9 @@
 		"noWebcam": "Nessuna webcam",
 		"webcamShape": "Forma fotocamera",
 		"webcamSize": "Dimensione webcam",
-		"mirrorWebcam": "Specchia webcam"
+		"mirrorWebcam": "Specchia webcam",
+		"reactiveWebcam": "Riduci con lo zoom",
+		"reactiveWebcamDescription": "La webcam si riduce dolcemente durante lo zoom, così non intralcia."
 	},
 	"effects": {
 		"title": "Effetti video",

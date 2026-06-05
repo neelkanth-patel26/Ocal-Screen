@@ -47,6 +47,7 @@ import {
 import {
 	computeCompositeLayout,
 	getWebcamLayoutPresetDefinition,
+	reactiveWebcamScale,
 	type Size,
 	type StyledRenderRect,
 } from "@/lib/compositeLayout";
@@ -101,6 +102,7 @@ interface FrameRenderConfig {
 	webcamLayoutPreset?: WebcamLayoutPreset;
 	webcamMaskShape?: import("@/components/video-editor/types").WebcamMaskShape;
 	webcamMirrored?: boolean;
+	webcamReactiveZoom?: boolean;
 	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	annotationRegions?: AnnotationRegion[];
@@ -1042,6 +1044,26 @@ export class FrameRenderer {
 		if (webcamFrame && webcamRect) {
 			const preset = getWebcamLayoutPresetDefinition(this.config.webcamLayoutPreset);
 			const shape = webcamRect.maskShape ?? this.config.webcamMaskShape ?? "rectangle";
+			// Reactive camera sizing: scale the PiP webcam inversely with the eased zoom. Anchor the
+			// shrink to the corner the camera is docked in (bottom-right by default), matching the
+			// preview, so it stays flush against the edges instead of drifting toward center.
+			const reactiveFactor =
+				this.config.webcamReactiveZoom && this.config.webcamLayoutPreset === "picture-in-picture"
+					? reactiveWebcamScale(this.animationState.appliedScale)
+					: 1;
+			const camPos = this.config.webcamPosition;
+			const biasX = (camPos ? camPos.cx >= 0.5 : true) ? 1 : 0;
+			const biasY = (camPos ? camPos.cy >= 0.5 : true) ? 1 : 0;
+			const drawRect =
+				reactiveFactor < 1
+					? {
+							width: webcamRect.width * reactiveFactor,
+							height: webcamRect.height * reactiveFactor,
+							x: webcamRect.x + webcamRect.width * (1 - reactiveFactor) * biasX,
+							y: webcamRect.y + webcamRect.height * (1 - reactiveFactor) * biasY,
+							borderRadius: webcamRect.borderRadius * reactiveFactor,
+						}
+					: webcamRect;
 			const sourceWidth =
 				("displayWidth" in webcamFrame && webcamFrame.displayWidth > 0
 					? webcamFrame.displayWidth
@@ -1061,12 +1083,12 @@ export class FrameRenderer {
 			fgCtx.save();
 			drawCanvasClipPath(
 				fgCtx,
-				webcamRect.x,
-				webcamRect.y,
-				webcamRect.width,
-				webcamRect.height,
+				drawRect.x,
+				drawRect.y,
+				drawRect.width,
+				drawRect.height,
 				shape,
-				webcamRect.borderRadius,
+				drawRect.borderRadius,
 			);
 			if (preset.shadow) {
 				fgCtx.shadowColor = preset.shadow.color;
@@ -1087,10 +1109,10 @@ export class FrameRenderer {
 					height: sourceCropHeight,
 				},
 				{
-					x: webcamRect.x,
-					y: webcamRect.y,
-					width: webcamRect.width,
-					height: webcamRect.height,
+					x: drawRect.x,
+					y: drawRect.y,
+					width: drawRect.width,
+					height: drawRect.height,
 				},
 				this.config.webcamMirrored,
 			);

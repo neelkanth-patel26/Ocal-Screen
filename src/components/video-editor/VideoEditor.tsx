@@ -206,6 +206,7 @@ export default function VideoEditor() {
 		webcamLayoutPreset,
 		webcamMaskShape,
 		webcamMirrored,
+		webcamReactiveZoom,
 		webcamSizePreset,
 		webcamPosition,
 	} = editorState;
@@ -416,6 +417,7 @@ export default function VideoEditor() {
 				webcamLayoutPreset: normalizedEditor.webcamLayoutPreset,
 				webcamMaskShape: normalizedEditor.webcamMaskShape,
 				webcamMirrored: normalizedEditor.webcamMirrored,
+				webcamReactiveZoom: normalizedEditor.webcamReactiveZoom,
 				webcamSizePreset: normalizedEditor.webcamSizePreset,
 				webcamPosition: normalizedEditor.webcamPosition,
 			});
@@ -492,6 +494,7 @@ export default function VideoEditor() {
 			webcamLayoutPreset,
 			webcamMaskShape,
 			webcamMirrored,
+			webcamReactiveZoom,
 			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
@@ -522,6 +525,7 @@ export default function VideoEditor() {
 		webcamLayoutPreset,
 		webcamMaskShape,
 		webcamMirrored,
+		webcamReactiveZoom,
 		webcamSizePreset,
 		webcamPosition,
 		exportQuality,
@@ -650,6 +654,7 @@ export default function VideoEditor() {
 				webcamLayoutPreset,
 				webcamMaskShape,
 				webcamMirrored,
+				webcamReactiveZoom,
 				webcamSizePreset,
 				webcamPosition,
 				exportQuality,
@@ -714,6 +719,7 @@ export default function VideoEditor() {
 			webcamLayoutPreset,
 			webcamMaskShape,
 			webcamMirrored,
+			webcamReactiveZoom,
 			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
@@ -1911,6 +1917,7 @@ export default function VideoEditor() {
 						webcamLayoutPreset,
 						webcamMaskShape,
 						webcamMirrored,
+						webcamReactiveZoom,
 						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
@@ -2004,6 +2011,7 @@ export default function VideoEditor() {
 						webcamLayoutPreset,
 						webcamMaskShape,
 						webcamMirrored,
+						webcamReactiveZoom,
 						webcamSizePreset,
 						webcamPosition,
 						previewWidth,
@@ -2106,6 +2114,7 @@ export default function VideoEditor() {
 			webcamLayoutPreset,
 			webcamMaskShape,
 			webcamMirrored,
+			webcamReactiveZoom,
 			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
@@ -2592,6 +2601,7 @@ export default function VideoEditor() {
 													webcamLayoutPreset={webcamLayoutPreset}
 													webcamMaskShape={webcamMaskShape}
 													webcamMirrored={webcamMirrored}
+													webcamReactiveZoom={webcamReactiveZoom}
 													webcamSizePreset={webcamSizePreset}
 													webcamPosition={webcamPosition}
 													onWebcamPositionChange={(pos) => updateState({ webcamPosition: pos })}
@@ -2738,7 +2748,11 @@ export default function VideoEditor() {
 										webcamMaskShape={webcamMaskShape}
 										onWebcamMaskShapeChange={(shape) => pushState({ webcamMaskShape: shape })}
 										webcamMirrored={webcamMirrored}
+										webcamReactiveZoom={webcamReactiveZoom}
 										onWebcamMirroredChange={(mirrored) => pushState({ webcamMirrored: mirrored })}
+										onWebcamReactiveZoomChange={(reactive) =>
+											pushState({ webcamReactiveZoom: reactive })
+										}
 										webcamSizePreset={webcamSizePreset}
 										onWebcamSizePresetChange={(v) => updateState({ webcamSizePreset: v })}
 										onWebcamSizePresetCommit={commitState}

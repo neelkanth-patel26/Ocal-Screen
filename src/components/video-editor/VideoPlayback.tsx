@@ -20,6 +20,7 @@ import {
 } from "react";
 import {
 	getWebcamLayoutCssBoxShadow,
+	reactiveWebcamScale,
 	type Size,
 	type StyledRenderRect,
 	type WebcamLayoutPreset,
@@ -104,6 +105,7 @@ interface VideoPlaybackProps {
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
 	webcamMirrored?: boolean;
+	webcamReactiveZoom?: boolean;
 	webcamSizePreset?: WebcamSizePreset;
 	webcamPosition?: { cx: number; cy: number } | null;
 	onWebcamPositionChange?: (position: { cx: number; cy: number }) => void;
@@ -230,6 +232,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			webcamLayoutPreset,
 			webcamMaskShape,
 			webcamMirrored = false,
+			webcamReactiveZoom = false,
 			webcamSizePreset,
 			webcamPosition,
 			onWebcamPositionChange,
@@ -285,6 +288,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const videoRef = useRef<HTMLVideoElement | null>(null);
 		const supplementalAudioRef = useRef<HTMLAudioElement | null>(null);
 		const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
+		const webcamWrapperRef = useRef<HTMLDivElement | null>(null);
+		const webcamReactiveZoomRef = useRef(webcamReactiveZoom);
+		const webcamLayoutPresetRef = useRef(webcamLayoutPreset);
+		const webcamPositionRef = useRef(webcamPosition);
 		const containerRef = useRef<HTMLDivElement | null>(null);
 		const appRef = useRef<Application | null>(null);
 		const videoSpriteRef = useRef<Sprite | null>(null);
@@ -859,6 +866,20 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [cursorTheme]);
 
 		useEffect(() => {
+			webcamReactiveZoomRef.current = webcamReactiveZoom;
+			webcamLayoutPresetRef.current = webcamLayoutPreset;
+			webcamPositionRef.current = webcamPosition;
+			// Clear any reactive transform the moment the effect is turned off or layout changes,
+			// so a stale shrink doesn't linger when the ticker isn't actively updating it.
+			if (
+				webcamWrapperRef.current &&
+				(!webcamReactiveZoom || webcamLayoutPreset !== "picture-in-picture")
+			) {
+				webcamWrapperRef.current.style.transform = "";
+			}
+		}, [webcamReactiveZoom, webcamLayoutPreset, webcamPosition]);
+
+		useEffect(() => {
 			isPreviewingZoomRef.current = isPreviewingZoom;
 		}, [isPreviewingZoom]);
 
@@ -1316,6 +1337,25 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				state.x = appliedTransform.x;
 				state.y = appliedTransform.y;
 				state.appliedScale = appliedTransform.scale;
+
+				// Reactive camera sizing: scale the PiP webcam inversely with the (already eased) zoom.
+				// Anchor the shrink to the corner the camera is docked in (bottom-right by default)
+				// so it stays flush against the edges instead of drifting toward center.
+				const webcamWrapper = webcamWrapperRef.current;
+				if (webcamWrapper) {
+					const reactive =
+						webcamReactiveZoomRef.current && webcamLayoutPresetRef.current === "picture-in-picture";
+					const factor = reactive ? reactiveWebcamScale(state.appliedScale) : 1;
+					if (factor < 1) {
+						const pos = webcamPositionRef.current;
+						const originX = (pos ? pos.cx >= 0.5 : true) ? "100%" : "0%";
+						const originY = (pos ? pos.cy >= 0.5 : true) ? "100%" : "0%";
+						webcamWrapper.style.transformOrigin = `${originX} ${originY}`;
+						webcamWrapper.style.transform = `scale(${factor})`;
+					} else {
+						webcamWrapper.style.transform = "";
+					}
+				}
 			};
 
 			let lastMotionBlurActive: boolean | null = null;
@@ -1900,6 +1940,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							const useClipPath = !!clipPath;
 							return (
 								<div
+									ref={webcamWrapperRef}
 									className="absolute"
 									style={{
 										left: webcamLayout?.x ?? 0,

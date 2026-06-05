@@ -46,7 +46,9 @@
 		"webcamShape": "شكل الكاميرا",
 		"webcamSize": "حجم كاميرا الويب",
 		"noWebcam": "بدون كاميرا",
-		"mirrorWebcam": "عكس كاميرا الويب"
+		"mirrorWebcam": "عكس كاميرا الويب",
+		"reactiveWebcam": "تصغير عند التكبير",
+		"reactiveWebcamDescription": "تتقلص الكاميرا بسلاسة أثناء تكبير الفيديو حتى لا تعيق الرؤية."
 	},
 	"effects": {
 		"title": "تأثيرات الفيديو",

@@ -46,7 +46,9 @@
 		"webcamShape": "カメラの形状",
 		"webcamSize": "カメラのサイズ",
 		"noWebcam": "Webカメラなし",
-		"mirrorWebcam": "Webカメラを反転"
+		"mirrorWebcam": "Webカメラを反転",
+		"reactiveWebcam": "ズーム時に縮小",
+		"reactiveWebcamDescription": "ズーム中はカメラがスムーズに縮小し、邪魔になりません。"
 	},
 	"effects": {
 		"title": "動画効果",

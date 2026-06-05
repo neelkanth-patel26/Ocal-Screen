@@ -44,7 +44,9 @@
 		"dualFrame": "Quadro Duplo",
 		"noWebcam": "Sem Webcam",
 		"webcamShape": "Formato da Câmera",
-		"webcamSize": "Tamanho da Webcam"
+		"webcamSize": "Tamanho da Webcam",
+		"reactiveWebcam": "Encolher ao ampliar",
+		"reactiveWebcamDescription": "A câmera diminui suavemente enquanto o vídeo está ampliado, para não atrapalhar."
 	},
 	"effects": {
 		"title": "Efeitos de Vídeo",

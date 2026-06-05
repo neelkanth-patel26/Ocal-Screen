@@ -46,7 +46,9 @@
 		"webcamShape": "Forme de la caméra",
 		"webcamSize": "Taille de la caméra",
 		"noWebcam": "Sans webcam",
-		"mirrorWebcam": "Inverser la webcam"
+		"mirrorWebcam": "Inverser la webcam",
+		"reactiveWebcam": "Réduire au zoom",
+		"reactiveWebcamDescription": "La caméra rétrécit doucement pendant le zoom, pour ne pas gêner."
 	},
 	"effects": {
 		"title": "Effets vidéo",

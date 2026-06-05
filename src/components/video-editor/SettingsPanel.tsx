@@ -88,6 +88,7 @@ import type {
 } from "./types";
 import {
 	DEFAULT_WEBCAM_MIRRORED,
+	DEFAULT_WEBCAM_REACTIVE_ZOOM,
 	MAX_ZOOM_SCALE,
 	MIN_ZOOM_SCALE,
 	ROTATION_3D_PRESET_ORDER,
@@ -327,6 +328,8 @@ interface SettingsPanelProps {
 	onWebcamMaskShapeChange?: (shape: import("./types").WebcamMaskShape) => void;
 	webcamMirrored?: boolean;
 	onWebcamMirroredChange?: (mirrored: boolean) => void;
+	webcamReactiveZoom?: boolean;
+	onWebcamReactiveZoomChange?: (reactive: boolean) => void;
 	webcamSizePreset?: WebcamSizePreset;
 	onWebcamSizePresetChange?: (size: WebcamSizePreset) => void;
 	onWebcamSizePresetCommit?: () => void;
@@ -461,6 +464,8 @@ export function SettingsPanel({
 	onWebcamMaskShapeChange,
 	webcamMirrored = DEFAULT_WEBCAM_MIRRORED,
 	onWebcamMirroredChange,
+	webcamReactiveZoom = DEFAULT_WEBCAM_REACTIVE_ZOOM,
+	onWebcamReactiveZoomChange,
 	webcamSizePreset = DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	onWebcamSizePresetChange,
 	onWebcamSizePresetCommit,
@@ -1292,6 +1297,31 @@ export function SettingsPanel({
 													onCheckedChange={onWebcamMirroredChange}
 													className="data-[state=checked]:bg-[#34B27B] scale-90"
 													aria-label={t("layout.mirrorWebcam")}
+												/>
+											</div>
+										)}
+										{webcamLayoutPreset === "picture-in-picture" && (
+											<div className="mt-2 flex items-center justify-between p-2 rounded-lg editor-control-surface">
+												<div className="flex items-center gap-1 text-[10px] font-medium text-slate-300">
+													<span>{t("layout.reactiveWebcam")}</span>
+													<Tooltip
+														content={t("layout.reactiveWebcamDescription")}
+														className="max-w-[220px] leading-snug whitespace-normal"
+													>
+														<button
+															type="button"
+															className="text-slate-400 transition-colors hover:text-slate-200"
+															aria-label={t("layout.reactiveWebcamDescription")}
+														>
+															<Info size={11} />
+														</button>
+													</Tooltip>
+												</div>
+												<Switch
+													checked={webcamReactiveZoom}
+													onCheckedChange={onWebcamReactiveZoomChange}
+													className="data-[state=checked]:bg-[#34B27B] scale-90"
+													aria-label={t("layout.reactiveWebcam")}
 												/>
 											</div>
 										)}

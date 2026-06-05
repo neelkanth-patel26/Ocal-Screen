@@ -5,6 +5,21 @@ export interface RenderRect {
 	height: number;
 }
 
+/** Floor for the reactive webcam multiplier so the camera never shrinks below ~35% at deep zoom. */
+export const WEBCAM_REACTIVE_ZOOM_MIN_SCALE = 0.35;
+
+/**
+ * Maps the live (spring-animated) zoom scale to a webcam size multiplier. The camera scales
+ * inversely to the zoom — at 2× zoom it's half size, at 3× a third — so it stays out of the way
+ * as you zoom into content, then returns to full size as the zoom eases back. Clamped to a floor
+ * so it never disappears. Because `appliedScale` is already eased every frame, the camera animates
+ * in sync with the zoom for free.
+ */
+export function reactiveWebcamScale(zoomScale: number): number {
+	const safe = Number.isFinite(zoomScale) && zoomScale > 0 ? zoomScale : 1;
+	return Math.max(WEBCAM_REACTIVE_ZOOM_MIN_SCALE, Math.min(1, 1 / safe));
+}
+
 export interface StyledRenderRect extends RenderRect {
 	borderRadius: number;
 	maskShape?: import("@/components/video-editor/types").WebcamMaskShape;
