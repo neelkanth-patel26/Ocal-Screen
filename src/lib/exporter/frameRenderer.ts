@@ -51,18 +51,16 @@ import {
 	type Size,
 	type StyledRenderRect,
 } from "@/lib/compositeLayout";
+import { getSmoothedCursorPath } from "@/lib/cursor/cursorPathSmoothing";
 import {
 	createNativeCursorMotionBlurState,
-	createNativeCursorSmoothingState,
 	getNativeCursorClickBounceProgress,
 	getNativeCursorClickBounceScale,
 	getNativeCursorMotionBlurPx,
 	projectNativeCursorToLocal,
 	resetNativeCursorMotionBlurState,
-	resetNativeCursorSmoothingState,
 	resolveInterpolatedNativeCursorFrame,
 	resolveNativeCursorRenderAsset,
-	smoothNativeCursorSample,
 } from "@/lib/cursor/nativeCursor";
 import { BackgroundLoadError, classifyWallpaper, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { drawCanvasClipPath } from "@/lib/webcamMaskShapes";
@@ -162,7 +160,6 @@ export class FrameRenderer {
 	private layoutCache: LayoutCache | null = null;
 	private currentVideoTime = 0;
 	private motionBlurState: MotionBlurState = createMotionBlurState();
-	private nativeCursorSmoothingState = createNativeCursorSmoothingState();
 	private nativeCursorMotionBlurState = createNativeCursorMotionBlurState();
 	private smoothedAutoFocus: { cx: number; cy: number } | null = null;
 	private prevAnimationTimeMs: number | null = null;
@@ -555,7 +552,6 @@ export class FrameRenderer {
 		}
 
 		if ((this.config.cursorScale ?? 1) <= 0) {
-			resetNativeCursorSmoothingState(this.nativeCursorSmoothingState);
 			resetNativeCursorMotionBlurState(this.nativeCursorMotionBlurState);
 			return;
 		}
@@ -565,16 +561,18 @@ export class FrameRenderer {
 			timeMs,
 		);
 		if (!activeNativeCursor) {
-			resetNativeCursorSmoothingState(this.nativeCursorSmoothingState);
 			resetNativeCursorMotionBlurState(this.nativeCursorMotionBlurState);
 			return;
 		}
-		const displaySample = smoothNativeCursorSample({
-			sample: activeNativeCursor.sample,
-			smoothing: this.config.cursorSmoothing ?? 0,
-			state: this.nativeCursorSmoothingState,
-			timeMs,
-		});
+		// Position comes from the precomputed offline-smoothed path (deterministic, matches preview);
+		// the frame still supplies the cursor image, type, and click timing.
+		const smoothedPos = getSmoothedCursorPath(
+			this.config.cursorRecordingData,
+			this.config.cursorSmoothing ?? 0,
+		)?.sampleAt(timeMs);
+		const displaySample = smoothedPos
+			? { ...activeNativeCursor.sample, cx: smoothedPos.cx, cy: smoothedPos.cy }
+			: activeNativeCursor.sample;
 
 		const projectedPoint = projectNativeCursorToLocal({
 			cropRegion: this.config.cropRegion,
@@ -582,7 +580,6 @@ export class FrameRenderer {
 			sample: displaySample,
 		});
 		if (!projectedPoint) {
-			resetNativeCursorSmoothingState(this.nativeCursorSmoothingState);
 			resetNativeCursorMotionBlurState(this.nativeCursorMotionBlurState);
 			return;
 		}

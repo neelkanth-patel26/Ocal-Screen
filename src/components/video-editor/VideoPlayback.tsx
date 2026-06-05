@@ -26,9 +26,9 @@ import {
 	type WebcamLayoutPreset,
 	type WebcamSizePreset,
 } from "@/lib/compositeLayout";
+import { getSmoothedCursorPath } from "@/lib/cursor/cursorPathSmoothing";
 import {
 	createNativeCursorMotionBlurState,
-	createNativeCursorSmoothingState,
 	getNativeCursorClickBounceProgress,
 	getNativeCursorClickBounceScale,
 	getNativeCursorMotionBlurPx,
@@ -36,10 +36,8 @@ import {
 	projectNativeCursorToLocal,
 	projectNativeCursorToStage,
 	resetNativeCursorMotionBlurState,
-	resetNativeCursorSmoothingState,
 	resolveInterpolatedNativeCursorFrame,
 	resolveNativeCursorRenderAsset,
-	smoothNativeCursorSample,
 } from "@/lib/cursor/nativeCursor";
 import { classifyWallpaper, DEFAULT_WALLPAPER, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { getCssClipPath } from "@/lib/webcamMaskShapes";
@@ -375,7 +373,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const nativeCursorTextureIdRef = useRef<string | null>(null);
 		const nativeCursorImageRef = useRef<HTMLImageElement | null>(null);
 		const nativeCursorImageIdRef = useRef<string | null>(null);
-		const nativeCursorSmoothingStateRef = useRef(createNativeCursorSmoothingState());
 		const nativeCursorMotionBlurStateRef = useRef(createNativeCursorMotionBlurState());
 		const nativeCursorClipRef = useRef<HTMLDivElement | null>(null);
 		const borderRadiusRef = useRef<number>(0);
@@ -833,7 +830,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		useEffect(() => {
 			cursorRecordingDataRef.current = cursorRecordingData;
-			resetNativeCursorSmoothingState(nativeCursorSmoothingStateRef.current);
 			resetNativeCursorMotionBlurState(nativeCursorMotionBlurStateRef.current);
 		}, [cursorRecordingData]);
 
@@ -1565,7 +1561,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					if (nativeCursorClipRef.current) {
 						nativeCursorClipRef.current.style.clipPath = "";
 					}
-					resetNativeCursorSmoothingState(nativeCursorSmoothingStateRef.current);
 					resetNativeCursorMotionBlurState(nativeCursorMotionBlurStateRef.current);
 				};
 				if (nativeCursorImage) {
@@ -1576,13 +1571,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							timeMs,
 						);
 						if (frame) {
-							const displaySample = smoothNativeCursorSample({
-								forceSnap: !isPlayingRef.current || isSeekingRef.current,
-								sample: frame.sample,
-								smoothing: cursorSmoothingRef.current,
-								state: nativeCursorSmoothingStateRef.current,
-								timeMs,
-							});
+							// Position comes from the precomputed offline-smoothed path; the frame still
+							// supplies the cursor image, type, and click timing.
+							const smoothedPos = getSmoothedCursorPath(
+								cursorRecordingDataRef.current,
+								cursorSmoothingRef.current,
+							)?.sampleAt(timeMs);
+							const displaySample = smoothedPos
+								? { ...frame.sample, cx: smoothedPos.cx, cy: smoothedPos.cy }
+								: frame.sample;
 							const cameraContainer = cameraContainerRef.current;
 							const videoContainer = videoContainerRef.current;
 							const cropRegionValue = cropRegionRef.current ?? { x: 0, y: 0, width: 1, height: 1 };

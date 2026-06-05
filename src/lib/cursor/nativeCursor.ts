@@ -30,13 +30,6 @@ export interface ActiveNativeCursorFrame {
 	sample: CursorRecordingSample;
 }
 
-export interface NativeCursorSmoothingState {
-	cx: number;
-	cy: number;
-	lastTimeMs: number | null;
-	initialized: boolean;
-}
-
 export interface NativeCursorMotionBlurState {
 	x: number;
 	y: number;
@@ -278,22 +271,6 @@ export function hasNativeCursorRecordingData(
 	);
 }
 
-export function createNativeCursorSmoothingState(): NativeCursorSmoothingState {
-	return {
-		cx: 0,
-		cy: 0,
-		lastTimeMs: null,
-		initialized: false,
-	};
-}
-
-export function resetNativeCursorSmoothingState(state: NativeCursorSmoothingState) {
-	state.cx = 0;
-	state.cy = 0;
-	state.lastTimeMs = null;
-	state.initialized = false;
-}
-
 export function createNativeCursorMotionBlurState(): NativeCursorMotionBlurState {
 	return {
 		x: 0,
@@ -308,49 +285,6 @@ export function resetNativeCursorMotionBlurState(state: NativeCursorMotionBlurSt
 	state.y = 0;
 	state.lastTimeMs = null;
 	state.initialized = false;
-}
-
-export function smoothNativeCursorSample({
-	forceSnap = false,
-	sample,
-	smoothing,
-	state,
-	timeMs,
-}: {
-	forceSnap?: boolean;
-	sample: CursorRecordingSample;
-	smoothing: number;
-	state: NativeCursorSmoothingState;
-	timeMs: number;
-}): CursorRecordingSample {
-	const clampedSmoothing = clamp(Number.isFinite(smoothing) ? smoothing : 0, 0, 0.98);
-	const previousTimeMs = state.lastTimeMs;
-	const shouldSnap =
-		forceSnap ||
-		clampedSmoothing <= 0 ||
-		!state.initialized ||
-		previousTimeMs === null ||
-		timeMs <= previousTimeMs;
-
-	if (shouldSnap) {
-		state.cx = sample.cx;
-		state.cy = sample.cy;
-		state.lastTimeMs = timeMs;
-		state.initialized = true;
-		return sample;
-	}
-
-	const frameCount = Math.max(1, (timeMs - previousTimeMs) / (1000 / 60));
-	const alpha = 1 - Math.pow(clampedSmoothing, frameCount);
-	state.cx += (sample.cx - state.cx) * alpha;
-	state.cy += (sample.cy - state.cy) * alpha;
-	state.lastTimeMs = timeMs;
-
-	return {
-		...sample,
-		cx: state.cx,
-		cy: state.cy,
-	};
 }
 
 export function getNativeCursorClickBounceProgress(
