@@ -9,7 +9,10 @@
   ],
   "productName": "Openscreen",
   "npmRebuild": true,
-  "buildDependenciesFromSource": true,
+  // sharp ships ABI-stable (napi) prebuilt binaries with bundled libvips. Building it from source
+  // needs a system libvips we don't provide and breaks on CI/local ("vips-cpp.42 not found"), so we
+  // let electron-builder use the prebuilt instead of recompiling.
+  "buildDependenciesFromSource": false,
   "compression": "normal",
   "directories": {
     "output": "release/${version}"
