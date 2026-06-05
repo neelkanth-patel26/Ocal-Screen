@@ -76,37 +76,6 @@ function interpolateRun(samples: CursorRecordingSample[], timeMs: number): Smoot
 	return { cx: a.cx + (b.cx - a.cx) * t, cy: a.cy + (b.cy - a.cy) * t };
 }
 
-/** In-place 1D Gaussian blur with reflected edges. radius and weights derived from sigma (in steps). */
-function gaussianSmooth(values: Float32Array, sigmaSteps: number): Float32Array {
-	if (sigmaSteps <= 0 || values.length < 3) return values;
-	const radius = Math.max(1, Math.ceil(sigmaSteps * 3));
-	const kernel = new Float32Array(radius * 2 + 1);
-	const denom = 2 * sigmaSteps * sigmaSteps;
-	let sum = 0;
-	for (let k = -radius; k <= radius; k++) {
-		const w = Math.exp(-(k * k) / denom);
-		kernel[k + radius] = w;
-		sum += w;
-	}
-	for (let k = 0; k < kernel.length; k++) kernel[k] /= sum;
-
-	const out = new Float32Array(values.length);
-	const n = values.length;
-	for (let i = 0; i < n; i++) {
-		let acc = 0;
-		for (let k = -radius; k <= radius; k++) {
-			let idx = i + k;
-			// Reflect at the boundaries so the ends aren't pulled toward zero.
-			if (idx < 0) idx = -idx;
-			else if (idx >= n) idx = 2 * n - 2 - idx;
-			idx = clamp(idx, 0, n - 1);
-			acc += values[idx] * kernel[k + radius];
-		}
-		out[i] = acc;
-	}
-	return out;
-}
-
 /**
  * Drive a critically-tunable spring across `targets`, returning the smoothed series. Semi-implicit
  * (symplectic) Euler in seconds — stable for these stiffness values at the 240Hz grid.
@@ -149,7 +118,6 @@ function splitVisibleRuns(samples: CursorRecordingSample[]): CursorRecordingSamp
 
 function buildSmoothedRun(
 	samples: CursorRecordingSample[],
-	sigmaSteps: number,
 	stiffness: number,
 	damping: number,
 	mass: number,
@@ -168,14 +136,15 @@ function buildSmoothedRun(
 		rawX[i] = p.cx;
 		rawY[i] = p.cy;
 	}
-	const denoisedX = gaussianSmooth(rawX, sigmaSteps);
-	const denoisedY = gaussianSmooth(rawY, sigmaSteps);
+	// The spring is itself a strong low-pass (~3Hz cutoff), so it removes capture tremor without a
+	// separate denoise pass — and chasing the *raw* target keeps the cursor accurate (no acausal
+	// pull toward neighbouring samples near sharp stops, which would offset clicks/dwells).
 	return {
 		start,
 		end,
 		times,
-		xs: springSmooth(denoisedX, stiffness, damping, mass),
-		ys: springSmooth(denoisedY, stiffness, damping, mass),
+		xs: springSmooth(rawX, stiffness, damping, mass),
+		ys: springSmooth(rawY, stiffness, damping, mass),
 	};
 }
 
@@ -219,10 +188,9 @@ function buildSmoothedPath(
 		return buildRawPath(runs);
 	}
 
-	// Map the 0–1 UI strength onto the shared spring config (its useful domain is 0–2).
-	const config = getCursorSpringConfig(clamp(smoothing01, 0, 1) * 2);
-	// Light denoise that grows slightly with strength (~12–28ms sigma), expressed in grid steps.
-	const sigmaSteps = (12 + smoothing01 * 16) / STEP_MS;
+	// Use the slider value directly, matching the live cursor overlay's spring strength so the two
+	// cursor systems lag identically (an extra multiplier here over-smoothed → visible offset).
+	const config = getCursorSpringConfig(clamp(smoothing01, 0, 1));
 
 	const smoothedRuns = runs.map((run) =>
 		run.length < 2
@@ -233,7 +201,7 @@ function buildSmoothedPath(
 					xs: new Float32Array([run[0].cx]),
 					ys: new Float32Array([run[0].cy]),
 				}
-			: buildSmoothedRun(run, sigmaSteps, config.stiffness, config.damping, config.mass),
+			: buildSmoothedRun(run, config.stiffness, config.damping, config.mass),
 	);
 
 	return {
