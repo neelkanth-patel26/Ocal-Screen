@@ -21,17 +21,21 @@ const swiftBuildDir = path.join(buildDir, "swiftpm");
 const localHelperPath = path.join(buildDir, helperName);
 const localCursorHelperPath = path.join(buildDir, cursorHelperName);
 
-// Build a universal (arm64 + x86_64) binary by default so both the arm64 and x64 DMGs ship a helper
-// that runs natively. Override with OPENSCREEN_MAC_HELPER_ARCHS (comma-separated) for a faster
-// single-arch local build.
-const archs = (process.env.OPENSCREEN_MAC_HELPER_ARCHS ?? "arm64,x86_64")
+// Build a separate single-arch binary per requested arch and place each in its own
+// electron/native/bin/darwin-<arch> folder (the runtime resolves that folder by the running app's
+// arch). No universal/fat binary. Defaults to the host arch for local builds; CI sets
+// OPENSCREEN_MAC_HELPER_ARCHS per matrix entry (accepts arm64, x64, or x86_64).
+function normalizeArch(value) {
+	return value === "x64" || value === "x86_64"
+		? { swift: "x86_64", tag: "darwin-x64" }
+		: { swift: "arm64", tag: "darwin-arm64" };
+}
+const hostArch = process.arch === "arm64" ? "arm64" : "x86_64";
+const archs = (process.env.OPENSCREEN_MAC_HELPER_ARCHS ?? hostArch)
 	.split(",")
 	.map((a) => a.trim())
-	.filter(Boolean);
-const archToTag = (arch) => (arch === "x86_64" || arch === "x64" ? "darwin-x64" : "darwin-arm64");
-// A universal binary runs on both arches, so when building both, place it in each dir the runtime
-// might read (it resolves electron/native/bin/<darwin-arm64|darwin-x64> by the running app's arch).
-const targetTags = archs.length > 1 ? ["darwin-arm64", "darwin-x64"] : [archToTag(archs[0])];
+	.filter(Boolean)
+	.map(normalizeArch);
 
 const xcodebuildVersion = spawnSync("xcodebuild", ["-version"], {
 	cwd: root,
@@ -56,8 +60,13 @@ if (xcodebuildVersion.status !== 0) {
 	process.exit(1);
 }
 
-// Locate a built binary by name under a build dir (SwiftPM's exact output path varies by version).
-function findArtifact(dir, name) {
+// SwiftPM writes a single-arch release build to <buildPath>/<swiftArch>-apple-macosx/release/<name>.
+// Fall back to a search that skips the identically-named file inside the .dSYM debug bundle (matching
+// that file and feeding it forward is what produced an unrunnable "exec format error" binary before).
+function findExecutable(dir, swiftArch, name) {
+	const expected = path.join(dir, `${swiftArch}-apple-macosx`, "release", name);
+	if (fs.existsSync(expected)) return expected;
+
 	const stack = [dir];
 	const matches = [];
 	while (stack.length > 0) {
@@ -69,27 +78,21 @@ function findArtifact(dir, name) {
 			continue;
 		}
 		for (const entry of entries) {
+			if (entry.name.endsWith(".dSYM")) continue;
 			const full = path.join(current, entry.name);
 			if (entry.isDirectory()) stack.push(full);
-			else if (entry.isFile() && entry.name === name) matches.push(full);
+			else if (entry.isFile() && entry.name === name && /[/\\]release[/\\]/i.test(full)) {
+				matches.push(full);
+			}
 		}
 	}
-	matches.sort((a, b) => {
-		const ra = /release/i.test(a) ? 0 : 1;
-		const rb = /release/i.test(b) ? 0 : 1;
-		if (ra !== rb) return ra - rb;
-		return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs;
-	});
 	return matches[0] ?? null;
 }
 
-// Build each arch in its own SwiftPM invocation. A single --arch uses SwiftPM's lenient build path
-// that tolerates the helper's `@main` inside a main.swift file; combining arches in one invocation
-// (--arch a --arch b) switches to the stricter "apple" build system that rejects it. We lipo the
-// slices together afterwards.
-const slicesByName = { [helperName]: [], [cursorHelperName]: [] };
-for (const arch of archs) {
-	const archBuildDir = path.join(swiftBuildDir, arch);
+fs.mkdirSync(buildDir, { recursive: true });
+
+for (const { swift, tag } of archs) {
+	const archBuildDir = path.join(swiftBuildDir, swift);
 	const result = spawnSync(
 		"swift",
 		[
@@ -97,7 +100,7 @@ for (const arch of archs) {
 			"-c",
 			"release",
 			"--arch",
-			arch,
+			swift,
 			"--package-path",
 			packageDir,
 			"--build-path",
@@ -109,48 +112,33 @@ for (const arch of archs) {
 		},
 	);
 	if (result.error) {
-		console.error(`Failed to start Swift build (${arch}): ${result.error.message}`);
+		console.error(`Failed to start Swift build (${swift}): ${result.error.message}`);
 		process.exit(1);
 	}
 	if (result.status !== 0) {
 		process.exit(result.status ?? 1);
 	}
-	for (const name of [helperName, cursorHelperName]) {
-		const artifact = findArtifact(archBuildDir, name);
-		if (!artifact) {
-			console.error(`Swift build (${arch}) completed but artifact was not found: ${name}`);
+
+	const targetDir = path.join(root, "electron", "native", "bin", tag);
+	fs.mkdirSync(targetDir, { recursive: true });
+
+	for (const [name, localPath] of [
+		[helperName, localHelperPath],
+		[cursorHelperName, localCursorHelperPath],
+	]) {
+		const exe = findExecutable(archBuildDir, swift, name);
+		if (!exe) {
+			console.error(`Swift build (${swift}) completed but executable was not found: ${name}`);
 			process.exit(1);
 		}
-		slicesByName[name].push(artifact);
-	}
-}
-
-fs.mkdirSync(buildDir, { recursive: true });
-const targetDirs = targetTags.map((tag) => path.join(root, "electron", "native", "bin", tag));
-for (const dir of targetDirs) fs.mkdirSync(dir, { recursive: true });
-
-for (const [name, localPath] of [
-	[helperName, localHelperPath],
-	[cursorHelperName, localCursorHelperPath],
-]) {
-	const slices = slicesByName[name];
-	let source = slices[0];
-	// Stitch the per-arch slices into one universal (fat) binary so the same file runs on both arches.
-	if (slices.length > 1) {
-		const universal = path.join(buildDir, `${name}.universal`);
-		const lipo = spawnSync("lipo", ["-create", ...slices, "-output", universal], {
-			cwd: root,
-			stdio: "inherit",
-		});
-		if (lipo.status !== 0) {
-			console.error(`lipo failed to combine ${name} (${archs.join(", ")})`);
-			process.exit(lipo.status ?? 1);
+		// Always place it in the arch's bin folder; mirror the host-arch build into the dev build
+		// dir so `npm run dev` (candidate path #2) can spawn it.
+		const dests = [path.join(targetDir, name)];
+		if (swift === hostArch) dests.push(localPath);
+		for (const dest of dests) {
+			fs.copyFileSync(exe, dest);
+			fs.chmodSync(dest, 0o755);
 		}
-		source = universal;
 	}
-	for (const dest of [localPath, ...targetDirs.map((dir) => path.join(dir, name))]) {
-		fs.copyFileSync(source, dest);
-		fs.chmodSync(dest, 0o755);
-	}
-	console.log(`Built ${name} (${archs.join(", ")}) → ${targetTags.join(", ")}`);
+	console.log(`Built ${tag} helpers (${swift})`);
 }

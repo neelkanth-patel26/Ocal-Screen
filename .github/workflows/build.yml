@@ -140,9 +140,12 @@ jobs:
       # The package step below calls electron-builder directly (not `npm run build:mac`),
       # so the Swift screencapturekit + cursor helpers must be compiled here first or the
       # packaged app ships without them (no recording, "cursor helper couldn't be found").
-      # Builds universal binaries into electron/native/bin/darwin-{arm64,x64}.
+      # Build the matrix arch into electron/native/bin/darwin-<arch> so each DMG gets its
+      # own native binary.
       - name: Build native macOS helpers
         run: npm run build:native:mac
+        env:
+          OPENSCREEN_MAC_HELPER_ARCHS: ${{ matrix.arch }}
 
       # ─── Package with electron-builder ────────────────────────
       # electron-builder handles deep codesigning the .app bundle
