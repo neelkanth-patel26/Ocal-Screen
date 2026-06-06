@@ -47,10 +47,26 @@ function withoutNodeVersion<T>(fn: () => Promise<T>): Promise<T> {
 	});
 }
 
-async function loadTranscriber(): Promise<TranscriberFn> {
+async function loadTranscriber(opts: {
+	useLocalModels: boolean;
+	assetBaseUrl?: string;
+}): Promise<TranscriberFn> {
 	return withoutNodeVersion(async () => {
 		const { pipeline, env } = await import("@xenova/transformers");
-		env.allowLocalModels = false;
+		if (opts.useLocalModels && opts.assetBaseUrl) {
+			// Packaged app: load the bundled model + ORT wasm from disk so transcription needs no
+			// network and resolves under file:// (remote HuggingFace/CDN fetches fail there).
+			const base = new URL("caption-assets/", opts.assetBaseUrl).href;
+			env.allowLocalModels = true;
+			env.allowRemoteModels = false;
+			env.localModelPath = new URL("models/", base).href;
+			env.backends.onnx.wasm.wasmPaths = new URL("ort/", base).href;
+			// Non-threaded wasm: SharedArrayBuffer isn't available under file:// (no cross-origin isolation).
+			env.backends.onnx.wasm.numThreads = 1;
+		} else {
+			// Dev (http://localhost): fetch from the remote CDN, which works there.
+			env.allowLocalModels = false;
+		}
 		// Default tiny weights only: the `output_attentions` revision has regressed inference for
 		// some environments (empty chunks / thrown errors) while phrase mode works on this model.
 		const transcriber = (await pipeline(
@@ -62,10 +78,10 @@ async function loadTranscriber(): Promise<TranscriberFn> {
 }
 
 self.onmessage = async (event: MessageEvent<TranscribeWorkerRequest>) => {
-	const { samples, trimRegions } = event.data;
+	const { samples, trimRegions, useLocalModels, assetBaseUrl } = event.data;
 	try {
 		post({ type: "status", phase: "model" });
-		const transcriber = await loadTranscriber();
+		const transcriber = await loadTranscriber({ useLocalModels, assetBaseUrl });
 
 		post({ type: "status", phase: "transcribe" });
 		const { segments, granularity } = await runTranscription(

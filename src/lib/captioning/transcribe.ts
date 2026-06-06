@@ -18,6 +18,14 @@ export interface TranscribeMono16kResult {
 export interface TranscribeWorkerRequest {
 	samples: Float32Array;
 	trimRegions: TrimRegion[];
+	/**
+	 * When true, the worker loads the Whisper model + ORT wasm from the app's bundled `caption-assets`
+	 * instead of remote CDNs — required in the packaged app, which runs from `file://` where remote
+	 * fetches fail. The worker can't read `window.electronAPI`, so the renderer resolves these here.
+	 */
+	useLocalModels: boolean;
+	/** Base URL of bundled resources (packaged: resourcesPath file:// URL); used when `useLocalModels`. */
+	assetBaseUrl?: string;
 }
 
 /** Messages the transcription worker posts back to the renderer. */
@@ -80,11 +88,19 @@ export function transcribeMono16kToSegments(
 			finish(() => reject(new Error(e.message || "Caption transcription worker failed")));
 		};
 
+		// Packaged app runs from file:// (remote model/wasm fetches fail there) → load bundled assets.
+		// Dev runs from http://localhost where the remote path works, so keep using it.
+		const useLocalModels = typeof window !== "undefined" && window.location?.protocol === "file:";
+		const assetBaseUrl =
+			typeof window !== "undefined" ? window.electronAPI?.assetBaseUrl : undefined;
+
 		// Structured-clone copy (not a transfer): the caller may reuse `samples`
 		// for the full-buffer retry pass, so the buffer must stay valid here.
 		const request: TranscribeWorkerRequest = {
 			samples,
 			trimRegions: options?.trimRegions ?? [],
+			useLocalModels,
+			assetBaseUrl,
 		};
 		worker.postMessage(request);
 	});
