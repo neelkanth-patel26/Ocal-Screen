@@ -1,4 +1,4 @@
-> [!INFO]
+> [!WARNING]
 > This started as a side project that blew up; not production grade and you'll hit bugs, but hopefully it covers what you need. **This project will soon be archived.**
 
 
