@@ -48,16 +48,64 @@ async function exists(filePath) {
 	}
 }
 
+const MAX_ATTEMPTS = 6;
+// HuggingFace rate-limits (429) when the parallel CI matrix builds all hit it at once; also retry the
+// usual transient server errors.
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function backoffMs(attempt, retryAfter) {
+	// Honor Retry-After when the server sends it (seconds or an HTTP date).
+	if (retryAfter) {
+		const secs = Number(retryAfter);
+		if (Number.isFinite(secs)) return Math.min(60_000, secs * 1000);
+		const at = Date.parse(retryAfter);
+		if (!Number.isNaN(at)) return Math.min(60_000, Math.max(0, at - Date.now()));
+	}
+	// Exponential backoff with jitter: ~2s, 4s, 8s, 16s, 32s, capped at 60s.
+	return Math.min(60_000, 2000 * 2 ** (attempt - 1)) + Math.floor(Math.random() * 1000);
+}
+
+async function fetchWithRetry(url) {
+	let lastErr;
+	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+		try {
+			const res = await fetch(url, { headers: { "user-agent": "openscreen-build" } });
+			if (res.ok && res.body) return res;
+			if (RETRYABLE_STATUS.has(res.status) && attempt < MAX_ATTEMPTS) {
+				const wait = backoffMs(attempt, res.headers.get("retry-after"));
+				console.log(
+					`  … HTTP ${res.status}, retry ${attempt}/${MAX_ATTEMPTS - 1} in ${Math.round(wait / 1000)}s`,
+				);
+				await sleep(wait);
+				continue;
+			}
+			throw new Error(`Failed to download ${url}: HTTP ${res.status} ${res.statusText}`);
+		} catch (err) {
+			lastErr = err;
+			const isHttp = err instanceof Error && err.message.startsWith("Failed to download");
+			if (isHttp || attempt >= MAX_ATTEMPTS) throw err;
+			// Network/DNS error: back off and retry.
+			const wait = backoffMs(attempt, null);
+			console.log(
+				`  … ${err.message}, retry ${attempt}/${MAX_ATTEMPTS - 1} in ${Math.round(wait / 1000)}s`,
+			);
+			await sleep(wait);
+		}
+	}
+	throw lastErr;
+}
+
 async function download(url, dest) {
 	if (await exists(dest)) {
 		console.log(`  ✓ cached  ${path.relative(OUT, dest)}`);
 		return;
 	}
 	await mkdir(path.dirname(dest), { recursive: true });
-	const res = await fetch(url);
-	if (!res.ok || !res.body) {
-		throw new Error(`Failed to download ${url}: HTTP ${res.status} ${res.statusText}`);
-	}
+	const res = await fetchWithRetry(url);
 	const tmp = `${dest}.partial`;
 	await pipeline(Readable.fromWeb(res.body), createWriteStream(tmp));
 	const { rename } = await import("node:fs/promises");
