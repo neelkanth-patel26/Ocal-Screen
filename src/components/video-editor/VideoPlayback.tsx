@@ -65,17 +65,11 @@ import {
 	rotation3DPerspective,
 	type SpeedRegion,
 	type TrimRegion,
-	ZOOM_DEPTH_SCALES,
 	type ZoomFocus,
 	type ZoomRegion,
 } from "./types";
-import {
-	AUTO_FOLLOW_RAMP_DISTANCE,
-	AUTO_FOLLOW_SMOOTHING_FACTOR,
-	AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
-	DEFAULT_FOCUS,
-} from "./videoPlayback/constants";
-import { adaptiveSmoothFactor, smoothCursorFocus } from "./videoPlayback/cursorFollowUtils";
+import { AUTO_FOLLOW_PARAMS, DEFAULT_FOCUS } from "./videoPlayback/constants";
+import { advanceFollowFocus } from "./videoPlayback/cursorFollowUtils";
 import {
 	DEFAULT_CURSOR_CONFIG,
 	PixiCursorOverlay,
@@ -1329,7 +1323,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					motionBlurAmount: motionBlurAmountRef.current,
 					transformOverride: transform,
 					motionBlurState: motionBlurStateRef.current,
-					frameTimeMs: performance.now(),
+					// Content time (not wall-clock) so camera motion-blur velocity matches export and is
+					// correct under speed regions; export passes the same content `timeMs` (frameRenderer).
+					frameTimeMs: currentTimeRef.current,
 				});
 
 				state.x = appliedTransform.x;
@@ -1381,7 +1377,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					hasSelectedZoom && !isPlayingRef.current && !isPreviewingZoomRef.current;
 
 				if (region && strength > 0 && !shouldShowUnzoomedView) {
-					const zoomScale = blendedScale ?? ZOOM_DEPTH_SCALES[region.depth];
+					// Use getZoomScale (customScale-aware) to match export (frameRenderer) and the
+					// magnification findDominantRegion already resolves the focus at — preview must not
+					// fall back to the raw depth preset or it zooms/pans to a different level than export.
+					const zoomScale = blendedScale ?? getZoomScale(region);
 					const regionFocus = region.focus;
 
 					targetScaleFactor = zoomScale;
@@ -1393,17 +1392,21 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						const raw = targetFocus;
 						const isZoomingIn =
 							targetProgress < 0.999 && targetProgress >= prevTargetProgressRef.current;
+						// Follow the cursor in CONTENT time (frame-rate independent) so the camera pans
+						// at the same speed in preview and export. Snap to target when not actively
+						// playing (paused/seek/scrub) — matches the zoom spring's snap.
+						const focusAnimating =
+							isPlayingRef.current && !isSeekingRef.current && !isScrubbingRef.current;
+						const focusDtMs =
+							prevZoomTimeMsRef.current === null
+								? 0
+								: currentTimeRef.current - prevZoomTimeMsRef.current;
 						if (targetProgress >= 0.999) {
 							// Full zoom: adaptive smoothing — moves faster when far, decelerates when close
 							const prev = smoothedAutoFocusRef.current ?? raw;
-							const factor = adaptiveSmoothFactor(
-								raw,
-								prev,
-								AUTO_FOLLOW_SMOOTHING_FACTOR,
-								AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
-								AUTO_FOLLOW_RAMP_DISTANCE,
-							);
-							const smoothed = smoothCursorFocus(raw, prev, factor);
+							const smoothed = focusAnimating
+								? advanceFollowFocus(prev, raw, focusDtMs, AUTO_FOLLOW_PARAMS)
+								: raw;
 							smoothedAutoFocusRef.current = smoothed;
 							targetFocus = smoothed;
 						} else if (isZoomingIn) {
@@ -1413,14 +1416,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						} else {
 							// Zoom-out: keep smoothing for continuity — avoids snap at zoom-out start
 							const prev = smoothedAutoFocusRef.current ?? raw;
-							const factor = adaptiveSmoothFactor(
-								raw,
-								prev,
-								AUTO_FOLLOW_SMOOTHING_FACTOR,
-								AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
-								AUTO_FOLLOW_RAMP_DISTANCE,
-							);
-							const smoothed = smoothCursorFocus(raw, prev, factor);
+							const smoothed = focusAnimating
+								? advanceFollowFocus(prev, raw, focusDtMs, AUTO_FOLLOW_PARAMS)
+								: raw;
 							smoothedAutoFocusRef.current = smoothed;
 							targetFocus = smoothed;
 						}

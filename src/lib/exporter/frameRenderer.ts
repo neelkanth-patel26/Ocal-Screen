@@ -24,15 +24,10 @@ import {
 	lerpRotation3D,
 } from "@/components/video-editor/types";
 import {
-	AUTO_FOLLOW_RAMP_DISTANCE,
-	AUTO_FOLLOW_SMOOTHING_FACTOR,
-	AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
+	AUTO_FOLLOW_PARAMS,
 	DEFAULT_FOCUS,
 } from "@/components/video-editor/videoPlayback/constants";
-import {
-	adaptiveSmoothFactor,
-	smoothCursorFocus,
-} from "@/components/video-editor/videoPlayback/cursorFollowUtils";
+import { advanceFollowFocus } from "@/components/video-editor/videoPlayback/cursorFollowUtils";
 import { clampFocusToScale } from "@/components/video-editor/videoPlayback/focusUtils";
 import { findDominantRegion } from "@/components/video-editor/videoPlayback/zoomRegionUtils";
 import {
@@ -425,7 +420,15 @@ export class FrameRenderer {
 			throw new Error("Layout cache not initialized");
 		}
 
-		// Apply transform once with maximum motion intensity from all ticks
+		// Apply transform once with maximum motion intensity from all ticks.
+		// CRITICAL: feed the spring-smoothed transform (appliedScale/x/y from updateAnimationState)
+		// via transformOverride — exactly as the preview does. Without it, applyZoomTransform would
+		// recompute the camera from the raw eased *target* (state.scale/progress/focus) and the spring
+		// would be discarded for the camera container, so the export camera would snap to the target
+		// every frame while the preview glides. That asymmetry is invisible for a static (manual-focus)
+		// zoom but very visible for auto-focus, whose target pans with the cursor — it read as the
+		// export being "snappier". Using the sprung transform also keeps the camera, mask and cursor
+		// (which already read appliedScale/x/y) mutually consistent.
 		applyZoomTransform({
 			cameraContainer: this.cameraContainer,
 			blurFilter: this.blurFilter,
@@ -441,6 +444,11 @@ export class FrameRenderer {
 			motionBlurAmount: this.config.motionBlurAmount ?? 0,
 			motionBlurState: this.motionBlurState,
 			frameTimeMs: timeMs,
+			transformOverride: {
+				scale: this.animationState.appliedScale,
+				x: this.animationState.x,
+				y: this.animationState.y,
+			},
 		});
 
 		// Render the PixiJS stage to its canvas (video only, transparent background)
@@ -809,20 +817,11 @@ export class FrameRenderer {
 			if (region.focusMode === "auto" && !transition) {
 				const raw = targetFocus;
 				const dtMs = this.prevAnimationTimeMs != null ? timeMs - this.prevAnimationTimeMs : 0;
-				const framesElapsed = dtMs > 0 ? dtMs / (1000 / 60) : 1;
 				const isZoomingIn = targetProgress < 0.999 && targetProgress >= this.prevTargetProgress;
 				if (targetProgress >= 0.999) {
 					// Full zoom: adaptive smoothing — moves faster when far, decelerates when close
 					const prev = this.smoothedAutoFocus ?? raw;
-					const baseFactor = adaptiveSmoothFactor(
-						raw,
-						prev,
-						AUTO_FOLLOW_SMOOTHING_FACTOR,
-						AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
-						AUTO_FOLLOW_RAMP_DISTANCE,
-					);
-					const factor = 1 - Math.pow(1 - baseFactor, Math.max(1, framesElapsed));
-					const smoothed = smoothCursorFocus(raw, prev, factor);
+					const smoothed = advanceFollowFocus(prev, raw, dtMs, AUTO_FOLLOW_PARAMS);
 					this.smoothedAutoFocus = smoothed;
 					targetFocus = smoothed;
 				} else if (isZoomingIn) {
@@ -832,15 +831,7 @@ export class FrameRenderer {
 				} else {
 					// Zoom-out: keep smoothing for continuity — avoids snap at zoom-out start
 					const prev = this.smoothedAutoFocus ?? raw;
-					const baseFactor = adaptiveSmoothFactor(
-						raw,
-						prev,
-						AUTO_FOLLOW_SMOOTHING_FACTOR,
-						AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
-						AUTO_FOLLOW_RAMP_DISTANCE,
-					);
-					const factor = 1 - Math.pow(1 - baseFactor, Math.max(1, framesElapsed));
-					const smoothed = smoothCursorFocus(raw, prev, factor);
+					const smoothed = advanceFollowFocus(prev, raw, dtMs, AUTO_FOLLOW_PARAMS);
 					this.smoothedAutoFocus = smoothed;
 					targetFocus = smoothed;
 				}

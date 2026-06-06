@@ -53,6 +53,53 @@ export function smoothCursorFocus(raw: ZoomFocus, prev: ZoomFocus, factor: numbe
 	};
 }
 
+export interface FollowParams {
+	minFactor: number;
+	maxFactor: number;
+	rampDistance: number;
+	referenceMs: number;
+}
+
+/**
+ * Advance the auto-follow focus from `prev` toward the cursor target `raw` over `dtMs` of content
+ * time. The distance-adaptive factor is reframed against `referenceMs` so the per-frame convergence
+ * is (first-order) content-time based and matches between preview and export. Returns `prev` unchanged
+ * when no content time elapsed (paused) so the camera holds still.
+ */
+export function advanceFollowFocus(
+	prev: ZoomFocus,
+	raw: ZoomFocus,
+	dtMs: number,
+	params: FollowParams,
+): ZoomFocus {
+	if (!(dtMs > 0)) return prev;
+	const base = adaptiveSmoothFactor(
+		raw,
+		prev,
+		params.minFactor,
+		params.maxFactor,
+		params.rampDistance,
+	);
+	const factor = timeCorrectedFollowFactor(base, dtMs, params.referenceMs);
+	return smoothCursorFocus(raw, prev, factor);
+}
+
+/**
+ * Make a per-frame smoothing `baseFactor` frame-rate independent by reframing it in CONTENT time.
+ * The camera converges as `(1 - baseFactor)^(dtMs / referenceMs)` regardless of how that content time
+ * is chunked into frames, so preview (variable editor fps) and export (fixed fps) follow the cursor
+ * at the *same* speed. A larger `referenceMs` (lower reference fps) = floatier. Returns 0 when no
+ * content time elapsed (paused) so the camera holds still.
+ */
+export function timeCorrectedFollowFactor(
+	baseFactor: number,
+	dtMs: number,
+	referenceMs: number,
+): number {
+	if (!(dtMs > 0) || !(referenceMs > 0)) return 0;
+	return 1 - (1 - baseFactor) ** (dtMs / referenceMs);
+}
+
 /**
  * Compute an adaptive smoothing factor that scales with distance:
  * far from target → faster (maxFactor), close → slower (minFactor).
