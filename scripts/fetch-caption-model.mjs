@@ -1,12 +1,11 @@
-// Populates `caption-assets/` with everything the auto-caption worker needs at runtime so the
-// packaged app can transcribe fully offline (under file://), instead of fetching the Whisper model
-// from HuggingFace and the onnxruntime wasm from a CDN.
+// Populates `caption-assets/` so the packaged app can transcribe offline (under file://)
+// instead of fetching the Whisper model from HuggingFace and the onnxruntime wasm from a CDN.
 //
 //   caption-assets/
 //     models/Xenova/whisper-tiny/...   ← downloaded from HuggingFace (config + quantized ONNX)
 //     ort/ort-wasm*.wasm               ← copied from @xenova/transformers/dist
 //
-// Idempotent: existing, non-empty files are left alone, so re-runs (and CI cache hits) are no-ops.
+// Idempotent: existing non-empty files are left alone, so re-runs and CI cache hits are no-ops.
 // `caption-assets/` is gitignored and shipped via electron-builder `extraResources`.
 
 import { createWriteStream } from "node:fs";
@@ -21,9 +20,9 @@ const OUT = path.join(ROOT, "caption-assets");
 const MODEL_ID = "Xenova/whisper-tiny";
 const HF_BASE = `https://huggingface.co/${MODEL_ID}/resolve/main`;
 
-// Config/tokenizer/preprocessor files (all small) plus the quantized ONNX the ASR pipeline loads by
-// default (encoder + merged decoder). We grab all the small metadata files so transformers never
-// requests one we forgot to bundle.
+// Small config/tokenizer/preprocessor files plus the quantized ONNX the ASR pipeline loads by
+// default (encoder + merged decoder). Grab every metadata file so transformers never requests
+// one we forgot to bundle.
 const MODEL_FILES = [
 	"config.json",
 	"generation_config.json",
@@ -69,8 +68,8 @@ async function download(url, dest) {
 
 async function copyOrtWasm() {
 	const distDir = path.join(ROOT, "node_modules", "@xenova", "transformers", "dist");
-	// Non-threaded variants only — the worker runs ORT with numThreads=1 (SharedArrayBuffer isn't
-	// available under file://), so the threaded wasm is never loaded. Saves ~20MB.
+	// Non-threaded variants only: the worker runs ORT with numThreads=1 (no SharedArrayBuffer
+	// under file://), so the threaded wasm is never loaded. Saves ~20MB.
 	const wasm = ["ort-wasm.wasm", "ort-wasm-simd.wasm"];
 	const ortOut = path.join(OUT, "ort");
 	await mkdir(ortOut, { recursive: true });
