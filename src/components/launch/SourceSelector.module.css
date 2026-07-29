@@ -1,104 +1,81 @@
 .glassContainer {
-	background: linear-gradient(145deg, rgba(13, 14, 17, 0.94) 0%, rgba(8, 9, 12, 0.9) 100%);
-	backdrop-filter: blur(24px) saturate(150%);
-	-webkit-backdrop-filter: blur(24px) saturate(150%);
-	border-radius: 24px;
-	corner-shape: squircle;
-	/*
-		Removed box-shadow here because electron doesn't round corners of the shadow, thereby leaving a square border shadow conflicting with the rounded corners of the SourceSelector.
-		The result is easily visible when you place a white window just behind the SourceSelector
-	*/
-	/* box-shadow:
-		0 0px 16px 0 rgba(0, 0, 0, 0.32),
-		0 1px 3px 0 rgba(0, 0, 0, 0.18) inset; */
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	background: #0c0c0c;
+	border-radius: 20px;
+	border: 1px solid #252525;
 }
 
 .sourceCard {
-	corner-shape: squircle;
-	border-radius: 13px;
-	background: rgba(255, 255, 255, 0.045);
-	border: 1px solid rgba(255, 255, 255, 0.07);
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
-	transition:
-		box-shadow 0.2s ease,
-		border-color 0.2s ease,
-		background-color 0.2s ease,
-		transform 0.2s ease;
+	border-radius: 16px;
+	background: #141414;
+	border: 1px solid #252525;
+	transition: all 0.15s ease;
 	cursor: pointer;
 }
 
 .sourceCard:hover {
-	background: rgba(255, 255, 255, 0.065);
-	border-color: rgba(255, 255, 255, 0.14);
+	background: #1a1a1a;
+	border-color: #383838;
 	transform: translateY(-1px);
-	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .selected {
-	border-color: rgba(52, 178, 123, 0.68);
-	background: linear-gradient(145deg, rgba(52, 178, 123, 0.13), rgba(255, 255, 255, 0.045));
-	box-shadow:
-		0 0 0 1px rgba(52, 178, 123, 0.18) inset,
-		0 12px 28px rgba(0, 0, 0, 0.22);
+	border: 2px solid #e8ff47;
+	background: #161616;
 }
 
 .selected:hover {
 	transform: translateY(0);
+	border-color: #e8ff47;
 }
 
 .icon {
-	width: 12px;
-	height: 12px;
-	color: #c7d2fe;
+	width: 14px;
+	height: 14px;
+	color: #e8e8e8;
 }
 
 .name {
-	font-size: 0.72rem;
-	color: #e4e4e7;
-	font-weight: 500;
+	font-size: 0.75rem;
+	color: #e8e8e8;
+	font-weight: 600;
 	letter-spacing: 0;
 }
 
 .cardText {
-	color: #a1a1aa;
+	color: #888888;
 	font-size: 0.75rem;
 }
 
 /* Checkmark badge */
 .checkBadge {
-	width: 17px;
-	height: 17px;
-	background: #34b27b;
+	width: 20px;
+	height: 20px;
+	background: #e8ff47;
+	color: #000000;
 	border-radius: 9999px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+	box-shadow: none;
 }
 
 /* scrollbar */
 
 .sourceGridScroll::-webkit-scrollbar {
-	width: 3px;
+	width: 4px;
 }
 
 .sourceGridScroll::-webkit-scrollbar-track {
-	background: rgba(30, 30, 38, 0.3);
+	background: #141414;
 	border-radius: 4px;
 }
 
 .sourceGridScroll::-webkit-scrollbar-thumb {
-	background: rgba(52, 178, 123, 0.5);
+	background: #252525;
 	border-radius: 10px;
 }
 
 .sourceGridScroll::-webkit-scrollbar-thumb:hover {
-	background: rgba(52, 178, 123, 0.6);
+	background: #383838;
 	cursor: grab;
-}
-
-.sourceGridScroll::-webkit-scrollbar-thumb:active {
-	background: rgba(52, 178, 123, 0.8);
-	cursor: grabbing;
 }

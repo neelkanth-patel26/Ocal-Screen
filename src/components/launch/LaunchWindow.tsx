@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
 import { FaRegStopCircle } from "react-icons/fa";
 import { FaFolderOpen } from "react-icons/fa6";
-import { FiMinus, FiX } from "react-icons/fi";
+import { FiMinus, FiMoon, FiSun, FiX } from "react-icons/fi";
 import {
 	MdCancel,
 	MdMic,
@@ -21,7 +21,7 @@ import {
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
-import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
+import { ACCENT_COLOR_MAP, type AccentColor, loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
 import { nativeBridgeClient } from "@/native";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
 import { useCameraDevices } from "../../hooks/useCameraDevices";
@@ -60,6 +60,8 @@ const ICON_CONFIG = {
 	record: { icon: BsRecordCircle, size: ICON_SIZE },
 	videoFile: { icon: MdVideoFile, size: ICON_SIZE },
 	folder: { icon: FaFolderOpen, size: ICON_SIZE },
+	sun: { icon: FiSun, size: ICON_SIZE },
+	moon: { icon: FiMoon, size: ICON_SIZE },
 	minimize: { icon: FiMinus, size: ICON_SIZE },
 	close: { icon: FiX, size: ICON_SIZE },
 } as const;
@@ -72,21 +74,8 @@ function getIcon(name: IconName, className?: string) {
 	return <Icon size={size} className={className} />;
 }
 
-const hudGroupClasses =
-	"flex items-center gap-0.5 rounded-xl border border-white/[0.07] bg-white/[0.045] transition-colors duration-150 hover:bg-white/[0.075]";
-
-const hudIconBtnClasses =
-	"flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer text-white hover:bg-white/10 active:scale-95";
-
 const hudAuxIconBtnClasses =
-	"flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-150 text-white/55 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed";
-
-const windowBtnClasses =
-	"flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer opacity-50 hover:opacity-90 hover:bg-white/[0.08]";
-
-const hudSidebarClasses = "ml-0.5 pl-1.5 border-l border-white/10 flex items-center gap-0.5";
-const hudSidebarVerticalClasses =
-	"mt-0.5 pt-1.5 border-t border-white/10 flex flex-col items-center gap-0.5";
+	"flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150 text-[#888888] hover:bg-[#252525] disabled:opacity-30 disabled:cursor-not-allowed";
 
 /** Launches the floating recording HUD and its recorder controls. */
 export function LaunchWindow() {
@@ -142,6 +131,48 @@ export function LaunchWindow() {
 	const [trayLayout, setTrayLayout] = useState<"horizontal" | "vertical">(
 		() => loadUserPreferences().trayLayout,
 	);
+	const [themeMode, setThemeMode] = useState<"dark" | "light">(
+		() => loadUserPreferences().theme || "dark",
+	);
+	const [accentColor, setAccentColor] = useState<AccentColor>(
+		() => loadUserPreferences().accentColor || "lime",
+	);
+	const isLight = themeMode === "light";
+	const activeAccent = ACCENT_COLOR_MAP[accentColor] || ACCENT_COLOR_MAP.lime;
+
+	const toggleTheme = () => {
+		const nextTheme = themeMode === "dark" ? "light" : "dark";
+		setThemeMode(nextTheme);
+		saveUserPreferences({ theme: nextTheme });
+	};
+
+	useEffect(() => {
+		const syncPrefs = () => {
+			const prefs = loadUserPreferences();
+			setTrayLayout(prefs.trayLayout);
+			setThemeMode(prefs.theme || "dark");
+			setAccentColor(prefs.accentColor || "lime");
+		};
+		window.addEventListener("storage", syncPrefs);
+		const timer = setInterval(syncPrefs, 400);
+		return () => {
+			window.removeEventListener("storage", syncPrefs);
+			clearInterval(timer);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (themeMode === "dark") {
+			document.documentElement.classList.add("dark");
+		} else {
+			document.documentElement.classList.remove("dark");
+		}
+	}, [themeMode]);
+
+	const iconBtnClasses = isLight
+		? "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-[#3f3f46] hover:bg-[#e4e4e7] active:scale-95"
+		: "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-[#e8e8e8] hover:bg-[#252525] active:scale-95";
+
 	const [supportsCursorModeToggle, setSupportsCursorModeToggle] = useState(false);
 	const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
 	const languageMenuPanelRef = useRef<HTMLDivElement | null>(null);
@@ -151,11 +182,12 @@ export function LaunchWindow() {
 	const [hudBarHeight, setHudBarHeight] = useState(0);
 	const [languageMenuStyle, setLanguageMenuStyle] = useState<{
 		right: number;
-		top: number;
+		top?: number;
+		bottom?: number;
 		maxHeight: number;
 	}>({
 		right: 12,
-		top: 12,
+		bottom: 64,
 		maxHeight: 240,
 	});
 
@@ -269,15 +301,33 @@ export function LaunchWindow() {
 			if (!languageTriggerRef.current) return;
 			const rect = languageTriggerRef.current.getBoundingClientRect();
 			const gap = 8;
-			const viewportPadding = 8;
-			const availableHeight = Math.max(80, rect.top - viewportPadding - gap);
-			const top = Math.max(viewportPadding, rect.top - gap - availableHeight);
+			const viewportPadding = 12;
 
-			setLanguageMenuStyle({
-				right: Math.max(viewportPadding, window.innerWidth - rect.right),
-				top,
-				maxHeight: availableHeight,
-			});
+			const spaceAbove = rect.top - gap - viewportPadding;
+			const spaceBelow = window.innerHeight - rect.bottom - gap - viewportPadding;
+
+			// Prefer placing above if there is enough space (>= 140px) or spaceAbove >= spaceBelow
+			const placeAbove = spaceAbove >= 140 || spaceAbove >= spaceBelow;
+			const maxHeight = Math.min(260, Math.max(100, placeAbove ? spaceAbove : spaceBelow));
+			const right = Math.max(viewportPadding, window.innerWidth - rect.right);
+
+			if (placeAbove) {
+				const bottom = Math.max(viewportPadding, window.innerHeight - rect.top + gap);
+				setLanguageMenuStyle({
+					right,
+					bottom,
+					top: undefined,
+					maxHeight,
+				});
+			} else {
+				const top = Math.max(viewportPadding, rect.bottom + gap);
+				setLanguageMenuStyle({
+					right,
+					top,
+					bottom: undefined,
+					maxHeight,
+				});
+			}
 		};
 
 		updatePosition();
@@ -341,11 +391,13 @@ export function LaunchWindow() {
 			}
 		}
 
-		// The language menu scrolls within available height, so it only influences width.
-		// Its presence in the DOM means it's open.
+		// The language menu drives both width and height when open so the Electron window expands to contain it.
 		if (languageMenuPanelRef.current) {
 			const rect = languageMenuPanelRef.current.getBoundingClientRect();
 			halfWidth = Math.max(halfWidth, centerX - rect.left, rect.right - centerX);
+			const menuHeight = rect.height || 220;
+			const barBottomOffset = viewportHeight - barEl.getBoundingClientRect().bottom;
+			topFromBottom = Math.max(topFromBottom, barBottomOffset + barEl.scrollHeight + menuHeight + 20);
 		}
 
 		setHudBarHeight((prev) => {
@@ -570,7 +622,7 @@ export function LaunchWindow() {
 					{/* Mic selector */}
 					{showMicControls && (
 						<div
-							className={`flex h-9 items-center gap-2 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0c10]/90 px-3 py-1.5 shadow-[0_18px_42px_rgba(0,0,0,0.4)] backdrop-blur-2xl transition-all duration-300 ${!micExpanded ? "opacity-60 grayscale-[0.5]" : "opacity-100"}`}
+							className={`flex h-9 items-center gap-2 overflow-hidden rounded-full border ${isLight ? "border-[#e4e4e7] bg-white text-[#18181b] shadow-lg" : "border-[#252525] bg-[#0c0c0c] text-white shadow-none"} px-3 py-1.5 transition-all duration-300 ${!micExpanded ? "opacity-60 grayscale-[0.5]" : "opacity-100"}`}
 							onMouseEnter={() => setIsMicHovered(true)}
 							onMouseLeave={() => setIsMicHovered(false)}
 							onFocus={() => setIsMicFocused(true)}
@@ -616,7 +668,7 @@ export function LaunchWindow() {
 					{/* Webcam selector */}
 					{showWebcamControls && (
 						<div
-							className={`flex h-9 items-center gap-2 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0b0c10]/90 px-3 py-1.5 shadow-[0_18px_42px_rgba(0,0,0,0.4)] backdrop-blur-2xl transition-all duration-300 ${!webcamExpanded ? "opacity-60 grayscale-[0.5]" : "opacity-100"}`}
+							className={`flex h-9 items-center gap-2 overflow-hidden rounded-full border ${isLight ? "border-[#e4e4e7] bg-white text-[#18181b] shadow-lg" : "border-[#252525] bg-[#0c0c0c] text-white shadow-none"} px-3 py-1.5 transition-all duration-300 ${!webcamExpanded ? "opacity-60 grayscale-[0.5]" : "opacity-100"}`}
 							onMouseEnter={() => setIsWebcamHovered(true)}
 							onMouseLeave={() => setIsWebcamHovered(false)}
 							onFocus={() => setIsWebcamFocused(true)}
@@ -701,10 +753,14 @@ export function LaunchWindow() {
 				ref={setHudBarEl}
 				data-hud-interactive="true"
 				data-tray-layout={trayLayout}
-				className={`fixed bottom-5 left-1/2 -translate-x-1/2 flex rounded-2xl border border-white/[0.10] bg-[#07080a]/90 shadow-[0_20px_60px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl backdrop-saturate-[140%] ${
+				className={`fixed bottom-5 left-1/2 -translate-x-1/2 flex rounded-full border ${styles.noScrollbar} ${
+					isLight
+						? "border-[#e4e4e7] bg-[#ffffff] text-[#18181b] shadow-xl"
+						: "border-[#252525] bg-[#0c0c0c] text-[#e8e8e8] shadow-none"
+				} ${
 					trayLayout === "vertical"
-						? "max-h-[calc(100vh-2.5rem)] flex-col items-center gap-1 overflow-y-auto px-1 py-1.5"
-						: "items-center gap-1.5 px-2 py-1.5"
+						? "max-h-[calc(100vh-2.5rem)] flex-col items-center gap-2 overflow-y-auto px-2.5 py-4 w-[56px]"
+						: "items-center gap-2 px-3 py-1.5"
 				}`}
 				onPointerEnter={() => setHudMouseEventsEnabled(true)}
 				onPointerDown={() => setHudMouseEventsEnabled(true)}
@@ -715,15 +771,44 @@ export function LaunchWindow() {
 					}
 				}}
 			>
+				{/* Ocal Brand Badge */}
+				{trayLayout === "vertical" ? (
+					<div className="flex flex-col items-center gap-0.5 pt-1 pb-0.5">
+						<span
+							className={`text-[10px] font-black tracking-tight leading-none ${isLight ? "text-[#18181b]" : "text-white"}`}
+						>
+							ocal
+						</span>
+						<span
+							className="rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider leading-none shadow-xs"
+							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+						>
+							SCREEN
+						</span>
+					</div>
+				) : (
+					<div className="flex items-center gap-1.5 pl-1 pr-0.5">
+						<span className={`text-xs font-black tracking-tight ${isLight ? "text-[#18181b]" : "text-white"}`}>
+							ocal
+						</span>
+						<span
+							className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-xs"
+							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+						>
+							SCREEN
+						</span>
+					</div>
+				)}
+
 				{/* Drag handle */}
 				<div
-					className={`flex ${trayLayout === "vertical" ? "h-6 w-8" : "h-8 w-7"} cursor-grab items-center justify-center active:cursor-grabbing ${styles.electronNoDrag}`}
+					className={`flex ${trayLayout === "vertical" ? "h-4 w-full" : "h-7 w-6"} cursor-grab items-center justify-center active:cursor-grabbing ${styles.electronNoDrag}`}
 					onPointerDown={handleHudDragPointerDown}
 					onPointerMove={handleHudDragPointerMove}
 					onPointerUp={handleHudDragPointerEnd}
 					onPointerCancel={handleHudDragPointerEnd}
 				>
-					{getIcon("drag", "text-white/30")}
+					{getIcon("drag", isLight ? "text-black/30" : "text-white/30")}
 				</div>
 
 				<Tooltip
@@ -742,13 +827,13 @@ export function LaunchWindow() {
 								: t("tooltips.useHorizontalTray")
 						}
 						aria-pressed={trayLayout === "vertical"}
-						className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
+						className={`${iconBtnClasses} ${styles.electronNoDrag}`}
 						onClick={toggleTrayLayout}
 					>
 						{trayLayout === "horizontal" ? (
-							<Columns3 size={ICON_SIZE} className="text-white/60" />
+							<Columns3 size={ICON_SIZE} className={isLight ? "text-[#71717a]" : "text-white/60"} />
 						) : (
-							<Rows3 size={ICON_SIZE} className="text-white/60" />
+							<Rows3 size={ICON_SIZE} className={isLight ? "text-[#71717a]" : "text-white/60"} />
 						)}
 					</button>
 				</Tooltip>
@@ -756,15 +841,19 @@ export function LaunchWindow() {
 				{/* Source selector */}
 				<button
 					data-testid="launch-source-selector-button"
-					className={`${hudGroupClasses} h-8 ${trayLayout === "vertical" ? "w-8 justify-center px-0" : "px-2.5"} ${styles.electronNoDrag}`}
+					className={`${
+						isLight
+							? "bg-white border border-[#e4e4e7] text-[#18181b] hover:bg-[#f4f4f5]"
+							: "bg-[#141414] border border-[#252525] text-[#e8e8e8] hover:bg-[#1c1c1c]"
+					} flex items-center gap-1.5 rounded-full ${trayLayout === "vertical" ? "w-8 h-8 justify-center p-0" : "h-7 px-3"} ${styles.electronNoDrag}`}
 					onClick={openSourceSelector}
 					disabled={recording}
 					title={selectedSource}
 					aria-label={selectedSource}
 				>
-					{getIcon("monitor", "text-white/80")}
+					{getIcon("monitor", isLight ? "text-[#18181b]" : "text-white/80")}
 					<span
-						className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[86px]"} truncate text-[11px] font-medium text-white/75`}
+						className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[86px]"} truncate text-[11px] font-semibold ${isLight ? "text-[#18181b]" : "text-white/90"}`}
 					>
 						{selectedSource}
 					</span>
@@ -772,24 +861,40 @@ export function LaunchWindow() {
 
 				{/* Audio controls group */}
 				<div
-					className={`${hudGroupClasses} ${trayLayout === "vertical" ? "flex-col py-1" : ""} ${styles.electronNoDrag}`}
+					className={`flex items-center rounded-full border ${
+						isLight ? "border-[#e4e4e7] bg-[#f4f4f5]" : "border-[#252525] bg-[#141414]"
+					} ${trayLayout === "vertical" ? "flex-col gap-1 px-1 py-1.5" : "gap-1 px-1 py-0.5"} ${styles.electronNoDrag}`}
 				>
 					<button
 						data-testid="launch-system-audio-button"
-						className={`${hudIconBtnClasses} ${systemAudioEnabled ? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
+						className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
+							systemAudioEnabled
+								? isLight
+									? "bg-[#e8ff47] text-black font-bold shadow-xs"
+									: "bg-[#222222] text-[#e8ff47]"
+								: isLight
+									? "text-[#71717a] hover:bg-[#e4e4e7]"
+									: "text-[#666666] hover:bg-[#252525]"
+						}`}
 						onClick={() => !recording && setSystemAudioEnabled(!systemAudioEnabled)}
 						disabled={recording}
 						title={
 							systemAudioEnabled ? t("audio.disableSystemAudio") : t("audio.enableSystemAudio")
 						}
 					>
-						{systemAudioEnabled
-							? getIcon("volumeOn", "text-green-400")
-							: getIcon("volumeOff", "text-white/40")}
+						{getIcon("volumeOn")}
 					</button>
 					<button
 						data-testid="launch-microphone-button"
-						className={`${hudIconBtnClasses} ${microphoneEnabled ? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
+						className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
+							microphoneEnabled
+								? isLight
+									? "bg-[#e8ff47] text-black font-bold shadow-xs"
+									: "bg-[#222222] text-[#e8ff47]"
+								: isLight
+									? "text-[#71717a] hover:bg-[#e4e4e7]"
+									: "text-[#666666] hover:bg-[#252525]"
+						}`}
 						onClick={toggleMicrophone}
 						disabled={recording}
 						title={microphoneEnabled ? t("audio.disableMicrophone") : t("audio.enableMicrophone")}
@@ -797,31 +902,46 @@ export function LaunchWindow() {
 							setRecordPointerDownCount((count) => count + 1);
 						}}
 					>
-						{microphoneEnabled
-							? getIcon("micOn", "text-green-400")
-							: getIcon("micOff", "text-white/40")}
+						{getIcon(microphoneEnabled ? "micOn" : "micOff")}
 					</button>
 					<button
 						data-testid="launch-webcam-button"
-						className={`${hudIconBtnClasses} ${webcamEnabled ? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
+						className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
+							webcamEnabled
+								? isLight
+									? "bg-[#e8ff47] text-black font-bold shadow-xs"
+									: "bg-[#222222] text-[#e8ff47]"
+								: isLight
+									? "text-[#71717a] hover:bg-[#e4e4e7]"
+									: "text-[#666666] hover:bg-[#252525]"
+						}`}
 						onClick={async () => {
 							await setWebcamEnabled(!webcamEnabled);
 						}}
 						disabled={recording}
 						title={webcamEnabled ? t("webcam.disableWebcam") : t("webcam.enableWebcam")}
 					>
-						{webcamEnabled
-							? getIcon("webcamOn", "text-green-400")
-							: getIcon("webcamOff", "text-white/40")}
+						{getIcon(webcamEnabled ? "webcamOn" : "webcamOff")}
 					</button>
 					{supportsCursorModeToggle && (
 						<button
 							data-testid="launch-cursor-mode-button"
-							className={`${hudIconBtnClasses} ${
+							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
 								cursorCaptureMode === "editable-overlay"
-									? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]"
-									: ""
+									? isLight
+										? "font-bold shadow-xs"
+										: "bg-[#222222]"
+									: isLight
+										? "text-[#71717a] hover:bg-[#e4e4e7]"
+										: "text-[#666666] hover:bg-[#252525]"
 							}`}
+							style={
+								cursorCaptureMode === "editable-overlay"
+									? isLight
+										? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+										: { color: activeAccent.hex }
+									: undefined
+							}
 							onClick={() =>
 								!recording &&
 								setCursorCaptureMode(
@@ -835,10 +955,7 @@ export function LaunchWindow() {
 									: t("cursor.useEditableCursor")
 							}
 						>
-							{getIcon(
-								"cursor",
-								cursorCaptureMode === "editable-overlay" ? "text-green-400" : "text-white/40",
-							)}
+							{getIcon("cursor")}
 						</button>
 					)}
 				</div>
@@ -846,22 +963,24 @@ export function LaunchWindow() {
 				{/* Record/Stop group */}
 				<button
 					data-testid="launch-record-button"
-					className={`flex items-center justify-center rounded-full p-2 transition-[min-width,background-color] duration-150 ${recording ? "min-w-[78px]" : "min-w-[36px]"} ${trayLayout === "vertical" ? "min-h-9" : ""} ${styles.electronNoDrag} ${
+					className={`flex items-center justify-center rounded-full transition-[min-width,background-color] duration-150 ${trayLayout === "vertical" ? "w-8 h-8 p-0" : "px-3 py-1.5 min-w-[34px] min-h-7"} ${styles.electronNoDrag} ${
 						recording
 							? paused
-								? "bg-amber-500/10 hover:bg-amber-500/15"
-								: "bg-red-500/12 hover:bg-red-500/16"
-							: "bg-white/[0.06] hover:bg-white/[0.10]"
+								? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+								: "bg-red-500/20 text-red-400 border border-red-500/30"
+							: isLight
+								? "bg-[#18181b] text-white hover:bg-[#27272a] rounded-full border border-[#18181b]"
+								: "bg-[#1f1f1f] text-white hover:bg-[#2a2a2a] border border-[#2c2c2c] rounded-full"
 					}`}
 					onClick={toggleRecording}
 					disabled={!hasSelectedSource && !recording}
 					style={{ flex: "0 0 auto" }}
 				>
-					<div className={`flex items-center justify-center ${recording ? "gap-1.5" : ""}`}>
+					<div className={`flex items-center justify-center ${recording && trayLayout !== "vertical" ? "gap-1.5" : ""}`}>
 						{recording
 							? getIcon("stop", paused ? "text-amber-400" : "text-red-400")
 							: getIcon("record", hasSelectedSource ? "text-white/80" : "text-white/30")}
-						{recording && (
+						{recording && trayLayout !== "vertical" && (
 							<span
 								className={`${paused ? "text-amber-400" : "text-red-400"} inline-block w-[34px] text-left text-xs font-semibold tabular-nums`}
 							>
@@ -873,7 +992,7 @@ export function LaunchWindow() {
 
 				{recording && (
 					<div
-						className={`flex items-center gap-0.5 ${trayLayout === "vertical" ? "flex-col" : ""} ${styles.electronNoDrag}`}
+						className={`flex items-center gap-0.5 ${trayLayout === "vertical" ? "flex-col gap-1" : ""} ${styles.electronNoDrag}`}
 					>
 						{canPauseRecording && (
 							<Tooltip
@@ -904,18 +1023,35 @@ export function LaunchWindow() {
 					<Tooltip content={t("tooltips.openStudio")}>
 						<button
 							data-testid="launch-open-studio-button"
-							className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
+							className={`${iconBtnClasses} ${styles.electronNoDrag}`}
 							onClick={() => window.electronAPI.switchToEditor()}
 						>
-							<Clapperboard size={ICON_SIZE} className="text-white/60" />
+							<Clapperboard size={ICON_SIZE} className={isLight ? "text-[#71717a]" : "text-white/60"} />
 						</button>
 					</Tooltip>
 				)}
 
 				{/* Right sidebar controls */}
 				<div
-					className={`${trayLayout === "vertical" ? hudSidebarVerticalClasses : hudSidebarClasses} ${styles.electronNoDrag}`}
+					className={`${trayLayout === "vertical" ? (isLight ? "mt-1.5 pt-2 border-t border-[#e4e4e7] flex flex-col items-center gap-1.5" : "mt-1.5 pt-2 border-t border-[#252525] flex flex-col items-center gap-1.5") : (isLight ? "ml-1 pl-2 border-l border-[#e4e4e7] flex items-center gap-1" : "ml-1 pl-2 border-l border-[#252525] flex items-center gap-1")} ${styles.electronNoDrag}`}
 				>
+					{/* Theme Toggle (Sun/Moon) */}
+					<Tooltip content={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}>
+						<button
+							type="button"
+							aria-label="Toggle theme"
+							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer ${
+								isLight
+									? "text-[#18181b] hover:bg-[#e4e4e7]"
+									: "hover:bg-[#252525]"
+							} ${styles.electronNoDrag}`}
+							style={!isLight ? { color: activeAccent.hex } : undefined}
+							onClick={toggleTheme}
+						>
+							{getIcon(isLight ? "moon" : "sun")}
+						</button>
+					</Tooltip>
+
 					<div className={`${styles.languageMenuContainer} ${styles.electronNoDrag}`}>
 						<button
 							ref={languageTriggerRef}
@@ -925,13 +1061,17 @@ export function LaunchWindow() {
 							aria-haspopup="menu"
 							onClick={() => setIsLanguageMenuOpen((open) => !open)}
 							title={activeLanguageLabel}
-							className={`flex h-8 items-center rounded-lg border border-white/10 bg-white/[0.045] text-white/85 shadow-none transition-colors hover:bg-white/10 ${
-								trayLayout === "vertical" ? "w-8 justify-center px-0" : "gap-1.5 px-2"
+							className={`flex h-7 items-center rounded-full border ${
+								isLight
+									? "border-[#e4e4e7] bg-white text-[#18181b] hover:bg-[#f4f4f5]"
+									: "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-[#202020]"
+							} shadow-none transition-colors ${
+								trayLayout === "vertical" ? "w-7 justify-center px-0" : "gap-1.5 px-2.5"
 							} ${styles.electronNoDrag}`}
 						>
-							<Languages size={13} className="text-white/70" />
+							<Languages size={13} className={isLight ? "text-[#71717a]" : "text-white/70"} />
 							<span
-								className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[54px]"} truncate text-[10px] font-semibold text-white/75`}
+								className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[54px]"} truncate text-[10px] font-semibold ${isLight ? "text-[#18181b]" : "text-white/80"}`}
 							>
 								{activeLanguageLabel}
 							</span>
@@ -944,13 +1084,14 @@ export function LaunchWindow() {
 									ref={setLanguageMenuPanelEl}
 									data-hud-interactive="true"
 									role="menu"
-									className={`${styles.languageMenuPanel} ${styles.languageMenuScroll} ${styles.electronNoDrag}`}
+									className={`${isLight ? styles.languageMenuPanelLight : styles.languageMenuPanel} ${styles.languageMenuScroll} ${styles.electronNoDrag}`}
 									style={
 										{
 											WebkitAppRegion: "no-drag",
 											pointerEvents: "auto",
 											right: `${languageMenuStyle.right}px`,
-											top: `${languageMenuStyle.top}px`,
+											top: languageMenuStyle.top !== undefined ? `${languageMenuStyle.top}px` : "auto",
+											bottom: languageMenuStyle.bottom !== undefined ? `${languageMenuStyle.bottom}px` : "auto",
 											maxHeight: `${languageMenuStyle.maxHeight}px`,
 										} as React.CSSProperties
 									}
@@ -973,10 +1114,12 @@ export function LaunchWindow() {
 												resolveSystemLocaleSuggestion();
 												setIsLanguageMenuOpen(false);
 											}}
-											className={`${styles.languageMenuItem} ${loc === locale ? styles.languageMenuItemActive : ""}`}
+											className={`${isLight ? styles.languageMenuItemLight : styles.languageMenuItem} ${loc === locale ? (isLight ? styles.languageMenuItemActiveLight : styles.languageMenuItemActive) : ""}`}
 										>
 											<span className="truncate">{getLocaleName(loc)}</span>
-											{loc === locale ? <Check size={11} className="text-white/85" /> : null}
+											{loc === locale ? (
+												<Check size={11} className={isLight ? "text-black" : "text-white/85"} />
+											) : null}
 										</button>
 									))}
 								</div>,
@@ -989,18 +1132,26 @@ export function LaunchWindow() {
 						className={`flex items-center gap-0.5 ${trayLayout === "vertical" ? "flex-col" : ""}`}
 					>
 						<button
-							className={windowBtnClasses}
+							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer ${
+								isLight
+									? "text-[#71717a] hover:text-[#18181b] hover:bg-[#e4e4e7]"
+									: "text-[#666666] hover:text-[#e8e8e8] hover:bg-[#252525]"
+							}`}
 							title={t("tooltips.hideHUD")}
 							onClick={sendHudOverlayHide}
 						>
-							{getIcon("minimize", "text-white")}
+							{getIcon("minimize")}
 						</button>
 						<button
-							className={windowBtnClasses}
+							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer ${
+								isLight
+									? "text-[#71717a] hover:text-[#18181b] hover:bg-[#e4e4e7]"
+									: "text-[#666666] hover:text-[#e8e8e8] hover:bg-[#252525]"
+							}`}
 							title={t("tooltips.closeApp")}
 							onClick={sendHudOverlayClose}
 						>
-							{getIcon("close", "text-white")}
+							{getIcon("close")}
 						</button>
 					</div>
 				</div>

@@ -2,22 +2,33 @@ import { AlertCircle, Film, FolderOpen, Upload, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useScopedT } from "@/contexts/I18nContext";
-import { getProjectFolder, parentDirectoryOf, saveUserPreferences } from "@/lib/userPreferences";
+import { ACCENT_COLOR_MAP, type AccentColor, getProjectFolder, parentDirectoryOf, saveUserPreferences } from "@/lib/userPreferences";
 import { nativeBridgeClient } from "@/native";
 
 interface EditorEmptyStateProps {
 	onVideoImported: (videoPath: string) => void;
 	/** Called with the loaded project data; handles both button click and drag-drop */
 	onProjectOpened: (project: unknown, path: string | null) => void;
+	themeMode?: "dark" | "light";
+	accentColor?: AccentColor;
+	userName?: string;
 }
 
 type DropError = "unsupported-format" | "load-failed" | null;
 
-export function EditorEmptyState({ onVideoImported, onProjectOpened }: EditorEmptyStateProps) {
+export function EditorEmptyState({
+	onVideoImported,
+	onProjectOpened,
+	themeMode = "dark",
+	accentColor = "lime",
+	userName = "Ocal User",
+}: EditorEmptyStateProps) {
 	const te = useScopedT("editor");
 	const tc = useScopedT("common");
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
 	const [dropError, setDropError] = useState<DropError>(null);
+	const isLight = themeMode === "light";
+	const activeAccent = ACCENT_COLOR_MAP[accentColor] || ACCENT_COLOR_MAP.lime;
 	// Freeze the last non-null error type so dialog content doesn't snap to the else-branch
 	// during the closing animation (same pattern as UnsavedChangesDialog).
 	const lastDropErrorRef = useRef<Exclude<DropError, null>>("unsupported-format");
@@ -106,31 +117,51 @@ export function EditorEmptyState({ onVideoImported, onProjectOpened }: EditorEmp
 
 	return (
 		<div
-			className="flex h-full w-full flex-col items-center justify-center bg-[#09090b]"
+			className={`flex h-full w-full flex-col items-center justify-center transition-colors duration-200 ${
+				isLight ? "bg-[#f4f4f5] text-[#18181b]" : "bg-[#0c0c0c] text-[#e8e8e8]"
+			}`}
 			onDragOver={handleDragOver}
 			onDragLeave={handleDragLeave}
 			onDrop={handleDrop}
 		>
 			{/* Drop overlay */}
 			{isDraggingOver && (
-				<div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#34B27B] bg-[#34B27B]/10">
-					<Upload className="mb-3 h-10 w-10 text-[#34B27B]" />
-					<p className="text-base font-semibold text-[#34B27B]">{te("emptyState.dropOverlay")}</p>
+				<div
+					className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed backdrop-blur-sm"
+					style={{
+						borderColor: activeAccent.hex,
+						backgroundColor: `${activeAccent.hex}15`,
+					}}
+				>
+					<Upload className="mb-3 h-10 w-10 animate-bounce" style={{ color: activeAccent.hex }} />
+					<p className="text-base font-extrabold" style={{ color: activeAccent.hex }}>
+						{te("emptyState.dropOverlay")}
+					</p>
 				</div>
 			)}
 
 			{/* Drop error dialog */}
 			<Dialog open={dropError !== null} onOpenChange={(open) => !open && setDropError(null)}>
-				<DialogContent className="bg-[#09090b] border-white/10 rounded-2xl max-w-sm p-6 gap-0">
+				<DialogContent
+					className={`rounded-3xl max-w-sm p-6 gap-0 shadow-2xl ${
+						isLight
+							? "bg-[#ffffff] border-[#e4e4e7] text-[#18181b]"
+							: "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"
+					}`}
+				>
 					<DialogHeader className="mb-4">
 						<div className="flex items-center gap-3">
-							<img
-								src="./openscreen.png"
-								alt=""
-								aria-hidden="true"
-								className="w-9 h-9 rounded-xl flex-shrink-0"
-							/>
-							<DialogTitle className="text-base font-semibold text-slate-200 leading-tight">
+							<div
+								className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+									isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-[#141414] border-[#252525]"
+								}`}
+								style={{ color: activeAccent.hex }}
+							>
+								<Film className="h-5 w-5" />
+							</div>
+							<DialogTitle
+								className={`text-base font-bold leading-tight ${isLight ? "text-[#18181b]" : "text-[#e8e8e8]"}`}
+							>
 								{lastDropErrorRef.current === "unsupported-format"
 									? te("emptyState.dropErrors.unsupportedFormatTitle")
 									: te("emptyState.dropErrors.couldNotOpenTitle")}
@@ -139,10 +170,14 @@ export function EditorEmptyState({ onVideoImported, onProjectOpened }: EditorEmp
 					</DialogHeader>
 
 					<div className="flex flex-col items-center gap-3 mb-6 text-center">
-						<div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/5 ring-1 ring-white/10">
-							<AlertCircle className="w-5 h-5 text-slate-400 flex-shrink-0" />
+						<div
+							className={`flex items-center justify-center w-10 h-10 rounded-full border ${
+								isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-[#141414] border-[#252525]"
+							}`}
+						>
+							<AlertCircle className="w-5 h-5 text-[#888888] flex-shrink-0" />
 						</div>
-						<p className="text-sm text-slate-400 leading-relaxed">
+						<p className="text-xs text-[#888888] leading-relaxed">
 							{lastDropErrorRef.current === "unsupported-format"
 								? te("emptyState.dropErrors.unsupportedFormatMessage")
 								: te("emptyState.dropErrors.couldNotOpenMessage")}
@@ -152,7 +187,11 @@ export function EditorEmptyState({ onVideoImported, onProjectOpened }: EditorEmp
 					<button
 						type="button"
 						onClick={() => setDropError(null)}
-						className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-medium text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090b]"
+						className={`flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-full border font-bold text-xs transition-colors outline-none cursor-pointer ${
+							isLight
+								? "bg-[#f4f4f5] hover:bg-[#e4e4e7] border-[#e4e4e7] text-[#18181b]"
+								: "bg-[#141414] hover:bg-[#202020] border-[#252525] text-[#e8e8e8]"
+						}`}
 					>
 						<X className="w-4 h-4" />
 						{tc("actions.close")}
@@ -160,28 +199,44 @@ export function EditorEmptyState({ onVideoImported, onProjectOpened }: EditorEmp
 				</DialogContent>
 			</Dialog>
 
-			<div className="relative flex flex-col items-center gap-8 px-6 text-center">
-				{/* Logo */}
-				<img
-					src="./openscreen.png"
-					alt=""
-					aria-hidden="true"
-					className="h-16 w-16 rounded-2xl opacity-90"
-				/>
+			<div className="relative flex flex-col items-center gap-6 px-6 text-center max-w-md">
+				{/* Ocal Studio Icon Badge */}
+				<div className="relative flex items-center justify-center">
+					<div
+						className="absolute inset-0 rounded-3xl blur-xl opacity-30"
+						style={{ backgroundColor: activeAccent.hex }}
+					/>
+					<div
+						className={`relative flex h-16 w-16 items-center justify-center rounded-3xl border shadow-xl ${
+							isLight ? "bg-[#ffffff] border-[#e4e4e7]" : "bg-[#141414] border-[#252525]"
+						}`}
+						style={{ color: activeAccent.hex }}
+					>
+						<Film className="h-8 w-8" />
+					</div>
+				</div>
 
-				<div className="flex flex-col gap-2">
-					<h2 className="text-xl font-semibold text-slate-200">{te("emptyState.title")}</h2>
-					<p className="max-w-sm text-sm leading-relaxed text-slate-500">
+				<div className="flex flex-col gap-1.5">
+					<span className="text-xs font-extrabold uppercase tracking-wider text-[#888888]">
+						Welcome back, <span style={{ color: activeAccent.hex }}>{userName}</span>
+					</span>
+					<h2
+						className={`text-xl font-extrabold tracking-tight ${isLight ? "text-[#18181b]" : "text-[#e8e8e8]"}`}
+					>
+						{te("emptyState.title")}
+					</h2>
+					<p className="max-w-sm text-xs leading-relaxed text-[#888888]">
 						{te("emptyState.description")}
 					</p>
 				</div>
 
 				{/* Actions */}
-				<div className="flex flex-col gap-3 w-full max-w-xs">
+				<div className="flex flex-col gap-3 w-full max-w-xs mt-2">
 					<button
 						type="button"
 						onClick={handleImportVideo}
-						className="flex items-center justify-center gap-2.5 w-full px-4 py-3 rounded-xl bg-[#34B27B] hover:bg-[#2d9e6c] active:bg-[#27885c] text-white font-medium text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#34B27B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090b]"
+						style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+						className="flex items-center justify-center gap-2.5 w-full px-6 py-3 rounded-full active:scale-95 font-extrabold text-xs tracking-wide transition-all shadow-md cursor-pointer hover:opacity-90"
 					>
 						<Film className="h-4 w-4" />
 						{te("emptyState.importVideoButton")}
@@ -189,16 +244,20 @@ export function EditorEmptyState({ onVideoImported, onProjectOpened }: EditorEmp
 					<button
 						type="button"
 						onClick={handleLoadProject}
-						className="flex items-center justify-center gap-2.5 w-full px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-medium text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090b]"
+						className={`flex items-center justify-center gap-2.5 w-full px-6 py-3 rounded-full border active:scale-95 font-bold text-xs tracking-wide transition-all cursor-pointer ${
+							isLight
+								? "bg-[#ffffff] hover:bg-[#f4f4f5] border-[#e4e4e7] text-[#18181b]"
+								: "bg-[#141414] hover:bg-[#1a1a1a] border-[#252525] text-[#e8e8e8]"
+						}`}
 					>
 						<FolderOpen className="h-4 w-4" />
 						{te("emptyState.loadProjectButton")}
 					</button>
 				</div>
 
-				<div className="flex flex-col items-center gap-2">
-					<p className="text-xs text-slate-600">{te("emptyState.supportedFormats")}</p>
-					<div className="flex items-center gap-1.5 text-xs text-slate-700 mt-4">
+				<div className="flex flex-col items-center gap-2 mt-4">
+					<p className="text-[11px] font-medium text-[#888888]">{te("emptyState.supportedFormats")}</p>
+					<div className="flex items-center gap-1.5 text-[11px] text-[#888888] mt-2">
 						<Upload className="h-3 w-3" />
 						<span>{te("emptyState.dragDropHint")}</span>
 					</div>

@@ -18,6 +18,17 @@ const VALID_ASPECT_RATIOS: readonly string[] = [
 	"native",
 ];
 
+export type AccentColor = "lime" | "cyan" | "orange" | "green" | "purple" | "pink";
+
+export const ACCENT_COLOR_MAP: Record<AccentColor, { label: string; hex: string; textHex: string }> = {
+	lime: { label: "Neon Lime", hex: "#e8ff47", textHex: "#000000" },
+	cyan: { label: "Electric Cyan", hex: "#00f0ff", textHex: "#000000" },
+	orange: { label: "Sunset Orange", hex: "#ff6b00", textHex: "#ffffff" },
+	green: { label: "Emerald Green", hex: "#34b27b", textHex: "#ffffff" },
+	purple: { label: "Royal Purple", hex: "#a855f7", textHex: "#ffffff" },
+	pink: { label: "Hot Pink", hex: "#ff2a85", textHex: "#ffffff" },
+};
+
 export interface UserPreferences {
 	/** Default padding % */
 	padding: number;
@@ -33,6 +44,12 @@ export interface UserPreferences {
 	projectFolder: string | null;
 	/** Recording HUD control layout */
 	trayLayout: "horizontal" | "vertical";
+	/** UI Theme (dark or light) */
+	theme: "dark" | "light";
+	/** UI Accent Color */
+	accentColor: AccentColor;
+	/** Display User Name */
+	userName: string;
 }
 
 export const DEFAULT_PREFS: UserPreferences = {
@@ -43,6 +60,9 @@ export const DEFAULT_PREFS: UserPreferences = {
 	exportFolder: null,
 	projectFolder: null,
 	trayLayout: "horizontal",
+	theme: "dark",
+	accentColor: "lime",
+	userName: "Ocal User",
 };
 
 /** Parses stored preferences without throwing on malformed JSON. */
@@ -99,6 +119,15 @@ export function loadUserPreferences(): UserPreferences {
 			raw.trayLayout === "horizontal" || raw.trayLayout === "vertical"
 				? raw.trayLayout
 				: DEFAULT_PREFS.trayLayout,
+		theme: raw.theme === "light" || raw.theme === "dark" ? raw.theme : DEFAULT_PREFS.theme,
+		accentColor:
+			typeof raw.accentColor === "string" && raw.accentColor in ACCENT_COLOR_MAP
+				? (raw.accentColor as AccentColor)
+				: DEFAULT_PREFS.accentColor,
+		userName:
+			typeof raw.userName === "string" && raw.userName.trim().length > 0
+				? raw.userName.trim()
+				: DEFAULT_PREFS.userName,
 	};
 }
 

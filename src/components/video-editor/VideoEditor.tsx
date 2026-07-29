@@ -1,5 +1,5 @@
 import type { Span } from "dnd-timeline";
-import { FolderOpen, Languages, Save, Video } from "lucide-react";
+import { Check, FolderOpen, Languages, Moon, Save, Settings, Sun, Video } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
@@ -53,6 +53,8 @@ import { computeFrameStepTime } from "@/lib/frameStep";
 import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
+	ACCENT_COLOR_MAP,
+	type AccentColor,
 	getExportFolder,
 	getProjectFolder,
 	loadUserPreferences,
@@ -69,6 +71,7 @@ import {
 } from "@/utils/aspectRatioUtils";
 import { EditorEmptyState } from "./EditorEmptyState";
 import { ExportDialog } from "./ExportDialog";
+import { StudioSettingsDialog } from "./StudioSettingsDialog";
 import {
 	DEFAULT_CURSOR_SETTINGS,
 	DEFAULT_EXPORT_SETTINGS,
@@ -177,6 +180,30 @@ function buildSaveDiagnosticMessage(formatLabel: "GIF" | "Video", reason?: strin
 const CAPTION_WORD_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 export default function VideoEditor() {
+	const isWin =
+		typeof window !== "undefined" && window.navigator?.platform?.toLowerCase().includes("win");
+
+	const [themeMode, setThemeMode] = useState<"dark" | "light">(() => loadUserPreferences().theme);
+	const [accentColor, setAccentColor] = useState<AccentColor>(() => loadUserPreferences().accentColor);
+	const [userName, setUserName] = useState<string>(() => loadUserPreferences().userName);
+	const [showAccentPicker, setShowAccentPicker] = useState(false);
+	const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+
+	const isLight = themeMode === "light";
+	const activeAccent = ACCENT_COLOR_MAP[accentColor] || ACCENT_COLOR_MAP.lime;
+
+	const toggleThemeMode = () => {
+		const next = themeMode === "dark" ? "light" : "dark";
+		setThemeMode(next);
+		saveUserPreferences({ theme: next });
+	};
+
+	const selectAccentColor = (color: AccentColor) => {
+		setAccentColor(color);
+		saveUserPreferences({ accentColor: color });
+		setShowAccentPicker(false);
+	};
+
 	const {
 		state: editorState,
 		pushState,
@@ -2364,7 +2391,7 @@ export default function VideoEditor() {
 					<button
 						type="button"
 						onClick={handleLoadProject}
-						className="px-3 py-1.5 rounded-md bg-[#34B27B] text-white text-sm hover:bg-[#34B27B]/90"
+						className="px-4 py-2 rounded-full bg-[#e8ff47] hover:bg-[#d9ff00] text-black text-xs font-extrabold cursor-pointer active:scale-95 transition-all"
 					>
 						{ts("project.load")}
 					</button>
@@ -2377,25 +2404,38 @@ export default function VideoEditor() {
 		<div className="flex flex-col h-screen bg-[#09090b] text-slate-200 overflow-hidden selection:bg-[#34B27B]/30">
 			<Dialog open={showNewRecordingDialog} onOpenChange={setShowNewRecordingDialog}>
 				<DialogContent
-					className="sm:max-w-[425px]"
+					className={`sm:max-w-[425px] rounded-3xl p-6 gap-0 shadow-2xl transition-colors duration-200 ${
+						isLight
+							? "bg-[#ffffff] border-[#e4e4e7] text-[#18181b]"
+							: "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"
+					}`}
 					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
 				>
-					<DialogHeader>
-						<DialogTitle>{t("newRecording.title")}</DialogTitle>
-						<DialogDescription>{t("newRecording.description")}</DialogDescription>
+					<DialogHeader className="mb-4">
+						<DialogTitle className={`text-base font-extrabold leading-tight ${isLight ? "text-[#18181b]" : "text-[#e8e8e8]"}`}>
+							{t("newRecording.title")}
+						</DialogTitle>
+						<DialogDescription className="text-xs text-[#888888] leading-relaxed">
+							{t("newRecording.description")}
+						</DialogDescription>
 					</DialogHeader>
-					<DialogFooter>
+					<DialogFooter className="flex gap-2 sm:justify-end mt-4">
 						<button
 							type="button"
 							onClick={() => setShowNewRecordingDialog(false)}
-							className="px-4 py-2 rounded-md bg-white/10 text-white hover:bg-white/20 text-sm font-medium transition-colors"
+							className={`px-4 py-2 rounded-full font-bold text-xs transition-all cursor-pointer outline-none ${
+								isLight
+									? "bg-[#f4f4f5] hover:bg-[#e4e4e7] border border-[#e4e4e7] text-[#18181b]"
+									: "bg-[#141414] hover:bg-[#202020] border border-[#252525] text-[#e8e8e8]"
+							}`}
 						>
 							{t("newRecording.cancel")}
 						</button>
 						<button
 							type="button"
 							onClick={handleNewRecordingConfirm}
-							className="px-4 py-2 rounded-md bg-[#34B27B] text-white hover:bg-[#34B27B]/90 text-sm font-medium transition-colors"
+							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+							className="px-5 py-2 rounded-full text-xs font-extrabold cursor-pointer active:scale-95 transition-all hover:opacity-90 shadow-md outline-none"
 						>
 							{t("newRecording.confirm")}
 						</button>
@@ -2405,16 +2445,24 @@ export default function VideoEditor() {
 
 			<Dialog open={showAutoCaptionsDialog} onOpenChange={setShowAutoCaptionsDialog}>
 				<DialogContent
-					className="sm:max-w-md"
+					className={`sm:max-w-md rounded-3xl p-6 gap-0 shadow-2xl transition-colors duration-200 ${
+						isLight
+							? "bg-[#ffffff] border-[#e4e4e7] text-[#18181b]"
+							: "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"
+					}`}
 					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
 				>
-					<DialogHeader>
-						<DialogTitle>{t("autoCaptions.dialogTitle")}</DialogTitle>
-						<DialogDescription>{t("autoCaptions.dialogDescription")}</DialogDescription>
+					<DialogHeader className="mb-4">
+						<DialogTitle className={`text-base font-extrabold leading-tight ${isLight ? "text-[#18181b]" : "text-[#e8e8e8]"}`}>
+							{t("autoCaptions.dialogTitle")}
+						</DialogTitle>
+						<DialogDescription className="text-xs text-[#888888] leading-relaxed">
+							{t("autoCaptions.dialogDescription")}
+						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-2">
 						<div className="grid gap-2">
-							<Label htmlFor="caption-min-words">{t("autoCaptions.minWords")}</Label>
+							<Label htmlFor="caption-min-words" className="text-xs font-semibold">{t("autoCaptions.minWords")}</Label>
 							<Select
 								value={String(captionWordsMin)}
 								onValueChange={(v) => {
@@ -2423,10 +2471,10 @@ export default function VideoEditor() {
 									if (n > captionWordsMax) setCaptionWordsMax(n);
 								}}
 							>
-								<SelectTrigger id="caption-min-words" className="h-9">
+								<SelectTrigger id="caption-min-words" className={`h-9 text-xs rounded-xl ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7] text-[#18181b]" : "bg-[#141414] border-[#252525] text-[#e8e8e8]"}`}>
 									<SelectValue />
 								</SelectTrigger>
-								<SelectContent>
+								<SelectContent className={isLight ? "bg-white border-[#e4e4e7] text-[#18181b]" : "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"}>
 									{CAPTION_WORD_CHOICES.map((n) => (
 										<SelectItem key={`min-${n}`} value={String(n)}>
 											{t("autoCaptions.wordsCount", { count: String(n) })}
@@ -2436,7 +2484,7 @@ export default function VideoEditor() {
 							</Select>
 						</div>
 						<div className="grid gap-2">
-							<Label htmlFor="caption-max-words">{t("autoCaptions.maxWords")}</Label>
+							<Label htmlFor="caption-max-words" className="text-xs font-semibold">{t("autoCaptions.maxWords")}</Label>
 							<Select
 								value={String(captionWordsMax)}
 								onValueChange={(v) => {
@@ -2445,10 +2493,10 @@ export default function VideoEditor() {
 									if (n < captionWordsMin) setCaptionWordsMin(n);
 								}}
 							>
-								<SelectTrigger id="caption-max-words" className="h-9">
+								<SelectTrigger id="caption-max-words" className={`h-9 text-xs rounded-xl ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7] text-[#18181b]" : "bg-[#141414] border-[#252525] text-[#e8e8e8]"}`}>
 									<SelectValue />
 								</SelectTrigger>
-								<SelectContent>
+								<SelectContent className={isLight ? "bg-white border-[#e4e4e7] text-[#18181b]" : "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"}>
 									{CAPTION_WORD_CHOICES.map((n) => (
 										<SelectItem key={`max-${n}`} value={String(n)}>
 											{t("autoCaptions.wordsCount", { count: String(n) })}
@@ -2458,12 +2506,12 @@ export default function VideoEditor() {
 							</Select>
 						</div>
 					</div>
-					<DialogFooter className="gap-2 sm:gap-0">
+					<DialogFooter className="gap-2 sm:gap-0 mt-4">
 						<Button
 							type="button"
 							variant="outline"
 							onClick={() => setShowAutoCaptionsDialog(false)}
-							className="border-white/20 bg-transparent text-white hover:bg-white/10"
+							className={`rounded-full px-4 text-xs font-semibold ${isLight ? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b] hover:bg-[#e4e4e7]" : "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-[#202020]"}`}
 						>
 							{t("autoCaptions.dialogCancel")}
 						</Button>
@@ -2474,7 +2522,8 @@ export default function VideoEditor() {
 								setShowAutoCaptionsDialog(false);
 								void generateAutoCaptions(captionWordsMin, captionWordsMax);
 							}}
-							className="bg-[#34B27B] text-white hover:bg-[#34B27B]/90"
+							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+							className="font-extrabold rounded-full px-5 cursor-pointer active:scale-95 transition-all hover:opacity-90 shadow-md"
 						>
 							{t("autoCaptions.generate")}
 						</Button>
@@ -2483,54 +2532,204 @@ export default function VideoEditor() {
 			</Dialog>
 
 			<div
-				className="h-11 flex-shrink-0 bg-[#070809]/85 backdrop-blur-xl border-b border-white/[0.07] flex items-center justify-between px-5 z-50 shadow-[0_1px_0_rgba(255,255,255,0.03)]"
+				className={`h-12 flex-shrink-0 border-b flex items-center justify-between px-4 z-50 transition-colors duration-200 ${
+					isLight
+						? "bg-[#ffffff] border-[#e4e4e7] text-[#18181b]"
+						: "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"
+				}`}
 				style={{ WebkitAppRegion: "drag" } as CSSProperties}
 			>
+				{/* Brand Lockup (Left) */}
 				<div
-					className="flex-1 flex items-center gap-1"
+					className={`flex items-center gap-2 ${isMac ? "ml-16" : "ml-1"}`}
 					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
 				>
 					<div
-						className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 ${isMac ? "ml-14" : "ml-2"}`}
+						className={`flex items-center gap-1.5 pr-2 border-r ${
+							isLight ? "border-[#e4e4e7]" : "border-[#252525]"
+						}`}
 					>
-						<Languages size={14} />
+						<span
+							className={`text-xs font-black tracking-tight ${isLight ? "text-[#18181b]" : "text-white"}`}
+						>
+							ocal
+						</span>
+						<span
+							className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-xs"
+							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+						>
+							SCREEN
+						</span>
+						<span className="text-[10px] font-extrabold text-[#888888] tracking-widest uppercase ml-1">
+							STUDIO
+						</span>
+					</div>
+				</div>
+
+				{/* Actions & Controls (Right) */}
+				<div
+					className={`flex items-center gap-2 ${isWin ? "mr-36" : ""}`}
+					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
+				>
+					<button
+						type="button"
+						onClick={() => setShowNewRecordingDialog(true)}
+						className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all text-xs font-semibold cursor-pointer active:scale-95 ${
+							isLight
+								? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b] hover:bg-[#e4e4e7]"
+								: "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-[#202020] hover:text-white"
+						}`}
+					>
+						<Video size={13} style={{ color: activeAccent.hex }} />
+						{t("newRecording.title")}
+					</button>
+
+					<button
+						type="button"
+						onClick={handleLoadProject}
+						className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all text-xs font-semibold cursor-pointer active:scale-95 ${
+							isLight
+								? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b] hover:bg-[#e4e4e7]"
+								: "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-[#202020] hover:text-white"
+						}`}
+					>
+						<FolderOpen size={13} />
+						{ts("project.load")}
+					</button>
+
+					<button
+						type="button"
+						onClick={handleSaveProject}
+						className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all text-xs font-semibold cursor-pointer active:scale-95 ${
+							isLight
+								? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b] hover:bg-[#e4e4e7]"
+								: "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-[#202020] hover:text-white"
+						}`}
+					>
+						<Save size={13} />
+						{ts("project.save")}
+					</button>
+
+					{/* Theme Mode Toggle (Sun / Moon) */}
+					<button
+						type="button"
+						onClick={toggleThemeMode}
+						title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
+						className={`flex h-7 w-7 items-center justify-center rounded-full border transition-all cursor-pointer ${
+							isLight
+								? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b] hover:bg-[#e4e4e7]"
+								: "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-[#202020]"
+						}`}
+					>
+						{isLight ? <Moon size={13} /> : <Sun size={13} style={{ color: activeAccent.hex }} />}
+					</button>
+
+					{/* Accent Color Picker Popover */}
+					<div className="relative">
+						<button
+							type="button"
+							onClick={() => setShowAccentPicker((prev) => !prev)}
+							title="Select Accent Color"
+							className={`flex h-7 items-center gap-1.5 px-2.5 rounded-full border transition-all cursor-pointer ${
+								isLight
+									? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b] hover:bg-[#e4e4e7]"
+									: "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-[#202020]"
+							}`}
+						>
+							<div
+								className="h-2.5 w-2.5 rounded-full shadow-xs"
+								style={{ backgroundColor: activeAccent.hex }}
+							/>
+							<span className="text-[10px] font-bold uppercase">{accentColor}</span>
+						</button>
+
+						{showAccentPicker && (
+							<div
+								className={`absolute right-0 top-9 z-50 flex items-center gap-1.5 p-2 rounded-2xl border shadow-xl ${
+									isLight ? "bg-white border-[#e4e4e7]" : "bg-[#0c0c0c] border-[#252525]"
+								}`}
+							>
+								{(Object.keys(ACCENT_COLOR_MAP) as AccentColor[]).map((colKey) => {
+									const colData = ACCENT_COLOR_MAP[colKey];
+									const isSelected = accentColor === colKey;
+									return (
+										<button
+											key={colKey}
+											type="button"
+											onClick={() => selectAccentColor(colKey)}
+											title={colData.label}
+											className={`h-6 w-6 rounded-full transition-transform hover:scale-110 flex items-center justify-center cursor-pointer ${
+												isSelected ? "ring-2 ring-white ring-offset-2 ring-offset-[#0c0c0c]" : ""
+											}`}
+											style={{ backgroundColor: colData.hex }}
+										>
+											{isSelected && <Check size={11} style={{ color: colData.textHex }} />}
+										</button>
+									);
+								})}
+							</div>
+						)}
+					</div>
+
+					{/* Settings Button */}
+					<button
+						type="button"
+						onClick={() => setShowSettingsDialog(true)}
+						title="Studio Settings"
+						className={`flex h-7 items-center gap-1.5 px-3 rounded-full border transition-all cursor-pointer ${
+							isLight
+								? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b] hover:bg-[#e4e4e7]"
+								: "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-[#202020]"
+						}`}
+					>
+						<Settings size={13} style={{ color: activeAccent.hex }} />
+						<span className="text-xs font-semibold">Settings</span>
+					</button>
+
+					{/* User Profile Badge */}
+					<div
+						className={`flex h-7 items-center gap-1.5 px-2.5 rounded-full border transition-all ${
+							isLight
+								? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b]"
+								: "border-[#252525] bg-[#141414] text-[#e8e8e8]"
+						}`}
+					>
+						<div
+							className="flex h-4 w-4 items-center justify-center rounded-full font-black text-[9px] shadow-xs"
+							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+						>
+							{userName[0]?.toUpperCase() || "U"}
+						</div>
+						<span className="text-xs font-bold truncate max-w-[80px]">{userName}</span>
+					</div>
+
+					{/* Language Selector Dropdown */}
+					<div
+						className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all text-xs font-semibold ${
+							isLight
+								? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b]"
+								: "border-[#252525] bg-[#141414] text-[#e8e8e8]"
+						}`}
+					>
+						<Languages size={13} className="text-[#888888]" />
 						<select
 							value={locale}
 							onChange={(e) => setLocale(e.target.value as Locale)}
-							className="bg-transparent text-[11px] font-medium outline-none cursor-pointer appearance-none pr-1"
-							style={{ color: "inherit" }}
+							className={`bg-transparent text-xs font-semibold outline-none cursor-pointer appearance-none pr-1 ${
+								isLight ? "text-[#18181b]" : "text-[#e8e8e8]"
+							}`}
 						>
 							{availableLocales.map((loc) => (
-								<option key={loc} value={loc} className="bg-[#09090b] text-white">
+								<option
+									key={loc}
+									value={loc}
+									className={isLight ? "bg-[#ffffff] text-[#18181b]" : "bg-[#0c0c0c] text-white"}
+								>
 									{getLocaleName(loc)}
 								</option>
 							))}
 						</select>
 					</div>
-					<button
-						type="button"
-						onClick={() => setShowNewRecordingDialog(true)}
-						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 text-[11px] font-medium"
-					>
-						<Video size={14} />
-						{t("newRecording.title")}
-					</button>
-					<button
-						type="button"
-						onClick={handleLoadProject}
-						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 text-[11px] font-medium"
-					>
-						<FolderOpen size={14} />
-						{ts("project.load")}
-					</button>
-					<button
-						type="button"
-						onClick={handleSaveProject}
-						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 text-[11px] font-medium"
-					>
-						<Save size={14} />
-						{ts("project.save")}
-					</button>
 				</div>
 			</div>
 
@@ -2538,6 +2737,9 @@ export default function VideoEditor() {
 			{!videoPath && (
 				<div className="flex-1 min-h-0 relative">
 					<EditorEmptyState
+						themeMode={themeMode}
+						accentColor={accentColor}
+						userName={userName}
 						onVideoImported={(path) => {
 							setVideoPath(toFileUrl(path));
 							setVideoSourcePath(path);
@@ -2932,10 +3134,14 @@ export default function VideoEditor() {
 				onShowInFolder={
 					exportedFilePath ? () => void handleShowExportedFile(exportedFilePath) : undefined
 				}
+				accentColor={accentColor}
+				themeMode={themeMode}
 			/>
 
 			<UnsavedChangesDialog
 				isOpen={showCloseConfirmDialog}
+				accentColor={accentColor}
+				themeMode={themeMode}
 				onSaveAndClose={handleCloseConfirmSave}
 				onDiscardAndClose={handleCloseConfirmDiscard}
 				onCancel={handleCloseConfirmCancel}
@@ -2944,6 +3150,8 @@ export default function VideoEditor() {
 			<UnsavedChangesDialog
 				isOpen={confirmDialogVariant !== null}
 				variant={confirmDialogVariant ?? "newProject"}
+				accentColor={accentColor}
+				themeMode={themeMode}
 				onSaveAndClose={
 					confirmDialogVariant === "loadProject"
 						? handleLoadProjectConfirmSave
@@ -2955,6 +3163,17 @@ export default function VideoEditor() {
 						: handleNewProjectConfirmDiscard
 				}
 				onCancel={() => setConfirmDialogVariant(null)}
+			/>
+
+			<StudioSettingsDialog
+				isOpen={showSettingsDialog}
+				onClose={() => setShowSettingsDialog(false)}
+				themeMode={themeMode}
+				onThemeModeChange={setThemeMode}
+				accentColor={accentColor}
+				onAccentColorChange={setAccentColor}
+				userName={userName}
+				onUserNameChange={setUserName}
 			/>
 		</div>
 	);

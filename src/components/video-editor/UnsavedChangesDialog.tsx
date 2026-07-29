@@ -1,4 +1,4 @@
-import { Save, Trash2 } from "lucide-react";
+import { Film, Save, Trash2, X } from "lucide-react";
 import {
 	Dialog,
 	DialogContent,
@@ -7,6 +7,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { useScopedT } from "@/contexts/I18nContext";
+import { ACCENT_COLOR_MAP, type AccentColor } from "@/lib/userPreferences";
 
 interface UnsavedChangesDialogProps {
 	isOpen: boolean;
@@ -14,6 +15,8 @@ interface UnsavedChangesDialogProps {
 	onSaveAndClose: () => void;
 	onDiscardAndClose: () => void;
 	onCancel: () => void;
+	accentColor?: AccentColor;
+	themeMode?: "dark" | "light";
 }
 
 export function UnsavedChangesDialog({
@@ -22,7 +25,11 @@ export function UnsavedChangesDialog({
 	onSaveAndClose,
 	onDiscardAndClose,
 	onCancel,
+	accentColor = "lime",
+	themeMode = "dark",
 }: UnsavedChangesDialogProps) {
+	const activeAccent = ACCENT_COLOR_MAP[accentColor] || ACCENT_COLOR_MAP.lime;
+	const isLight = themeMode === "light";
 	const td = useScopedT("dialogs");
 	const tc = useScopedT("common");
 
@@ -47,29 +54,46 @@ export function UnsavedChangesDialog({
 
 	return (
 		<Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
-			<DialogContent className="bg-[#09090b] border-white/10 rounded-2xl max-w-sm p-6 gap-0">
-				<DialogHeader className="mb-5">
+			<DialogContent
+				className={`rounded-3xl max-w-sm p-6 gap-0 shadow-2xl transition-colors duration-200 ${
+					isLight
+						? "bg-[#ffffff] border-[#e4e4e7] text-[#18181b]"
+						: "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"
+				}`}
+			>
+				<DialogHeader className="mb-4">
 					<div className="flex items-center gap-3">
-						<img
-							src="./openscreen.png"
-							alt=""
-							aria-hidden="true"
-							className="w-9 h-9 rounded-xl flex-shrink-0"
-						/>
-						<DialogTitle className="text-base font-semibold text-slate-200 leading-tight">
+						<div
+							className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+								isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-[#141414] border-[#252525]"
+							}`}
+							style={{ color: activeAccent.hex }}
+						>
+							<Film className="h-5 w-5" />
+						</div>
+						<DialogTitle
+							className={`text-base font-extrabold leading-tight ${
+								isLight ? "text-[#18181b]" : "text-[#e8e8e8]"
+							}`}
+						>
 							{td("unsavedChanges.title")}
 						</DialogTitle>
 					</div>
 				</DialogHeader>
 
-				<p className="text-sm text-slate-300 mb-1">{td("unsavedChanges.message")}</p>
-				<DialogDescription className="text-sm text-slate-500 mb-6">{detail}</DialogDescription>
+				<p className={`text-xs font-semibold mb-1 ${isLight ? "text-[#18181b]" : "text-[#e8e8e8]"}`}>
+					{td("unsavedChanges.message")}
+				</p>
+				<DialogDescription className="text-xs text-[#888888] mb-6 leading-relaxed">
+					{detail}
+				</DialogDescription>
 
-				<div className="flex flex-col gap-2">
+				<div className="flex flex-col gap-2.5">
 					<button
 						type="button"
 						onClick={onSaveAndClose}
-						className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-[#34B27B] hover:bg-[#2d9e6c] active:bg-[#27885c] text-white font-medium text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#34B27B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090b]"
+						style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+						className="flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-full active:scale-95 font-extrabold text-xs tracking-wide transition-all shadow-md cursor-pointer outline-none hover:opacity-90"
 					>
 						<Save className="w-4 h-4" />
 						{saveLabel}
@@ -77,7 +101,11 @@ export function UnsavedChangesDialog({
 					<button
 						type="button"
 						onClick={onDiscardAndClose}
-						className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-white/5 hover:bg-red-500/15 border border-white/10 hover:border-red-500/30 text-slate-300 hover:text-red-400 font-medium text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090b]"
+						className={`flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-full active:scale-95 border font-bold text-xs transition-all cursor-pointer outline-none ${
+							isLight
+								? "bg-[#f4f4f5] hover:bg-red-500/10 border-[#e4e4e7] hover:border-red-500/30 text-[#18181b] hover:text-red-600"
+								: "bg-[#141414] hover:bg-red-500/20 border-[#252525] hover:border-red-500/40 text-[#e8e8e8] hover:text-red-400"
+						}`}
 					>
 						<Trash2 className="w-4 h-4" />
 						{discardLabel}
@@ -85,8 +113,13 @@ export function UnsavedChangesDialog({
 					<button
 						type="button"
 						onClick={onCancel}
-						className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-slate-300 font-medium text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090b]"
+						className={`flex items-center justify-center gap-2 w-full px-5 py-2 rounded-full font-bold text-xs transition-all cursor-pointer outline-none ${
+							isLight
+								? "hover:bg-[#f4f4f5] text-[#71717a] hover:text-[#18181b]"
+								: "hover:bg-[#141414] text-[#888888] hover:text-[#e8e8e8]"
+						}`}
 					>
+						<X className="w-3.5 h-3.5" />
 						{tc("actions.cancel")}
 					</button>
 				</div>

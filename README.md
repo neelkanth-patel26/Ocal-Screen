@@ -16,9 +16,9 @@
   </a>
 </p>
 
-# <p align="center">OpenScreen</p>
+# <p align="center">Ocal Screen</p>
 
-<p align="center"><strong>OpenScreen is your free, open-source alternative to Screen Studio.</strong></p>
+<p align="center"><strong>Ocal Screen is your free, open-source alternative to Screen Studio.</strong></p>
 
 If you don't want to pay $29/month for Screen Studio but want a version that does what most people seem to need - quick, polished product demos and walkthroughs you'd post on X, Reddit or Youtube. OpenScreen does not offer every Screen Studio feature, but covers a lot of the core functionality.
 

@@ -7,6 +7,17 @@
 	-webkit-app-region: no-drag;
 }
 
+.noScrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+.noScrollbar::-webkit-scrollbar {
+	display: none;
+	width: 0;
+	height: 0;
+}
+
 .languageMenuScroll {
 	max-height: 16rem;
 	overflow-y: auto;
@@ -17,22 +28,22 @@
 }
 
 .languageMenuScroll::-webkit-scrollbar {
-	width: 8px;
+	width: 4px;
 }
 
 .languageMenuScroll::-webkit-scrollbar-track {
-	background: rgba(255, 255, 255, 0.04);
-	border-radius: 999px;
+	background: transparent;
+	margin: 4px 0;
 }
 
 .languageMenuScroll::-webkit-scrollbar-thumb {
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.2));
-	border-radius: 999px;
-	border: 1px solid rgba(255, 255, 255, 0.15);
+	background: #333333;
+	border-radius: 9999px;
+	transition: background-color 150ms ease;
 }
 
 .languageMenuScroll::-webkit-scrollbar-thumb:hover {
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.3));
+	background: #e8ff47;
 }
 
 .languageMenuContainer {
@@ -42,15 +53,12 @@
 
 .languageMenuPanel {
 	position: fixed;
-	right: 0;
-	top: 0;
 	width: 11rem;
 	padding: 0.25rem;
 	border-radius: 0.625rem;
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	background: rgba(8, 9, 12, 0.96);
-	box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.045);
-	backdrop-filter: blur(18px) saturate(140%);
+	border: 1px solid #252525;
+	background: #0c0c0c;
+	box-shadow: none;
 	pointer-events: auto;
 	box-sizing: border-box;
 }
@@ -63,7 +71,7 @@
 	padding: 0.425rem 0.5rem;
 	border-radius: 0.45rem;
 	font-size: 11px;
-	color: rgba(255, 255, 255, 0.72);
+	color: #e8e8e8;
 	background: transparent;
 	border: 0;
 	cursor: pointer;
@@ -72,12 +80,52 @@
 
 .languageMenuItem:hover,
 .languageMenuItem:focus-visible {
-	background: rgba(255, 255, 255, 0.075);
+	background: #1e1e1e;
 	color: #ffffff;
 	outline: none;
 }
 
 .languageMenuItemActive {
-	background: rgba(52, 178, 123, 0.14);
-	color: #ffffff;
+	background: rgba(232, 255, 71, 0.14);
+	color: #e8ff47;
+}
+
+.languageMenuPanelLight {
+	position: fixed;
+	width: 11rem;
+	padding: 0.25rem;
+	border-radius: 0.625rem;
+	border: 1px solid #e4e4e7;
+	background: #ffffff;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+	pointer-events: auto;
+	box-sizing: border-box;
+}
+
+.languageMenuItemLight {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.425rem 0.5rem;
+	border-radius: 0.45rem;
+	font-size: 11px;
+	color: #18181b;
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease;
+}
+
+.languageMenuItemLight:hover,
+.languageMenuItemLight:focus-visible {
+	background: #f4f4f5;
+	color: #000000;
+	outline: none;
+}
+
+.languageMenuItemActiveLight {
+	background: rgba(232, 255, 71, 0.35);
+	color: #000000;
+	font-weight: 700;
 }

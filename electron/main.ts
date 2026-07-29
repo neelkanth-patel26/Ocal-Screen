@@ -280,7 +280,11 @@ function setupApplicationMenu() {
 	);
 
 	const menu = Menu.buildFromTemplate(template);
-	Menu.setApplicationMenu(menu);
+	if (isMac) {
+		Menu.setApplicationMenu(menu);
+	} else {
+		Menu.setApplicationMenu(null);
+	}
 }
 
 function createTray() {
