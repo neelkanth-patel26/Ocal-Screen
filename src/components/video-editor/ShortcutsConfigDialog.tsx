@@ -23,10 +23,16 @@ import {
 	type ShortcutsConfig,
 } from "@/lib/shortcuts";
 import { BLUR_REGIONS_ENABLED } from "./featureFlags";
+import { ACCENT_COLOR_MAP, type AccentColor } from "@/lib/userPreferences";
 
 const MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta"]);
 
-export function ShortcutsConfigDialog() {
+export function ShortcutsConfigDialog({
+	accentColor = "lime",
+}: {
+	accentColor?: AccentColor;
+}) {
+	const activeAccent = ACCENT_COLOR_MAP[accentColor] || ACCENT_COLOR_MAP.lime;
 	const { shortcuts, isMac, isConfigOpen, closeConfig, setShortcuts, persistShortcuts } =
 		useShortcuts();
 	const t = useScopedT("shortcuts");
@@ -241,7 +247,8 @@ export function ShortcutsConfigDialog() {
 						</Button>
 						<Button
 							size="sm"
-							className="bg-[#34B27B] hover:bg-[#2d9e6c] text-white"
+							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+							className="font-extrabold rounded-full px-4 active:scale-95 transition-all cursor-pointer hover:opacity-90"
 							onClick={handleSave}
 						>
 							{tc("actions.save")}

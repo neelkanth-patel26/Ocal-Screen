@@ -95,6 +95,7 @@ export function createHudOverlayWindow(): BrowserWindow {
 	const y = Math.floor(workArea.y + workArea.height - windowHeight - 5);
 
 	const win = new BrowserWindow({
+		title: "__ocal_hud__",
 		width: windowWidth,
 		height: windowHeight,
 		// Min/max are intentionally loose: the renderer resizes to fit content via
@@ -125,6 +126,7 @@ export function createHudOverlayWindow(): BrowserWindow {
 		},
 	});
 	win.setIgnoreMouseEvents(true, { forward: true });
+	win.setHasShadow(false);
 
 	// Follow the user across macOS Spaces, else the HUD stays pinned to the Space
 	// it was first opened on.
@@ -167,22 +169,32 @@ export function createHudOverlayWindow(): BrowserWindow {
  */
 export function createEditorWindow(): BrowserWindow {
 	const isMac = process.platform === "darwin";
+	const isWin = process.platform === "win32";
 
 	const win = new BrowserWindow({
 		width: 1200,
 		height: 800,
 		minWidth: 800,
 		minHeight: 600,
+		autoHideMenuBar: true,
 		...(isMac && {
 			titleBarStyle: "hiddenInset",
 			trafficLightPosition: { x: 12, y: 12 },
+		}),
+		...(isWin && {
+			titleBarStyle: "hidden",
+			titleBarOverlay: {
+				color: "#0c0c0c",
+				symbolColor: "#e8e8e8",
+				height: 48,
+			},
 		}),
 		transparent: false,
 		resizable: true,
 		alwaysOnTop: false,
 		skipTaskbar: false,
-		title: "OpenScreen",
-		backgroundColor: "#09090b",
+		title: "Ocal Screen",
+		backgroundColor: "#0c0c0c",
 		show: false, // shown via ready-to-show to avoid white flash on first load
 		webPreferences: {
 			preload: path.join(__dirname, "preload.mjs"),
@@ -232,6 +244,7 @@ export function createSourceSelectorWindow(): BrowserWindow {
 	const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
 	const win = new BrowserWindow({
+		title: "__ocal_source_selector__",
 		width: 620,
 		height: 420,
 		minHeight: 350,
@@ -278,6 +291,7 @@ export function createCountdownOverlayWindow(): BrowserWindow {
 	const overlayHeight = 260;
 
 	const win = new BrowserWindow({
+		title: "__ocal_countdown__",
 		width: overlayWidth,
 		height: overlayHeight,
 		minWidth: overlayWidth,

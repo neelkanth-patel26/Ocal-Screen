@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useScopedT } from "@/contexts/I18nContext";
 import type { ExportProgress } from "@/lib/exporter";
+import { ACCENT_COLOR_MAP, type AccentColor } from "@/lib/userPreferences";
 
 interface ExportDialogProps {
 	isOpen: boolean;
@@ -14,6 +15,8 @@ interface ExportDialogProps {
 	exportFormat?: "mp4" | "gif";
 	exportedFilePath?: string;
 	onShowInFolder?: () => void;
+	accentColor?: AccentColor;
+	themeMode?: "dark" | "light";
 }
 
 export function ExportDialog({
@@ -26,7 +29,11 @@ export function ExportDialog({
 	exportFormat = "mp4",
 	exportedFilePath,
 	onShowInFolder,
+	accentColor = "lime",
+	themeMode = "dark",
 }: ExportDialogProps) {
+	const activeAccent = ACCENT_COLOR_MAP[accentColor] || ACCENT_COLOR_MAP.lime;
+	const isLight = themeMode === "light";
 	const t = useScopedT("dialogs");
 	const [showSuccess, setShowSuccess] = useState(false);
 
@@ -91,32 +98,45 @@ export function ExportDialog({
 				className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 animate-in fade-in duration-200"
 				onClick={isExporting ? undefined : onClose}
 			/>
-			<div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] bg-[#09090b] rounded-2xl shadow-2xl border border-white/10 p-8 w-[90vw] max-w-md animate-in zoom-in-95 duration-200">
+			<div
+				className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] rounded-3xl shadow-2xl border p-8 w-[90vw] max-w-md animate-in zoom-in-95 duration-200 ${
+					isLight
+						? "bg-[#ffffff] border-[#e4e4e7] text-[#18181b]"
+						: "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"
+				}`}
+			>
 				<div className="flex items-center justify-between mb-6">
 					<div className="flex items-center gap-4">
 						{showSuccess ? (
 							<>
-								<div className="w-12 h-12 rounded-full bg-[#34B27B]/20 flex items-center justify-center ring-1 ring-[#34B27B]/50">
-									<Download className="w-6 h-6 text-[#34B27B]" />
+								<div
+									className="w-12 h-12 rounded-2xl flex items-center justify-center border"
+									style={{
+										backgroundColor: `${activeAccent.hex}20`,
+										borderColor: `${activeAccent.hex}50`,
+										color: activeAccent.hex,
+									}}
+								>
+									<Download className="w-6 h-6" style={{ color: activeAccent.hex }} />
 								</div>
-								<div className="flex flex-col gap-2">
-									<span className="text-xl font-bold text-slate-200 block">
+								<div className="flex flex-col gap-1">
+									<span className="text-lg font-extrabold text-[#e8e8e8] block">
 										{t("export.complete")}
 									</span>
-									<span className="text-sm text-slate-400">
+									<span className="text-xs text-[#888888]">
 										{t("export.yourFormatReady", { format: formatLabel.toLowerCase() })}
 									</span>
 									{exportedFilePath && (
 										<Button
 											variant="secondary"
 											onClick={onShowInFolder}
-											className="mt-2 w-fit px-3 py-1 text-sm rounded-md bg-white/10 hover:bg-white/20 text-slate-200"
+											className="mt-2 w-fit px-3 py-1 text-xs rounded-full bg-[#141414] hover:bg-[#202020] border border-[#252525] text-[#e8e8e8] font-bold"
 										>
 											{t("export.showInFolder")}
 										</Button>
 									)}
 									{exportedFilePath && (
-										<span className="text-xs text-slate-500 break-all max-w-xs mt-1">
+										<span className="text-xs text-[#666666] break-all max-w-xs mt-1">
 											{exportedFilePath.split("/").pop()}
 										</span>
 									)}
@@ -125,17 +145,24 @@ export function ExportDialog({
 						) : (
 							<>
 								{isExporting ? (
-									<div className="w-12 h-12 rounded-full bg-[#34B27B]/10 flex items-center justify-center">
-										<Loader2 className="w-6 h-6 text-[#34B27B] animate-spin" />
+									<div
+										className="w-12 h-12 rounded-2xl flex items-center justify-center border"
+										style={{
+											backgroundColor: `${activeAccent.hex}20`,
+											borderColor: `${activeAccent.hex}40`,
+											color: activeAccent.hex,
+										}}
+									>
+										<Loader2 className="w-6 h-6 animate-spin" style={{ color: activeAccent.hex }} />
 									</div>
 								) : (
-									<div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-										<Download className="w-6 h-6 text-slate-200" />
+									<div className="w-12 h-12 rounded-2xl bg-[#141414] flex items-center justify-center border border-[#252525]">
+										<Download className="w-6 h-6 text-[#e8e8e8]" />
 									</div>
 								)}
 								<div>
-									<span className="text-xl font-bold text-slate-200 block">{getTitle()}</span>
-									<span className="text-sm text-slate-400">{getStatusMessage()}</span>
+									<span className="text-lg font-extrabold text-[#e8e8e8] block">{getTitle()}</span>
+									<span className="text-xs text-[#888888]">{getStatusMessage()}</span>
 								</div>
 							</>
 						)}
@@ -145,7 +172,7 @@ export function ExportDialog({
 							variant="ghost"
 							size="icon"
 							onClick={onClose}
-							className="hover:bg-white/10 text-slate-400 hover:text-white rounded-full"
+							className="hover:bg-[#141414] text-[#888888] hover:text-[#e8e8e8] rounded-full"
 						>
 							<X className="w-5 h-5" />
 						</Button>
@@ -154,11 +181,11 @@ export function ExportDialog({
 
 				{error && (
 					<div className="mb-6 animate-in slide-in-from-top-2">
-						<div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
+						<div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3">
 							<div className="p-1 bg-red-500/20 rounded-full">
 								<X className="w-3 h-3 text-red-400" />
 							</div>
-							<p className="whitespace-pre-wrap break-words text-sm text-red-400 leading-relaxed">
+							<p className="whitespace-pre-wrap break-words text-xs text-red-400 leading-relaxed">
 								{error}
 							</p>
 						</div>
@@ -168,19 +195,19 @@ export function ExportDialog({
 				{isExporting && progress && (
 					<div className="space-y-6">
 						<div className="space-y-2">
-							<div className="flex justify-between text-xs font-medium text-slate-400 uppercase tracking-wider">
+							<div className="flex justify-between text-xs font-semibold text-[#888888] uppercase tracking-wider">
 								<span>
 									{isCompiling || isFinalizing
 										? t("export.compiling")
 										: t("export.renderingFrames")}
 								</span>
-								<span className="font-mono text-slate-200">
+								<span className="font-mono text-[#e8e8e8]">
 									{isCompiling || isFinalizing ? (
 										renderProgress !== undefined && renderProgress > 0 ? (
 											`${renderProgress}%`
 										) : (
 											<span className="flex items-center gap-2">
-												<Loader2 className="w-3 h-3 animate-spin" />
+												<Loader2 className="w-3 h-3 animate-spin" style={{ color: activeAccent.hex }} />
 												{t("export.processing")}
 											</span>
 										)
@@ -189,19 +216,25 @@ export function ExportDialog({
 									)}
 								</span>
 							</div>
-							<div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
+							<div className="h-2.5 bg-[#141414] rounded-full overflow-hidden border border-[#252525]">
 								{isCompiling || isFinalizing ? (
 									// Real progress if we have it, otherwise an indeterminate bar.
 									renderProgress !== undefined && renderProgress > 0 ? (
 										<div
-											className="h-full bg-[#34B27B] shadow-[0_0_10px_rgba(52,178,123,0.3)] transition-all duration-300 ease-out"
-											style={{ width: `${renderProgress}%` }}
+											className="h-full transition-all duration-300 ease-out"
+											style={{
+												width: `${renderProgress}%`,
+												backgroundColor: activeAccent.hex,
+												boxShadow: `0 0 10px ${activeAccent.hex}60`,
+											}}
 										/>
 									) : (
 										<div className="h-full w-full relative overflow-hidden">
 											<div
-												className="absolute h-full w-1/3 bg-[#34B27B] shadow-[0_0_10px_rgba(52,178,123,0.3)]"
+												className="absolute h-full w-1/3"
 												style={{
+													backgroundColor: activeAccent.hex,
+													boxShadow: `0 0 10px ${activeAccent.hex}60`,
 													animation: "indeterminate 1.5s ease-in-out infinite",
 												}}
 											/>
@@ -215,8 +248,12 @@ export function ExportDialog({
 									)
 								) : (
 									<div
-										className="h-full bg-[#34B27B] shadow-[0_0_10px_rgba(52,178,123,0.3)] transition-all duration-300 ease-out"
-										style={{ width: `${Math.min(progress.percentage, 100)}%` }}
+										className="h-full transition-all duration-300 ease-out"
+										style={{
+											width: `${Math.min(progress.percentage, 100)}%`,
+											backgroundColor: activeAccent.hex,
+											boxShadow: `0 0 10px ${activeAccent.hex}60`,
+										}}
 									/>
 								)}
 							</div>

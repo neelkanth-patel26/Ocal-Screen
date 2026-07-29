@@ -1,13 +1,13 @@
 // @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "com.siddharthvaddem.openscreen",
+  "appId": "com.ocal.screen",
   "asar": true,
   // .node binaries can't be dlopen'd from inside an asar — must live unpacked.
   "asarUnpack": [
     "**/*.node"
   ],
-  "productName": "Openscreen",
+  "productName": "Ocal Screen",
   // Fetch the auto-caption model + ORT wasm into caption-assets/ before packaging (idempotent).
   "beforePack": "scripts/before-pack.cjs",
   "npmRebuild": true,
@@ -67,10 +67,10 @@
       }
     ],
     "extendInfo": {
-      "NSAudioCaptureUsageDescription": "OpenScreen needs audio capture permission to record system audio.",
-      "NSMicrophoneUsageDescription": "OpenScreen needs microphone access to record voice audio.",
-      "NSCameraUsageDescription": "OpenScreen needs camera access to record webcam video.",
-      "NSScreenCaptureUsageDescription": "OpenScreen needs screen recording permission to detect and capture windows.",
+      "NSAudioCaptureUsageDescription": "Ocal Screen needs audio capture permission to record system audio.",
+      "NSMicrophoneUsageDescription": "Ocal Screen needs microphone access to record voice audio.",
+      "NSCameraUsageDescription": "Ocal Screen needs camera access to record webcam video.",
+      "NSScreenCaptureUsageDescription": "Ocal Screen needs screen recording permission to detect and capture windows.",
       "NSCameraUseContinuityCameraDeviceType": true
     }
   },
