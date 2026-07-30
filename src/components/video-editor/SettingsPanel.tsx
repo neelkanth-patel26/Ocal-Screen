@@ -43,6 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useScopedT } from "@/contexts/I18nContext";
 import { getAssetPath } from "@/lib/assetPath";
+import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
 import { CURSOR_THEMES, DEFAULT_CURSOR_THEME_ID } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
@@ -829,11 +830,29 @@ export function SettingsPanel({
 		);
 	}
 
+	const prefs = loadUserPreferences();
+	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
+	const isLight = prefs.theme === "light";
+
+	const allModes = [
+		...panelModes,
+		{ id: "export" as const, label: exportPanelMode.label, icon: Download, disabled: false },
+	];
+
 	return (
-		<div className="editor-inspector-shell flex min-w-0 flex-col h-full overflow-hidden">
-			<div className="flex min-h-0 flex-1">
-				<div className="settings-mode-rail flex w-11 shrink-0 flex-col items-center gap-1 border-r border-white/[0.07] bg-black/20 px-1 py-2.5">
-					{panelModes.map((mode) => {
+		<div
+			className={`editor-inspector-shell flex min-w-0 flex-col h-full overflow-hidden border-l ${
+				isLight ? "bg-white border-[#e4e4e7] text-[#18181b]" : "bg-[#09090c] border-white/10 text-slate-200"
+			}`}
+		>
+			{/* Top Horizontal Navigation Segmented Tabs */}
+			<div
+				className={`p-2 border-b flex items-center justify-between gap-1.5 overflow-x-auto custom-scrollbar shrink-0 ${
+					isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/40 border-white/10"
+				}`}
+			>
+				<div className="flex items-center gap-1 overflow-x-auto custom-scrollbar">
+					{allModes.map((mode) => {
 						const Icon = mode.icon;
 						const isActive = activePanelMode === mode.id && !hasTimelineSelection;
 						return (
@@ -845,47 +864,46 @@ export function SettingsPanel({
 								onClick={() => {
 									if (mode.id === "layout" && mode.disabled) return;
 									setActivePanelMode(mode.id);
+									if (mode.id === "export") onExportPanelOpen?.();
 								}}
+								style={
+									isActive
+										? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+										: undefined
+								}
 								className={cn(
-									"flex h-8 w-8 items-center justify-center rounded-lg border transition-all",
+									"flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer",
 									mode.disabled
-										? "cursor-not-allowed border-transparent text-slate-700"
+										? "cursor-not-allowed opacity-40"
 										: isActive
-											? "border-[#34B27B]/50 bg-[#34B27B]/15 text-[#34B27B] shadow-[0_0_0_1px_rgba(52,178,123,0.12)]"
-											: "border-transparent text-slate-500 hover:border-white/10 hover:bg-white/[0.06] hover:text-slate-200",
+											? "shadow-md scale-[1.02]"
+											: isLight
+												? "text-slate-600 hover:text-black hover:bg-white"
+												: "text-slate-400 hover:text-white hover:bg-white/10",
 								)}
 							>
-								<Icon className="h-4 w-4" />
+								<Icon className="w-3.5 h-3.5" />
+								<span>{mode.label}</span>
 							</button>
 						);
 					})}
-					<button
-						type="button"
-						title={t("crop.cropVideo")}
-						onClick={handleCropToggle}
-						className="mt-1 flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-slate-500 transition-all hover:border-white/10 hover:bg-white/[0.06] hover:text-slate-200"
-					>
-						<Crop className="h-4 w-4" />
-					</button>
-					<button
-						data-testid={getTestId("export-panel-button")}
-						type="button"
-						title={exportPanelMode.label}
-						onClick={() => {
-							setActivePanelMode(exportPanelMode.id);
-							onExportPanelOpen?.();
-						}}
-						className={cn(
-							"mt-auto flex h-8 w-8 items-center justify-center rounded-lg border transition-all",
-							activePanelMode === "export" && !hasTimelineSelection
-								? "border-[#34B27B]/50 bg-[#34B27B]/15 text-[#34B27B] shadow-[0_0_0_1px_rgba(52,178,123,0.12)]"
-								: "border-transparent text-slate-500 hover:border-white/10 hover:bg-white/[0.06] hover:text-slate-200",
-						)}
-					>
-						<Download className="h-4 w-4" />
-					</button>
 				</div>
-				<div className="flex-1 overflow-y-auto custom-scrollbar p-3 pb-0">
+
+				<button
+					type="button"
+					title={t("crop.cropVideo")}
+					onClick={handleCropToggle}
+					className={`flex h-7 w-7 items-center justify-center rounded-full border transition-all shrink-0 cursor-pointer ${
+						isLight
+							? "border-[#e4e4e7] bg-white text-slate-700 hover:bg-[#e4e4e7]"
+							: "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+					}`}
+				>
+					<Crop className="h-3.5 w-3.5" />
+				</button>
+			</div>
+
+			<div className="flex-1 overflow-y-auto custom-scrollbar p-3 pb-0">
 					<div className="mb-3 flex items-center justify-between px-1">
 						<span className="text-sm font-semibold text-slate-100">{activeModeLabel}</span>
 						<KeyboardShortcutsHelp />
@@ -1868,7 +1886,6 @@ export function SettingsPanel({
 						</Accordion>
 					)}
 				</div>
-			</div>
 
 			{showCropDropdown && cropRegion && onCropChange && (
 				<>
@@ -2176,7 +2193,8 @@ export function SettingsPanel({
 							type="button"
 							size="lg"
 							onClick={onExport}
-							className="w-full py-5 text-sm font-semibold flex items-center justify-center gap-2 bg-[#34B27B] text-white rounded-xl shadow-lg shadow-[#34B27B]/20 hover:bg-[#3fc98d] hover:scale-[1.01] active:scale-[0.99] transition-all duration-200"
+							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+							className="w-full py-5 text-sm font-extrabold flex items-center justify-center gap-2 rounded-xl shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer hover:opacity-90"
 						>
 							<Download className="w-4 h-4" />
 							{exportFormat === "gif" ? t("export.gifButton") : t("export.videoButton")}
