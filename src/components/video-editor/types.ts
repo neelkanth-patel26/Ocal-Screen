@@ -79,6 +79,10 @@ export interface ZoomRegion {
 	/** Custom scale overriding the preset depth (1.0-5.0, two decimal precision). */
 	customScale?: number;
 	source?: ZoomRegionSource;
+	/** Transition ease-in duration in milliseconds (default 1000ms). */
+	easeInMs?: number;
+	/** Transition ease-out duration in milliseconds (default 1000ms). */
+	easeOutMs?: number;
 }
 
 export function getRotation3D(region: Pick<ZoomRegion, "rotationPreset">): Rotation3D {

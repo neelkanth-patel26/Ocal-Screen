@@ -114,6 +114,10 @@ interface TimelineRenderItem {
 	speedValue?: number;
 	isAutoFocus?: boolean;
 	variant: "zoom" | "trim" | "annotation" | "speed" | "blur";
+	easeInMs?: number;
+	easeOutMs?: number;
+	holdStartMs?: number;
+	holdEndMs?: number;
 }
 
 const SCALE_CANDIDATES = [
@@ -821,6 +825,10 @@ function Timeline({
 						zoomCustomScale={item.zoomCustomScale}
 						isAutoFocus={item.isAutoFocus}
 						variant="zoom"
+						easeInMs={item.easeInMs}
+						easeOutMs={item.easeOutMs}
+						holdStartMs={item.holdStartMs}
+						holdEndMs={item.holdEndMs}
 					>
 						{item.label}
 					</Item>
@@ -1412,16 +1420,26 @@ export default function TimelineEditor({
 	}, [range, totalMs]);
 
 	const timelineItems = useMemo<TimelineRenderItem[]>(() => {
-		const zooms: TimelineRenderItem[] = zoomRegions.map((region, index) => ({
-			id: region.id,
-			rowId: ZOOM_ROW_ID,
-			span: { start: region.startMs, end: region.endMs },
-			label: t("labels.zoomItem", { index: String(index + 1) }),
-			zoomDepth: region.depth,
-			zoomCustomScale: region.customScale,
-			isAutoFocus: region.focusMode === "auto",
-			variant: "zoom",
-		}));
+		const zooms: TimelineRenderItem[] = zoomRegions.map((region, index) => {
+			const easeInMs = region.easeInMs ?? 1000;
+			const easeOutMs = region.easeOutMs ?? 1000;
+			const fullStart = Math.max(0, region.startMs - easeInMs);
+			const fullEnd = region.endMs + easeOutMs;
+			return {
+				id: region.id,
+				rowId: ZOOM_ROW_ID,
+				span: { start: fullStart, end: fullEnd },
+				label: t("labels.zoomItem", { index: String(index + 1) }),
+				zoomDepth: region.depth,
+				zoomCustomScale: region.customScale,
+				isAutoFocus: region.focusMode === "auto",
+				variant: "zoom",
+				easeInMs,
+				easeOutMs,
+				holdStartMs: region.startMs,
+				holdEndMs: region.endMs,
+			};
+		});
 
 		const trims: TimelineRenderItem[] = trimRegions.map((region, index) => ({
 			id: region.id,

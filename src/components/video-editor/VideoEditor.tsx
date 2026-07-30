@@ -1168,16 +1168,19 @@ export default function VideoEditor() {
 	const handleZoomSpanChange = useCallback(
 		(id: string, span: Span) => {
 			pushState((prev) => ({
-				zoomRegions: prev.zoomRegions.map((region) =>
-					region.id === id
-						? {
-								...region,
-								startMs: Math.round(span.start),
-								endMs: Math.round(span.end),
-								source: "manual",
-							}
-						: region,
-				),
+				zoomRegions: prev.zoomRegions.map((region) => {
+					if (region.id !== id) return region;
+					const easeInMs = region.easeInMs ?? 1000;
+					const easeOutMs = region.easeOutMs ?? 1000;
+					const newHoldStart = Math.max(0, Math.round(span.start + easeInMs));
+					const newHoldEnd = Math.max(newHoldStart + 100, Math.round(span.end - easeOutMs));
+					return {
+						...region,
+						startMs: newHoldStart,
+						endMs: newHoldEnd,
+						source: "manual",
+					};
+				}),
 			}));
 		},
 		[pushState],
