@@ -1796,22 +1796,28 @@ export function SettingsPanel({
 																<div
 																	key={`custom-${idx}`}
 																	className={cn(
-																		"w-full aspect-square rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-200 relative group shadow-md hover:scale-105",
-																		isSelected ? "" : "border-white/10 opacity-80 hover:opacity-100 bg-white/5",
+																		"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 relative group shadow-md hover:scale-105",
+																		isSelected
+																			? ""
+																			: isLight
+																				? "border-[#e4e4e7] bg-[#f4f4f5]"
+																				: "border-white/10 bg-white/5",
 																	)}
 																	style={{
-																		backgroundImage: `url(${imageUrl})`,
-																		backgroundSize: "cover",
-																		backgroundPosition: "center",
 																		borderColor: isSelected ? activeAccent.hex : undefined,
 																		boxShadow: isSelected ? `0 0 12px ${activeAccent.hex}80` : undefined,
 																	}}
 																	onClick={() => onWallpaperChange(imageUrl)}
 																	role="button"
 																>
+																	<img
+																		src={imageUrl}
+																		alt="Custom wallpaper"
+																		className="w-full h-full object-cover rounded-xl select-none pointer-events-none"
+																	/>
 																	<button
 																		onClick={(e) => handleRemoveCustomImage(imageUrl, e)}
-																		className="absolute top-1 right-1 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md"
+																		className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md cursor-pointer"
 																	>
 																		<X className="w-2.5 h-2.5 text-white" />
 																	</button>
@@ -1826,22 +1832,28 @@ export function SettingsPanel({
 																<div
 																	key={canonicalPath}
 																	className={cn(
-																		"w-full aspect-square rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
-																		isSelected ? "" : "border-white/10 opacity-80 hover:opacity-100 bg-white/5",
+																		"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
+																		isSelected
+																			? ""
+																			: isLight
+																				? "border-[#e4e4e7] bg-[#f4f4f5]"
+																				: "border-white/10 bg-white/5",
 																	)}
 																	style={{
-																		backgroundImage: `url(${previewUrl})`,
-																		backgroundSize: "cover",
-																		backgroundPosition: "center",
 																		borderColor: isSelected ? activeAccent.hex : undefined,
 																		boxShadow: isSelected ? `0 0 12px ${activeAccent.hex}80` : undefined,
 																	}}
 																	onClick={() => onWallpaperChange(canonicalPath)}
 																	role="button"
 																>
+																	<img
+																		src={previewUrl}
+																		alt="Wallpaper preview"
+																		className="w-full h-full object-cover rounded-xl select-none pointer-events-none"
+																	/>
 																	{isSelected && (
 																		<div
-																			className="absolute bottom-1 right-1 w-4 h-4 rounded-full flex items-center justify-center shadow-md"
+																			className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10"
 																			style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
 																		>
 																			<Check className="w-2.5 h-2.5" />
