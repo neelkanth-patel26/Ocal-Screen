@@ -2768,13 +2768,15 @@ export default function VideoEditor() {
 										className={
 											isFullscreen
 												? "fixed inset-0 z-[99999] w-full h-full flex flex-col items-center justify-center bg-[#09090b]"
-												: "editor-preview-panel w-full h-full flex flex-col items-center justify-center overflow-hidden relative"
+												: `editor-preview-panel w-full h-full flex flex-col items-center justify-center overflow-hidden relative transition-colors ${
+														isLight ? "bg-[#f4f4f5]" : "bg-[#08080a]"
+												  }`
 										}
 									>
 										{/* Video preview */}
-										<div className="w-full min-h-0 flex justify-center items-center flex-auto px-4 pt-4">
+										<div className="w-full min-h-0 flex justify-center items-center flex-auto p-4 md:p-6">
 											<div
-												className="relative flex justify-center items-center w-auto h-full max-w-full box-border"
+												className="relative flex justify-center items-center w-auto h-full max-w-full box-border rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ring-1 ring-white/10"
 												style={{
 													aspectRatio:
 														aspectRatio === "native"
