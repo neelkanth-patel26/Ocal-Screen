@@ -741,25 +741,37 @@ export function SettingsPanel({
 	const selectedBlur = selectedBlurId
 		? blurRegions.find((region) => region.id === selectedBlurId)
 		: null;
+	const footerPrefs = loadUserPreferences();
+	const footerAccent = ACCENT_COLOR_MAP[footerPrefs.accentColor] || ACCENT_COLOR_MAP.lime;
+	const footerIsLight = footerPrefs.theme === "light";
+
 	const commonFooterLinks = (
-		<div className="flex gap-2 mt-3">
+		<div className={`flex items-center justify-around gap-1.5 pt-3 mt-3 border-t ${footerIsLight ? "border-[#e4e4e7]" : "border-white/10"}`}>
 			<button
 				type="button"
 				onClick={() => {
 					window.electronAPI?.openExternalUrl(
-						"https://github.com/siddharthvaddem/openscreen/issues/new/choose",
+						"https://github.com/neelkanth-patel26/Ocal-Screen/issues",
 					);
 				}}
-				className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
+				className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+					footerIsLight
+						? "border-[#e4e4e7] bg-[#f4f4f5] text-slate-600 hover:text-black hover:bg-white"
+						: "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+				}`}
 			>
-				<Bug className="w-3 h-3 text-[#34B27B]" />
+				<Bug className="w-3 h-3" style={{ color: footerAccent.hex }} />
 				{t("support.reportBug")}
 			</button>
 			{onSaveDiagnostic && (
 				<button
 					type="button"
 					onClick={onSaveDiagnostic}
-					className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
+					className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+						footerIsLight
+							? "border-[#e4e4e7] bg-[#f4f4f5] text-slate-600 hover:text-black hover:bg-white"
+							: "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+					}`}
 				>
 					<FileDown className="w-3 h-3 text-slate-400" />
 					{t("support.saveDiagnostics")}
@@ -768,11 +780,15 @@ export function SettingsPanel({
 			<button
 				type="button"
 				onClick={() => {
-					window.electronAPI?.openExternalUrl("https://github.com/siddharthvaddem/openscreen");
+					window.electronAPI?.openExternalUrl("https://github.com/neelkanth-patel26/Ocal-Screen");
 				}}
-				className="flex-1 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-300 py-1.5 transition-colors"
+				className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+					footerIsLight
+						? "border-[#e4e4e7] bg-[#f4f4f5] text-slate-600 hover:text-black hover:bg-white"
+						: "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+				}`}
 			>
-				<Star className="w-3 h-3 text-yellow-400" />
+				<Star className="w-3 h-3 text-amber-400 fill-amber-400" />
 				{t("support.starOnGithub")}
 			</button>
 		</div>
@@ -847,11 +863,11 @@ export function SettingsPanel({
 		>
 			{/* Top Horizontal Navigation Segmented Tabs */}
 			<div
-				className={`p-2 border-b flex items-center justify-between gap-1.5 overflow-x-auto custom-scrollbar shrink-0 ${
+				className={`p-2 border-b flex items-center justify-between gap-1.5 shrink-0 ${
 					isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/40 border-white/10"
 				}`}
 			>
-				<div className="flex items-center gap-1 overflow-x-auto custom-scrollbar">
+				<div className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 					{allModes.map((mode) => {
 						const Icon = mode.icon;
 						const isActive = activePanelMode === mode.id && !hasTimelineSelection;
@@ -872,7 +888,7 @@ export function SettingsPanel({
 										: undefined
 								}
 								className={cn(
-									"flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer",
+									"flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer select-none",
 									mode.disabled
 										? "cursor-not-allowed opacity-40"
 										: isActive
@@ -904,10 +920,12 @@ export function SettingsPanel({
 			</div>
 
 			<div className="flex-1 overflow-y-auto custom-scrollbar p-3 pb-0">
-					<div className="mb-3 flex items-center justify-between px-1">
-						<span className="text-sm font-semibold text-slate-100">{activeModeLabel}</span>
-						<KeyboardShortcutsHelp />
-					</div>
+				<div className="mb-3 flex items-center justify-between px-1">
+					<span className={`text-sm font-bold ${isLight ? "text-[#18181b]" : "text-white"}`}>
+						{activeModeLabel}
+					</span>
+					<KeyboardShortcutsHelp />
+				</div>
 					{zoomEnabled && (
 						<div className="editor-panel-section mb-3 space-y-3 px-1">
 							<div className="flex items-center justify-between">
@@ -1723,22 +1741,39 @@ export function SettingsPanel({
 									</AccordionTrigger>
 									<AccordionContent className="pb-3">
 										<Tabs defaultValue="image" className="w-full">
-											<TabsList className="mb-2 bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 h-7 rounded-lg">
+											<TabsList
+												className={cn(
+													"mb-2 p-0.5 w-full grid grid-cols-3 h-8 rounded-xl border",
+													isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10",
+												)}
+											>
 												<TabsTrigger
 													value="image"
-													className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 text-[10px] py-1 rounded-md transition-all"
+													style={{
+														// Custom inline style applied via class data-[state=active] or dynamic style
+													}}
+													className={cn(
+														"text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer",
+														isLight ? "text-slate-600 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs" : "text-slate-400 data-[state=active]:bg-white/20 data-[state=active]:text-white",
+													)}
 												>
 													{t("background.image")}
 												</TabsTrigger>
 												<TabsTrigger
 													value="color"
-													className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 text-[10px] py-1 rounded-md transition-all"
+													className={cn(
+														"text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer",
+														isLight ? "text-slate-600 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs" : "text-slate-400 data-[state=active]:bg-white/20 data-[state=active]:text-white",
+													)}
 												>
 													{t("background.color")}
 												</TabsTrigger>
 												<TabsTrigger
 													value="gradient"
-													className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 text-[10px] py-1 rounded-md transition-all"
+													className={cn(
+														"text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer",
+														isLight ? "text-slate-600 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs" : "text-slate-400 data-[state=active]:bg-white/20 data-[state=active]:text-white",
+													)}
 												>
 													{t("background.gradient")}
 												</TabsTrigger>
@@ -1756,9 +1791,14 @@ export function SettingsPanel({
 													<Button
 														onClick={() => fileInputRef.current?.click()}
 														variant="outline"
-														className="w-full gap-2 bg-white/5 text-slate-200 border-white/10 hover:bg-[#34B27B] hover:text-white hover:border-[#34B27B] transition-all h-7 text-[10px]"
+														className={cn(
+															"w-full gap-2 font-bold transition-all h-8 text-[11px] rounded-xl cursor-pointer",
+															isLight
+																? "bg-[#f4f4f5] text-[#18181b] border-[#e4e4e7] hover:bg-white hover:border-[#d4d4d8]"
+																: "bg-white/5 text-slate-200 border-white/10 hover:bg-white/10 hover:border-white/20",
+														)}
 													>
-														<Upload className="w-3 h-3" />
+														<Upload className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
 														{t("background.uploadCustom")}
 													</Button>
 
