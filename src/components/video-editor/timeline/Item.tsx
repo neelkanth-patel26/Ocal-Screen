@@ -80,14 +80,14 @@ export default function Item({
 				? glassStyles.glassAmber
 				: glassStyles.glassYellow;
 
-	const endCapColor = isZoom ? "#21916A" : isTrim ? "#ef4444" : isSpeed ? "#d97706" : "#B4A046";
+	const endCapColor = isZoom ? "#34B27B" : isTrim ? "#ef4444" : isSpeed ? "#d97706" : "#B4A046";
 
 	const timeLabel = useMemo(
 		() => `${formatMs(span.start)} – ${formatMs(span.end)}`,
 		[span.start, span.end],
 	);
 
-	// Calculate percentages for zoom ease-in, hold, and ease-out
+	// Calculate percentage widths for zoom ease-in, hold, and ease-out
 	const zoomRampLayout = useMemo(() => {
 		if (!isZoom || holdStartMs == null || holdEndMs == null) return null;
 
@@ -125,33 +125,38 @@ export default function Item({
 			<div style={{ ...itemContentStyle, minWidth: 24 }}>
 				<div
 					className={cn(
-						glassClass,
-						"w-full h-full overflow-hidden flex items-center justify-between cursor-grab active:cursor-grabbing relative border rounded-xl shadow-md",
-						isSelected && glassStyles.selected,
+						isZoom
+							? "bg-[#0b0f0d]/90 border border-[#34b27b]/40 rounded-2xl shadow-xl hover:border-[#34b27b]/80"
+							: glassClass,
+						"w-full h-full overflow-hidden flex items-center justify-between cursor-grab active:cursor-grabbing relative backdrop-blur-md",
+						isSelected && "ring-2 ring-[#34b27b] ring-offset-1 ring-offset-black shadow-emerald-500/30",
 					)}
-					style={{ height: 32, color: "#fff", minWidth: 24 }}
+					style={{ height: 34, color: "#fff", minWidth: 24 }}
 					onClick={(event) => {
 						event.stopPropagation();
 						onSelect?.();
 					}}
 				>
+					{/* Left Resizer Cap */}
 					<div
 						className={cn(glassStyles.zoomEndCap, glassStyles.left)}
 						style={{
 							cursor: "col-resize",
 							pointerEvents: "auto",
-							width: 8,
+							width: 6,
 							opacity: 0.9,
 							background: endCapColor,
 						}}
 						title="Resize start (Ease-in)"
 					/>
+
+					{/* Right Resizer Cap */}
 					<div
 						className={cn(glassStyles.zoomEndCap, glassStyles.right)}
 						style={{
 							cursor: "col-resize",
 							pointerEvents: "auto",
-							width: 8,
+							width: 6,
 							opacity: 0.9,
 							background: endCapColor,
 						}}
@@ -160,46 +165,46 @@ export default function Item({
 
 					{/* Custom Visual Easing Ramps for Zoom */}
 					{isZoom && zoomRampLayout ? (
-						<div className="w-full h-full flex items-center relative overflow-hidden select-none pointer-events-none">
+						<div className="w-full h-full flex items-center relative overflow-hidden select-none pointer-events-none px-1">
 							{/* Ease In Ramp */}
 							{zoomRampLayout.easeInPct > 0 && (
 								<div
 									style={{ width: `${zoomRampLayout.easeInPct}%` }}
-									className="h-full flex items-center justify-center bg-gradient-to-r from-emerald-500/10 via-emerald-500/25 to-emerald-500/50 border-r border-dashed border-emerald-400/40 relative overflow-hidden shrink-0"
+									className="h-full flex items-center justify-center bg-gradient-to-r from-[#34b27b]/5 via-[#34b27b]/15 to-[#34b27b]/35 border-r border-[#34b27b]/30 relative overflow-hidden shrink-0"
 									title={`Ease In: ${(zoomRampLayout.easeInDuration / 1000).toFixed(1)}s`}
 								>
-									<svg className="absolute inset-0 w-full h-full opacity-30" preserveAspectRatio="none" viewBox="0 0 100 100">
-										<path d="M 0 100 Q 50 100 100 0 L 100 100 Z" fill="rgba(52, 178, 123, 0.3)" />
-										<path d="M 0 100 Q 50 100 100 0" fill="none" stroke="#34b27b" strokeWidth="3" strokeDasharray="4 2" />
+									<svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+										<path d="M 0 100 Q 50 100 100 0 L 100 100 Z" fill="rgba(52, 178, 123, 0.15)" />
+										<path d="M 0 100 Q 50 100 100 0" fill="none" stroke="#34b27b" strokeWidth="2.5" />
 									</svg>
-									<span className="relative z-10 text-[9px] font-extrabold text-emerald-200 tracking-tighter truncate px-1 drop-shadow-xs flex items-center gap-0.5">
-										<Zap className="w-2.5 h-2.5 text-emerald-300 shrink-0" />
-										<span>In ({(zoomRampLayout.easeInDuration / 1000).toFixed(1)}s)</span>
-									</span>
+									<div className="relative z-10 px-1.5 py-0.5 rounded-full bg-[#34b27b]/20 border border-[#34b27b]/40 text-[9px] font-mono font-bold text-emerald-300 flex items-center gap-1 shadow-2xs backdrop-blur-xs">
+										<Zap className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+										<span>In {(zoomRampLayout.easeInDuration / 1000).toFixed(1)}s</span>
+									</div>
 								</div>
 							)}
 
 							{/* Active Hold Region */}
 							<div
 								style={{ width: `${zoomRampLayout.holdPct}%` }}
-								className="h-full flex flex-col items-center justify-center bg-[#21916a]/90 text-white font-bold px-2 relative border-x border-[#34b27b]/60 shadow-inner shrink-0 min-w-[30px]"
+								className="h-full flex flex-col items-center justify-center bg-gradient-to-r from-emerald-600 via-[#21916a] to-emerald-600 text-white font-extrabold px-2 relative border-x border-emerald-400/50 shadow-md shadow-emerald-500/20 shrink-0 min-w-[34px]"
 								title={`Hold: ${formatMs(holdStartMs!)} – ${formatMs(holdEndMs!)}`}
 							>
 								<div className="flex items-center gap-1">
-									<ZoomIn className="w-3.5 h-3.5 shrink-0" />
-									<span className="text-[11px] font-extrabold whitespace-nowrap">
+									<ZoomIn className="w-3.5 h-3.5 shrink-0 text-white drop-shadow-xs" />
+									<span className="text-[11px] font-black tracking-tight whitespace-nowrap text-white drop-shadow-xs">
 										{zoomCustomScale != null
 											? `${zoomCustomScale.toFixed(2)}×`
 											: ZOOM_LABELS[zoomDepth] || `${zoomDepth}×`}
 									</span>
 									{isAutoFocus && (
 										<MousePointer2
-											className="w-3 h-3 shrink-0 opacity-90"
+											className="w-3 h-3 shrink-0 opacity-90 text-amber-300 drop-shadow-xs"
 											aria-label="Cursor-follow"
 										/>
 									)}
 								</div>
-								<span className="text-[8px] opacity-80 font-mono leading-none whitespace-nowrap">
+								<span className="text-[8px] opacity-90 font-mono font-bold leading-none whitespace-nowrap text-emerald-100">
 									{formatMs(holdStartMs!)} – {formatMs(holdEndMs!)}
 								</span>
 							</div>
@@ -208,17 +213,17 @@ export default function Item({
 							{zoomRampLayout.easeOutPct > 0 && (
 								<div
 									style={{ width: `${zoomRampLayout.easeOutPct}%` }}
-									className="h-full flex items-center justify-center bg-gradient-to-r from-emerald-500/50 via-emerald-500/25 to-emerald-500/10 border-l border-dashed border-emerald-400/40 relative overflow-hidden shrink-0"
+									className="h-full flex items-center justify-center bg-gradient-to-r from-[#34b27b]/35 via-[#34b27b]/15 to-[#34b27b]/5 border-l border-[#34b27b]/30 relative overflow-hidden shrink-0"
 									title={`Ease Out: ${(zoomRampLayout.easeOutDuration / 1000).toFixed(1)}s`}
 								>
-									<svg className="absolute inset-0 w-full h-full opacity-30" preserveAspectRatio="none" viewBox="0 0 100 100">
-										<path d="M 0 0 Q 50 0 100 100 L 0 100 Z" fill="rgba(52, 178, 123, 0.3)" />
-										<path d="M 0 0 Q 50 0 100 100" fill="none" stroke="#34b27b" strokeWidth="3" strokeDasharray="4 2" />
+									<svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+										<path d="M 0 0 Q 50 0 100 100 L 0 100 Z" fill="rgba(52, 178, 123, 0.15)" />
+										<path d="M 0 0 Q 50 0 100 100" fill="none" stroke="#34b27b" strokeWidth="2.5" />
 									</svg>
-									<span className="relative z-10 text-[9px] font-extrabold text-emerald-200 tracking-tighter truncate px-1 drop-shadow-xs flex items-center gap-0.5">
-										<span>Out ({(zoomRampLayout.easeOutDuration / 1000).toFixed(1)}s)</span>
-										<Zap className="w-2.5 h-2.5 text-emerald-300 shrink-0" />
-									</span>
+									<div className="relative z-10 px-1.5 py-0.5 rounded-full bg-[#34b27b]/20 border border-[#34b27b]/40 text-[9px] font-mono font-bold text-emerald-300 flex items-center gap-1 shadow-2xs backdrop-blur-xs">
+										<span>Out {(zoomRampLayout.easeOutDuration / 1000).toFixed(1)}s</span>
+										<Zap className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+									</div>
 								</div>
 							)}
 						</div>
