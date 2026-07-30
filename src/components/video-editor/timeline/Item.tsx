@@ -3,6 +3,7 @@ import { useItem } from "dnd-timeline";
 import { Gauge, MessageSquare, MousePointer2, Scissors, Zap, ZoomIn } from "lucide-react";
 import { useMemo } from "react";
 import { useScopedT } from "@/contexts/I18nContext";
+import { loadUserPreferences } from "@/lib/userPreferences";
 import { cn } from "@/lib/utils";
 import glassStyles from "./ItemGlass.module.css";
 
@@ -62,6 +63,9 @@ export default function Item({
 	children,
 }: ItemProps) {
 	const t = useScopedT("timeline");
+	const prefs = loadUserPreferences();
+	const isLight = prefs.theme === "light";
+
 	const { setNodeRef, attributes, listeners, itemStyle, itemContentStyle } = useItem({
 		id,
 		span,
@@ -126,12 +130,17 @@ export default function Item({
 				<div
 					className={cn(
 						isZoom
-							? "bg-[#0b0f0d]/90 border border-[#34b27b]/50 rounded-lg shadow-xl hover:border-[#34b27b]"
+							? isLight
+								? "bg-[#ecfdf5] border border-emerald-400 rounded-lg shadow-sm hover:border-emerald-600"
+								: "bg-[#0b0f0d]/90 border border-[#34b27b]/50 rounded-lg shadow-xl hover:border-[#34b27b]"
 							: glassClass,
 						"w-full h-full overflow-hidden flex items-center justify-between cursor-grab active:cursor-grabbing relative backdrop-blur-md",
-						isSelected && "ring-2 ring-[#34b27b] ring-offset-1 ring-offset-black shadow-emerald-500/30",
+						isSelected &&
+							(isLight
+								? "ring-2 ring-emerald-500 ring-offset-1 ring-offset-white shadow-emerald-500/20"
+								: "ring-2 ring-[#34b27b] ring-offset-1 ring-offset-black shadow-emerald-500/30"),
 					)}
-					style={{ height: 34, color: "#fff", minWidth: 24 }}
+					style={{ height: 34, color: isLight ? "#064e3b" : "#fff", minWidth: 24 }}
 					onClick={(event) => {
 						event.stopPropagation();
 						onSelect?.();
@@ -170,15 +179,27 @@ export default function Item({
 							{zoomRampLayout.easeInPct > 0 && (
 								<div
 									style={{ width: `${zoomRampLayout.easeInPct}%` }}
-									className="h-full flex items-center justify-center bg-gradient-to-r from-[#34b27b]/5 via-[#34b27b]/15 to-[#34b27b]/35 border-r border-[#34b27b]/30 relative overflow-hidden shrink-0"
+									className={cn(
+										"h-full flex items-center justify-center border-r relative overflow-hidden shrink-0",
+										isLight
+											? "bg-gradient-to-r from-emerald-100/40 via-emerald-100/70 to-emerald-200/80 border-emerald-300"
+											: "bg-gradient-to-r from-[#34b27b]/5 via-[#34b27b]/15 to-[#34b27b]/35 border-[#34b27b]/30",
+									)}
 									title={`Ease In: ${(zoomRampLayout.easeInDuration / 1000).toFixed(1)}s`}
 								>
 									<svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-										<path d="M 0 100 Q 50 100 100 0 L 100 100 Z" fill="rgba(52, 178, 123, 0.15)" />
-										<path d="M 0 100 Q 50 100 100 0" fill="none" stroke="#34b27b" strokeWidth="2.5" />
+										<path d="M 0 100 Q 50 100 100 0 L 100 100 Z" fill={isLight ? "rgba(5, 150, 105, 0.12)" : "rgba(52, 178, 123, 0.15)"} />
+										<path d="M 0 100 Q 50 100 100 0" fill="none" stroke={isLight ? "#059669" : "#34b27b"} strokeWidth="2.5" />
 									</svg>
-									<div className="relative z-10 px-1.5 py-0.5 rounded-md bg-[#34b27b]/20 border border-[#34b27b]/40 text-[9px] font-mono font-bold text-emerald-300 flex items-center gap-1 shadow-2xs backdrop-blur-xs">
-										<Zap className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+									<div
+										className={cn(
+											"relative z-10 px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold flex items-center gap-1 shadow-2xs backdrop-blur-xs",
+											isLight
+												? "bg-white border border-emerald-400 text-emerald-800"
+												: "bg-[#34b27b]/20 border border-[#34b27b]/40 text-emerald-300",
+										)}
+									>
+										<Zap className={cn("w-2.5 h-2.5 shrink-0", isLight ? "text-emerald-600" : "text-emerald-400")} />
 										<span>In {(zoomRampLayout.easeInDuration / 1000).toFixed(1)}s</span>
 									</div>
 								</div>
@@ -187,7 +208,12 @@ export default function Item({
 							{/* Active Hold Region */}
 							<div
 								style={{ width: `${zoomRampLayout.holdPct}%` }}
-								className="h-full flex flex-col items-center justify-center bg-gradient-to-r from-emerald-600 via-[#21916a] to-emerald-600 text-white font-extrabold px-2 relative border-x border-emerald-400/50 shadow-md shadow-emerald-500/20 shrink-0 min-w-[34px]"
+								className={cn(
+									"h-full flex flex-col items-center justify-center font-extrabold px-2 relative border-x shadow-md shrink-0 min-w-[34px]",
+									isLight
+										? "bg-gradient-to-r from-emerald-600 via-[#059669] to-emerald-600 text-white border-emerald-500 shadow-emerald-600/20"
+										: "bg-gradient-to-r from-emerald-600 via-[#21916a] to-emerald-600 text-white border-emerald-400/50 shadow-emerald-500/20",
+								)}
 								title={`Hold: ${formatMs(holdStartMs!)} – ${formatMs(holdEndMs!)}`}
 							>
 								<div className="flex items-center gap-1">
@@ -213,23 +239,40 @@ export default function Item({
 							{zoomRampLayout.easeOutPct > 0 && (
 								<div
 									style={{ width: `${zoomRampLayout.easeOutPct}%` }}
-									className="h-full flex items-center justify-center bg-gradient-to-r from-[#34b27b]/35 via-[#34b27b]/15 to-[#34b27b]/5 border-l border-[#34b27b]/30 relative overflow-hidden shrink-0"
+									className={cn(
+										"h-full flex items-center justify-center border-l relative overflow-hidden shrink-0",
+										isLight
+											? "bg-gradient-to-r from-emerald-200/80 via-emerald-100/70 to-emerald-100/40 border-emerald-300"
+											: "bg-gradient-to-r from-[#34b27b]/35 via-[#34b27b]/15 to-[#34b27b]/5 border-[#34b27b]/30",
+									)}
 									title={`Ease Out: ${(zoomRampLayout.easeOutDuration / 1000).toFixed(1)}s`}
 								>
 									<svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-										<path d="M 0 0 Q 50 0 100 100 L 0 100 Z" fill="rgba(52, 178, 123, 0.15)" />
-										<path d="M 0 0 Q 50 0 100 100" fill="none" stroke="#34b27b" strokeWidth="2.5" />
+										<path d="M 0 0 Q 50 0 100 100 L 0 100 Z" fill={isLight ? "rgba(5, 150, 105, 0.12)" : "rgba(52, 178, 123, 0.15)"} />
+										<path d="M 0 0 Q 50 0 100 100" fill="none" stroke={isLight ? "#059669" : "#34b27b"} strokeWidth="2.5" />
 									</svg>
-									<div className="relative z-10 px-1.5 py-0.5 rounded-md bg-[#34b27b]/20 border border-[#34b27b]/40 text-[9px] font-mono font-bold text-emerald-300 flex items-center gap-1 shadow-2xs backdrop-blur-xs">
+									<div
+										className={cn(
+											"relative z-10 px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold flex items-center gap-1 shadow-2xs backdrop-blur-xs",
+											isLight
+												? "bg-white border border-emerald-400 text-emerald-800"
+												: "bg-[#34b27b]/20 border border-[#34b27b]/40 text-emerald-300",
+										)}
+									>
 										<span>Out {(zoomRampLayout.easeOutDuration / 1000).toFixed(1)}s</span>
-										<Zap className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+										<Zap className={cn("w-2.5 h-2.5 shrink-0", isLight ? "text-emerald-600" : "text-emerald-400")} />
 									</div>
 								</div>
 							)}
 						</div>
 					) : (
 						/* Standard Non-Zoom Content */
-						<div className="relative z-10 flex min-w-0 flex-col items-center justify-center text-white/90 opacity-85 group-hover:opacity-100 transition-opacity select-none overflow-hidden px-3">
+						<div
+							className={cn(
+								"relative z-10 flex min-w-0 flex-col items-center justify-center select-none overflow-hidden px-3",
+								isLight ? "text-slate-800" : "text-white/90",
+							)}
+						>
 							<div className="flex items-center gap-1.5">
 								{isTrim ? (
 									<>
@@ -256,7 +299,7 @@ export default function Item({
 							</div>
 							<span
 								className={`text-[9px] tabular-nums tracking-tight whitespace-nowrap transition-opacity ${
-									isSelected ? "opacity-60" : "opacity-0 group-hover:opacity-40"
+									isSelected ? "opacity-75 font-bold" : "opacity-0 group-hover:opacity-60"
 								}`}
 							>
 								{timeLabel}

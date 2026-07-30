@@ -1006,6 +1006,7 @@ export default function TimelineEditor({
 }: TimelineEditorProps) {
 	const t = useScopedT("timeline");
 	const prefs = loadUserPreferences();
+	const isLight = prefs.theme === "light";
 	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
 	const totalMs = useMemo(() => Math.max(0, Math.round(videoDuration * 1000)), [videoDuration]);
 	const currentTimeMs = useMemo(() => Math.round(currentTime * 1000), [currentTime]);
@@ -1561,9 +1562,9 @@ export default function TimelineEditor({
 	}
 
 	return (
-		<div className="flex-1 min-h-0 flex flex-col bg-[#09090b] overflow-hidden">
-			<div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-white/[0.08] bg-[#09090c]/90 backdrop-blur-md">
-				<div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 p-1 shadow-inner">
+		<div className={`flex-1 min-h-0 flex flex-col overflow-hidden ${isLight ? "bg-[#f8f9fa] border-t border-[#e4e4e7]" : "bg-[#09090b]"}`}>
+			<div className={`flex items-center justify-between gap-3 px-4 py-2 border-b backdrop-blur-md ${isLight ? "bg-white border-[#e4e4e7]" : "bg-[#09090c]/90 border-white/[0.08]"}`}>
+				<div className={`flex items-center gap-1.5 rounded-full border p-1 shadow-inner ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/40 border-white/10"}`}>
 					<Button
 						onClick={handleAddZoom}
 						variant="ghost"
@@ -1719,7 +1720,7 @@ export default function TimelineEditor({
 			</div>
 			<div
 				ref={timelineContainerRef}
-				className="flex-1 min-h-0 overflow-auto custom-scrollbar bg-[#09090b] relative"
+				className={`flex-1 min-h-0 overflow-auto custom-scrollbar relative ${isLight ? "bg-[#ffffff]" : "bg-[#09090b]"}`}
 				onClick={() => setSelectedKeyframeId(null)}
 			>
 				<TimelineWrapper
