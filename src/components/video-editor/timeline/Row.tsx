@@ -1,5 +1,6 @@
 import type { RowDefinition } from "dnd-timeline";
 import { useRow, useTimelineContext } from "dnd-timeline";
+import { Plus } from "lucide-react";
 import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +19,6 @@ interface RowProps extends RowDefinition {
 export default function Row({
 	id,
 	children,
-	hint,
-	isEmpty,
 	background,
 	label,
 	icon,
@@ -48,56 +47,37 @@ export default function Row({
 		>
 			{background}
 
-			{/* Left Track Badge Header */}
+			{/* Left Track Header Badge */}
 			{label && (
-				<div
+				<button
+					type="button"
+					onClick={onAddClick}
+					title={`Add ${label} (${shortcutKey || "+"})`}
 					className={cn(
-						"absolute top-0 bottom-0 left-0 z-20 flex items-center gap-1.5 px-3 border-r select-none pointer-events-none",
-						isLight ? "bg-[#ffffff]/90 border-[#e4e4e7]" : "bg-[#090a0c]/90 border-white/[0.08]",
+						"absolute top-0 bottom-0 left-0 z-30 flex items-center justify-between px-2.5 border-r select-none transition-colors cursor-pointer group/badge",
+						isLight
+							? "bg-white border-[#e4e4e7] hover:bg-[#f4f4f5]"
+							: "bg-[#090a0c] border-white/[0.08] hover:bg-[#14151a]",
 					)}
 					style={{ width: sidebarWidth }}
 				>
-					{icon && <span style={{ color: effectiveColor }}>{icon}</span>}
-					<span className={cn("text-[11px] font-bold tracking-tight", isLight ? "text-[#18181b]" : "text-slate-200")}>
-						{label}
-					</span>
-				</div>
-			)}
-
-			{/* Empty Track Guidance Pill */}
-			{isEmpty && hint && (
-				<div
-					className="absolute inset-0 flex items-center justify-center pointer-events-auto select-none z-10"
-					style={{ paddingLeft: label ? sidebarWidth : 0 }}
-				>
-					<button
-						type="button"
-						onClick={onAddClick}
-						className={cn(
-							"group flex items-center gap-2 px-3 py-1 rounded-full border border-dashed transition-all cursor-pointer shadow-2xs active:scale-95",
-							isLight
-								? "border-slate-300 bg-white/80 text-slate-500 hover:border-slate-400 hover:text-black hover:bg-white"
-								: "border-white/15 bg-white/[0.03] text-slate-400 hover:border-white/30 hover:text-white hover:bg-white/[0.07]",
-						)}
+					<div className="flex items-center gap-1.5 min-w-0">
+						{icon && <span style={{ color: effectiveColor }} className="shrink-0">{icon}</span>}
+						<span className={cn("text-[11px] font-bold tracking-tight truncate", isLight ? "text-[#18181b]" : "text-slate-200")}>
+							{label}
+						</span>
+					</div>
+					<div
+						className="w-4 h-4 rounded-md flex items-center justify-center transition-all opacity-60 group-hover/badge:opacity-100 shrink-0"
+						style={{ backgroundColor: `${effectiveColor}20`, color: effectiveColor }}
 					>
-						{shortcutKey && (
-							<kbd
-								className="px-1.5 py-0.5 rounded-md text-[9px] font-bold font-mono border transition-colors shadow-xs"
-								style={{
-									backgroundColor: `${effectiveColor}20`,
-									color: effectiveColor,
-									borderColor: `${effectiveColor}40`,
-								}}
-							>
-								{shortcutKey}
-							</kbd>
-						)}
-						<span className="text-[11px] font-medium tracking-tight">{hint}</span>
-					</button>
-				</div>
+						<Plus className="w-3 h-3" />
+					</div>
+				</button>
 			)}
 
-			<div ref={setNodeRef} style={rowStyle} className="h-full">
+			{/* Track Lane Clip Container */}
+			<div ref={setNodeRef} style={rowStyle} className="h-full relative z-10">
 				{children}
 			</div>
 		</div>
