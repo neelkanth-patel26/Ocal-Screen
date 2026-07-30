@@ -10,6 +10,7 @@ import type {
 import { TimelineContext, useTimelineContext } from "dnd-timeline";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 
 interface TimelineWrapperProps {
 	children: ReactNode;
@@ -41,6 +42,9 @@ const SnapGuide = forwardRef<SnapGuideHandle>((_, ref) => {
 	const elRef = useRef<HTMLDivElement>(null);
 	const sideProperty = direction === "rtl" ? "right" : "left";
 
+	const prefs = loadUserPreferences();
+	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
+
 	useImperativeHandle(
 		ref,
 		() => ({
@@ -63,15 +67,20 @@ const SnapGuide = forwardRef<SnapGuideHandle>((_, ref) => {
 	return (
 		<div
 			ref={elRef}
-			className="absolute top-0 bottom-0 w-[2px] bg-[#fbbf24] shadow-[0_0_10px_rgba(251,191,36,0.85),0_0_2px_rgba(251,191,36,1)] pointer-events-none z-[55]"
-			style={{ opacity: 0, transition: "opacity 0.08s" }}
+			className="absolute top-0 bottom-0 w-[2px] pointer-events-none z-[55]"
+			style={{
+				opacity: 0,
+				transition: "opacity 0.08s",
+				backgroundColor: activeAccent.hex,
+				boxShadow: `0 0 10px ${activeAccent.hex}, 0 0 2px ${activeAccent.hex}`,
+			}}
 		>
 			<div
 				className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-0 h-0"
 				style={{
 					borderLeft: "4px solid transparent",
 					borderRight: "4px solid transparent",
-					borderTop: "6px solid #fbbf24",
+					borderTop: `6px solid ${activeAccent.hex}`,
 				}}
 			/>
 			<div
@@ -79,7 +88,7 @@ const SnapGuide = forwardRef<SnapGuideHandle>((_, ref) => {
 				style={{
 					borderLeft: "4px solid transparent",
 					borderRight: "4px solid transparent",
-					borderBottom: "6px solid #fbbf24",
+					borderBottom: `6px solid ${activeAccent.hex}`,
 				}}
 			/>
 		</div>
@@ -495,7 +504,7 @@ export default function TimelineWrapper({
 
 	const handleRangeChange = useCallback(
 		(updater: (previous: Range) => Range) => {
-			onRangeChange((prev) => {
+			onRangeChange((prev: Range) => {
 				const normalized = totalMs > 0 ? clampRange(prev) : prev;
 				const desired = updater(normalized);
 
