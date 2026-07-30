@@ -77,7 +77,11 @@ export default function Row({
 			)}
 
 			{/* Track Lane Clip Container */}
-			<div ref={setNodeRef} style={rowStyle} className="h-full relative z-10">
+			<div
+				ref={setNodeRef}
+				style={{ ...rowStyle, marginLeft: label ? sidebarWidth : 0 }}
+				className="h-full relative z-10"
+			>
 				{children}
 			</div>
 		</div>
