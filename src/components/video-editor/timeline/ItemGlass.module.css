@@ -1,13 +1,13 @@
 .glassGreen {
 	position: relative;
-	border-radius: 10px;
+	border-radius: 6px;
 	-corner-smoothing: antialiased;
 	background: linear-gradient(180deg, rgba(52, 178, 123, 0.28), rgba(31, 115, 82, 0.2));
 	border: 1px solid rgba(77, 221, 157, 0.36);
 	box-shadow:
 		0 1px 0 rgba(255, 255, 255, 0.1) inset,
 		0 8px 22px rgba(0, 0, 0, 0.22);
-	margin: 3px 0;
+	margin: 2px 0;
 	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -137,13 +137,13 @@
 .zoomEndCap.left {
 	left: 0;
 	cursor: ew-resize;
-	border-top-left-radius: 9px;
-	border-bottom-left-radius: 9px;
+	border-top-left-radius: 5px;
+	border-bottom-left-radius: 5px;
 }
 
 .zoomEndCap.right {
 	right: 0;
 	cursor: ew-resize;
-	border-top-right-radius: 9px;
-	border-bottom-right-radius: 9px;
+	border-top-right-radius: 5px;
+	border-bottom-right-radius: 5px;
 }
