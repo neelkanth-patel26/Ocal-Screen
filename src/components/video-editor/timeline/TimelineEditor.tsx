@@ -26,6 +26,7 @@ import { useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { useAudioPeaks } from "@/hooks/useAudioPeaks";
 import { matchesShortcut } from "@/lib/shortcuts";
+import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { cn } from "@/lib/utils";
 import { ASPECT_RATIOS, type AspectRatio, getAspectRatioLabel } from "@/utils/aspectRatioUtils";
 import { formatShortcut } from "@/utils/platformUtils";
@@ -398,21 +399,26 @@ function PlaybackCursor({
 
 	const offset = valueToPixels(clampedTime - range.start);
 
+	const prefs = loadUserPreferences();
+	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
+
 	return (
 		<div
 			className="absolute top-0 bottom-0 z-50 group/cursor"
 			style={{
 				[sideProperty === "right" ? "marginRight" : "marginLeft"]: `${sidebarWidth - 1}px`,
-				pointerEvents: "none", // pass clicks through to the timeline; the handle re-enables them
+				pointerEvents: "none",
 			}}
 		>
 			<div
-				className="absolute top-0 bottom-0 w-[2px] bg-[#6C55FF] shadow-[0_0_18px_rgba(108,85,255,0.68)] cursor-ew-resize pointer-events-auto hover:shadow-[0_0_24px_rgba(108,85,255,0.85)] transition-shadow"
+				className="absolute top-0 bottom-0 w-[2px] cursor-ew-resize pointer-events-auto transition-shadow"
 				style={{
 					[sideProperty]: `${offset}px`,
+					backgroundColor: activeAccent.hex,
+					boxShadow: `0 0 14px ${activeAccent.hex}`,
 				}}
 				onMouseDown={(e) => {
-					e.stopPropagation(); // Prevent timeline click
+					e.stopPropagation();
 					setDragPreviewTimeMs(currentTimeMs);
 					setIsDragging(true);
 				}}
@@ -421,7 +427,13 @@ function PlaybackCursor({
 					className="absolute -top-2 left-1/2 -translate-x-1/2 hover:scale-110 transition-transform"
 					style={{ width: "20px", height: "20px" }}
 				>
-					<div className="w-4 h-4 mx-auto mt-[2px] bg-[#6C55FF] rotate-45 rounded-[5px] shadow-lg shadow-[#6C55FF]/30 border border-white/30" />
+					<div
+						className="w-4 h-4 mx-auto mt-[2px] rotate-45 rounded-[5px] shadow-lg border border-white/30"
+						style={{
+							backgroundColor: activeAccent.hex,
+							boxShadow: `0 0 10px ${activeAccent.hex}80`,
+						}}
+					/>
 				</div>
 				{isDragging && (
 					<div className="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-white/90 font-medium tabular-nums whitespace-nowrap border border-white/10 shadow-lg pointer-events-none">
