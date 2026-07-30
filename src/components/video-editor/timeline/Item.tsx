@@ -126,7 +126,7 @@ export default function Item({
 				<div
 					className={cn(
 						isZoom
-							? "bg-[#0b0f0d]/90 border border-[#34b27b]/40 rounded-2xl shadow-xl hover:border-[#34b27b]/80"
+							? "bg-[#0b0f0d]/90 border border-[#34b27b]/50 rounded-lg shadow-xl hover:border-[#34b27b]"
 							: glassClass,
 						"w-full h-full overflow-hidden flex items-center justify-between cursor-grab active:cursor-grabbing relative backdrop-blur-md",
 						isSelected && "ring-2 ring-[#34b27b] ring-offset-1 ring-offset-black shadow-emerald-500/30",
@@ -143,7 +143,7 @@ export default function Item({
 						style={{
 							cursor: "col-resize",
 							pointerEvents: "auto",
-							width: 6,
+							width: 5,
 							opacity: 0.9,
 							background: endCapColor,
 						}}
@@ -156,7 +156,7 @@ export default function Item({
 						style={{
 							cursor: "col-resize",
 							pointerEvents: "auto",
-							width: 6,
+							width: 5,
 							opacity: 0.9,
 							background: endCapColor,
 						}}
@@ -165,7 +165,7 @@ export default function Item({
 
 					{/* Custom Visual Easing Ramps for Zoom */}
 					{isZoom && zoomRampLayout ? (
-						<div className="w-full h-full flex items-center relative overflow-hidden select-none pointer-events-none px-1">
+						<div className="w-full h-full flex items-center relative overflow-hidden select-none pointer-events-none">
 							{/* Ease In Ramp */}
 							{zoomRampLayout.easeInPct > 0 && (
 								<div
@@ -177,7 +177,7 @@ export default function Item({
 										<path d="M 0 100 Q 50 100 100 0 L 100 100 Z" fill="rgba(52, 178, 123, 0.15)" />
 										<path d="M 0 100 Q 50 100 100 0" fill="none" stroke="#34b27b" strokeWidth="2.5" />
 									</svg>
-									<div className="relative z-10 px-1.5 py-0.5 rounded-full bg-[#34b27b]/20 border border-[#34b27b]/40 text-[9px] font-mono font-bold text-emerald-300 flex items-center gap-1 shadow-2xs backdrop-blur-xs">
+									<div className="relative z-10 px-1.5 py-0.5 rounded-md bg-[#34b27b]/20 border border-[#34b27b]/40 text-[9px] font-mono font-bold text-emerald-300 flex items-center gap-1 shadow-2xs backdrop-blur-xs">
 										<Zap className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
 										<span>In {(zoomRampLayout.easeInDuration / 1000).toFixed(1)}s</span>
 									</div>
@@ -220,7 +220,7 @@ export default function Item({
 										<path d="M 0 0 Q 50 0 100 100 L 0 100 Z" fill="rgba(52, 178, 123, 0.15)" />
 										<path d="M 0 0 Q 50 0 100 100" fill="none" stroke="#34b27b" strokeWidth="2.5" />
 									</svg>
-									<div className="relative z-10 px-1.5 py-0.5 rounded-full bg-[#34b27b]/20 border border-[#34b27b]/40 text-[9px] font-mono font-bold text-emerald-300 flex items-center gap-1 shadow-2xs backdrop-blur-xs">
+									<div className="relative z-10 px-1.5 py-0.5 rounded-md bg-[#34b27b]/20 border border-[#34b27b]/40 text-[9px] font-mono font-bold text-emerald-300 flex items-center gap-1 shadow-2xs backdrop-blur-xs">
 										<span>Out {(zoomRampLayout.easeOutDuration / 1000).toFixed(1)}s</span>
 										<Zap className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
 									</div>
