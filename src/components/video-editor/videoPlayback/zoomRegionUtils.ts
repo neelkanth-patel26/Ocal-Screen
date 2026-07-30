@@ -1,13 +1,11 @@
 import type { CursorTelemetryPoint, Rotation3D, ZoomFocus, ZoomRegion } from "../types";
 import { DEFAULT_ROTATION_3D, getRotation3D, getZoomScale, lerpRotation3D } from "../types";
-import { TRANSITION_WINDOW_MS, ZOOM_IN_TRANSITION_WINDOW_MS } from "./constants";
 import { interpolateCursorAt } from "./cursorFollowUtils";
 import { clampFocusToScale } from "./focusUtils";
 import { clamp01, cubicBezier, easeOutScreenStudio } from "./mathUtils";
 
 const CHAINED_ZOOM_PAN_GAP_MS = 1500;
 const CONNECTED_ZOOM_PAN_DURATION_MS = 1000;
-const ZOOM_IN_OVERLAP_MS = 500;
 
 type DominantRegionOptions = {
 	connectZooms?: boolean;
@@ -39,16 +37,19 @@ function easeConnectedPan(value: number) {
 }
 
 export function computeRegionStrength(region: ZoomRegion, timeMs: number) {
-	const zoomInEnd = region.startMs + ZOOM_IN_OVERLAP_MS;
-	const leadInStart = zoomInEnd - ZOOM_IN_TRANSITION_WINDOW_MS;
-	const leadOutEnd = region.endMs + TRANSITION_WINDOW_MS;
+	const easeInDuration = region.easeInMs ?? 1000;
+	const easeOutDuration = region.easeOutMs ?? 1000;
+
+	const leadInStart = region.startMs - easeInDuration;
+	const leadOutEnd = region.endMs + easeOutDuration;
 
 	if (timeMs < leadInStart || timeMs > leadOutEnd) {
 		return 0;
 	}
 
-	if (timeMs < zoomInEnd) {
-		const progress = (timeMs - leadInStart) / ZOOM_IN_TRANSITION_WINDOW_MS;
+	if (timeMs < region.startMs) {
+		if (easeInDuration <= 0) return 1;
+		const progress = clamp01((timeMs - leadInStart) / easeInDuration);
 		return easeOutScreenStudio(progress);
 	}
 
@@ -56,7 +57,8 @@ export function computeRegionStrength(region: ZoomRegion, timeMs: number) {
 		return 1;
 	}
 
-	const progress = clamp01((timeMs - region.endMs) / TRANSITION_WINDOW_MS);
+	if (easeOutDuration <= 0) return 0;
+	const progress = clamp01((timeMs - region.endMs) / easeOutDuration);
 	return 1 - easeOutScreenStudio(progress);
 }
 

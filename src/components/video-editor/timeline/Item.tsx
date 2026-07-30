@@ -1,6 +1,6 @@
 import type { Span } from "dnd-timeline";
 import { useItem } from "dnd-timeline";
-import { Gauge, MessageSquare, MousePointer2, Scissors, ZoomIn } from "lucide-react";
+import { Gauge, MessageSquare, MousePointer2, Scissors, Zap, ZoomIn } from "lucide-react";
 import { useMemo } from "react";
 import { useScopedT } from "@/contexts/I18nContext";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,10 @@ interface ItemProps {
 	speedValue?: number;
 	isAutoFocus?: boolean;
 	variant?: "zoom" | "trim" | "annotation" | "speed" | "blur";
+	easeInMs?: number;
+	easeOutMs?: number;
+	holdStartMs?: number;
+	holdEndMs?: number;
 }
 
 // Map zoom depth to multiplier labels
@@ -51,6 +55,10 @@ export default function Item({
 	speedValue,
 	isAutoFocus = false,
 	variant = "zoom",
+	easeInMs: _easeInMs = 1000,
+	easeOutMs: _easeOutMs = 1000,
+	holdStartMs,
+	holdEndMs,
 	children,
 }: ItemProps) {
 	const t = useScopedT("timeline");
@@ -79,8 +87,29 @@ export default function Item({
 		[span.start, span.end],
 	);
 
-	// Minimum clickable width on the outer wrapper. Kept small so items keep their real
-	// positions; zoom in to interact with sub-second items precisely.
+	// Calculate percentages for zoom ease-in, hold, and ease-out
+	const zoomRampLayout = useMemo(() => {
+		if (!isZoom || holdStartMs == null || holdEndMs == null) return null;
+
+		const totalSpanMs = Math.max(1, span.end - span.start);
+		const easeInDuration = Math.max(0, holdStartMs - span.start);
+		const holdDuration = Math.max(0, holdEndMs - holdStartMs);
+		const easeOutDuration = Math.max(0, span.end - holdEndMs);
+
+		const easeInPct = (easeInDuration / totalSpanMs) * 100;
+		const holdPct = (holdDuration / totalSpanMs) * 100;
+		const easeOutPct = (easeOutDuration / totalSpanMs) * 100;
+
+		return {
+			easeInDuration,
+			holdDuration,
+			easeOutDuration,
+			easeInPct,
+			holdPct,
+			easeOutPct,
+		};
+	}, [isZoom, span.start, span.end, holdStartMs, holdEndMs]);
+
 	const MIN_ITEM_PX = 6;
 	const safeItemStyle = { ...itemStyle, minWidth: MIN_ITEM_PX };
 
@@ -97,10 +126,10 @@ export default function Item({
 				<div
 					className={cn(
 						glassClass,
-						"w-full h-full overflow-hidden flex items-center justify-center gap-1.5 cursor-grab active:cursor-grabbing relative",
+						"w-full h-full overflow-hidden flex items-center justify-between cursor-grab active:cursor-grabbing relative border rounded-xl shadow-md",
 						isSelected && glassStyles.selected,
 					)}
-					style={{ height: 30, color: "#fff", minWidth: 24 }}
+					style={{ height: 32, color: "#fff", minWidth: 24 }}
 					onClick={(event) => {
 						event.stopPropagation();
 						onSelect?.();
@@ -115,7 +144,7 @@ export default function Item({
 							opacity: 0.9,
 							background: endCapColor,
 						}}
-						title="Resize left"
+						title="Resize start (Ease-in)"
 					/>
 					<div
 						className={cn(glassStyles.zoomEndCap, glassStyles.right)}
@@ -126,15 +155,39 @@ export default function Item({
 							opacity: 0.9,
 							background: endCapColor,
 						}}
-						title="Resize right"
+						title="Resize end (Ease-out)"
 					/>
-					{/* Content */}
-					<div className="relative z-10 flex min-w-0 flex-col items-center justify-center text-white/90 opacity-85 group-hover:opacity-100 transition-opacity select-none overflow-hidden px-3">
-						<div className="flex items-center gap-1.5">
-							{isZoom ? (
-								<>
+
+					{/* Custom Visual Easing Ramps for Zoom */}
+					{isZoom && zoomRampLayout ? (
+						<div className="w-full h-full flex items-center relative overflow-hidden select-none pointer-events-none">
+							{/* Ease In Ramp */}
+							{zoomRampLayout.easeInPct > 0 && (
+								<div
+									style={{ width: `${zoomRampLayout.easeInPct}%` }}
+									className="h-full flex items-center justify-center bg-gradient-to-r from-emerald-500/10 via-emerald-500/25 to-emerald-500/50 border-r border-dashed border-emerald-400/40 relative overflow-hidden shrink-0"
+									title={`Ease In: ${(zoomRampLayout.easeInDuration / 1000).toFixed(1)}s`}
+								>
+									<svg className="absolute inset-0 w-full h-full opacity-30" preserveAspectRatio="none" viewBox="0 0 100 100">
+										<path d="M 0 100 Q 50 100 100 0 L 100 100 Z" fill="rgba(52, 178, 123, 0.3)" />
+										<path d="M 0 100 Q 50 100 100 0" fill="none" stroke="#34b27b" strokeWidth="3" strokeDasharray="4 2" />
+									</svg>
+									<span className="relative z-10 text-[9px] font-extrabold text-emerald-200 tracking-tighter truncate px-1 drop-shadow-xs flex items-center gap-0.5">
+										<Zap className="w-2.5 h-2.5 text-emerald-300 shrink-0" />
+										<span>In ({(zoomRampLayout.easeInDuration / 1000).toFixed(1)}s)</span>
+									</span>
+								</div>
+							)}
+
+							{/* Active Hold Region */}
+							<div
+								style={{ width: `${zoomRampLayout.holdPct}%` }}
+								className="h-full flex flex-col items-center justify-center bg-[#21916a]/90 text-white font-bold px-2 relative border-x border-[#34b27b]/60 shadow-inner shrink-0 min-w-[30px]"
+								title={`Hold: ${formatMs(holdStartMs!)} – ${formatMs(holdEndMs!)}`}
+							>
+								<div className="flex items-center gap-1">
 									<ZoomIn className="w-3.5 h-3.5 shrink-0" />
-									<span className="text-[11px] font-semibold whitespace-nowrap">
+									<span className="text-[11px] font-extrabold whitespace-nowrap">
 										{zoomCustomScale != null
 											? `${zoomCustomScale.toFixed(2)}×`
 											: ZOOM_LABELS[zoomDepth] || `${zoomDepth}×`}
@@ -145,38 +198,66 @@ export default function Item({
 											aria-label="Cursor-follow"
 										/>
 									)}
-								</>
-							) : isTrim ? (
-								<>
-									<Scissors className="w-3.5 h-3.5 shrink-0" />
-									<span className="text-[11px] font-semibold whitespace-nowrap">
-										{t("labels.trim")}
+								</div>
+								<span className="text-[8px] opacity-80 font-mono leading-none whitespace-nowrap">
+									{formatMs(holdStartMs!)} – {formatMs(holdEndMs!)}
+								</span>
+							</div>
+
+							{/* Ease Out Ramp */}
+							{zoomRampLayout.easeOutPct > 0 && (
+								<div
+									style={{ width: `${zoomRampLayout.easeOutPct}%` }}
+									className="h-full flex items-center justify-center bg-gradient-to-r from-emerald-500/50 via-emerald-500/25 to-emerald-500/10 border-l border-dashed border-emerald-400/40 relative overflow-hidden shrink-0"
+									title={`Ease Out: ${(zoomRampLayout.easeOutDuration / 1000).toFixed(1)}s`}
+								>
+									<svg className="absolute inset-0 w-full h-full opacity-30" preserveAspectRatio="none" viewBox="0 0 100 100">
+										<path d="M 0 0 Q 50 0 100 100 L 0 100 Z" fill="rgba(52, 178, 123, 0.3)" />
+										<path d="M 0 0 Q 50 0 100 100" fill="none" stroke="#34b27b" strokeWidth="3" strokeDasharray="4 2" />
+									</svg>
+									<span className="relative z-10 text-[9px] font-extrabold text-emerald-200 tracking-tighter truncate px-1 drop-shadow-xs flex items-center gap-0.5">
+										<span>Out ({(zoomRampLayout.easeOutDuration / 1000).toFixed(1)}s)</span>
+										<Zap className="w-2.5 h-2.5 text-emerald-300 shrink-0" />
 									</span>
-								</>
-							) : isSpeed ? (
-								<>
-									<Gauge className="w-3.5 h-3.5 shrink-0" />
-									<span className="text-[11px] font-semibold whitespace-nowrap">
-										{speedValue !== undefined ? `${speedValue}×` : t("labels.speed")}
-									</span>
-								</>
-							) : (
-								<>
-									<MessageSquare className="w-3.5 h-3.5 shrink-0" />
-									<span className="text-[11px] font-semibold truncate whitespace-nowrap">
-										{children}
-									</span>
-								</>
+								</div>
 							)}
 						</div>
-						<span
-							className={`text-[9px] tabular-nums tracking-tight whitespace-nowrap transition-opacity ${
-								isSelected ? "opacity-60" : "opacity-0 group-hover:opacity-40"
-							}`}
-						>
-							{timeLabel}
-						</span>
-					</div>
+					) : (
+						/* Standard Non-Zoom Content */
+						<div className="relative z-10 flex min-w-0 flex-col items-center justify-center text-white/90 opacity-85 group-hover:opacity-100 transition-opacity select-none overflow-hidden px-3">
+							<div className="flex items-center gap-1.5">
+								{isTrim ? (
+									<>
+										<Scissors className="w-3.5 h-3.5 shrink-0" />
+										<span className="text-[11px] font-semibold whitespace-nowrap">
+											{t("labels.trim")}
+										</span>
+									</>
+								) : isSpeed ? (
+									<>
+										<Gauge className="w-3.5 h-3.5 shrink-0" />
+										<span className="text-[11px] font-semibold whitespace-nowrap">
+											{speedValue !== undefined ? `${speedValue}×` : t("labels.speed")}
+										</span>
+									</>
+								) : (
+									<>
+										<MessageSquare className="w-3.5 h-3.5 shrink-0" />
+										<span className="text-[11px] font-semibold truncate whitespace-nowrap">
+											{children}
+										</span>
+									</>
+								)}
+							</div>
+							<span
+								className={`text-[9px] tabular-nums tracking-tight whitespace-nowrap transition-opacity ${
+									isSelected ? "opacity-60" : "opacity-0 group-hover:opacity-40"
+								}`}
+							>
+								{timeLabel}
+							</span>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>
