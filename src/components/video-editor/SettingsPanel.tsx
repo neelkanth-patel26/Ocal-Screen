@@ -381,6 +381,64 @@ function formatSourceDimensions(videoElement?: HTMLVideoElement | null, cropRegi
 	return { ...dimensions, shortSide: Math.min(dimensions.width, dimensions.height) };
 }
 
+function WallpaperSwatch({
+	previewUrl,
+	isSelected,
+	isLight,
+	activeAccent,
+	onClick,
+}: {
+	previewUrl: string;
+	isSelected: boolean;
+	isLight: boolean;
+	activeAccent: { hex: string; textHex: string };
+	onClick: () => void;
+}) {
+	const [loaded, setLoaded] = useState(false);
+
+	return (
+		<div
+			className={cn(
+				"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
+				isSelected
+					? ""
+					: isLight
+						? "border-[#e4e4e7] bg-[#f4f4f5]"
+						: "border-white/10 bg-white/5",
+			)}
+			style={{
+				borderColor: isSelected ? activeAccent.hex : undefined,
+				boxShadow: isSelected ? `0 0 12px ${activeAccent.hex}80` : undefined,
+			}}
+			onClick={onClick}
+			role="button"
+		>
+			{!loaded && (
+				<div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 animate-pulse rounded-xl" />
+			)}
+			<img
+				src={previewUrl}
+				alt="Wallpaper preview"
+				loading="lazy"
+				decoding="async"
+				onLoad={() => setLoaded(true)}
+				className={cn(
+					"w-full h-full object-cover rounded-xl select-none pointer-events-none transition-opacity duration-300",
+					loaded ? "opacity-100" : "opacity-0",
+				)}
+			/>
+			{isSelected && (
+				<div
+					className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10"
+					style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+				>
+					<Check className="w-2.5 h-2.5" />
+				</div>
+			)}
+		</div>
+	);
+}
+
 export function SettingsPanel({
 	selected,
 	onWallpaperChange,
@@ -1835,43 +1893,16 @@ export function SettingsPanel({
 															);
 														})}
 
-														{WALLPAPER_PATHS.map((canonicalPath, i) => {
-															const previewUrl = wallpaperPreviewUrls[i] ?? canonicalPath;
-															const isSelected = selected === canonicalPath;
-															return (
-																<div
-																	key={canonicalPath}
-																	className={cn(
-																		"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
-																		isSelected
-																			? ""
-																			: isLight
-																				? "border-[#e4e4e7] bg-[#f4f4f5]"
-																				: "border-white/10 bg-white/5",
-																	)}
-																	style={{
-																		borderColor: isSelected ? activeAccent.hex : undefined,
-																		boxShadow: isSelected ? `0 0 12px ${activeAccent.hex}80` : undefined,
-																	}}
-																	onClick={() => onWallpaperChange(canonicalPath)}
-																	role="button"
-																>
-																	<img
-																		src={previewUrl}
-																		alt="Wallpaper preview"
-																		className="w-full h-full object-cover rounded-xl select-none pointer-events-none"
-																	/>
-																	{isSelected && (
-																		<div
-																			className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10"
-																			style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
-																		>
-																			<Check className="w-2.5 h-2.5" />
-																		</div>
-																	)}
-																</div>
-															);
-														})}
+														{WALLPAPER_PATHS.map((canonicalPath, i) => (
+															<WallpaperSwatch
+																key={canonicalPath}
+																previewUrl={wallpaperPreviewUrls[i] ?? canonicalPath}
+																isSelected={selected === canonicalPath}
+																isLight={isLight}
+																activeAccent={activeAccent}
+																onClick={() => onWallpaperChange(canonicalPath)}
+															/>
+														))}
 													</div>
 												</div>
 											)}
