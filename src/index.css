@@ -272,10 +272,6 @@
 		background-clip: content-box;
 	}
 
-	.squircle {
-		corner-shape: squircle;
-	}
-
 	/* Smooth playback scrubber */
 	input[type="range"] {
 		-webkit-appearance: none;
