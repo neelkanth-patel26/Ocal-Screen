@@ -192,6 +192,18 @@ export default function VideoEditor() {
 	const isLight = themeMode === "light";
 	const activeAccent = ACCENT_COLOR_MAP[accentColor] || ACCENT_COLOR_MAP.lime;
 
+	useEffect(() => {
+		if (isLight) {
+			document.documentElement.classList.add("light");
+			document.documentElement.classList.remove("dark");
+			document.documentElement.setAttribute("data-theme", "light");
+		} else {
+			document.documentElement.classList.add("dark");
+			document.documentElement.classList.remove("light");
+			document.documentElement.setAttribute("data-theme", "dark");
+		}
+	}, [isLight]);
+
 	const toggleThemeMode = () => {
 		const next = themeMode === "dark" ? "light" : "dark";
 		setThemeMode(next);
@@ -2404,7 +2416,9 @@ export default function VideoEditor() {
 	}
 
 	return (
-		<div className="flex flex-col h-screen bg-[#09090b] text-slate-200 overflow-hidden selection:bg-[#34B27B]/30">
+		<div className={`flex flex-col h-screen overflow-hidden selection:bg-[#34B27B]/30 transition-colors duration-200 ${
+			isLight ? "bg-[#f8f9fa] text-slate-900" : "bg-[#09090b] text-slate-200"
+		}`}>
 			<Dialog open={showNewRecordingDialog} onOpenChange={setShowNewRecordingDialog}>
 				<DialogContent
 					className={`sm:max-w-[425px] rounded-3xl p-6 gap-0 shadow-2xl transition-colors duration-200 ${
