@@ -26,7 +26,7 @@ export default function Row({
 	shortcutKey,
 	onAddClick,
 }: RowProps) {
-	const { setNodeRef, rowWrapperStyle, rowStyle } = useRow({ id });
+	const { setNodeRef, rowStyle } = useRow({ id });
 	const { sidebarWidth } = useTimelineContext();
 
 	const prefs = loadUserPreferences();
@@ -34,16 +34,16 @@ export default function Row({
 	const isLight = prefs.theme === "light";
 
 	const effectiveColor = accentColorHex || activeAccent.hex;
+	const leftOffset = label ? sidebarWidth : 0;
 
 	return (
 		<div
 			className={cn(
-				"relative overflow-hidden transition-colors border-b",
+				"relative w-full overflow-hidden transition-colors border-b flex items-center min-h-[42px]",
 				isLight
 					? "bg-[#f8f8f9] border-[#e4e4e7] hover:bg-[#f1f1f3]"
 					: "bg-[#0d0e12] border-white/[0.06] hover:bg-[#121318]",
 			)}
-			style={{ ...rowWrapperStyle, minHeight: 42 }}
 		>
 			{background}
 
@@ -79,8 +79,15 @@ export default function Row({
 			{/* Track Lane Clip Container */}
 			<div
 				ref={setNodeRef}
-				style={{ ...rowStyle, marginLeft: label ? sidebarWidth : 0 }}
-				className="h-full relative z-10"
+				style={{
+					...rowStyle,
+					position: "relative",
+					marginLeft: leftOffset,
+					width: `calc(100% - ${leftOffset}px)`,
+					height: "100%",
+					minHeight: 42,
+				}}
+				className="relative z-10 h-full flex-1"
 			>
 				{children}
 			</div>
