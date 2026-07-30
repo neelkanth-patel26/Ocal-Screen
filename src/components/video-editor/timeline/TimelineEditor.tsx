@@ -583,6 +583,11 @@ function Timeline({
 	keyframes = [],
 	videoUrl,
 	showTrimWaveform = false,
+	onAddZoom,
+	onAddTrim,
+	onAddAnnotation,
+	onAddBlur,
+	onAddSpeed,
 }: {
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
@@ -602,8 +607,15 @@ function Timeline({
 	keyframes?: { id: string; time: number }[];
 	videoUrl?: string;
 	showTrimWaveform?: boolean;
+	onAddZoom?: () => void;
+	onAddTrim?: () => void;
+	onAddAnnotation?: () => void;
+	onAddBlur?: () => void;
+	onAddSpeed?: () => void;
 }) {
 	const t = useScopedT("timeline");
+	const prefs = loadUserPreferences();
+	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
 	const { setTimelineRef, style, sidebarWidth, range, pixelsToValue } = useTimelineContext();
 	const localTimelineRef = useRef<HTMLDivElement | null>(null);
 	const isScrubbingTimelineRef = useRef(false);
@@ -787,7 +799,16 @@ function Timeline({
 				keyframes={keyframes}
 			/>
 
-			<Row id={ZOOM_ROW_ID} isEmpty={zoomItems.length === 0} hint={t("hints.pressZoom")}>
+			<Row
+				id={ZOOM_ROW_ID}
+				isEmpty={zoomItems.length === 0}
+				hint={t("hints.pressZoom")}
+				label="Zoom"
+				icon={<ZoomIn className="w-3.5 h-3.5" />}
+				shortcutKey="Z"
+				accentColorHex={activeAccent.hex}
+				onAddClick={onAddZoom}
+			>
 				{zoomItems.map((item) => (
 					<Item
 						id={item.id}
@@ -810,6 +831,11 @@ function Timeline({
 				id={TRIM_ROW_ID}
 				isEmpty={trimItems.length === 0}
 				hint={t("hints.pressTrim")}
+				label="Trim"
+				icon={<Scissors className="w-3.5 h-3.5" />}
+				shortcutKey="T"
+				accentColorHex="#ef4444"
+				onAddClick={onAddTrim}
 				background={
 					showTrimWaveform ? (
 						<BackgroundWaveform
@@ -840,6 +866,11 @@ function Timeline({
 				id={ANNOTATION_ROW_ID}
 				isEmpty={annotationItems.length === 0}
 				hint={t("hints.pressAnnotation")}
+				label="Text"
+				icon={<MessageSquare className="w-3.5 h-3.5" />}
+				shortcutKey="A"
+				accentColorHex="#f59e0b"
+				onAddClick={onAddAnnotation}
 			>
 				{annotationItems.map((item) => (
 					<Item
@@ -857,7 +888,22 @@ function Timeline({
 			</Row>
 
 			{BLUR_REGIONS_ENABLED && (
-				<Row id={BLUR_ROW_ID} isEmpty={blurItems.length === 0} hint={t("hints.pressBlur")}>
+				<Row
+					id={BLUR_ROW_ID}
+					isEmpty={blurItems.length === 0}
+					hint={t("hints.pressBlur")}
+					label="Blur"
+					icon={
+						<svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+							<circle cx="8" cy="12" r="3" />
+							<circle cx="16" cy="12" r="3" />
+							<path d="M6 6h12M6 18h12" />
+						</svg>
+					}
+					shortcutKey="B"
+					accentColorHex="#38bdf8"
+					onAddClick={onAddBlur}
+				>
 					{blurItems.map((item) => (
 						<Item
 							id={item.id}
@@ -874,7 +920,16 @@ function Timeline({
 				</Row>
 			)}
 
-			<Row id={SPEED_ROW_ID} isEmpty={speedItems.length === 0} hint={t("hints.pressSpeed")}>
+			<Row
+				id={SPEED_ROW_ID}
+				isEmpty={speedItems.length === 0}
+				hint={t("hints.pressSpeed")}
+				label="Speed"
+				icon={<Gauge className="w-3.5 h-3.5" />}
+				shortcutKey="S"
+				accentColorHex="#f97316"
+				onAddClick={onAddSpeed}
+			>
 				{speedItems.map((item) => (
 					<Item
 						id={item.id}
@@ -1689,6 +1744,11 @@ export default function TimelineEditor({
 						keyframes={keyframes}
 						videoUrl={videoUrl}
 						showTrimWaveform={showTrimWaveform}
+						onAddZoom={handleAddZoom}
+						onAddTrim={handleAddTrim}
+						onAddAnnotation={handleAddAnnotation}
+						onAddBlur={handleAddBlur}
+						onAddSpeed={handleAddSpeed}
 					/>
 				</TimelineWrapper>
 			</div>

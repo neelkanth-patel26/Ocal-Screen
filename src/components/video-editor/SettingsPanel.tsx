@@ -2,6 +2,7 @@ import * as SliderPrimitive from "@radix-ui/react-slider";
 import {
 	Brackets,
 	Bug,
+	Check,
 	Crop,
 	Download,
 	FileDown,
@@ -39,7 +40,6 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useScopedT } from "@/contexts/I18nContext";
 import { getAssetPath } from "@/lib/assetPath";
@@ -636,6 +636,7 @@ export function SettingsPanel({
 		[cropRegion, videoWidth, videoHeight],
 	);
 	const [showCropDropdown, setShowCropDropdown] = useState(false);
+	const [bgSubTab, setBgSubTab] = useState<"image" | "color" | "gradient">("image");
 	const handleCropToggle = () => setShowCropDropdown((open) => !open);
 
 	const zoomEnabled = Boolean(selectedZoomDepth);
@@ -1740,47 +1741,33 @@ export function SettingsPanel({
 										</div>
 									</AccordionTrigger>
 									<AccordionContent className="pb-3">
-										<Tabs defaultValue="image" className="w-full">
-											<TabsList
-												className={cn(
-													"mb-2 p-0.5 w-full grid grid-cols-3 h-8 rounded-xl border",
-													isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10",
-												)}
-											>
-												<TabsTrigger
-													value="image"
-													style={{
-														// Custom inline style applied via class data-[state=active] or dynamic style
-													}}
-													className={cn(
-														"text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer",
-														isLight ? "text-slate-600 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs" : "text-slate-400 data-[state=active]:bg-white/20 data-[state=active]:text-white",
-													)}
-												>
-													{t("background.image")}
-												</TabsTrigger>
-												<TabsTrigger
-													value="color"
-													className={cn(
-														"text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer",
-														isLight ? "text-slate-600 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs" : "text-slate-400 data-[state=active]:bg-white/20 data-[state=active]:text-white",
-													)}
-												>
-													{t("background.color")}
-												</TabsTrigger>
-												<TabsTrigger
-													value="gradient"
-													className={cn(
-														"text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer",
-														isLight ? "text-slate-600 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs" : "text-slate-400 data-[state=active]:bg-white/20 data-[state=active]:text-white",
-													)}
-												>
-													{t("background.gradient")}
-												</TabsTrigger>
-											</TabsList>
+										<div className={`flex items-center p-1 rounded-xl border mb-3 ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}>
+											{(["image", "color", "gradient"] as const).map((tabKey) => {
+												const isActive = bgSubTab === tabKey;
+												return (
+													<button
+														key={tabKey}
+														type="button"
+														onClick={() => setBgSubTab(tabKey)}
+														style={isActive ? { backgroundColor: activeAccent.hex, color: activeAccent.textHex } : undefined}
+														className={cn(
+															"flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center cursor-pointer capitalize",
+															isActive
+																? "shadow-md scale-[1.02]"
+																: isLight
+																	? "text-slate-600 hover:text-black"
+																	: "text-slate-400 hover:text-white",
+														)}
+													>
+														{t(`background.${tabKey}` as any)}
+													</button>
+												);
+											})}
+										</div>
 
-											<div className="overflow-y-auto custom-scrollbar">
-												<TabsContent value="image" className="mt-0 space-y-2">
+										<div className="overflow-y-auto custom-scrollbar">
+											{bgSubTab === "image" && (
+												<div className="space-y-3">
 													<input
 														type="file"
 														ref={fileInputRef}
@@ -1792,41 +1779,41 @@ export function SettingsPanel({
 														onClick={() => fileInputRef.current?.click()}
 														variant="outline"
 														className={cn(
-															"w-full gap-2 font-bold transition-all h-8 text-[11px] rounded-xl cursor-pointer",
+															"w-full gap-2 font-bold transition-all h-9 text-xs rounded-xl cursor-pointer shadow-xs",
 															isLight
 																? "bg-[#f4f4f5] text-[#18181b] border-[#e4e4e7] hover:bg-white hover:border-[#d4d4d8]"
 																: "bg-white/5 text-slate-200 border-white/10 hover:bg-white/10 hover:border-white/20",
 														)}
 													>
-														<Upload className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+														<Upload className="w-4 h-4" style={{ color: activeAccent.hex }} />
 														{t("background.uploadCustom")}
 													</Button>
 
-													<div className="grid grid-cols-6 gap-2">
+													<div className="grid grid-cols-4 gap-2.5">
 														{customImages.map((imageUrl, idx) => {
 															const isSelected = selected === imageUrl;
 															return (
 																<div
 																	key={`custom-${idx}`}
 																	className={cn(
-																		"aspect-square w-8 h-8 rounded-lg border overflow-hidden cursor-pointer transition-all duration-150 relative group shadow-sm",
-																		isSelected
-																			? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
-																			: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
+																		"w-full aspect-square rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-200 relative group shadow-md hover:scale-105",
+																		isSelected ? "" : "border-white/10 opacity-80 hover:opacity-100 bg-white/5",
 																	)}
 																	style={{
 																		backgroundImage: `url(${imageUrl})`,
 																		backgroundSize: "cover",
 																		backgroundPosition: "center",
+																		borderColor: isSelected ? activeAccent.hex : undefined,
+																		boxShadow: isSelected ? `0 0 12px ${activeAccent.hex}80` : undefined,
 																	}}
 																	onClick={() => onWallpaperChange(imageUrl)}
 																	role="button"
 																>
 																	<button
 																		onClick={(e) => handleRemoveCustomImage(imageUrl, e)}
-																		className="absolute top-0.5 right-0.5 w-3 h-3 bg-red-500/90 hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+																		className="absolute top-1 right-1 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md"
 																	>
-																		<X className="w-2 h-2 text-white" />
+																		<X className="w-2.5 h-2.5 text-white" />
 																	</button>
 																</div>
 															);
@@ -1839,65 +1826,78 @@ export function SettingsPanel({
 																<div
 																	key={canonicalPath}
 																	className={cn(
-																		"aspect-square w-8 h-8 rounded-lg border overflow-hidden cursor-pointer transition-all duration-150 shadow-sm",
-																		isSelected
-																			? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
-																			: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
+																		"w-full aspect-square rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
+																		isSelected ? "" : "border-white/10 opacity-80 hover:opacity-100 bg-white/5",
 																	)}
 																	style={{
 																		backgroundImage: `url(${previewUrl})`,
 																		backgroundSize: "cover",
 																		backgroundPosition: "center",
+																		borderColor: isSelected ? activeAccent.hex : undefined,
+																		boxShadow: isSelected ? `0 0 12px ${activeAccent.hex}80` : undefined,
 																	}}
 																	onClick={() => onWallpaperChange(canonicalPath)}
 																	role="button"
-																/>
+																>
+																	{isSelected && (
+																		<div
+																			className="absolute bottom-1 right-1 w-4 h-4 rounded-full flex items-center justify-center shadow-md"
+																			style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+																		>
+																			<Check className="w-2.5 h-2.5" />
+																		</div>
+																	)}
+																</div>
 															);
 														})}
 													</div>
-												</TabsContent>
+												</div>
+											)}
 
-												<TabsContent value="color" className="mt-0">
-													<ColorPicker
-														selectedColor={selectedColor}
-														colorPalette={colorPalette}
-														translations={{
-															colorWheel: t("background.colorWheel"),
-															colorPalette: t("background.colorPalette"),
-														}}
-														onUpdateColor={(color) => {
-															setSelectedColor(color);
-															onWallpaperChange(color);
-														}}
-													/>
-												</TabsContent>
+											{bgSubTab === "color" && (
+												<ColorPicker
+													selectedColor={selectedColor}
+													colorPalette={colorPalette}
+													translations={{
+														colorWheel: t("background.colorWheel"),
+														colorPalette: t("background.colorPalette"),
+													}}
+													onUpdateColor={(color) => {
+														setSelectedColor(color);
+														onWallpaperChange(color);
+													}}
+												/>
+											)}
 
-												<TabsContent value="gradient" className="mt-0">
-													<div className="grid grid-cols-6 gap-2">
-														{GRADIENTS.map((g, idx) => (
-															<div
-																key={g}
-																className={cn(
-																	"aspect-square w-8 h-8 rounded-lg border overflow-hidden cursor-pointer transition-all duration-150 shadow-sm",
-																	gradient === g
-																		? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
-																		: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100 bg-white/5",
-																)}
-																style={{ background: g }}
-																aria-label={t("background.gradientLabel", {
-																	index: idx + 1,
-																})}
-																onClick={() => {
-																	setGradient(g);
-																	onWallpaperChange(g);
-																}}
-																role="button"
-															/>
-														))}
-													</div>
-												</TabsContent>
-											</div>
-										</Tabs>
+											{bgSubTab === "gradient" && (
+												<div className="grid grid-cols-6 gap-2">
+													{GRADIENTS.map((g, idx) => (
+														<div
+															key={g}
+															className={cn(
+																"aspect-square w-8 h-8 rounded-lg border overflow-hidden cursor-pointer transition-all duration-150 shadow-sm",
+																gradient === g
+																	? "border-2 opacity-100 shadow-md scale-105"
+																	: "border-white/10 hover:border-white/30 opacity-80 hover:opacity-100 bg-white/5",
+															)}
+															style={{
+																background: g,
+																borderColor: gradient === g ? activeAccent.hex : undefined,
+																boxShadow: gradient === g ? `0 0 10px ${activeAccent.hex}80` : undefined,
+															}}
+															aria-label={t("background.gradientLabel", {
+																index: idx + 1,
+															})}
+															onClick={() => {
+																setGradient(g);
+																onWallpaperChange(g);
+															}}
+															role="button"
+														/>
+													))}
+												</div>
+											)}
+										</div>
 									</AccordionContent>
 								</AccordionItem>
 							)}
