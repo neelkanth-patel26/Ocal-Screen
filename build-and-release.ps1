@@ -11,7 +11,7 @@ $versionTag = "v1.0.0-beta"
 $releaseName = "Ocal Screen v1.0.0 Open Beta"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " 🚀 Ocal Screen v1.0.0 Open Beta Build & Release Pipeline" -ForegroundColor Cyan
+Write-Host "Ocal Screen v1.0.0 Open Beta Build & Release Pipeline" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Clean Previous Artifacts
@@ -47,10 +47,12 @@ if ($rceditPath -and (Test-Path $rceditPath)) {
     cmd.exe /c "`"$rceditPath`" `"$exePath`" --set-icon `"$iconPath`""
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Icon stamped successfully into $exePath!" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "WARNING: rcedit icon stamp exited with code $LASTEXITCODE" -ForegroundColor Red
     }
-} else {
+}
+else {
     Write-Host "WARNING: rcedit-x64.exe not found. Icon stamp skipped." -ForegroundColor Red
 }
 
@@ -61,7 +63,8 @@ $isccPath = "C:\Users\neelk\AppData\Local\Programs\Inno Setup 6\ISCC.exe"
 if (-not (Test-Path $isccPath)) {
     if (Get-Command "ISCC.exe" -ErrorAction SilentlyContinue) {
         $isccPath = (Get-Command "ISCC.exe").Source
-    } else {
+    }
+    else {
         throw "ISCC.exe (Inno Setup 6) compiler not found!"
     }
 }
@@ -83,29 +86,29 @@ Write-Host "`n[5/6] Managing GitHub Release ($versionTag)..." -ForegroundColor C
 
 $headers = @{
     "Authorization" = "token $token"
-    "Accept" = "application/vnd.github.v3+json"
+    "Accept"        = "application/vnd.github.v3+json"
 }
 
 $releaseBody = @"
-# 🌟 Ocal Screen v1.0.0 Open Beta
+# Ocal Screen v1.0.0 Open Beta
 
 Welcome to the **Ocal Screen v1.0.0 Open Beta** release! Ocal Screen is a studio-grade, 100% local and private screen recorder and video editor.
 
 ---
 
-### ✨ What's Included in v1.0.0 Open Beta
+### What's Included in v1.0.0 Open Beta
 
-* 🎯 **Smart AI Auto-Zoom System**: Continuous interaction typing & click clustering with smooth pre-zoom and post-hold.
-* 🖱️ **Custom Animated Cursor Overlay**: Replaces OS cursor with size-adjustable, smooth custom animated cursor (`size: 1.5`).
-* 🎨 **Redesigned Studio Settings**: Glassmorphism dialog with dynamic light & dark theme toggles and vibrant accent color swatches.
-* 🪟 **Transparent Window Controls**: Dynamic theme-aware window titlebar controls.
-* 🛠️ **In-App Bug Reporting Dialog**: Automatically collects system hardware details (CPU, RAM, GPU renderer, Windows version) for easy GitHub issue creation.
-* 🔒 **100% Local Privacy**: Zero telemetry uploads, all video rendering and AI voiceover captioning operate strictly on-device.
-* 📜 **Inno Setup 6 Installer**: Professional setup wizard with integrated License, Privacy Policy, and Terms of Service.
+* **Smart AI Auto-Zoom System**: Continuous interaction typing & click clustering with smooth pre-zoom and post-hold.
+* **Custom Animated Cursor Overlay**: Replaces OS cursor with size-adjustable, smooth custom animated cursor (`size: 1.5`).
+* **Redesigned Studio Settings**: Glassmorphism dialog with dynamic light & dark theme toggles and vibrant accent color swatches.
+* **Transparent Window Controls**: Dynamic theme-aware window titlebar controls.
+* **In-App Bug Reporting Dialog**: Automatically collects system hardware details (CPU, RAM, GPU renderer, Windows version) for easy GitHub issue creation.
+* **100% Local Privacy**: Zero telemetry uploads, all video rendering and AI voiceover captioning operate strictly on-device.
+* **Inno Setup 6 Installer**: Professional setup wizard with integrated License, Privacy Policy, and Terms of Service.
 
 ---
 
-### 📦 Installation Guide (Windows)
+### Installation Guide (Windows)
 
 1. Download **`Ocal-Screen-1.0.0-OpenBeta-Setup.exe`** below.
 2. Double-click the installer and complete the setup wizard.
@@ -116,17 +119,18 @@ Welcome to the **Ocal Screen v1.0.0 Open Beta** release! Ocal Screen is a studio
 "@
 
 $releasePayloadObj = @{
-    tag_name = $versionTag
-    name = $releaseName
-    body = $releaseBody
-    draft = $false
-    prerelease = $true
+    tag_name   = $versionTag
+    name       = $releaseName
+    body       = $releaseBody
+    draft      = $false
+    prerelease = $false
 }
 $releaseJson = $releasePayloadObj | ConvertTo-Json -Compress
 
 $existingRelease = try {
     Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/tags/$versionTag" -Method Get -Headers $headers -ErrorAction SilentlyContinue
-} catch {
+}
+catch {
     $null
 }
 
@@ -134,7 +138,8 @@ if ($existingRelease -and $existingRelease.id) {
     $releaseId = $existingRelease.id
     Write-Host "Found Release ID $releaseId. Updating release notes..." -ForegroundColor Yellow
     $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/$releaseId" -Method Patch -Headers $headers -Body $releaseJson -ContentType "application/json; charset=utf-8"
-} else {
+}
+else {
     Write-Host "Creating new release..." -ForegroundColor Yellow
     $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases" -Method Post -Headers $headers -Body $releaseJson -ContentType "application/json; charset=utf-8"
 }
@@ -147,7 +152,8 @@ if ($rel.assets) {
             try {
                 Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($asset.id)" -Method Delete -Headers $headers
                 Write-Host "Old asset deleted." -ForegroundColor Green
-            } catch {
+            }
+            catch {
                 Write-Host "Notice: Asset deletion skipped/handled." -ForegroundColor Gray
             }
         }
@@ -164,7 +170,7 @@ $bytes = [System.IO.File]::ReadAllBytes($fullSetupPath)
 
 $uploadHeaders = @{
     "Authorization" = "token $token"
-    "Content-Type" = "application/octet-stream"
+    "Content-Type"  = "application/octet-stream"
 }
 
 $uploadResponse = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $uploadHeaders -Body $bytes
