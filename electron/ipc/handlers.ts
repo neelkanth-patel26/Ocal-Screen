@@ -2935,6 +2935,81 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle(
+		"download-update",
+		async (event, { url, fileName }: { url: string; fileName: string }) => {
+			try {
+				const tempDir = app.getPath("temp");
+				const targetPath = path.join(tempDir, fileName || "Ocal-Screen-Setup.exe");
+
+				const response = await fetch(url);
+				if (!response.ok || !response.body) {
+					throw new Error(`HTTP error ${response.status} when downloading update`);
+				}
+
+				const totalBytes = Number.parseInt(response.headers.get("content-length") || "0", 10);
+				let downloadedBytes = 0;
+
+				const fsSync = await import("node:fs");
+				const fileStream = fsSync.createWriteStream(targetPath);
+				const reader = response.body.getReader();
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+
+					downloadedBytes += value.length;
+					fileStream.write(Buffer.from(value));
+
+					const percent = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
+					event.sender.send("update-download-progress", {
+						percent,
+						downloadedBytes,
+						totalBytes,
+					});
+				}
+
+				await new Promise<void>((resolve, reject) => {
+					fileStream.end((err: any) => {
+						if (err) reject(err);
+						else resolve();
+					});
+				});
+
+				return { success: true, path: targetPath };
+			} catch (err: any) {
+				return { success: false, error: err?.message || "Failed to download update" };
+			}
+		},
+	);
+
+	ipcMain.handle(
+		"install-and-launch-update",
+		async (_, { installerPath }: { installerPath: string }) => {
+			try {
+				const fsSync = await import("node:fs");
+				if (!fsSync.existsSync(installerPath)) {
+					throw new Error(`Installer file not found at: ${installerPath}`);
+				}
+
+				const childProcess = await import("node:child_process");
+				const child = childProcess.spawn(installerPath, [], {
+					detached: true,
+					stdio: "ignore",
+				});
+				child.unref();
+
+				setTimeout(() => {
+					app.quit();
+				}, 800);
+
+				return { success: true };
+			} catch (err: any) {
+				return { success: false, error: err?.message || "Failed to launch installer" };
+			}
+		},
+	);
+
+	ipcMain.handle(
 		"save-diagnostic",
 		async (
 			_,

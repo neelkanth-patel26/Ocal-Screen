@@ -302,6 +302,16 @@ interface Window {
 			chromeVersion: string;
 		}>;
 		recordTypingActivity: () => void;
+		downloadUpdate?: (
+			url: string,
+			fileName: string,
+		) => Promise<{ success: boolean; path?: string; error?: string }>;
+		onUpdateDownloadProgress?: (
+			callback: (progress: { percent: number; downloadedBytes: number; totalBytes: number }) => void,
+		) => () => void;
+		installAndLaunchUpdate?: (
+			installerPath: string,
+		) => Promise<{ success: boolean; error?: string }>;
 	};
 }
 

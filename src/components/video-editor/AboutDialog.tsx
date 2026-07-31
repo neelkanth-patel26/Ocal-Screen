@@ -24,11 +24,26 @@ const DETAILS = {
 	repoUrl: "https://github.com/neelkanth-patel26/Ocal-Screen",
 };
 
-type UpdateStatus = "idle" | "checking" | "up-to-date" | "update-available" | "error";
+type UpdateStatus =
+	| "idle"
+	| "checking"
+	| "up-to-date"
+	| "update-available"
+	| "downloading"
+	| "downloaded"
+	| "error";
 
 interface UpdateInfo {
 	latestVersion?: string;
 	releaseUrl?: string;
+	downloadUrl?: string;
+	fileName?: string;
+	downloadProgress?: {
+		percent: number;
+		downloadedBytes: number;
+		totalBytes: number;
+	};
+	installerPath?: string;
 	error?: string;
 }
 
@@ -59,7 +74,7 @@ export function AboutDialog({
 			if (response.ok) {
 				data = await response.json();
 			} else {
-				// Fallback to all releases list if latest returns 404 (e.g. for beta/prereleases)
+				// Fallback to all releases list if latest returns 404
 				const listResp = await fetch(
 					"https://api.github.com/repos/neelkanth-patel26/Ocal-Screen/releases",
 				);
@@ -77,11 +92,17 @@ export function AboutDialog({
 			const latestVersion = (data.tag_name || "").replace(/^v/, "");
 			const currentVersion = APP_VERSION.replace(/^v/, "");
 
+			const exeAsset = data.assets?.find((a: any) => a.name?.endsWith(".exe"));
+			const downloadUrl = exeAsset?.browser_download_url;
+			const fileName = exeAsset?.name || `Ocal-Screen-${latestVersion}-Setup.exe`;
+
 			if (latestVersion && latestVersion !== currentVersion) {
 				setUpdateStatus("update-available");
 				setUpdateInfo({
 					latestVersion,
 					releaseUrl: data.html_url || "https://github.com/neelkanth-patel26/Ocal-Screen/releases",
+					downloadUrl,
+					fileName,
 				});
 			} else {
 				setUpdateStatus("up-to-date");
@@ -93,6 +114,49 @@ export function AboutDialog({
 			});
 		}
 	}, []);
+
+	const startInAppDownload = useCallback(async () => {
+		if (!updateInfo.downloadUrl) {
+			if (updateInfo.releaseUrl) {
+				window.electronAPI?.openExternalUrl(updateInfo.releaseUrl);
+			}
+			return;
+		}
+
+		setUpdateStatus("downloading");
+
+		const removeListener = window.electronAPI?.onUpdateDownloadProgress?.((prog) => {
+			setUpdateInfo((prev) => ({ ...prev, downloadProgress: prog }));
+		});
+
+		try {
+			const res = await window.electronAPI?.downloadUpdate?.(
+				updateInfo.downloadUrl,
+				updateInfo.fileName || "Ocal-Screen-Setup.exe",
+			);
+
+			if (removeListener) removeListener();
+
+			if (res?.success && res.path) {
+				setUpdateStatus("downloaded");
+				setUpdateInfo((prev) => ({ ...prev, installerPath: res.path }));
+			} else {
+				throw new Error(res?.error || "Download failed");
+			}
+		} catch (err: any) {
+			if (removeListener) removeListener();
+			setUpdateStatus("error");
+			setUpdateInfo((prev) => ({
+				...prev,
+				error: err?.message || "Failed to download installer",
+			}));
+		}
+	}, [updateInfo.downloadUrl, updateInfo.fileName, updateInfo.releaseUrl]);
+
+	const installUpdateNow = useCallback(async () => {
+		if (!updateInfo.installerPath) return;
+		await window.electronAPI?.installAndLaunchUpdate?.(updateInfo.installerPath);
+	}, [updateInfo.installerPath]);
 
 	const openExternal = (url: string) => {
 		window.electronAPI?.openExternalUrl(url);
@@ -349,19 +413,102 @@ export function AboutDialog({
 								<span>v{updateInfo.latestVersion} is available</span>
 							</div>
 							<Button
-								onClick={() =>
-									updateInfo.releaseUrl &&
-									openExternal(updateInfo.releaseUrl)
-								}
-								className="w-full h-9 rounded-xl text-xs font-semibold gap-2 cursor-pointer"
+								onClick={startInAppDownload}
+								className="w-full h-9 rounded-xl text-xs font-semibold gap-2 cursor-pointer shadow-md transition-all active:scale-[0.98]"
 								style={{
 									backgroundColor: activeAccent.hex,
 									color: activeAccent.textHex,
 								}}
 							>
-								<ExternalLink className="w-3.5 h-3.5" />
-								Download Update
+								<Sparkles className="w-3.5 h-3.5" />
+								Download & Install Update
 							</Button>
+							{updateInfo.releaseUrl && (
+								<button
+									type="button"
+									onClick={() => openExternal(updateInfo.releaseUrl!)}
+									className={cn(
+										"w-full text-center text-[11px] underline hover:no-underline cursor-pointer pt-1",
+										isLight ? "text-slate-500" : "text-slate-400",
+									)}
+								>
+									View Release Notes on GitHub
+								</button>
+							)}
+						</div>
+					)}
+
+					{updateStatus === "downloading" && (
+						<div className="space-y-2">
+							<div
+								className={cn(
+									"p-3 rounded-xl border text-left text-xs space-y-2",
+									isLight
+										? "bg-slate-50 border-slate-200 text-slate-700"
+										: "bg-white/5 border-white/10 text-slate-300",
+								)}
+							>
+								<div className="flex items-center justify-between font-medium">
+									<span>Downloading v{updateInfo.latestVersion}…</span>
+									<span>{updateInfo.downloadProgress?.percent || 0}%</span>
+								</div>
+								<div className="w-full h-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden relative">
+									<div
+										className="h-full rounded-full transition-all duration-300"
+										style={{
+											width: `${updateInfo.downloadProgress?.percent || 0}%`,
+											backgroundColor: activeAccent.hex,
+										}}
+									/>
+								</div>
+								<div className="flex items-center justify-between text-[11px] opacity-75">
+									<span>
+										{updateInfo.downloadProgress?.downloadedBytes
+											? `${(updateInfo.downloadProgress.downloadedBytes / 1048576).toFixed(1)} MB`
+											: "0 MB"}{" "}
+										/{" "}
+										{updateInfo.downloadProgress?.totalBytes
+											? `${(updateInfo.downloadProgress.totalBytes / 1048576).toFixed(1)} MB`
+											: "..."}
+									</span>
+									<span className="animate-pulse">Downloading in background…</span>
+								</div>
+							</div>
+						</div>
+					)}
+
+					{updateStatus === "downloaded" && (
+						<div className="space-y-2">
+							<div
+								className={cn(
+									"flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-medium",
+									isLight
+										? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+										: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+								)}
+							>
+								<span>✓</span>
+								<span>Installer downloaded & ready!</span>
+							</div>
+							<Button
+								onClick={installUpdateNow}
+								className="w-full h-10 rounded-xl text-xs font-semibold gap-2 cursor-pointer shadow-lg animate-bounce"
+								style={{
+									backgroundColor: activeAccent.hex,
+									color: activeAccent.textHex,
+								}}
+							>
+								<Sparkles className="w-4 h-4" />
+								Relaunch & Install Now
+							</Button>
+							<p
+								className={cn(
+									"text-[11px] text-center opacity-75",
+									isLight ? "text-slate-500" : "text-slate-400",
+								)}
+							>
+								Ocal Screen will close and launch the setup wizard automatically.
+							</p>
 						</div>
 					)}
 
