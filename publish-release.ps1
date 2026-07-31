@@ -28,7 +28,7 @@ if ($LASTEXITCODE -ne 0) { throw "Electron packaging failed." }
 
 # 3. Stamp Executable Icon
 Write-Host "[3/5] Stamping application icon..." -ForegroundColor Yellow
-$exePath = "dist-builder\win-unpacked\Ocal Screen.exe"
+$exePath = "release\1.5.0\win-unpacked\Ocal Screen.exe"
 $iconPath = "icons\icons\win\icon.ico"
 
 if (Test-Path $exePath) {
