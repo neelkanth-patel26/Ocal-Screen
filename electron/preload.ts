@@ -286,4 +286,22 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	recordTypingActivity: () => {
 		ipcRenderer.send("record-typing-activity");
 	},
+	downloadUpdate: (url: string, fileName: string) => {
+		return ipcRenderer.invoke("download-update", { url, fileName });
+	},
+	onUpdateDownloadProgress: (
+		callback: (progress: { percent: number; downloadedBytes: number; totalBytes: number }) => void,
+	) => {
+		const listener = (
+			_event: unknown,
+			data: { percent: number; downloadedBytes: number; totalBytes: number },
+		) => callback(data);
+		ipcRenderer.on("update-download-progress", listener);
+		return () => {
+			ipcRenderer.removeListener("update-download-progress", listener);
+		};
+	},
+	installAndLaunchUpdate: (installerPath: string) => {
+		return ipcRenderer.invoke("install-and-launch-update", { installerPath });
+	},
 });
