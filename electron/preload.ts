@@ -280,4 +280,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	sendCloseConfirmResponse: (choice: "save" | "discard" | "cancel") => {
 		ipcRenderer.send("close-confirm-response", choice);
 	},
+	getSystemInfo: () => {
+		return ipcRenderer.invoke("get-system-info");
+	},
+	recordTypingActivity: () => {
+		ipcRenderer.send("record-typing-activity");
+	},
 });

@@ -755,7 +755,7 @@ export function LaunchWindow() {
 				data-tray-layout={trayLayout}
 				className={`fixed bottom-5 left-1/2 -translate-x-1/2 flex rounded-full border ${styles.noScrollbar} ${
 					isLight
-						? "border-[#e4e4e7] bg-[#ffffff] text-[#18181b] shadow-xl"
+						? "border-[#e4e4e7] bg-[#ffffff] text-[#18181b] shadow-md shadow-slate-200/50"
 						: "border-[#252525] bg-[#0c0c0c] text-[#e8e8e8] shadow-none"
 				} ${
 					trayLayout === "vertical"

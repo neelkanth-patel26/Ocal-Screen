@@ -380,12 +380,15 @@ export class MacNativeCursorRecordingSession implements CursorRecordingSession {
 		}
 		const visible =
 			this.consecutiveOutsideSamples < MacNativeCursorRecordingSession.OUTSIDE_HIDE_THRESHOLD;
+		const cursorTypeStr = String(cursorType || "").toLowerCase();
 		const interactionType =
 			leftButtonPressed || (leftButtonDown && !this.previousLeftButtonDown)
 				? "click"
 				: leftButtonReleased || (!leftButtonDown && this.previousLeftButtonDown)
 					? "mouseup"
-					: "move";
+					: cursorTypeStr === "text" || cursorTypeStr === "ibeam"
+						? "typing"
+						: "move";
 		this.previousLeftButtonDown = leftButtonDown;
 
 		this.samples.push({

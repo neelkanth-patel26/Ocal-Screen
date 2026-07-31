@@ -10,6 +10,7 @@ import {
 	ScanEye,
 	Scissors,
 	WandSparkles,
+	Sparkles,
 	ZoomIn,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -56,6 +57,7 @@ interface TimelineEditorProps {
 	/** Magic-wand auto-zoom toggle state + handler. */
 	autoZoomEnabled?: boolean;
 	onToggleAutoZoom?: (enabled: boolean) => void;
+	onGenerateAIZooms?: () => void;
 	/** Global Auto-Focus toggle state + handler. */
 	autoFocusAll?: boolean;
 	onToggleAutoFocusAll?: (on: boolean) => void;
@@ -458,6 +460,8 @@ function TimelineAxis({
 }) {
 	const { sidebarWidth, direction, range, valueToPixels } = useTimelineContext();
 	const sideProperty = direction === "rtl" ? "right" : "left";
+	const axisPrefs = loadUserPreferences();
+	const axisIsLight = axisPrefs.theme === "light";
 
 	const { intervalMs } = useMemo(
 		() => calculateAxisScale(range.end - range.start),
@@ -518,7 +522,7 @@ function TimelineAxis({
 
 	return (
 		<div
-			className="h-9 bg-[#0c0d10] border-b border-white/[0.07] relative overflow-hidden select-none"
+			className={`h-9 border-b relative overflow-hidden select-none ${axisIsLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-[#0c0d10] border-white/[0.07]"}`}
 			style={{
 				[sideProperty === "right" ? "marginRight" : "marginLeft"]: `${sidebarWidth}px`,
 			}}
@@ -529,7 +533,7 @@ function TimelineAxis({
 				return (
 					<div
 						key={`minor-${time}`}
-						className="absolute bottom-0 h-1.5 w-[1px] bg-white/[0.07]"
+						className={`absolute bottom-0 h-1.5 w-[1px] ${axisIsLight ? "bg-slate-300/40" : "bg-white/[0.07]"}`}
 						style={{ [sideProperty]: `${offset}px` }}
 					/>
 				);
@@ -551,7 +555,7 @@ function TimelineAxis({
 				return (
 					<div key={marker.time} style={markerStyle}>
 						<div className="flex flex-col items-center pb-1">
-							<div className="h-2.5 w-[1px] bg-white/20 mb-1" />
+							<div className={`h-2.5 w-[1px] mb-1 ${axisIsLight ? "bg-slate-400/40" : "bg-white/20"}`} />
 							<span
 								className={cn(
 									"text-[10px] font-medium tabular-nums tracking-tight",
@@ -619,6 +623,7 @@ function Timeline({
 }) {
 	const t = useScopedT("timeline");
 	const prefs = loadUserPreferences();
+	const isLight = prefs.theme === "light";
 	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
 	const { setTimelineRef, style, sidebarWidth, range, pixelsToValue } = useTimelineContext();
 	const localTimelineRef = useRef<HTMLDivElement | null>(null);
@@ -782,7 +787,10 @@ function Timeline({
 		<div
 			ref={setRefs}
 			style={{ ...style, touchAction: "none" }}
-			className="select-none bg-[#0b0c0f] min-h-[190px] relative cursor-pointer group"
+			className={cn(
+				"select-none min-h-[190px] relative cursor-pointer group transition-colors",
+				isLight ? "bg-white" : "bg-[#0b0c0f]"
+			)}
 			onClick={handleTimelineClick}
 			onPointerDown={handleTimelinePointerDown}
 			onPointerMove={handleTimelinePointerMove}
@@ -793,6 +801,16 @@ function Timeline({
 			onWheel={handleTimelineWheel}
 		>
 			<div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px)] bg-[length:24px_100%] pointer-events-none" />
+			{/* Top-Left Corner Header above Track Labels */}
+			<div
+				className={cn(
+					"absolute top-0 left-0 h-9 border-b border-r flex items-center px-3 text-[10px] font-bold uppercase tracking-wider select-none z-20 transition-colors",
+					isLight ? "bg-[#f4f4f5] border-[#e4e4e7] text-slate-500" : "bg-[#0c0d10] border-white/[0.07] text-slate-400"
+				)}
+				style={{ width: `${sidebarWidth}px` }}
+			>
+				<span>Tracks</span>
+			</div>
 			<TimelineAxis videoDurationMs={videoDurationMs} currentTimeMs={currentTimeMs} />
 			<PlaybackCursor
 				currentTimeMs={currentTimeMs}
@@ -966,6 +984,7 @@ export default function TimelineEditor({
 	onZoomAdded,
 	autoZoomEnabled = true,
 	onToggleAutoZoom,
+	onGenerateAIZooms,
 	autoFocusAll = false,
 	onToggleAutoFocusAll,
 	onZoomSpanChange,
@@ -1569,7 +1588,7 @@ export default function TimelineEditor({
 						onClick={handleAddZoom}
 						variant="ghost"
 						size="sm"
-						className="h-7 px-2.5 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-all text-[11px] font-semibold gap-1.5 cursor-pointer"
+						className={`h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold gap-1.5 cursor-pointer ${isLight ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200" : "text-slate-300 hover:text-white hover:bg-white/10"}`}
 						title={t("buttons.addZoom")}
 					>
 						<ZoomIn className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
@@ -1583,13 +1602,29 @@ export default function TimelineEditor({
 						className={cn(
 							"h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold gap-1.5 cursor-pointer",
 							autoZoomEnabled
-								? "bg-white/15 text-white shadow-xs"
-								: "text-slate-400 hover:text-white hover:bg-white/10",
+								? (isLight ? "bg-slate-200 text-slate-900 shadow-xs" : "bg-white/15 text-white shadow-xs")
+								: (isLight ? "text-slate-500 hover:text-slate-900 hover:bg-slate-200" : "text-slate-400 hover:text-white hover:bg-white/10"),
 						)}
 						title={autoZoomEnabled ? t("buttons.autoZoomOn") : t("buttons.autoZoomOff")}
 					>
 						<WandSparkles className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
 						<span>Auto</span>
+					</Button>
+					<Button
+						onClick={() => {
+							onToggleAutoZoom?.(true);
+							onGenerateAIZooms?.();
+						}}
+						variant="ghost"
+						size="sm"
+						className={cn(
+							"h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold gap-1.5 cursor-pointer",
+							isLight ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200" : "text-slate-300 hover:text-white hover:bg-white/10"
+						)}
+						title="Auto-generate AI zoom regions from click events and telemetry"
+					>
+						<Sparkles className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+						<span>AI Zoom</span>
 					</Button>
 					<Button
 						onClick={() => onToggleAutoFocusAll?.(!autoFocusAll)}
@@ -1599,20 +1634,20 @@ export default function TimelineEditor({
 						className={cn(
 							"h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold gap-1.5 cursor-pointer",
 							autoFocusAll
-								? "bg-white/15 text-white shadow-xs"
-								: "text-slate-400 hover:text-white hover:bg-white/10",
+								? (isLight ? "bg-slate-200 text-slate-900 shadow-xs" : "bg-white/15 text-white shadow-xs")
+								: (isLight ? "text-slate-500 hover:text-slate-900 hover:bg-slate-200" : "text-slate-400 hover:text-white hover:bg-white/10"),
 						)}
 						title={autoFocusAll ? t("buttons.autoFocusAllOn") : t("buttons.autoFocusAllOff")}
 					>
 						<ScanEye className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
 						<span>Focus</span>
 					</Button>
-					<div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+					<div className={`w-[1px] h-4 mx-0.5 ${isLight ? "bg-slate-300" : "bg-white/10"}`} />
 					<Button
 						onClick={handleAddTrim}
 						variant="ghost"
 						size="sm"
-						className="h-7 px-2.5 rounded-full text-slate-300 hover:text-red-400 hover:bg-red-500/10 transition-all text-[11px] font-semibold gap-1.5 cursor-pointer"
+						className={`h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold gap-1.5 cursor-pointer ${isLight ? "text-slate-600 hover:text-red-600 hover:bg-red-50" : "text-slate-300 hover:text-red-400 hover:bg-red-500/10"}`}
 						title={t("buttons.addTrim")}
 					>
 						<Scissors className="w-3.5 h-3.5 text-red-400" />
@@ -1622,7 +1657,7 @@ export default function TimelineEditor({
 						onClick={handleAddAnnotation}
 						variant="ghost"
 						size="sm"
-						className="h-7 px-2.5 rounded-full text-slate-300 hover:text-amber-300 hover:bg-amber-500/10 transition-all text-[11px] font-semibold gap-1.5 cursor-pointer"
+						className={`h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold gap-1.5 cursor-pointer ${isLight ? "text-slate-600 hover:text-amber-700 hover:bg-amber-50" : "text-slate-300 hover:text-amber-300 hover:bg-amber-500/10"}`}
 						title={t("buttons.addAnnotation")}
 					>
 						<MessageSquare className="w-3.5 h-3.5 text-amber-300" />
@@ -1633,7 +1668,7 @@ export default function TimelineEditor({
 							onClick={handleAddBlur}
 							variant="ghost"
 							size="sm"
-							className="h-7 px-2.5 rounded-full text-slate-300 hover:text-sky-300 hover:bg-sky-500/10 transition-all text-[11px] font-semibold gap-1.5 cursor-pointer"
+							className={`h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold gap-1.5 cursor-pointer ${isLight ? "text-slate-600 hover:text-sky-600 hover:bg-sky-50" : "text-slate-300 hover:text-sky-300 hover:bg-sky-500/10"}`}
 							title={t("buttons.addBlur")}
 						>
 							<svg
@@ -1654,7 +1689,7 @@ export default function TimelineEditor({
 						onClick={handleAddSpeed}
 						variant="ghost"
 						size="sm"
-						className="h-7 px-2.5 rounded-full text-slate-300 hover:text-orange-400 hover:bg-orange-500/10 transition-all text-[11px] font-semibold gap-1.5 cursor-pointer"
+						className={`h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold gap-1.5 cursor-pointer ${isLight ? "text-slate-600 hover:text-orange-600 hover:bg-orange-50" : "text-slate-300 hover:text-orange-400 hover:bg-orange-500/10"}`}
 						title={t("buttons.addSpeed")}
 					>
 						<Gauge className="w-3.5 h-3.5 text-orange-400" />
@@ -1666,7 +1701,7 @@ export default function TimelineEditor({
 							disabled={isGeneratingCaptions || !videoUrl}
 							variant="ghost"
 							size="sm"
-							className="h-7 px-2.5 rounded-full text-slate-300 hover:text-purple-300 hover:bg-purple-500/10 transition-all text-[11px] font-semibold gap-1.5 cursor-pointer disabled:opacity-40"
+							className={`h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold gap-1.5 cursor-pointer disabled:opacity-40 ${isLight ? "text-slate-600 hover:text-purple-700 hover:bg-purple-50" : "text-slate-300 hover:text-purple-300 hover:bg-purple-500/10"}`}
 							title={captionsLabel}
 						>
 							<Captions className="w-3.5 h-3.5 text-purple-300" />
@@ -1681,18 +1716,18 @@ export default function TimelineEditor({
 							<Button
 								variant="ghost"
 								size="sm"
-								className="h-7 px-3 rounded-full text-xs font-semibold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all gap-1.5 cursor-pointer"
+								className={`h-7 px-3 rounded-full text-xs font-semibold transition-all gap-1.5 cursor-pointer border ${isLight ? "text-slate-600 hover:text-slate-900 bg-white hover:bg-[#f4f4f5] border-[#e4e4e7]" : "text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border-white/10"}`}
 							>
 								<span>{getAspectRatioLabel(aspectRatio)}</span>
 								<ChevronDown className="w-3 h-3 text-slate-400" />
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="bg-[#141417] border-white/10 rounded-xl p-1 shadow-2xl">
+						<DropdownMenuContent align="end" className={`rounded-xl p-1 shadow-2xl ${isLight ? "bg-white border-[#e4e4e7]" : "bg-[#141417] border-white/10"}`}>
 							{ASPECT_RATIOS.map((ratio) => (
 								<DropdownMenuItem
 									key={ratio}
 									onClick={() => onAspectRatioChange(ratio)}
-									className="text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 rounded-lg cursor-pointer flex items-center justify-between gap-3 px-3 py-1.5"
+									className={`text-xs font-semibold rounded-lg cursor-pointer flex items-center justify-between gap-3 px-3 py-1.5 ${isLight ? "text-slate-600 hover:text-slate-900 hover:bg-[#f4f4f5]" : "text-slate-300 hover:text-white hover:bg-white/10"}`}
 								>
 									<span>{getAspectRatioLabel(ratio)}</span>
 									{aspectRatio === ratio && <Check className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />}
@@ -1701,16 +1736,16 @@ export default function TimelineEditor({
 						</DropdownMenuContent>
 					</DropdownMenu>
 
-					<div className="hidden lg:flex items-center gap-2.5 text-[10px] text-slate-400 font-medium bg-black/40 border border-white/10 rounded-full px-3 py-1">
+					<div className={`hidden lg:flex items-center gap-2.5 text-[10px] font-medium rounded-full px-3 py-1 border ${isLight ? "text-slate-500 bg-white border-[#e4e4e7]" : "text-slate-400 bg-black/40 border-white/10"}`}>
 						<span className="flex items-center gap-1">
-							<kbd className="px-1.5 py-0.5 bg-white/10 border border-white/10 rounded-md font-mono text-[9px] font-bold" style={{ color: activeAccent.hex }}>
+							<kbd className={`px-1.5 py-0.5 rounded-md font-mono text-[9px] font-bold border ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/10 border-white/10"}`} style={{ color: activeAccent.hex }}>
 								{scrollLabels.pan}
 							</kbd>
 							<span>{t("labels.pan")}</span>
 						</span>
-						<span className="text-slate-600">•</span>
+						<span className={isLight ? "text-slate-400" : "text-slate-600"}>•</span>
 						<span className="flex items-center gap-1">
-							<kbd className="px-1.5 py-0.5 bg-white/10 border border-white/10 rounded-md font-mono text-[9px] font-bold" style={{ color: activeAccent.hex }}>
+							<kbd className={`px-1.5 py-0.5 rounded-md font-mono text-[9px] font-bold border ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/10 border-white/10"}`} style={{ color: activeAccent.hex }}>
 								{scrollLabels.zoom}
 							</kbd>
 							<span>{t("labels.zoom")}</span>

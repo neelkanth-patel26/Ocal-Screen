@@ -83,10 +83,11 @@ export function layoutVideoContent(params: LayoutParams): LayoutResult | null {
 	const cropEndX = cropStartX + croppedVideoWidth;
 	const cropEndY = cropStartY + croppedVideoHeight;
 
-	// Padding is a percent (0-100); 50 matches the original VIEWPORT_SCALE of 0.8.
+	// Padding is a percent (0-100); 50% gives a spacious, balanced margin on both sides.
 	// Vertical stack is full-bleed, so it ignores padding.
-	const effectivePadding = webcamLayoutPreset === "vertical-stack" ? 0 : padding;
-	const paddingScale = 1.0 - (effectivePadding / 100) * 0.4;
+	const paddingPercent = padding <= 1 ? padding * 100 : padding;
+	const effectivePadding = webcamLayoutPreset === "vertical-stack" ? 0 : paddingPercent;
+	const paddingScale = 1.0 - (effectivePadding / 100) * 0.65;
 	const maxDisplayWidth = width * paddingScale;
 	const maxDisplayHeight = height * paddingScale;
 

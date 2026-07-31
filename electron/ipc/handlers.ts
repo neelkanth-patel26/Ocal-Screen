@@ -38,6 +38,7 @@ import type {
 import { mainT } from "../i18n";
 import { RECORDINGS_DIR } from "../main";
 import { createCursorRecordingSession } from "../native-bridge/cursor/recording/factory";
+import { TelemetryRecordingSession } from "../native-bridge/cursor/recording/telemetryRecordingSession";
 import { requestMacCursorAccessibilityAccess } from "../native-bridge/cursor/recording/macNativeCursorRecordingSession";
 import type { CursorRecordingSession } from "../native-bridge/cursor/recording/session";
 import { patchWebmDurationOnDisk } from "../recording/webm-duration";
@@ -423,6 +424,15 @@ let nativeMacCursorRecordingStartMs = 0;
 let nativeMacPauseStartedAtMs: number | null = null;
 let nativeMacPauseRanges: Array<{ startMs: number; endMs: number }> = [];
 let nativeMacIsPaused = false;
+let globalLastTypingTimeMs = 0;
+
+export function recordGlobalTypingActivity() {
+	globalLastTypingTimeMs = Date.now();
+}
+
+export function isGlobalTypingActive(windowMs = 1800): boolean {
+	return Date.now() - globalLastTypingTimeMs <= windowMs;
+}
 
 function normalizeCursorSample(sample: unknown): CursorRecordingSample | null {
 	if (!sample || typeof sample !== "object") {
@@ -430,12 +440,19 @@ function normalizeCursorSample(sample: unknown): CursorRecordingSample | null {
 	}
 
 	const point = sample as Partial<CursorRecordingSample>;
+	const rawInteraction = String(point.interactionType || "").toLowerCase();
+	const cursor = String(point.cursorType || "").toLowerCase();
 	const interactionType =
-		point.interactionType === "click" ||
-		point.interactionType === "mouseup" ||
-		point.interactionType === "move"
-			? point.interactionType
-			: "move";
+		rawInteraction === "click" ||
+		rawInteraction === "mouseup" ||
+		rawInteraction === "move" ||
+		rawInteraction === "typing" ||
+		rawInteraction === "text" ||
+		rawInteraction === "pointer"
+			? rawInteraction
+			: cursor === "text" || cursor === "ibeam"
+				? "typing"
+				: "move";
 	return {
 		timeMs:
 			typeof point.timeMs === "number" && Number.isFinite(point.timeMs)
@@ -801,8 +818,21 @@ async function startCursorRecording(recordingId?: number) {
 	try {
 		await cursorRecordingSession.start();
 	} catch (error) {
-		console.error("Failed to start cursor recording session:", error);
-		cursorRecordingSession = null;
+		console.warn("Native cursor recording session unavailable, falling back to TelemetryRecordingSession:", error);
+		const fallbackSession = new TelemetryRecordingSession({
+			getDisplayBounds: getSelectedSourceBounds,
+			maxSamples: MAX_CURSOR_SAMPLES,
+			sampleIntervalMs: CURSOR_SAMPLE_INTERVAL_MS,
+			startTimeMs:
+				typeof recordingId === "number" && Number.isFinite(recordingId) ? recordingId : undefined,
+		});
+		cursorRecordingSession = fallbackSession;
+		try {
+			await fallbackSession.start();
+		} catch (fallbackError) {
+			console.error("Failed to start fallback cursor telemetry session:", fallbackError);
+			cursorRecordingSession = null;
+		}
 	}
 }
 
@@ -2853,6 +2883,55 @@ export function registerIpcHandlers(
 			console.error("Failed to save shortcuts:", error);
 			return { success: false, error: String(error) };
 		}
+	});
+
+	ipcMain.on("record-typing-activity", () => {
+		recordGlobalTypingActivity();
+	});
+
+	ipcMain.handle("get-system-info", async () => {
+		const cpus = os.cpus();
+		const cpuModel = cpus?.[0]?.model?.trim() || "Unknown Processor";
+		const cpuCores = cpus?.length || 1;
+		const cpuSpeedMHz = cpus?.[0]?.speed || 0;
+		const cpuSpeedGHz = (cpuSpeedMHz / 1000).toFixed(2);
+		const totalRamGB = (os.totalmem() / 1024 / 1024 / 1024).toFixed(1);
+		const freeRamGB = (os.freemem() / 1024 / 1024 / 1024).toFixed(1);
+
+		let osVersionStr = `Windows ${os.release()}`;
+		if (process.platform === "win32") {
+			const rel = os.release();
+			const buildNum = parseInt(rel.split(".")[2] || "0", 10);
+			if (buildNum >= 22000) {
+				osVersionStr = `Windows 11 (Build ${buildNum})`;
+			} else {
+				osVersionStr = `Windows 10 (Build ${buildNum})`;
+			}
+		} else if (process.platform === "darwin") {
+			osVersionStr = `macOS (${os.release()})`;
+		} else {
+			osVersionStr = `${os.type()} ${os.release()}`;
+		}
+
+		let gpuDeviceName = "Graphics Adapter";
+		try {
+			const gpuInfo = (await app.getGPUInfo("basic")) as Record<string, any>;
+			if (gpuInfo?.gpuDevice?.[0]?.deviceString) {
+				gpuDeviceName = gpuInfo.gpuDevice[0].deviceString;
+			}
+		} catch {
+			// WebGL fallback in renderer
+		}
+
+		return {
+			cpu: `${cpuModel} (${cpuCores} Cores @ ${cpuSpeedGHz} GHz)`,
+			ram: `${totalRamGB} GB Total (${freeRamGB} GB Free)`,
+			os: `${osVersionStr} [${process.arch}]`,
+			gpu: gpuDeviceName,
+			appVersion: app.getVersion(),
+			electronVersion: process.versions.electron,
+			chromeVersion: process.versions.chrome,
+		};
 	});
 
 	ipcMain.handle(

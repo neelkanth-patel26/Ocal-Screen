@@ -31,7 +31,7 @@ export interface CursorRecordingSample extends CursorTelemetryPoint {
 	assetId?: string | null;
 	visible?: boolean;
 	cursorType?: NativeCursorType | null;
-	interactionType?: "move" | "click" | "mouseup";
+	interactionType?: "move" | "click" | "mouseup" | "typing" | "text" | "pointer";
 }
 
 export interface NativeCursorAsset {

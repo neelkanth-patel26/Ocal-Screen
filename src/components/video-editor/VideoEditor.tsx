@@ -1,5 +1,5 @@
 import type { Span } from "dnd-timeline";
-import { Check, FolderOpen, Languages, Moon, Save, Settings, Sun, Video } from "lucide-react";
+import { Check, ChevronDown, FolderOpen, Languages, Moon, Save, Settings, Sun, Video } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
@@ -12,6 +12,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -23,8 +29,8 @@ import {
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { INITIAL_EDITOR_STATE, useEditorHistory } from "@/hooks/useEditorHistory";
-import { type Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
+import { cn } from "@/lib/utils";
 import {
 	captionSegmentsToAnnotationRegions,
 	extractMono16kFromVideoUrl,
@@ -92,7 +98,7 @@ import {
 } from "./projectPersistence";
 import { SettingsPanel } from "./SettingsPanel";
 import TimelineEditor from "./timeline/TimelineEditor";
-import { buildAutoZoomSuggestions } from "./timeline/zoomSuggestionUtils";
+import { buildAutoZoomSuggestions, isClickInteractionType } from "./timeline/zoomSuggestionUtils";
 import {
 	type AnnotationRegion,
 	type BlurData,
@@ -121,14 +127,6 @@ import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 /** Single Sonner slot so auto-caption phases update in place instead of stacking. */
 const AUTO_CAPTION_PROGRESS_TOAST_ID = "auto-caption-progress";
 
-function isClickInteractionType(interactionType: string | null | undefined) {
-	return (
-		interactionType === "click" ||
-		interactionType === "double-click" ||
-		interactionType === "right-click" ||
-		interactionType === "middle-click"
-	);
-}
 
 interface ExportDiagnostics {
 	formatLabel: "GIF" | "Video";
@@ -308,14 +306,14 @@ export default function VideoEditor() {
 	const cursorClickTimestamps = useMemo<number[]>(() => {
 		const recordingClicks =
 			cursorRecordingData?.samples
-				.filter((sample) => isClickInteractionType(sample.interactionType))
+				.filter((sample) => isClickInteractionType(sample))
 				.map((sample) => sample.timeMs) ?? [];
 		if (recordingClicks.length > 0) {
 			return recordingClicks;
 		}
 
 		return cursorTelemetry
-			.filter((sample) => isClickInteractionType(sample.interactionType))
+			.filter((sample) => isClickInteractionType(sample))
 			.map((sample) => sample.timeMs);
 	}, [cursorRecordingData, cursorTelemetry]);
 
@@ -1077,12 +1075,19 @@ export default function VideoEditor() {
 	// existing ones. Used by both the on-load auto-suggest pass and the wand toggle.
 	const buildAutoZoomRegions = useCallback(
 		(existingRegions: ZoomRegion[]): ZoomRegion[] => {
-			const totalMs = Math.round(duration * 1000);
+			const effectiveDuration =
+				duration > 0
+					? duration
+					: (videoPlaybackRef.current?.video?.duration && Number.isFinite(videoPlaybackRef.current.video.duration))
+						? videoPlaybackRef.current.video.duration
+						: 10;
+			const totalMs = Math.round(effectiveDuration * 1000);
 			const suggestions = buildAutoZoomSuggestions({
 				cursorTelemetry,
+				cursorClickTimestamps,
 				totalMs,
 				existingRegions,
-				defaultDurationMs: Math.max(1000, Math.round(totalMs * 0.05)),
+				defaultDurationMs: Math.max(2800, Math.round(totalMs * 0.08)),
 			});
 			return suggestions.map((suggestion) => ({
 				id: `zoom-${nextZoomIdRef.current++}`,
@@ -1095,54 +1100,75 @@ export default function VideoEditor() {
 				source: "auto" as const,
 			}));
 		},
-		[cursorTelemetry, duration, autoFocusAll],
+		[cursorTelemetry, cursorClickTimestamps, duration, autoFocusAll],
 	);
 
 	// Auto-suggest zooms once per fresh recording (no existing zooms, telemetry
-	// available, wand enabled). Loaded projects are marked processed elsewhere so
-	// they're never touched. The ref guard runs this once per source and survives undo.
+	// Auto-suggest zooms once per fresh recording or imported video.
 	const autoProcessedSourceRef = useRef<string | null>(null);
 	useEffect(() => {
-		if (!autoZoomEnabled || !cursorTelemetrySourcePath) return;
-		if (autoProcessedSourceRef.current === cursorTelemetrySourcePath) return;
-		if (cursorTelemetry.length < 2 || duration <= 0) return;
-		// Only auto-suggest for a fresh recording; don't disturb existing zooms.
+		if (!autoZoomEnabled || duration <= 0) return;
+		const sourceKey = cursorTelemetrySourcePath || videoPath || "current-source";
+		if (autoProcessedSourceRef.current === sourceKey) return;
 		if (zoomRegions.length > 0) {
-			autoProcessedSourceRef.current = cursorTelemetrySourcePath;
+			autoProcessedSourceRef.current = sourceKey;
 			return;
 		}
 		const newRegions = buildAutoZoomRegions([]);
-		autoProcessedSourceRef.current = cursorTelemetrySourcePath;
+		autoProcessedSourceRef.current = sourceKey;
 		if (newRegions.length === 0) return;
 		pushState((prev) => ({ zoomRegions: [...prev.zoomRegions, ...newRegions] }));
+		toast.success(`AI Auto-Zoom: Placed ${newRegions.length} zoom regions on timeline!`);
 	}, [
 		autoZoomEnabled,
 		cursorTelemetrySourcePath,
-		cursorTelemetry,
+		videoPath,
 		duration,
 		zoomRegions,
 		buildAutoZoomRegions,
 		pushState,
 	]);
 
-	// Wand toggle: ON regenerates suggestions around existing zooms; OFF removes
-	// only untouched auto zooms (manual and edited-to-manual survive).
+	// Direct manual trigger to generate AI click-zooms on timeline
+	const handleGenerateAIZooms = useCallback(() => {
+		const newRegions = buildAutoZoomRegions([]);
+		if (newRegions.length > 0) {
+			pushState((prev) => ({
+				autoZoomEnabled: true,
+				zoomRegions: [...prev.zoomRegions.filter((r) => r.source !== "auto"), ...newRegions],
+			}));
+			toast.success(`AI Auto-Zoom: Placed ${newRegions.length} click zoom region${newRegions.length > 1 ? "s" : ""} on timeline!`);
+		} else {
+			toast.info("No click events or zoom candidates found.");
+		}
+	}, [buildAutoZoomRegions, pushState]);
+
+	// Wand toggle: ON regenerates suggestions; OFF removes auto zooms.
 	const handleToggleAutoZoom = useCallback(
 		(enabled: boolean) => {
 			if (enabled) {
-				autoProcessedSourceRef.current = cursorTelemetrySourcePath;
-				pushState((prev) => ({
-					autoZoomEnabled: true,
-					zoomRegions: [...prev.zoomRegions, ...buildAutoZoomRegions(prev.zoomRegions)],
-				}));
+				const sourceKey = cursorTelemetrySourcePath || videoPath || "current-source";
+				autoProcessedSourceRef.current = sourceKey;
+				const newRegions = buildAutoZoomRegions(zoomRegions);
+				if (newRegions.length > 0) {
+					pushState((prev) => ({
+						autoZoomEnabled: true,
+						zoomRegions: [...prev.zoomRegions, ...newRegions],
+					}));
+					toast.success(`AI Auto-Zoom: Placed ${newRegions.length} click-zoom region${newRegions.length > 1 ? "s" : ""} on timeline!`);
+				} else {
+					pushState(() => ({ autoZoomEnabled: true }));
+					toast.info("Auto Zoom enabled.");
+				}
 			} else {
 				pushState((prev) => ({
 					autoZoomEnabled: false,
 					zoomRegions: prev.zoomRegions.filter((region) => region.source !== "auto"),
 				}));
+				toast.info("Auto Zoom disabled.");
 			}
 		},
-		[pushState, buildAutoZoomRegions, cursorTelemetrySourcePath],
+		[pushState, buildAutoZoomRegions, cursorTelemetrySourcePath, videoPath, zoomRegions],
 	);
 
 	// Flip every zoom between auto (cursor-follow) and manual at once.
@@ -2720,33 +2746,57 @@ export default function VideoEditor() {
 						<span className="text-xs font-bold truncate max-w-[80px]">{userName}</span>
 					</div>
 
-					{/* Language Selector Dropdown */}
-					<div
-						className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all text-xs font-semibold ${
-							isLight
-								? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b]"
-								: "border-[#252525] bg-[#141414] text-[#e8e8e8]"
-						}`}
-					>
-						<Languages size={13} className="text-[#888888]" />
-						<select
-							value={locale}
-							onChange={(e) => setLocale(e.target.value as Locale)}
-							className={`bg-transparent text-xs font-semibold outline-none cursor-pointer appearance-none pr-1 ${
-								isLight ? "text-[#18181b]" : "text-[#e8e8e8]"
-							}`}
+					{/* Language Selector Custom Dropdown */}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button
+								type="button"
+								className={cn(
+									"flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all text-xs font-semibold cursor-pointer outline-none shadow-2xs hover:scale-[1.02] active:scale-[0.98]",
+									isLight
+										? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b] hover:bg-slate-200"
+										: "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-white/10"
+								)}
+							>
+								<Languages size={13} className="text-[#888888]" />
+								<span>{getLocaleName(locale)}</span>
+								<ChevronDown size={12} className="opacity-60 ml-0.5" />
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent
+							align="end"
+							className={cn(
+								"min-w-[180px] max-h-[320px] overflow-y-auto rounded-2xl p-1.5 shadow-2xl border backdrop-blur-xl z-50 transition-all",
+								isLight
+									? "bg-white/95 border-[#e4e4e7] text-slate-800"
+									: "bg-[#141417]/95 border-white/10 text-slate-100"
+							)}
 						>
-							{availableLocales.map((loc) => (
-								<option
-									key={loc}
-									value={loc}
-									className={isLight ? "bg-[#ffffff] text-[#18181b]" : "bg-[#0c0c0c] text-white"}
-								>
-									{getLocaleName(loc)}
-								</option>
-							))}
-						</select>
-					</div>
+							{availableLocales.map((loc) => {
+								const isSelected = loc === locale;
+								return (
+									<DropdownMenuItem
+										key={loc}
+										onClick={() => setLocale(loc)}
+										className={cn(
+											"flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all my-0.5",
+											isSelected
+												? isLight
+													? "bg-slate-100 font-bold"
+													: "bg-white/15 font-bold"
+												: isLight
+													? "hover:bg-slate-100/70"
+													: "hover:bg-white/10"
+										)}
+										style={{ color: isSelected ? activeAccent.hex : undefined }}
+									>
+										<span>{getLocaleName(loc)}</span>
+										{isSelected && <Check size={13} style={{ color: activeAccent.hex }} />}
+									</DropdownMenuItem>
+								);
+							})}
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 			</div>
 
@@ -3078,6 +3128,7 @@ export default function VideoEditor() {
 									onZoomAdded={handleZoomAdded}
 									autoZoomEnabled={autoZoomEnabled}
 									onToggleAutoZoom={handleToggleAutoZoom}
+									onGenerateAIZooms={handleGenerateAIZooms}
 									autoFocusAll={autoFocusAll}
 									onToggleAutoFocusAll={handleToggleAutoFocusAll}
 									onZoomSpanChange={handleZoomSpanChange}

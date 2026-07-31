@@ -292,6 +292,16 @@ interface Window {
 			projectState: unknown;
 			logs: string[];
 		}) => Promise<{ success: boolean; path?: string; canceled?: boolean; error?: string }>;
+		getSystemInfo: () => Promise<{
+			cpu: string;
+			ram: string;
+			os: string;
+			gpu: string;
+			appVersion: string;
+			electronVersion: string;
+			chromeVersion: string;
+		}>;
+		recordTypingActivity: () => void;
 	};
 }
 

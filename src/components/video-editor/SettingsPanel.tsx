@@ -5,20 +5,25 @@ import {
 	Check,
 	Crop,
 	Download,
+	Eye,
 	FileDown,
 	Film,
 	Image,
 	Info,
 	LayoutPanelTop,
 	Lock,
+	Maximize2,
 	MousePointerClick,
 	Palette,
 	SlidersHorizontal,
 	Sparkles,
+	Square,
 	Star,
+	Sun,
 	Trash2,
 	Unlock,
 	Upload,
+	Wind,
 	X,
 } from "lucide-react";
 import { type ComponentType, useCallback, useMemo, useRef, useState } from "react";
@@ -57,6 +62,8 @@ import { resolveImageWallpaperUrl, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
 import ColorPicker from "../ui/color-picker";
+import { AboutDialog } from "./AboutDialog";
+import { ReportBugDialog } from "./ReportBugDialog";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { BACKGROUND_IMAGE_ACCEPT, isSupportedBackgroundImageType } from "./backgroundImageUpload";
@@ -168,12 +175,14 @@ function ZoomFocusCoordInput({
 	onCommit,
 	disabled,
 	ariaLabel,
+	isLight = false,
 }: {
 	percent: number;
 	onChange: (nextPercent: number) => void;
 	onCommit?: () => void;
 	disabled?: boolean;
 	ariaLabel: string;
+	isLight?: boolean;
 }) {
 	// While focused, show the draft so partial entries like "5" or "" survive re-renders.
 	// While not focused, mirror the live prop so overlay drags update the number live.
@@ -207,7 +216,12 @@ function ZoomFocusCoordInput({
 			onKeyDown={(e) => {
 				if (e.key === "Enter") (e.target as HTMLInputElement).blur();
 			}}
-			className="h-7 w-full rounded-md border border-white/10 bg-white/5 px-2 text-[11px] text-slate-200 outline-none focus:border-[#34B27B]/50 focus:ring-1 focus:ring-[#34B27B]/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+			className={cn(
+				"h-7 w-full rounded-md border bg-white/5 px-2 text-[11px] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed",
+				isLight
+					? "border-[#e4e4e7] bg-white text-slate-800 focus:border-slate-400"
+					: "border-white/10 text-slate-200 focus:border-[#34B27B]/50 focus:ring-1 focus:ring-[#34B27B]/30"
+			)}
 		/>
 	);
 }
@@ -700,7 +714,7 @@ export function SettingsPanel({
 	const zoomEnabled = Boolean(selectedZoomDepth);
 	const trimEnabled = Boolean(selectedTrimId);
 	const hasTimelineSelection = Boolean(selectedZoomId || selectedTrimId || selectedSpeedId);
-	const hasCursorPanel = showCursorSettings && hasCursorData;
+	const hasCursorPanel = showCursorSettings || hasCursorData;
 	const panelModes: Array<{
 		id: SettingsPanelMode;
 		label: string;
@@ -715,7 +729,7 @@ export function SettingsPanel({
 			? [
 					{
 						id: "cursor" as const,
-						label: t("effects.title"),
+						label: t("cursor.title") || "Cursor",
 						icon: MousePointerClick,
 					},
 				]
@@ -804,35 +818,35 @@ export function SettingsPanel({
 	const footerAccent = ACCENT_COLOR_MAP[footerPrefs.accentColor] || ACCENT_COLOR_MAP.lime;
 	const footerIsLight = footerPrefs.theme === "light";
 
+	const [aboutOpen, setAboutOpen] = useState(false);
+	const [reportBugOpen, setReportBugOpen] = useState(false);
+
 	const commonFooterLinks = (
-		<div className={`flex items-center justify-around gap-1.5 pt-3 mt-3 border-t ${footerIsLight ? "border-[#e4e4e7]" : "border-white/10"}`}>
+		<>
+		<div className={`grid grid-cols-2 gap-1 pt-3 mt-3 border-t ${footerIsLight ? "border-[#e4e4e7]" : "border-white/10"}`}>
 			<button
 				type="button"
-				onClick={() => {
-					window.electronAPI?.openExternalUrl(
-						"https://github.com/neelkanth-patel26/Ocal-Screen/issues",
-					);
-				}}
-				className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+				onClick={() => setReportBugOpen(true)}
+				className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
 					footerIsLight
-						? "border-[#e4e4e7] bg-[#f4f4f5] text-slate-600 hover:text-black hover:bg-white"
-						: "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+						? "text-slate-500 hover:text-slate-800 hover:bg-[#f4f4f5]"
+						: "text-slate-400 hover:text-white hover:bg-white/5"
 				}`}
 			>
-				<Bug className="w-3 h-3" style={{ color: footerAccent.hex }} />
+				<Bug className="w-3 h-3 shrink-0" style={{ color: footerAccent.hex }} />
 				{t("support.reportBug")}
 			</button>
 			{onSaveDiagnostic && (
 				<button
 					type="button"
 					onClick={onSaveDiagnostic}
-					className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+					className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
 						footerIsLight
-							? "border-[#e4e4e7] bg-[#f4f4f5] text-slate-600 hover:text-black hover:bg-white"
-							: "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+							? "text-slate-500 hover:text-slate-800 hover:bg-[#f4f4f5]"
+							: "text-slate-400 hover:text-white hover:bg-white/5"
 					}`}
 				>
-					<FileDown className="w-3 h-3 text-slate-400" />
+					<FileDown className="w-3 h-3 shrink-0" style={{ color: footerAccent.hex }} />
 					{t("support.saveDiagnostics")}
 				</button>
 			)}
@@ -841,16 +855,31 @@ export function SettingsPanel({
 				onClick={() => {
 					window.electronAPI?.openExternalUrl("https://github.com/neelkanth-patel26/Ocal-Screen");
 				}}
-				className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+				className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
 					footerIsLight
-						? "border-[#e4e4e7] bg-[#f4f4f5] text-slate-600 hover:text-black hover:bg-white"
-						: "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+						? "text-slate-500 hover:text-slate-800 hover:bg-[#f4f4f5]"
+						: "text-slate-400 hover:text-white hover:bg-white/5"
 				}`}
 			>
-				<Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+				<Star className="w-3 h-3 shrink-0 text-amber-400 fill-amber-400" />
 				{t("support.starOnGithub")}
 			</button>
+			<button
+				type="button"
+				onClick={() => setAboutOpen(true)}
+				className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+					footerIsLight
+						? "text-slate-500 hover:text-slate-800 hover:bg-[#f4f4f5]"
+						: "text-slate-400 hover:text-white hover:bg-white/5"
+				}`}
+			>
+				<Info className="w-3 h-3 shrink-0" style={{ color: footerAccent.hex }} />
+				About
+			</button>
 		</div>
+		<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+		<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
+		</>
 	);
 
 	// Annotation selected: show its settings panel instead.
@@ -880,7 +909,7 @@ export function SettingsPanel({
 						onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
 					/>
 				</div>
-				<div className="flex-shrink-0 p-3 border-t border-white/[0.07] bg-black/25">
+				<div className={`flex-shrink-0 p-3 border-t ${footerIsLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}>
 					{commonFooterLinks}
 				</div>
 			</div>
@@ -898,7 +927,7 @@ export function SettingsPanel({
 						onDelete={() => onBlurDelete(selectedBlur.id)}
 					/>
 				</div>
-				<div className="flex-shrink-0 p-3 border-t border-white/[0.07] bg-black/25">
+				<div className={`flex-shrink-0 p-3 border-t ${footerIsLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}>
 					{commonFooterLinks}
 				</div>
 			</div>
@@ -986,12 +1015,23 @@ export function SettingsPanel({
 					<KeyboardShortcutsHelp />
 				</div>
 					{zoomEnabled && (
-						<div className="editor-panel-section mb-3 space-y-3 px-1">
+						<div className={cn(
+							"p-3.5 rounded-xl border space-y-3.5 shadow-xs mb-3 transition-colors",
+							isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
+						)}>
+							{/* Zoom Level Header & Value Badge */}
 							<div className="flex items-center justify-between">
-								<span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+								<span className={cn("text-xs font-bold", isLight ? "text-slate-800" : "text-slate-100")}>
 									{t("zoom.level")}
 								</span>
-								<span className="rounded-full border border-[#34B27B]/25 bg-[#34B27B]/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#34B27B]">
+								<span
+									className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+									style={{
+										backgroundColor: `${activeAccent.hex}18`,
+										borderColor: `${activeAccent.hex}30`,
+										color: activeAccent.hex
+									}}
+								>
 									{(
 										selectedZoomCustomScale ??
 										(selectedZoomDepth != null
@@ -1001,116 +1041,125 @@ export function SettingsPanel({
 									×
 								</span>
 							</div>
-							<div className="grid grid-cols-6 gap-1">
+
+							{/* Preset Buttons Grid */}
+							<div className="grid grid-cols-6 gap-1.5">
 								{ZOOM_DEPTH_OPTIONS.map((option) => {
 									const effectiveScale =
 										selectedZoomCustomScale ??
-										(selectedZoomDepth != null ? ZOOM_DEPTH_SCALES[selectedZoomDepth] : null);
+										(selectedZoomDepth != null ? ZOOM_DEPTH_SCALES[option.depth] : null);
 									const isActive = effectiveScale === ZOOM_DEPTH_SCALES[option.depth];
 									return (
-										<Button
+										<button
 											key={option.depth}
 											type="button"
 											disabled={!zoomEnabled}
 											onClick={() => onZoomDepthChange?.(option.depth)}
-											className={cn(
-												"h-8 w-full rounded-lg border px-1 text-center transition-all duration-150 ease-out",
-												zoomEnabled
-													? "opacity-100 cursor-pointer"
-													: "opacity-40 cursor-not-allowed",
+											style={
 												isActive
-													? "border-[#34B27B]/70 bg-[#34B27B] text-white shadow-[0_8px_20px_rgba(52,178,123,0.18)]"
-													: "border-white/[0.06] bg-white/[0.035] text-slate-400 hover:bg-white/[0.075] hover:border-white/15 hover:text-slate-200",
+													? { backgroundColor: activeAccent.hex, borderColor: activeAccent.hex, color: activeAccent.textHex }
+													: undefined
+											}
+											className={cn(
+												"h-8 w-full rounded-xl border px-1 text-center transition-all duration-150 cursor-pointer font-bold text-xs shadow-2xs",
+												isActive
+													? "shadow-sm scale-[1.03]"
+													: isLight
+														? "border-[#e4e4e7] bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+														: "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10"
 											)}
 										>
-											<span className="text-[11px] font-semibold">{option.label}</span>
-										</Button>
+											<span>{option.label}</span>
+										</button>
 									);
 								})}
 							</div>
-							{zoomEnabled && (
-								<div>
-									<SliderPrimitive.Root
-										min={MIN_ZOOM_SCALE}
-										max={MAX_ZOOM_SCALE}
-										step={0.01}
-										value={[
-											selectedZoomCustomScale ??
-												(selectedZoomDepth != null
-													? ZOOM_DEPTH_SCALES[selectedZoomDepth]
-													: MIN_ZOOM_SCALE),
-										]}
-										onValueChange={(values) => onZoomCustomScaleChange?.(values[0])}
-										onValueCommit={() => onZoomCustomScaleCommit?.()}
-										disabled={!zoomEnabled}
-										className="relative flex w-full touch-none select-none items-center py-1"
-									>
-										<SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full border border-white/10 bg-white/5">
-											<SliderPrimitive.Range
-												className={cn(
-													"absolute h-full transition-colors duration-150",
-													selectedZoomCustomScale != null ? "bg-[#34B27B]" : "bg-white/20",
-												)}
-											/>
-										</SliderPrimitive.Track>
-										<SliderPrimitive.Thumb
-											className={cn(
-												"block h-3.5 w-3.5 rounded-full border-2 shadow transition-all duration-150",
-												"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#34B27B]/50",
-												"disabled:pointer-events-none disabled:opacity-50 cursor-grab active:cursor-grabbing",
-												selectedZoomCustomScale != null
-													? "border-[#34B27B] bg-[#34B27B] shadow-[0_0_6px_rgba(52,178,123,0.4)]"
-													: "border-white/20 bg-[#2a2a30] hover:border-white/40",
-											)}
+
+							{/* Slider */}
+							<div>
+								<SliderPrimitive.Root
+									min={MIN_ZOOM_SCALE}
+									max={MAX_ZOOM_SCALE}
+									step={0.01}
+									value={[
+										selectedZoomCustomScale ??
+											(selectedZoomDepth != null
+												? ZOOM_DEPTH_SCALES[selectedZoomDepth]
+												: MIN_ZOOM_SCALE),
+									]}
+									onValueChange={(values) => onZoomCustomScaleChange?.(values[0])}
+									onValueCommit={() => onZoomCustomScaleCommit?.()}
+									disabled={!zoomEnabled}
+									className="relative flex w-full touch-none select-none items-center py-1 cursor-pointer"
+								>
+									<SliderPrimitive.Track className={cn("relative h-1.5 w-full grow overflow-hidden rounded-full border", isLight ? "bg-slate-200 border-[#e4e4e7]" : "bg-white/10 border-white/10")}>
+										<SliderPrimitive.Range
+											className="absolute h-full transition-colors"
+											style={{ backgroundColor: activeAccent.hex }}
 										/>
-									</SliderPrimitive.Root>
-									<div className="flex justify-between text-[10px] text-slate-600 mt-1">
-										<span>{MIN_ZOOM_SCALE.toFixed(1)}×</span>
-										<span>{MAX_ZOOM_SCALE.toFixed(1)}×</span>
-									</div>
+									</SliderPrimitive.Track>
+									<SliderPrimitive.Thumb
+										className="block h-4 w-4 rounded-full border-2 shadow-md cursor-grab active:cursor-grabbing focus:outline-none transition-transform hover:scale-110"
+										style={{ backgroundColor: activeAccent.hex, borderColor: "#ffffff" }}
+									/>
+								</SliderPrimitive.Root>
+								<div className={cn("flex justify-between text-[10px] font-mono mt-1 font-semibold", isLight ? "text-slate-400" : "text-slate-500")}>
+									<span>{MIN_ZOOM_SCALE.toFixed(1)}×</span>
+									<span>{MAX_ZOOM_SCALE.toFixed(1)}×</span>
 								</div>
-							)}
-							{zoomEnabled && hasCursorTelemetry && (
-								<div className="space-y-1.5">
+							</div>
+
+							{/* Focus Mode Selection (Manual vs Auto) */}
+							{hasCursorTelemetry && (
+								<div className="space-y-1.5 pt-1">
 									<div className="flex items-center justify-between gap-3">
-										<span className="text-[11px] font-medium text-slate-400">
+										<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
 											{t("zoom.focusMode.title")}
 										</span>
-										<div className="grid w-32 grid-cols-2 gap-0.5 rounded-lg border border-white/[0.06] bg-white/[0.035] p-0.5">
+										<div className={cn(
+											"grid w-32 grid-cols-2 gap-1 rounded-xl border p-1",
+											isLight ? "bg-white border-[#e4e4e7]" : "bg-white/5 border-white/10"
+										)}>
 											{(["manual", "auto"] as const).map((mode) => {
 												const isActive = selectedZoomFocusMode === mode;
 												return (
-													<Button
+													<button
 														key={mode}
 														type="button"
 														disabled={focusModeLocked}
 														onClick={() => !focusModeLocked && onZoomFocusModeChange?.(mode)}
-														className={cn(
-															"h-6 w-full rounded-md border px-1 text-center transition-all duration-150 ease-out",
+														style={
 															isActive
-																? "border-[#34B27B]/50 bg-[#34B27B] text-white"
-																: "border-transparent bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-slate-200",
-															focusModeLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+																? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+																: undefined
+														}
+														className={cn(
+															"h-6 w-full rounded-lg text-center text-[10px] font-bold capitalize transition-all cursor-pointer",
+															isActive
+																? "shadow-2xs"
+																: isLight
+																	? "text-slate-500 hover:text-slate-800"
+																	: "text-slate-400 hover:text-white"
 														)}
 													>
-														<span className="text-[10px] font-semibold capitalize">
-															{t(`zoom.focusMode.${mode}`)}
-														</span>
-													</Button>
+														{t(`zoom.focusMode.${mode}`)}
+													</button>
 												);
 											})}
 										</div>
 									</div>
 									{focusModeLocked && (
-										<div className="flex items-start gap-1 text-[10px] leading-snug text-slate-500">
+										<div className="flex items-start gap-1 text-[10px] leading-snug text-slate-400">
 											<Info size={11} className="mt-px shrink-0" />
 											<span>{t("zoom.focusMode.lockedDisclaimer")}</span>
 										</div>
 									)}
 								</div>
 							)}
-							{zoomEnabled && onZoomPreviewStart && onZoomPreviewEnd && (
-								<Button
+
+							{/* Hold to Preview Zoom Button */}
+							{onZoomPreviewStart && onZoomPreviewEnd && (
+								<button
 									type="button"
 									onPointerDown={() => onZoomPreviewStart()}
 									onPointerUp={() => onZoomPreviewEnd()}
@@ -1129,13 +1178,20 @@ export function SettingsPanel({
 										}
 									}}
 									onBlur={() => onZoomPreviewEnd()}
-									className="h-7 w-full select-none rounded-md border border-white/[0.08] bg-white/[0.04] text-[10px] font-semibold text-slate-300 transition-all duration-150 ease-out hover:bg-white/[0.08] hover:text-slate-100 active:border-[#34B27B]/50 active:bg-[#34B27B] active:text-white cursor-pointer"
+									className={cn(
+										"h-8 w-full select-none rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-[0.98]",
+										isLight
+											? "border-[#e4e4e7] bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+											: "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white"
+									)}
 								>
-									{t("zoom.previewHold")}
-								</Button>
+									<Eye size={13} style={{ color: activeAccent.hex }} />
+									<span>{t("zoom.previewHold")}</span>
+								</button>
 							)}
-							{zoomEnabled &&
-								selectedZoomFocusMode !== "auto" &&
+
+							{/* Focus Coordinates (X, Y) */}
+							{selectedZoomFocusMode !== "auto" &&
 								selectedZoomFocus &&
 								onZoomFocusCoordinateChange &&
 								(() => {
@@ -1160,18 +1216,19 @@ export function SettingsPanel({
 									const percentToFocusY = (p: number) =>
 										yRange <= 0 ? bounds.minY : bounds.minY + (p / 100) * yRange;
 									return (
-										<div>
-											<span className="text-[11px] font-medium text-slate-400 mb-1.5 block">
+										<div className="space-y-1.5 pt-1">
+											<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
 												{t("zoom.position.title")}
 											</span>
 											<div className="grid grid-cols-2 gap-2">
 												<div className="flex flex-col gap-1">
-													<label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+													<label className={cn("text-[10px] font-bold uppercase tracking-wider", isLight ? "text-slate-500" : "text-slate-400")}>
 														{t("zoom.position.x")}
 													</label>
 													<ZoomFocusCoordInput
 														ariaLabel={t("zoom.position.x")}
 														percent={focusToPercentX(selectedZoomFocus.cx)}
+														isLight={isLight}
 														onChange={(p) =>
 															onZoomFocusCoordinateChange({
 																cx: percentToFocusX(p),
@@ -1182,12 +1239,13 @@ export function SettingsPanel({
 													/>
 												</div>
 												<div className="flex flex-col gap-1">
-													<label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+													<label className={cn("text-[10px] font-bold uppercase tracking-wider", isLight ? "text-slate-500" : "text-slate-400")}>
 														{t("zoom.position.y")}
 													</label>
 													<ZoomFocusCoordInput
 														ariaLabel={t("zoom.position.y")}
 														percent={focusToPercentY(selectedZoomFocus.cy)}
+														isLight={isLight}
 														onChange={(p) =>
 															onZoomFocusCoordinateChange({
 																cx: selectedZoomFocus.cx,
@@ -1201,47 +1259,55 @@ export function SettingsPanel({
 										</div>
 									);
 								})()}
-							{zoomEnabled && (
-								<div>
-									<span className="text-[11px] font-medium text-slate-400 mb-1.5 block">
-										{t("zoom.threeD.title")}
-									</span>
-									<div className="grid grid-cols-3 gap-1.5">
-										{ROTATION_3D_PRESET_ORDER.map((preset) => {
-											const isActive = selectedZoomRotationPreset === preset;
-											return (
-												<Button
-													key={preset}
-													type="button"
-													onClick={() => onZoomRotationPresetChange?.(isActive ? null : preset)}
-													className={cn(
-														"h-8 w-full rounded-lg border px-1 text-center transition-all duration-150 ease-out cursor-pointer",
-														isActive
-															? "border-[#34B27B]/60 bg-[#34B27B] text-white"
-															: "border-white/[0.06] bg-white/[0.035] text-slate-400 hover:bg-white/[0.075] hover:border-white/15 hover:text-slate-200",
-													)}
-												>
-													<span className="text-xs font-semibold capitalize">
-														{t(`zoom.threeD.preset.${preset}`)}
-													</span>
-												</Button>
-											);
-										})}
-									</div>
-								</div>
-							)}
 
-							{zoomEnabled && (
-								<Button
-									onClick={handleDeleteClick}
-									variant="destructive"
-									size="sm"
-									className="mt-1 w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all h-8 text-xs"
-								>
-									<Trash2 className="w-3 h-3" />
-									{t("zoom.deleteZoom")}
-								</Button>
-							)}
+							{/* 3D Rotation */}
+							<div className="space-y-1.5 pt-1">
+								<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+									{t("zoom.threeD.title")}
+								</span>
+								<div className="grid grid-cols-3 gap-2">
+									{ROTATION_3D_PRESET_ORDER.map((preset) => {
+										const isActive = selectedZoomRotationPreset === preset;
+										return (
+											<button
+												key={preset}
+												type="button"
+												onClick={() => onZoomRotationPresetChange?.(isActive ? null : preset)}
+												style={
+													isActive
+														? { backgroundColor: activeAccent.hex, borderColor: activeAccent.hex, color: activeAccent.textHex }
+														: undefined
+												}
+												className={cn(
+													"h-8 w-full rounded-xl border text-center transition-all cursor-pointer font-bold text-xs shadow-2xs capitalize",
+													isActive
+														? "shadow-sm scale-[1.03]"
+														: isLight
+															? "border-[#e4e4e7] bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+															: "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10"
+												)}
+											>
+												<span>{t(`zoom.threeD.preset.${preset}`)}</span>
+											</button>
+										);
+									})}
+								</div>
+							</div>
+
+							{/* Delete Zoom Button */}
+							<button
+								type="button"
+								onClick={handleDeleteClick}
+								className={cn(
+									"h-9 w-full rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer mt-2 shadow-2xs active:scale-[0.98]",
+									isLight
+										? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:border-red-300"
+										: "bg-red-500/15 border-red-500/30 text-red-400 hover:bg-red-500/25 hover:border-red-500/40"
+								)}
+							>
+								<Trash2 className="w-3.5 h-3.5" />
+								<span>{t("zoom.deleteZoom")}</span>
+							</button>
 						</div>
 					)}
 
@@ -1355,7 +1421,7 @@ export function SettingsPanel({
 													onWebcamLayoutPresetChange?.(value)
 												}
 											>
-												<SelectTrigger className="h-8 bg-black/20 border-white/10 text-xs">
+												<SelectTrigger className={`h-8 text-xs ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7] text-[#18181b]" : "bg-black/20 border-white/10 text-slate-200"}`}>
 													<SelectValue placeholder={t("layout.selectPreset")} />
 												</SelectTrigger>
 												<SelectContent>
@@ -1536,10 +1602,24 @@ export function SettingsPanel({
 									</AccordionTrigger>
 									<AccordionContent className="pb-3">
 										{activePanelMode === "effects" && (
-											<div className="mb-2.5">
-												<div className={`flex items-center justify-between p-3 rounded-xl border mb-3 ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}>
-													<div className={`text-xs font-bold ${isLight ? "text-slate-700" : "text-slate-200"}`}>
-														{t("effects.blurBg")}
+											<div className="space-y-3 mb-2">
+												{/* Background Blur Row */}
+												<div className={cn(
+													"flex items-center justify-between p-3 rounded-xl border transition-all shadow-xs",
+													isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
+												)}>
+													<div className="flex items-center gap-2.5">
+														<div className={cn(
+															"w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border",
+															isLight ? "bg-white border-[#e4e4e7] text-slate-700 shadow-2xs" : "bg-white/10 border-white/10 text-slate-200"
+														)}>
+															<Sparkles className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+														</div>
+														<div>
+															<div className={cn("text-xs font-bold", isLight ? "text-slate-800" : "text-slate-100")}>
+																{t("effects.blurBg")}
+															</div>
+														</div>
 													</div>
 													<Switch
 														checked={showBlur}
@@ -1548,19 +1628,30 @@ export function SettingsPanel({
 														className="scale-90 cursor-pointer"
 													/>
 												</div>
-												<div className="grid grid-cols-2 gap-3">
-													<div className={`p-3 rounded-xl border ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}>
-														<div className="flex items-center justify-between gap-1 mb-2">
-															<div className={`text-xs font-bold truncate ${isLight ? "text-slate-700" : "text-slate-200"}`}>
-																{t("effects.motionBlur")}
+
+												{/* Grouped Controls Container */}
+												<div className={cn(
+													"p-3.5 rounded-xl border space-y-3.5 shadow-xs",
+													isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
+												)}>
+													{/* Motion Blur */}
+													<div className="space-y-1.5">
+														<div className="flex items-center justify-between">
+															<div className="flex items-center gap-2">
+																<Wind className="w-3.5 h-3.5 text-slate-400" />
+																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+																	{t("effects.motionBlur")}
+																</span>
 															</div>
 															<span
-																className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md shrink-0"
-																style={{ backgroundColor: `${activeAccent.hex}20`, color: activeAccent.hex }}
+																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+																style={{
+																	backgroundColor: `${activeAccent.hex}18`,
+																	borderColor: `${activeAccent.hex}30`,
+																	color: activeAccent.hex
+																}}
 															>
-																{motionBlurAmount === 0
-																	? t("effects.off")
-																	: motionBlurAmount.toFixed(2)}
+																{motionBlurAmount === 0 ? t("effects.off") : motionBlurAmount.toFixed(2)}
 															</span>
 														</div>
 														<Slider
@@ -1570,17 +1661,28 @@ export function SettingsPanel({
 															min={0}
 															max={1}
 															step={0.01}
-															className="w-full"
+															className="w-full cursor-pointer"
 														/>
 													</div>
-													<div className={`p-3 rounded-xl border ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}>
-														<div className="flex items-center justify-between gap-1 mb-2">
-															<div className={`text-xs font-bold truncate ${isLight ? "text-slate-700" : "text-slate-200"}`}>
-																{t("effects.shadow")}
+
+													<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
+
+													{/* Shadow */}
+													<div className="space-y-1.5">
+														<div className="flex items-center justify-between">
+															<div className="flex items-center gap-2">
+																<Sun className="w-3.5 h-3.5 text-slate-400" />
+																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+																	{t("effects.shadow")}
+																</span>
 															</div>
 															<span
-																className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md shrink-0"
-																style={{ backgroundColor: `${activeAccent.hex}20`, color: activeAccent.hex }}
+																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+																style={{
+																	backgroundColor: `${activeAccent.hex}18`,
+																	borderColor: `${activeAccent.hex}30`,
+																	color: activeAccent.hex
+																}}
 															>
 																{Math.round(shadowIntensity * 100)}%
 															</span>
@@ -1592,17 +1694,28 @@ export function SettingsPanel({
 															min={0}
 															max={1}
 															step={0.01}
-															className="w-full"
+															className="w-full cursor-pointer"
 														/>
 													</div>
-													<div className={`p-3 rounded-xl border ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}>
-														<div className="flex items-center justify-between gap-1 mb-2">
-															<div className={`text-xs font-bold truncate ${isLight ? "text-slate-700" : "text-slate-200"}`}>
-																{t("effects.roundness")}
+
+													<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
+
+													{/* Roundness */}
+													<div className="space-y-1.5">
+														<div className="flex items-center justify-between">
+															<div className="flex items-center gap-2">
+																<Square className="w-3.5 h-3.5 text-slate-400" />
+																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+																	{t("effects.roundness")}
+																</span>
 															</div>
 															<span
-																className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md shrink-0"
-																style={{ backgroundColor: `${activeAccent.hex}20`, color: activeAccent.hex }}
+																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+																style={{
+																	backgroundColor: `${activeAccent.hex}18`,
+																	borderColor: `${activeAccent.hex}30`,
+																	color: activeAccent.hex
+																}}
 															>
 																{borderRadius}px
 															</span>
@@ -1614,185 +1727,271 @@ export function SettingsPanel({
 															min={0}
 															max={64}
 															step={0.5}
-															className="w-full"
+															className="w-full cursor-pointer"
 														/>
 													</div>
-													<div
-														className={`p-3 rounded-xl border ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"} ${webcamLayoutPreset === "vertical-stack" ? "opacity-40 pointer-events-none" : ""}`}
-													>
-														<div className="flex items-center justify-between gap-1 mb-2">
-															<div className={`text-xs font-bold truncate ${isLight ? "text-slate-700" : "text-slate-200"}`}>
-																{t("effects.padding")}
+
+													<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
+
+													{/* Padding */}
+													<div className={cn("space-y-1.5", webcamLayoutPreset === "vertical-stack" ? "opacity-40 pointer-events-none" : "")}>
+														<div className="flex items-center justify-between">
+															<div className="flex items-center gap-2">
+																<Maximize2 className="w-3.5 h-3.5 text-slate-400" />
+																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+																	{t("effects.padding")}
+																</span>
 															</div>
 															<span
-																className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md shrink-0"
-																style={{ backgroundColor: `${activeAccent.hex}20`, color: activeAccent.hex }}
+																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+																style={{
+																	backgroundColor: `${activeAccent.hex}18`,
+																	borderColor: `${activeAccent.hex}30`,
+																	color: activeAccent.hex
+																}}
 															>
 																{webcamLayoutPreset === "vertical-stack" ? "—" : `${Math.round(padding <= 1 ? padding * 100 : padding)}%`}
 															</span>
 														</div>
 														<Slider
-															value={[padding]}
+															value={[padding <= 1 ? padding * 100 : padding]}
 															onValueChange={(values) => onPaddingChange?.(values[0])}
 															onValueCommit={() => onPaddingCommit?.()}
 															min={0}
-															max={0.5}
-															step={0.01}
+															max={80}
+															step={1}
 															disabled={webcamLayoutPreset === "vertical-stack"}
-															className="w-full"
+															className="w-full cursor-pointer"
 														/>
 													</div>
 												</div>
 											</div>
 										)}
 
-										{activePanelMode === "cursor" && showCursorSettings && hasCursorData && (
-											<div className="p-2 rounded-lg editor-control-surface mt-2 space-y-3">
-												<div className="flex items-center justify-between">
-													<div className="text-[10px] font-medium text-slate-300">
-														{t("cursor.show")}
+										{activePanelMode === "cursor" && showCursorSettings && (
+											<div className="space-y-3 mb-2">
+												{/* Toggle Row */}
+												<div className={cn(
+													"flex items-center justify-between p-3 rounded-xl border transition-all shadow-xs",
+													isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
+												)}>
+													<div className="flex items-center gap-2.5">
+														<div className={cn(
+															"w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border",
+															isLight ? "bg-white border-[#e4e4e7] text-slate-700 shadow-2xs" : "bg-white/10 border-white/10 text-slate-200"
+														)}>
+															<MousePointerClick className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+														</div>
+														<div>
+															<div className={cn("text-xs font-bold", isLight ? "text-slate-800" : "text-slate-100")}>
+																{t("cursor.show")}
+															</div>
+														</div>
 													</div>
 													<Switch
 														checked={showCursor}
 														onCheckedChange={onShowCursorChange}
-														className="data-[state=checked]:bg-[#34B27B] scale-90"
+														style={showCursor ? { backgroundColor: activeAccent.hex } : undefined}
+														className="scale-90 cursor-pointer"
 													/>
 												</div>
+
 												{showCursor && (
-													<>
+													<div className={cn(
+														"p-3.5 rounded-xl border space-y-3.5 shadow-xs",
+														isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
+													)}>
+														{/* Clip to Canvas */}
 														<div className="flex items-center justify-between">
-															<div className="flex items-center gap-1 text-[10px] font-medium text-slate-300">
-																<span>{t("cursor.clipToBounds")}</span>
+															<div className="flex items-center gap-1.5 text-xs font-bold">
+																<span className={isLight ? "text-slate-700" : "text-slate-200"}>
+																	{t("cursor.clipToBounds")}
+																</span>
 																<Tooltip
 																	content={t("cursor.clipToBoundsDescription")}
 																	className="max-w-[220px] leading-snug whitespace-normal"
 																>
 																	<button
 																		type="button"
-																		className="text-slate-400 transition-colors hover:text-slate-200"
+																		className="text-slate-400 transition-colors hover:text-slate-600"
 																		aria-label={t("cursor.clipToBoundsDescription")}
 																	>
-																		<Info size={11} />
+																		<Info size={12} />
 																	</button>
 																</Tooltip>
 															</div>
 															<Switch
 																checked={cursorClipToBounds}
 																onCheckedChange={onCursorClipToBoundsChange}
-																className="data-[state=checked]:bg-[#34B27B] scale-90"
+																style={cursorClipToBounds ? { backgroundColor: activeAccent.hex } : undefined}
+																className="scale-90 cursor-pointer"
 																aria-label={t("cursor.clipToBounds")}
 															/>
 														</div>
+
 														{cursorThemeOptions.length > 1 && (
-															<div className="space-y-1.5">
-																<div className="text-[10px] font-medium text-slate-300">
-																	{t("cursor.theme")}
+															<>
+																<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
+
+																{/* Cursor Style Swatches */}
+																<div className="space-y-2">
+																	<div className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+																		{t("cursor.theme")}
+																	</div>
+																	<div className="flex flex-wrap gap-2">
+																		{cursorThemeOptions.map((option) => {
+																			const isSelected = cursorTheme === option.id;
+																			return (
+																				<button
+																					type="button"
+																					key={option.id}
+																					title={option.name}
+																					aria-label={option.name}
+																					aria-pressed={isSelected}
+																					onClick={() => onCursorThemeChange?.(option.id)}
+																					style={{
+																						borderColor: isSelected ? activeAccent.hex : undefined,
+																						backgroundColor: isSelected ? `${activeAccent.hex}15` : undefined,
+																					}}
+																					className={cn(
+																						"flex items-center justify-center w-9 h-9 rounded-xl border transition-all cursor-pointer shadow-2xs",
+																						isSelected
+																							? "ring-2 ring-offset-1 ring-offset-transparent"
+																							: isLight
+																								? "border-[#e4e4e7] bg-white hover:border-slate-300"
+																								: "border-white/10 bg-white/5 hover:border-white/20",
+																					)}
+																				>
+																					<img
+																						src={option.previewUrl}
+																						alt=""
+																						className="w-5 h-5 object-contain"
+																						draggable={false}
+																					/>
+																				</button>
+																			);
+																		})}
+																	</div>
 																</div>
-																<div className="flex flex-wrap gap-1.5">
-																	{cursorThemeOptions.map((option) => {
-																		const isSelected = cursorTheme === option.id;
-																		return (
-																			<button
-																				type="button"
-																				key={option.id}
-																				title={option.name}
-																				aria-label={option.name}
-																				aria-pressed={isSelected}
-																				onClick={() => onCursorThemeChange?.(option.id)}
-																				className={cn(
-																					"flex items-center justify-center w-8 h-8 rounded-lg border overflow-hidden transition-all duration-150 shadow-sm bg-white/5",
-																					isSelected
-																						? "border-[#34B27B] ring-1 ring-[#34B27B]/30"
-																						: "border-white/10 hover:border-[#34B27B]/40 opacity-80 hover:opacity-100",
-																				)}
-																			>
-																				<img
-																					src={option.previewUrl}
-																					alt=""
-																					className="w-5 h-5 object-contain"
-																					draggable={false}
-																				/>
-																			</button>
-																		);
-																	})}
-																</div>
-															</div>
+															</>
 														)}
-														<div className="grid grid-cols-2 gap-2">
-															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
-																<div className="flex items-center justify-between mb-1">
-																	<div className="text-[10px] font-medium text-slate-300">
-																		{t("cursor.size")}
-																	</div>
-																	<span className="text-[10px] text-slate-500 font-mono">
-																		{cursorSize.toFixed(1)}
-																	</span>
-																</div>
-																<Slider
-																	value={[cursorSize]}
-																	onValueChange={(values) => onCursorSizeChange?.(values[0])}
-																	min={0.5}
-																	max={10}
-																	step={0.1}
-																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-																/>
+
+														<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
+
+														{/* Size */}
+														<div className="space-y-1.5">
+															<div className="flex items-center justify-between">
+																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+																	{t("cursor.size")}
+																</span>
+																<span
+																	className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+																	style={{
+																		backgroundColor: `${activeAccent.hex}18`,
+																		borderColor: `${activeAccent.hex}30`,
+																		color: activeAccent.hex
+																	}}
+																>
+																	{cursorSize.toFixed(1)}×
+																</span>
 															</div>
-															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
-																<div className="flex items-center justify-between mb-1">
-																	<div className="text-[10px] font-medium text-slate-300">
-																		{t("cursor.smoothing")}
-																	</div>
-																	<span className="text-[10px] text-slate-500 font-mono">
-																		{Math.round(cursorSmoothing * 100)}%
-																	</span>
-																</div>
-																<Slider
-																	value={[cursorSmoothing]}
-																	onValueChange={(values) => onCursorSmoothingChange?.(values[0])}
-																	min={0}
-																	max={1}
-																	step={0.01}
-																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-																/>
-															</div>
-															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
-																<div className="flex items-center justify-between mb-1">
-																	<div className="text-[10px] font-medium text-slate-300">
-																		{t("cursor.motionBlur")}
-																	</div>
-																	<span className="text-[10px] text-slate-500 font-mono">
-																		{Math.round(cursorMotionBlur * 100)}%
-																	</span>
-																</div>
-																<Slider
-																	value={[cursorMotionBlur]}
-																	onValueChange={(values) => onCursorMotionBlurChange?.(values[0])}
-																	min={0}
-																	max={1}
-																	step={0.01}
-																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-																/>
-															</div>
-															<div className="p-2 rounded-lg bg-white/5 border border-white/5">
-																<div className="flex items-center justify-between mb-1">
-																	<div className="text-[10px] font-medium text-slate-300">
-																		{t("cursor.clickBounce")}
-																	</div>
-																	<span className="text-[10px] text-slate-500 font-mono">
-																		{cursorClickBounce.toFixed(1)}
-																	</span>
-																</div>
-																<Slider
-																	value={[cursorClickBounce]}
-																	onValueChange={(values) => onCursorClickBounceChange?.(values[0])}
-																	min={0}
-																	max={5}
-																	step={0.1}
-																	className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
-																/>
-															</div>
+															<Slider
+																value={[cursorSize]}
+																onValueChange={(values) => onCursorSizeChange?.(values[0])}
+																min={0.5}
+																max={10}
+																step={0.1}
+																className="w-full cursor-pointer"
+															/>
 														</div>
-													</>
+
+														<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
+
+														{/* Smoothing */}
+														<div className="space-y-1.5">
+															<div className="flex items-center justify-between">
+																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+																	{t("cursor.smoothing")}
+																</span>
+																<span
+																	className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+																	style={{
+																		backgroundColor: `${activeAccent.hex}18`,
+																		borderColor: `${activeAccent.hex}30`,
+																		color: activeAccent.hex
+																	}}
+																>
+																	{Math.round(cursorSmoothing * 100)}%
+																</span>
+															</div>
+															<Slider
+																value={[cursorSmoothing]}
+																onValueChange={(values) => onCursorSmoothingChange?.(values[0])}
+																min={0}
+																max={1}
+																step={0.01}
+																className="w-full cursor-pointer"
+															/>
+														</div>
+
+														<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
+
+														{/* Motion Blur */}
+														<div className="space-y-1.5">
+															<div className="flex items-center justify-between">
+																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+																	{t("cursor.motionBlur")}
+																</span>
+																<span
+																	className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+																	style={{
+																		backgroundColor: `${activeAccent.hex}18`,
+																		borderColor: `${activeAccent.hex}30`,
+																		color: activeAccent.hex
+																	}}
+																>
+																	{Math.round(cursorMotionBlur * 100)}%
+																</span>
+															</div>
+															<Slider
+																value={[cursorMotionBlur]}
+																onValueChange={(values) => onCursorMotionBlurChange?.(values[0])}
+																min={0}
+																max={1}
+																step={0.01}
+																className="w-full cursor-pointer"
+															/>
+														</div>
+
+														<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
+
+														{/* Click Bounce */}
+														<div className="space-y-1.5">
+															<div className="flex items-center justify-between">
+																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
+																	{t("cursor.clickBounce")}
+																</span>
+																<span
+																	className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+																	style={{
+																		backgroundColor: `${activeAccent.hex}18`,
+																		borderColor: `${activeAccent.hex}30`,
+																		color: activeAccent.hex
+																	}}
+																>
+																	{cursorClickBounce.toFixed(1)}
+																</span>
+															</div>
+															<Slider
+																value={[cursorClickBounce]}
+																onValueChange={(values) => onCursorClickBounceChange?.(values[0])}
+																min={0}
+																max={5}
+																step={0.1}
+																className="w-full cursor-pointer"
+															/>
+														</div>
+													</div>
 												)}
 											</div>
 										)}
@@ -2120,7 +2319,7 @@ export function SettingsPanel({
 				</>
 			)}
 
-			<div className="flex-shrink-0 p-3 border-t border-white/[0.07] bg-black/25">
+			<div className={`flex-shrink-0 p-3 border-t ${isLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}>
 				{activePanelMode === "export" && !hasTimelineSelection && (
 					<>
 						<div className="flex gap-2 mb-3">
