@@ -1,11 +1,12 @@
 <p align="center">
-  <img src="public/openscreen.png" alt="Ocal Screen Logo" width="80" />
+  <img src="public/openscreen.png" alt="Ocal Screen Logo" width="90" />
 </p>
 
 <h1 align="center">Ocal Screen</h1>
 
 <p align="center">
-  <strong>A fork of the original OpenScreen — enhanced with better UI, theme support, accent colors, and a refined layout.</strong>
+  <strong>The Ultimate Studio-Grade Screen Recorder & Video Editor</strong><br />
+  Record your screen, auto-focus key moments with AI zoom, add animated captions, and export studio-quality videos — all locally with total privacy.
 </p>
 
 <p align="center">
@@ -13,143 +14,125 @@
     <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" />
   </a>
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
-  <img src="https://img.shields.io/badge/Status-Active-brightgreen" alt="Status" />
+  <img src="https://img.shields.io/badge/Privacy-100%25%20Local-success" alt="100% Local & Private" />
   <a href="https://gamingnetworkstudio.vercel.app">
-    <img src="https://img.shields.io/badge/Managed%20by-Gaming%20Network%20Studio%20Media%20Group-blueviolet" alt="Managed by Gaming Network Studio" />
+    <img src="https://img.shields.io/badge/Created%20by-Ocal%20Software-purple" alt="Ocal Software" />
   </a>
 </p>
 
 <p align="center">
-  <img src="public/demo.png" alt="Ocal Screen Demo" width="80%" />
+  <img src="public/demo.png" alt="Ocal Screen Application Screenshot" width="85%" style="border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);" />
 </p>
 
 ---
 
-> [!NOTE]
-> **This is a fork** of the original [OpenScreen](https://github.com/siddharthvaddem/openscreen) project by Siddharth Vaddem, which has been archived. This fork is actively maintained by **Gaming Network Studio Media Group** with improved UI, theming, and layout enhancements.
+## 🌟 Welcome to Ocal Screen
 
-> [!IMPORTANT]
-> Managed and maintained by **Gaming Network Studio Media Group**
-> 🌐 [gamingnetworkstudio.vercel.app](https://gamingnetworkstudio.vercel.app)
+**Ocal Screen** is a powerful, free, and open-source screen recording and video editing app designed for creators, educators, software developers, and professionals. Whether you are recording product demos, video tutorials, bug reports, or gaming highlights, Ocal Screen turns raw screen captures into polished, studio-ready videos in minutes.
 
----
-
-## ✨ What's Different in This Fork
-
-This fork preserves all core functionality from the original OpenScreen and adds:
-
-- 🎨 **Dynamic Accent Color System** — Choose from Neon Lime, Electric Cyan, Sunset Orange, Emerald Green, Royal Purple, or Hot Pink
-- 🌗 **Light & Dark Mode Support** — Full light/dark theming across all dialogs, modals, and popups
-- 🖌️ **Redesigned UI** — Premium rounded components, glassmorphism cards, and refined layouts
-- 👤 **User Profile & Settings Panel** — Set your display name, theme, accent color, and HUD layout from one place
-- 🪟 **Consistent Styling** — Screen Picker, Export Dialog, Unsaved Changes, Auto-Captions, and Shortcuts dialogs all respect your chosen theme and accent color
-- ⚡ **Real-time Preference Sync** — Theme and color changes apply instantly across all open windows
+Unlike cloud-based recorders, **Ocal Screen runs 100% locally on your computer**. Your videos, voice recordings, and screen telemetry never leave your device.
 
 ---
 
-## 🧰 Core Features
+## ✨ Feature Highlights
 
-- Record a specific window, or your whole screen
-- Record microphone and system audio
-- Webcam overlay with picture-in-picture, drag-to-position, mirroring, and shape options
-- Auto or manual zooms with adjustable depth, duration, easing, and pixel-precise position
-- Custom cursor size, smoothing, and click effects with cursor themes and path smoothing
-- Automatic captions for voiceovers, generated on-device (works offline)
-- Wallpapers, solid colors, gradients, or your own background image
-- Motion blur
-- Crop, trim, and per-segment speed control on the timeline
-- Text, arrow, and image annotations with text animation presets
-- Timeline snapping guides and audio waveform
-- Customizable keyboard shortcuts
-- Export to **MP4** or **GIF** in multiple aspect ratios and resolutions
-- 13+ languages supported: Arabic, English, Spanish, French, Italian, Japanese, Korean, Portuguese (Brazil), Russian, Turkish, Vietnamese, Simplified Chinese, Traditional Chinese
+### 🎯 Smart AI Auto-Zoom
+- Automatically detects mouse clicks and live text typing sessions to focus the camera right where the action happens.
+- Continuous action clustering keeps your video zoomed in smoothly while you type or interact, preventing abrupt camera jumpiness.
+- Custom zoom depth, position, duration, and smooth motion blur controls on the interactive timeline.
 
----
+### 🖱️ Animated Custom Cursors
+- Replaces plain operating system mouse pointers with sleek, customizable cursor styles.
+- Adjust cursor size, smoothing, motion blur, and click ripple animation effects to make tutorial steps crystal clear.
 
-## 📦 Installation
+### 🎙️ Offline AI Captions & Audio
+- Generate automatic captions for your voiceover directly on your computer without sending audio to the cloud.
+- Support for system audio recording and microphone input with live audio level indicators.
 
-Download the latest installer for your platform from the [GitHub Releases](https://github.com/neelkanth-patel26/Ocal-Screen/releases) page.
+### 📹 Picture-in-Picture Webcam
+- Overlay your webcam with customizable shapes (circle, rounded square, rectangle), sizes, and drag-and-drop positioning.
+- Enable camera mirroring and smooth camera framing.
 
-### macOS
+### 🖼️ Beautiful Backgrounds & Canvas Framing
+- Surround your video with vibrant wallpapers, solid colors, custom image backdrops, or subtle glassmorphism blurs.
+- Add rounded video corners, drop shadows, and custom canvas aspect ratios (16:9, 9:16 vertical, 1:1 square, 4:3).
 
-```bash
-# Manual install via .dmg from Releases page
-# After installation, run if Gatekeeper blocks the app:
-xattr -rd com.apple.quarantine /Applications/OcalScreen.app
-```
+### 🎨 Personal Studio Themes & Accents
+- Choose your favorite studio theme (**Dark Mode** or **Light Mode**).
+- Personalize your studio interface with custom accent color palettes (Neon Lime, Electric Cyan, Sunset Orange, Emerald Green, Royal Purple, or Hot Pink).
 
-Grant permissions in **System Settings → Privacy & Security** for **Screen Recording** and **Accessibility**.
-
-### Windows
-
-Download the `.exe` installer from the [Releases page](https://github.com/neelkanth-patel26/Ocal-Screen/releases) and run it.
-
-### Linux
-
-Pick the package that matches your distro from [Releases](https://github.com/neelkanth-patel26/Ocal-Screen/releases):
-
-**Debian / Ubuntu (`.deb`)**
-```bash
-sudo apt install ./OcalScreen-Linux-latest.deb
-```
-
-**Arch / Manjaro (`.pacman`)**
-```bash
-sudo pacman -U OcalScreen-Linux-latest.pacman
-```
-
-**Any distro (`.AppImage`)**
-```bash
-chmod +x OcalScreen-Linux-*.AppImage
-./OcalScreen-Linux-*.AppImage
-```
-
-> [!NOTE]
-> If the AppImage fails with a sandbox error: `./OcalScreen-Linux-*.AppImage --no-sandbox`
+### 🎬 Professional Timeline Editor
+- Trim unwanted video segments, crop video bounds, adjust playback speeds, and split clips easily.
+- Add animated text, arrows, icons, and image annotations to highlight key screen elements.
+- Export crisp videos in **MP4** or animated **GIF** formats.
 
 ---
 
-## 🛠️ Building from Source
+## 📥 How to Install Ocal Screen
 
-```bash
-# Clone the repository
-git clone https://github.com/neelkanth-patel26/Ocal-Screen.git
-cd Ocal-Screen
+Installing Ocal Screen takes less than a minute. Choose your operating system below:
 
-# Install dependencies
-npm install
-
-# Start in development mode
-npm run dev
-
-# Build for production
-npm run build
-```
+### 🪟 Windows
+1. Download the latest installer (`OcalScreen-Setup.exe`) from the [Official Releases](https://github.com/neelkanth-patel26/Ocal-Screen/releases).
+2. Double-click the installer and follow the quick setup wizard.
+3. Open **Ocal Screen** from your Start Menu or Desktop shortcut.
 
 ---
 
-## 🖥️ Platform Differences
-
-| Feature | macOS | Windows | Linux |
-|---------|-------|---------|-------|
-| Native recording pipeline | ✅ ScreenCaptureKit | ✅ Windows Graphics Capture | ❌ Browser pipeline |
-| Custom cursor capture | ✅ | ✅ | ⚠️ Position only |
-| Webcam overlay | ✅ Native | ✅ Native | ✅ Browser |
-| System audio | ✅ macOS 13+ | ✅ Out of the box | ⚠️ Requires PipeWire |
-
----
-
-## 📝 Original Project
-
-This is a fork of **[OpenScreen](https://github.com/siddharthvaddem/openscreen)** by Siddharth Vaddem.
-The original project has been archived. This fork continues its development under the stewardship of **Gaming Network Studio Media Group**.
+### 🍎 macOS
+1. Download the `.dmg` package from [Official Releases](https://github.com/neelkanth-patel26/Ocal-Screen/releases).
+2. Drag **Ocal Screen** into your **Applications** folder.
+3. Open **System Settings → Privacy & Security** and grant permissions for **Screen Recording** and **Accessibility**.
+4. *(Optional)* If macOS displays a security warning, open Terminal and run:
+   ```bash
+   xattr -rd com.apple.quarantine /Applications/OcalScreen.app
+   ```
 
 ---
 
-## 🏢 Maintained By
+### 🐧 Linux
+Download your preferred distribution package from [Official Releases](https://github.com/neelkanth-patel26/Ocal-Screen/releases):
+
+- **Ubuntu / Debian (`.deb`)**:
+  ```bash
+  sudo apt install ./OcalScreen-Linux-latest.deb
+  ```
+- **Arch Linux / Manjaro (`.pacman`)**:
+  ```bash
+  sudo pacman -U OcalScreen-Linux-latest.pacman
+  ```
+- **AppImage (Universal)**:
+  ```bash
+  chmod +x OcalScreen-Linux-*.AppImage
+  ./OcalScreen-Linux-*.AppImage
+  ```
+
+---
+
+## 🚀 Quick Start Guide
+
+1. **Launch the Recorder**: Open Ocal Screen to display the floating launcher bar.
+2. **Select Screen & Audio**: Choose your screen, window, microphone, or webcam source.
+3. **Record Your Video**: Click **Record** or press your shortcut key (`Ctrl+Shift+R` / `Cmd+Shift+R`).
+4. **Edit & Polish**: Once stopped, your video opens immediately in the Ocal Screen Studio Editor. Adjust AI zooms, add captions, customize backgrounds, or trim clips.
+5. **Export & Share**: Click **Export** to save your video as an MP4 or GIF to share with the world!
+
+---
+
+## 🌐 Supported Languages
+
+Ocal Screen speaks your language! Available in 13+ languages:
+- English, Spanish, French, Italian, German, Portuguese (Brazil)
+- Japanese, Korean, Simplified Chinese, Traditional Chinese
+- Arabic, Russian, Turkish, Vietnamese
+
+---
+
+## 🏢 Maintained & Supported By
 
 <p align="center">
-  <strong>Gaming Network Studio Media Group</strong><br />
+  <strong>Ocal Software</strong><br />
+  <em>by Gaming Network Studio Media Group</em><br />
   <a href="https://gamingnetworkstudio.vercel.app">🌐 gamingnetworkstudio.vercel.app</a>
 </p>
 
@@ -157,4 +140,4 @@ The original project has been archived. This fork continues its development unde
 
 ## 📄 License
 
-This project is licensed under the [MIT License](./LICENSE). By using this software, you agree that the authors are not liable for any issues, damages, or claims arising from its use.
+Ocal Screen is open-source software licensed under the [MIT License](./LICENSE). Free for personal, educational, and commercial use.
