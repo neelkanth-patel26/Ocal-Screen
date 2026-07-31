@@ -33,7 +33,7 @@ VersionInfoVersion=1.0.0.0
 VersionInfoCompany=Gaming Network Studio Media Group
 VersionInfoDescription=Ocal Screen Studio Installer
 VersionInfoProductName=Ocal Screen
-VersionInfoProductVersion=1.0.0 Open Beta
+VersionInfoProductVersion=1.0.0.0
 WizardStyle=modern
 WizardResizable=no
 ShowLanguageDialog=no
@@ -63,9 +63,9 @@ Type: files; Name: "{app}\Ocal Screen.exe"
 
 [Files]
 ; Core executable
-Source: "dist-builder\win-unpacked\Ocal Screen.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core
+Source: "release\1.5.0\win-unpacked\Ocal Screen.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: core
 ; All supporting Electron runtime files
-Source: "dist-builder\win-unpacked\*"; DestDir: "{app}"; Excludes: "Ocal Screen.exe,LICENSE.electron.txt,LICENSES.chromium.html"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: core
+Source: "release\1.5.0\win-unpacked\*"; DestDir: "{app}"; Excludes: "Ocal Screen.exe,LICENSE.electron.txt,LICENSES.chromium.html"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: core
 
 ; Icons
 Source: "icons\icons\win\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components: core
