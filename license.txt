@@ -1,0 +1,86 @@
+===============================================================================
+                       OCAL SCREEN END USER AGREEMENT
+      TERMS OF SERVICE, PRIVACY POLICY & MIT SOFTWARE LICENSE
+===============================================================================
+
+Publisher : Gaming Network Studio Media Group & Ocal Software
+Website   : https://gamingnetworkstudio.vercel.app
+Source    : https://github.com/neelkanth-patel26/Ocal-Screen
+
+-------------------------------------------------------------------------------
+1. MIT SOFTWARE LICENSE
+-------------------------------------------------------------------------------
+
+Copyright (c) 2026 Gaming Network Studio Media Group & Ocal Software
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+2. PRIVACY POLICY & DATA PROTECTION
+-------------------------------------------------------------------------------
+
+Ocal Screen is engineered with a strict Privacy-First Architecture. Your data
+privacy is guaranteed under the following terms:
+
+A. 100% LOCAL & ON-DEVICE PROCESSING
+   - All video recordings, screen captures, audio streams (microphone and 
+     system audio), and cursor telemetry are processed 100% locally on your 
+     device. No video or audio data is ever transmitted, uploaded, or analyzed 
+     on external servers or cloud services.
+
+B. OFFLINE AI CAPTIONING
+   - Automatic voiceover captioning operates strictly offline using on-device 
+     neural networks. Your voice recordings remain private and on your device 
+     at all times.
+
+C. DIAGNOSTICS & BUG REPORTING
+   - Ocal Screen does NOT collect background telemetry or analytics.
+   - When submitting a bug report via the in-app "Report an Issue" modal, 
+     basic environment details (CPU model, RAM size, GPU renderer, Windows 
+     version) are formatted locally for inclusion in your GitHub issue post. 
+     You can toggle or inspect this information prior to submission.
+
+D. NO USER TRACKING OR PROFILING
+   - Ocal Screen contains zero user tracking code, zero advertising pixels, 
+     and zero third-party behavioral profiling SDKs.
+
+-------------------------------------------------------------------------------
+3. TERMS OF SERVICE & CONDITIONS OF USE
+-------------------------------------------------------------------------------
+
+A. ACCEPTABLE USE
+   - You may use Ocal Screen for personal, educational, commercial, and studio 
+     video creation purposes.
+   - You are responsible for ensuring that screen recordings comply with 
+     applicable local laws regarding consent for audio and screen capture.
+
+B. SYSTEM REQUIREMENTS
+   - Ocal Screen requires Windows 10 (Build 17763+) or Windows 11 (x64) with 
+     graphics acceleration enabled for optimal video rendering and AI zoom 
+     processing.
+
+C. UPDATES & SUPPORT
+   - Updates and releases are published publicly on GitHub:
+     https://github.com/neelkanth-patel26/Ocal-Screen/releases
+   - Community support and bug tracking:
+     https://github.com/neelkanth-patel26/Ocal-Screen/issues
+
+===============================================================================
+Copyright (c) 2026 Gaming Network Studio Media Group. All rights reserved.
+===============================================================================
