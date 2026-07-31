@@ -65,6 +65,21 @@ if ($existingRelease -and $existingRelease.id) {
     $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases" -Method Post -Headers $headers -Body $releaseJson -ContentType "application/json; charset=utf-8"
 }
 
+# Delete any existing old/corrupt asset with the same filename on GitHub
+if ($rel.assets) {
+    foreach ($asset in $rel.assets) {
+        if ($asset.name -eq "Ocal-Screen-1.0.0-OpenBeta-Setup.exe") {
+            Write-Host "Deleting existing GitHub release asset ID $($asset.id)..." -ForegroundColor Yellow
+            try {
+                Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($asset.id)" -Method Delete -Headers $headers
+                Write-Host "Deleted existing asset." -ForegroundColor Green
+            } catch {
+                Write-Host "Failed to delete existing asset: $_" -ForegroundColor Red
+            }
+        }
+    }
+}
+
 $rawUploadUrl = $rel.upload_url
 $uploadUrl = $rawUploadUrl.Substring(0, $rawUploadUrl.IndexOf('{')) + "?name=Ocal-Screen-1.0.0-OpenBeta-Setup.exe"
 
