@@ -183,7 +183,7 @@ export interface CursorTelemetryPoint {
 	timeMs: number;
 	cx: number;
 	cy: number;
-	interactionType?: "move" | "click" | "double-click" | "right-click" | "middle-click" | "mouseup";
+	interactionType?: "move" | "click" | "double-click" | "right-click" | "middle-click" | "mouseup" | "typing" | "text" | "pointer";
 	cursorType?:
 		| "arrow"
 		| "text"
@@ -204,7 +204,7 @@ export interface CursorVisualSettings {
 	clipToBounds: boolean;
 }
 
-export const DEFAULT_CURSOR_SIZE = 3.0;
+export const DEFAULT_CURSOR_SIZE = 1.5;
 export const DEFAULT_CURSOR_SMOOTHING = 0.67;
 export const DEFAULT_CURSOR_MOTION_BLUR = 0.35;
 export const DEFAULT_CURSOR_CLICK_BOUNCE = 2.5;

@@ -184,8 +184,8 @@ export function createEditorWindow(): BrowserWindow {
 		...(isWin && {
 			titleBarStyle: "hidden",
 			titleBarOverlay: {
-				color: "#0c0c0c",
-				symbolColor: "#e8e8e8",
+				color: "#00000000",
+				symbolColor: "#888888",
 				height: 48,
 			},
 		}),

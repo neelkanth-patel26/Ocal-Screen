@@ -685,7 +685,20 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			});
 		}
 
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (!recording) return;
+			if (["Shift", "Control", "Alt", "Meta", "CapsLock", "Tab"].includes(e.key)) return;
+			if (window.electronAPI?.recordTypingActivity) {
+				window.electronAPI.recordTypingActivity();
+			}
+		};
+
+		if (recording) {
+			window.addEventListener("keydown", handleKeyDown);
+		}
+
 		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
 			const activeRunId = countdownRunId.current;
 			if (cleanup) cleanup();
 			countdownRunId.current += 1;

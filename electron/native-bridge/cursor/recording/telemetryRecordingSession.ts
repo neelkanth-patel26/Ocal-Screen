@@ -49,11 +49,23 @@ export class TelemetryRecordingSession implements CursorRecordingSession {
 		const width = Math.max(1, display.width);
 		const height = Math.max(1, display.height);
 
+		const now = Date.now();
+		let isTyping = false;
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-var-requires
+			const { isGlobalTypingActive } = require("../../../ipc/handlers");
+			isTyping = Boolean(isGlobalTypingActive());
+		} catch {
+			// ignore
+		}
+
 		this.samples.push({
-			timeMs: Math.max(0, Date.now() - this.startTimeMs),
+			timeMs: Math.max(0, now - this.startTimeMs),
 			cx: clamp((cursor.x - display.x) / width, 0, 1),
 			cy: clamp((cursor.y - display.y) / height, 0, 1),
 			visible: true,
+			cursorType: isTyping ? "text" : "arrow",
+			interactionType: isTyping ? "typing" : "move",
 		});
 
 		if (this.samples.length > this.options.maxSamples) {
