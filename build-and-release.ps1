@@ -7,17 +7,27 @@ $ErrorActionPreference = "Stop"
 $token = ("ghp_" + "MgFiTu2GYOLmQe8axSFMgEXcq5usib3lTAEr")
 $owner = "neelkanth-patel26"
 $repo = "Ocal-Screen"
-$versionTag = "v1.0.0-beta"
-$releaseName = "Ocal Screen v1.0.0 Open Beta"
+$versionTag = "v1.1.0"
+$releaseName = "Ocal Screen v1.1.0"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "Ocal Screen v1.0.0 Open Beta Build & Release Pipeline" -ForegroundColor Cyan
+Write-Host " 🚀 Ocal Screen v1.1.0 Stable Build & Release Pipeline" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
+
+# 0. Regenerate icons if master logo exists
+if (Test-Path "scripts\generate-clean-ico.ps1") {
+    Write-Host "`n[0/6] Generating transparent multi-resolution icons..." -ForegroundColor Cyan
+    powershell.exe -ExecutionPolicy Bypass -File "scripts\generate-clean-ico.ps1"
+}
 
 # 1. Clean Previous Artifacts
 Write-Host "`n[1/6] Cleaning previous build output..." -ForegroundColor Gray
-if (Test-Path "dist-inno") { Remove-Item -Recurse -Force "dist-inno" }
-New-Item -ItemType Directory -Path "dist-inno" -Force | Out-Null
+if (Test-Path "dist-inno") {
+    try { Remove-Item -Recurse -Force "dist-inno" -ErrorAction SilentlyContinue } catch {}
+}
+if (-not (Test-Path "dist-inno")) {
+    New-Item -ItemType Directory -Path "dist-inno" -Force | Out-Null
+}
 
 # 2. Package Electron Application
 Write-Host "`n[2/6] Packaging Electron application binaries..." -ForegroundColor Yellow
@@ -73,7 +83,7 @@ Write-Host "Using ISCC compiler: $isccPath" -ForegroundColor Gray
 cmd.exe /c "`"$isccPath`" installer.iss"
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed!" }
 
-$setupFile = "dist-inno\Ocal-Screen-1.0.0-OpenBeta-Setup.exe"
+$setupFile = "dist-inno\Ocal-Screen-1.1.0-Setup.exe"
 if (-not (Test-Path $setupFile)) {
     throw "Compiled installer executable not found at: $setupFile"
 }
@@ -90,14 +100,15 @@ $headers = @{
 }
 
 $releaseBody = @"
-# Ocal Screen v1.0.0 Open Beta
+# Ocal Screen v1.1.0
 
-Welcome to the **Ocal Screen v1.0.0 Open Beta** release! Ocal Screen is a studio-grade, 100% local and private screen recorder and video editor.
+Welcome to the **Ocal Screen v1.1.0** official release! Ocal Screen is a studio-grade, 100% local and private screen recorder and video editor.
 
 ---
 
-### What's Included in v1.0.0 Open Beta
+### What's Included in v1.1.0
 
+* **Fresh New App Logo & Icons**: High-resolution, 100% transparent vector logo across all resolutions and native Windows shortcuts.
 * **Smart AI Auto-Zoom System**: Continuous interaction typing & click clustering with smooth pre-zoom and post-hold.
 * **Custom Animated Cursor Overlay**: Replaces OS cursor with size-adjustable, smooth custom animated cursor (`size: 1.5`).
 * **Redesigned Studio Settings**: Glassmorphism dialog with dynamic light & dark theme toggles and vibrant accent color swatches.
@@ -110,7 +121,7 @@ Welcome to the **Ocal Screen v1.0.0 Open Beta** release! Ocal Screen is a studio
 
 ### Installation Guide (Windows)
 
-1. Download **`Ocal-Screen-1.0.0-OpenBeta-Setup.exe`** below.
+1. Download **`Ocal-Screen-1.1.0-Setup.exe`** below.
 2. Double-click the installer and complete the setup wizard.
 3. Launch **Ocal Screen** from your Start Menu or Desktop shortcut!
 
@@ -144,10 +155,10 @@ else {
     $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases" -Method Post -Headers $headers -Body $releaseJson -ContentType "application/json; charset=utf-8"
 }
 
-# Delete any existing old/corrupt asset on GitHub with the same filename
+# Delete any existing old asset on GitHub with the same filename
 if ($rel.assets) {
     foreach ($asset in $rel.assets) {
-        if ($asset.name -eq "Ocal-Screen-1.0.0-OpenBeta-Setup.exe") {
+        if ($asset.name -eq "Ocal-Screen-1.1.0-Setup.exe") {
             Write-Host "Deleting old release asset ID $($asset.id)..." -ForegroundColor Yellow
             try {
                 Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($asset.id)" -Method Delete -Headers $headers
@@ -163,7 +174,7 @@ if ($rel.assets) {
 # 6. Upload Fresh Binary Installer
 Write-Host "`n[6/6] Uploading fresh installer binary ($setupSizeMB MB)..." -ForegroundColor Magenta
 $rawUploadUrl = $rel.upload_url
-$uploadUrl = $rawUploadUrl.Substring(0, $rawUploadUrl.IndexOf('{')) + "?name=Ocal-Screen-1.0.0-OpenBeta-Setup.exe"
+$uploadUrl = $rawUploadUrl.Substring(0, $rawUploadUrl.IndexOf('{')) + "?name=Ocal-Screen-1.1.0-Setup.exe"
 
 $fullSetupPath = (Resolve-Path $setupFile).Path
 $bytes = [System.IO.File]::ReadAllBytes($fullSetupPath)
@@ -177,6 +188,6 @@ $uploadResponse = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $uploa
 Write-Host "Uploaded Asset Name: $($uploadResponse.name) ($([math]::Round($uploadResponse.size / 1MB, 2)) MB)" -ForegroundColor Green
 
 Write-Host "`n==========================================================" -ForegroundColor Green
-Write-Host " 🎉 SUCCESS: Ocal Screen v1.0.0 Open Beta Uploaded!" -ForegroundColor Green
+Write-Host " 🎉 SUCCESS: Ocal Screen v1.1.0 Uploaded!" -ForegroundColor Green
 Write-Host " Release Link: https://github.com/$owner/$repo/releases/tag/$versionTag" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Green
