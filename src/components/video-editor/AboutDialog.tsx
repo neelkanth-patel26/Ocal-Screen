@@ -51,15 +51,29 @@ export function AboutDialog({
 		setUpdateInfo({});
 
 		try {
-			const response = await fetch(
+			let response = await fetch(
 				"https://api.github.com/repos/neelkanth-patel26/Ocal-Screen/releases/latest",
 			);
+			let data: any = null;
 
-			if (!response.ok) {
-				throw new Error(`GitHub API error: ${response.status}`);
+			if (response.ok) {
+				data = await response.json();
+			} else {
+				// Fallback to all releases list if latest returns 404 (e.g. for beta/prereleases)
+				const listResp = await fetch(
+					"https://api.github.com/repos/neelkanth-patel26/Ocal-Screen/releases",
+				);
+				if (!listResp.ok) {
+					throw new Error(`GitHub API error: ${listResp.status}`);
+				}
+				const releases = await listResp.json();
+				if (Array.isArray(releases) && releases.length > 0) {
+					data = releases[0];
+				} else {
+					throw new Error("No releases published yet.");
+				}
 			}
 
-			const data = await response.json();
 			const latestVersion = (data.tag_name || "").replace(/^v/, "");
 			const currentVersion = APP_VERSION.replace(/^v/, "");
 
@@ -67,7 +81,7 @@ export function AboutDialog({
 				setUpdateStatus("update-available");
 				setUpdateInfo({
 					latestVersion,
-					releaseUrl: data.html_url,
+					releaseUrl: data.html_url || "https://github.com/neelkanth-patel26/Ocal-Screen/releases",
 				});
 			} else {
 				setUpdateStatus("up-to-date");

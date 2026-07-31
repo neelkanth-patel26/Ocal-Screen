@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-electron
+dist-inno
+dist-builder
 dist-ssr
 *.local
 .env

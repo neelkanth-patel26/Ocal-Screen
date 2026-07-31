@@ -43,7 +43,7 @@ $releasePayloadObj = @{
     name = $releaseName
     body = $bodyText
     draft = $false
-    prerelease = $true
+    prerelease = $false
 }
 
 $releaseJson = $releasePayloadObj | ConvertTo-Json -Compress
