@@ -37,6 +37,9 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 			if ((e.target as HTMLElement).closest("button")) return;
 			e.preventDefault();
 			e.stopPropagation();
+			if (window.electronAPI?.setHudOverlayIgnoreMouseEvents) {
+				window.electronAPI.setHudOverlayIgnoreMouseEvents(false);
+			}
 			setIsDragging(true);
 			dragStartRef.current = {
 				startX: e.clientX,
@@ -80,10 +83,13 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 						: "border-white/20 bg-[#0c0c0e]/95 text-white shadow-black/90",
 					isDragging && "scale-[1.02] shadow-2xl border-emerald-500",
 				)}
-				style={{
-					transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`,
-					width: "220px",
-				}}
+				style={
+					{
+						WebkitAppRegion: "no-drag",
+						transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`,
+						width: "220px",
+					} as React.CSSProperties
+				}
 			>
 				{/* Top Header Bar */}
 				<div
