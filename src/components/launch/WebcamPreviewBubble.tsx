@@ -8,13 +8,29 @@ interface WebcamPreviewBubbleProps {
 	isLight?: boolean;
 }
 
+const STORAGE_KEY = "ocal_cam_preview_pos";
+
 export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbleProps>(
 	({ stream, enabled, isLight = false }, ref) => {
 		const videoRef = useRef<HTMLVideoElement | null>(null);
 		const [isMirrored, setIsMirrored] = useState(true);
 
-		// Dragging state
-		const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+		// Position state: absolute screen coordinates (px)
+		const [position, setPosition] = useState<{ x: number; y: number }>(() => {
+			try {
+				const saved = localStorage.getItem(STORAGE_KEY);
+				if (saved) {
+					const parsed = JSON.parse(saved);
+					if (typeof parsed.x === "number" && typeof parsed.y === "number") {
+						return parsed;
+					}
+				}
+			} catch {
+				// Fallback to default position
+			}
+			return { x: 30, y: Math.max(40, (window.innerHeight || 800) - 220) };
+		});
+
 		const [isDragging, setIsDragging] = useState(false);
 		const dragStartRef = useRef<{ startX: number; startY: number; initX: number; initY: number } | null>(null);
 
@@ -33,7 +49,6 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 		if (!enabled) return null;
 
 		const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-			// Don't drag if clicking buttons
 			if ((e.target as HTMLElement).closest("button")) return;
 			e.preventDefault();
 			e.stopPropagation();
@@ -44,8 +59,8 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 			dragStartRef.current = {
 				startX: e.clientX,
 				startY: e.clientY,
-				initX: offset.x,
-				initY: offset.y,
+				initX: position.x,
+				initY: position.y,
 			};
 			e.currentTarget.setPointerCapture(e.pointerId);
 		};
@@ -54,17 +69,27 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 			if (!isDragging || !dragStartRef.current) return;
 			const dx = e.clientX - dragStartRef.current.startX;
 			const dy = e.clientY - dragStartRef.current.startY;
-			setOffset({
-				x: dragStartRef.current.initX + dx,
-				y: dragStartRef.current.initY + dy,
-			});
+
+			const maxX = Math.max(10, (window.innerWidth || 1200) - 230);
+			const maxY = Math.max(10, (window.innerHeight || 800) - 170);
+
+			const newX = Math.min(maxX, Math.max(10, dragStartRef.current.initX + dx));
+			const newY = Math.min(maxY, Math.max(10, dragStartRef.current.initY + dy));
+
+			setPosition({ x: newX, y: newY });
 		};
 
 		const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+			if (!isDragging) return;
 			setIsDragging(false);
 			dragStartRef.current = null;
 			if (e.currentTarget.hasPointerCapture(e.pointerId)) {
 				e.currentTarget.releasePointerCapture(e.pointerId);
+			}
+			try {
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(position));
+			} catch {
+				// Ignore storage error
 			}
 		};
 
@@ -77,7 +102,7 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 				onPointerUp={handlePointerUp}
 				onPointerCancel={handlePointerUp}
 				className={cn(
-					"fixed bottom-[68px] left-1/2 z-50 flex flex-col rounded-2xl border overflow-hidden shadow-2xl transition-shadow select-none animate-in fade-in-0 zoom-in-95 duration-200 cursor-grab active:cursor-grabbing group",
+					"fixed z-50 flex flex-col rounded-2xl border overflow-hidden shadow-2xl transition-shadow select-none animate-in fade-in-0 zoom-in-95 duration-200 cursor-grab active:cursor-grabbing group",
 					isLight
 						? "border-slate-300 bg-white/95 text-slate-900 shadow-slate-400/30"
 						: "border-white/20 bg-[#0c0c0e]/95 text-white shadow-black/90",
@@ -86,7 +111,8 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 				style={
 					{
 						WebkitAppRegion: "no-drag",
-						transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`,
+						left: `${position.x}px`,
+						top: `${position.y}px`,
 						width: "220px",
 					} as React.CSSProperties
 				}

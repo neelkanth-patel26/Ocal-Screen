@@ -47,37 +47,26 @@ ipcMain.on("hud-overlay-move-by", (_event, deltaX: number, deltaY: number) => {
 // Resize the HUD to fit its rendered content. Anchored by its bottom-centre so it
 // stays where the user dragged it while only growing/shrinking, which lets the
 // vertical tray layout grow tall instead of scrolling inside a fixed window.
-ipcMain.on("hud-overlay-set-size", (_event, width: number, height: number) => {
+ipcMain.on("hud-overlay-set-size", (_event, _width?: number, _height?: number) => {
 	if (
 		!hudOverlayWindow ||
-		hudOverlayWindow.isDestroyed() ||
-		!Number.isFinite(width) ||
-		!Number.isFinite(height)
+		hudOverlayWindow.isDestroyed()
 	) {
 		return;
 	}
 
+	const primaryDisplay = screen.getPrimaryDisplay();
+	const { workArea } = primaryDisplay;
 	const bounds = hudOverlayWindow.getBounds();
 
-	// Clamp to the work area of the display the HUD sits on; on a short screen the
-	// vertical layout can exceed the display, where the bar's own overflow scroll takes over.
-	const { workArea } = screen.getDisplayMatching(bounds);
-	const nextWidth = Math.min(workArea.width, Math.max(1, Math.round(width)));
-	const nextHeight = Math.min(workArea.height, Math.max(1, Math.round(height)));
-
-	if (bounds.width === nextWidth && bounds.height === nextHeight) {
-		return;
+	if (bounds.width !== workArea.width || bounds.height !== workArea.height) {
+		hudOverlayWindow.setBounds({
+			x: workArea.x,
+			y: workArea.y,
+			width: workArea.width,
+			height: workArea.height,
+		});
 	}
-
-	const centerX = bounds.x + bounds.width / 2;
-	const bottomY = bounds.y + bounds.height;
-
-	hudOverlayWindow.setBounds({
-		x: Math.round(centerX - nextWidth / 2),
-		y: Math.round(bottomY - nextHeight),
-		width: nextWidth,
-		height: nextHeight,
-	});
 });
 
 /**
@@ -88,22 +77,12 @@ export function createHudOverlayWindow(): BrowserWindow {
 	const primaryDisplay = screen.getPrimaryDisplay();
 	const { workArea } = primaryDisplay;
 
-	const windowWidth = 600;
-	const windowHeight = 160;
-
-	const x = Math.floor(workArea.x + (workArea.width - windowWidth) / 2);
-	const y = Math.floor(workArea.y + workArea.height - windowHeight - 5);
-
 	const win = new BrowserWindow({
 		title: "__ocal_hud__",
-		width: windowWidth,
-		height: windowHeight,
-		// Min/max are intentionally loose: the renderer resizes to fit content via
-		// "hud-overlay-set-size" (above), needed for the vertical tray to grow taller.
-		minWidth: 120,
-		minHeight: 80,
-		x: x,
-		y: y,
+		width: workArea.width,
+		height: workArea.height,
+		x: workArea.x,
+		y: workArea.y,
 		frame: false,
 		transparent: true,
 		// Fully-transparent ARGB backing. Without this macOS draws the window as a
