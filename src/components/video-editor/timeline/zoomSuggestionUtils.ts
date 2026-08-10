@@ -2,10 +2,12 @@ import type { CursorTelemetryPoint, ZoomFocus } from "../types";
 import { interpolateCursorAt } from "../videoPlayback/cursorFollowUtils";
 
 export const MIN_DWELL_DURATION_MS = 300;
-export const MAX_DWELL_DURATION_MS = 3200;
-export const DWELL_MOVE_THRESHOLD = 0.035;
+/** Extended to 8 s so long typing / music-input sessions stay in one dwell window. */
+export const MAX_DWELL_DURATION_MS = 8000;
+/** Wider threshold so minor hand wobble during typing doesn't break a dwell run. */
+export const DWELL_MOVE_THRESHOLD = 0.05;
 /** Minimum spacing between two accepted suggestion centres. */
-export const SUGGESTION_SPACING_MS = 1800;
+export const SUGGESTION_SPACING_MS = 1200;
 
 function clampFocus(val: number): number {
 	return Math.max(0.15, Math.min(0.85, val));
