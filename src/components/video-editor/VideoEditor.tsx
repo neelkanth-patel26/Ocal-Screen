@@ -1150,6 +1150,9 @@ export default function VideoEditor() {
 
 	// Auto-suggest zooms once per fresh recording (no existing zooms, telemetry
 	// Auto-suggest zooms once per fresh recording or imported video.
+	// NOTE: cursor telemetry loads asynchronously — only mark the source as
+	// processed once we have actual cursor data so the effect retries until data
+	// is ready, preventing empty suggestion sets when data arrives late.
 	const autoProcessedSourceRef = useRef<string | null>(null);
 	useEffect(() => {
 		if (!autoZoomEnabled || duration <= 0) return;
@@ -1159,6 +1162,9 @@ export default function VideoEditor() {
 			autoProcessedSourceRef.current = sourceKey;
 			return;
 		}
+		// If cursor data hasn't loaded yet, wait — don't mark as processed.
+		const hasCursorData = cursorTelemetry.length > 0 || cursorClickTimestamps.length > 0;
+		if (!hasCursorData) return;
 		const newRegions = buildAutoZoomRegions([]);
 		autoProcessedSourceRef.current = sourceKey;
 		if (newRegions.length === 0) return;
@@ -1171,6 +1177,8 @@ export default function VideoEditor() {
 		duration,
 		zoomRegions,
 		buildAutoZoomRegions,
+		cursorTelemetry,
+		cursorClickTimestamps,
 		pushState,
 	]);
 
