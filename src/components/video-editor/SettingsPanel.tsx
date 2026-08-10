@@ -66,6 +66,7 @@ import { AboutDialog } from "./AboutDialog";
 import { ReportBugDialog } from "./ReportBugDialog";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
+import { VideoLayersSettingsPanel } from "./VideoLayersSettingsPanel";
 import { BACKGROUND_IMAGE_ACCEPT, isSupportedBackgroundImageType } from "./backgroundImageUpload";
 import { CropControl } from "./CropControl";
 import { parseCustomPlaybackSpeedInput } from "./customPlaybackSpeed";
@@ -363,6 +364,10 @@ interface SettingsPanelProps {
 	onCursorThemeChange?: (theme: string) => void;
 	hasCursorData?: boolean;
 	showCursorSettings?: boolean;
+	videoLayers?: import("./types").VideoLayerTrack[];
+	onAddVideoLayer?: () => void;
+	onUpdateVideoLayer?: (id: string, updates: Partial<import("./types").VideoLayerTrack>) => void;
+	onDeleteVideoLayer?: (id: string) => void;
 }
 
 export default SettingsPanel;
@@ -376,7 +381,7 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 	{ depth: 6, label: "5×" },
 ];
 
-type SettingsPanelMode = "background" | "effects" | "layout" | "cursor" | "export" | "timeline";
+type SettingsPanelMode = "background" | "effects" | "layout" | "video-layers" | "cursor" | "export" | "timeline";
 
 const MP4_EXPORT_SHORT_SIDES = {
 	medium: 720,
@@ -557,6 +562,10 @@ export function SettingsPanel({
 	onCursorThemeChange,
 	hasCursorData = false,
 	showCursorSettings = true,
+	videoLayers = [],
+	onAddVideoLayer,
+	onUpdateVideoLayer,
+	onDeleteVideoLayer,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [activePanelMode, setActivePanelMode] = useState<SettingsPanelMode>("background");
@@ -724,6 +733,7 @@ export function SettingsPanel({
 		{ id: "background", label: t("background.title"), icon: Palette },
 		{ id: "effects", label: t("effects.title"), icon: SlidersHorizontal },
 		{ id: "layout", label: t("layout.title"), icon: LayoutPanelTop, disabled: !hasWebcam },
+		{ id: "video-layers", label: "Video Layers", icon: Film },
 		{ id: "timeline", label: t("timeline.title"), icon: Brackets },
 		...(hasCursorPanel
 			? [
@@ -1402,6 +1412,18 @@ export function SettingsPanel({
 
 					{!hasTimelineSelection && (
 						<Accordion type="multiple" value={[activePanelMode]} className="space-y-2">
+							{activePanelMode === "video-layers" && (
+								<AccordionItem value="video-layers" className="editor-panel-section px-3 border-none">
+									<VideoLayersSettingsPanel
+										videoLayers={videoLayers || []}
+										isLight={isLight}
+										activeAccent={activeAccent}
+										onAddLayer={() => onAddVideoLayer?.()}
+										onUpdateLayer={(id, updates) => onUpdateVideoLayer?.(id, updates)}
+										onDeleteLayer={(id) => onDeleteVideoLayer?.(id)}
+									/>
+								</AccordionItem>
+							)}
 							{hasWebcam && activePanelMode === "layout" && (
 								<AccordionItem value="layout" className="editor-panel-section px-3">
 									<AccordionTrigger className="py-2.5 hover:no-underline">

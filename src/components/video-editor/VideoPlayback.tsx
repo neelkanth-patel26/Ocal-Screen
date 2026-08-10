@@ -93,6 +93,7 @@ import {
 interface VideoPlaybackProps {
 	videoPath: string;
 	webcamVideoPath?: string;
+	videoLayers?: import("./types").VideoLayerTrack[];
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
 	webcamMirrored?: boolean;
@@ -220,6 +221,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		{
 			videoPath,
 			webcamVideoPath,
+			videoLayers = [],
 			webcamLayoutPreset,
 			webcamMaskShape,
 			webcamMirrored = false,
@@ -1970,6 +1972,46 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								</div>
 							);
 						})()}
+					{/* Additional Multi-Video & Camera Track Overlays */}
+					{videoLayers.map((layer) => {
+						if (!layer.enabled) return null;
+						const shapeClip = getCssClipPath(layer.maskShape || "circle");
+						return (
+							<div
+								key={layer.id}
+								className="absolute pointer-events-auto shadow-lg transition-opacity"
+								style={{
+									left: `${layer.x}%`,
+									top: `${layer.y}%`,
+									width: `${layer.width}%`,
+									height: `${layer.height}%`,
+									zIndex: layer.zIndex || 15,
+									opacity: layer.opacity ?? 1.0,
+									clipPath: shapeClip || undefined,
+									borderRadius: shapeClip ? undefined : layer.maskShape === "rounded" ? "1.5rem" : "0",
+									border: layer.borderWidth ? `${layer.borderWidth}px solid ${layer.borderColor || "#3b82f6"}` : "none",
+									boxShadow: layer.shadowGlow ? `0 0 20px ${layer.borderColor || "#3b82f6"}99` : "none",
+									backgroundColor: "#111",
+								}}
+							>
+								{layer.src ? (
+									<video
+										src={layer.src}
+										className="w-full h-full object-cover"
+										autoPlay
+										loop
+										muted={layer.muted ?? true}
+										playsInline
+									/>
+								) : (
+									<div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-600/30 to-purple-600/30 backdrop-blur-md text-white p-2 text-center border border-white/20">
+										<span className="font-bold text-[11px] truncate max-w-full">{layer.name}</span>
+										<span className="text-[9px] opacity-75">Live Cam / Video Layer</span>
+									</div>
+								)}
+							</div>
+						);
+					})}
 					{/* Render the overlay only once PIXI and video are ready. */}
 					{pixiReady && videoReady && (
 						<div

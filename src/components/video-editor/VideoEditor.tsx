@@ -246,7 +246,52 @@ export default function VideoEditor() {
 		webcamReactiveZoom,
 		webcamSizePreset,
 		webcamPosition,
+		videoLayers,
 	} = editorState;
+
+	const handleAddVideoLayer = useCallback(() => {
+		const newLayerId = `layer-video-${Date.now()}`;
+		const newLayer: import("./types").VideoLayerTrack = {
+			id: newLayerId,
+			name: `Camera / Video Layer ${videoLayers.length + 1}`,
+			type: "live-cam",
+			enabled: true,
+			opacity: 1.0,
+			x: 10 + (videoLayers.length * 15) % 60,
+			y: 10 + (videoLayers.length * 15) % 60,
+			width: 25,
+			height: 25,
+			zIndex: videoLayers.length + 5,
+			maskShape: "rounded",
+			borderWidth: 3,
+			borderColor: "#3b82f6",
+			shadowGlow: true,
+			volume: 1.0,
+			muted: false,
+			startMs: 0,
+		};
+		updateState({ videoLayers: [...videoLayers, newLayer] });
+		toast.success(`Added ${newLayer.name}`);
+	}, [videoLayers, updateState]);
+
+	const handleUpdateVideoLayer = useCallback(
+		(id: string, updates: Partial<import("./types").VideoLayerTrack>) => {
+			const updated = videoLayers.map((layer) =>
+				layer.id === id ? { ...layer, ...updates } : layer,
+			);
+			updateState({ videoLayers: updated });
+		},
+		[videoLayers, updateState],
+	);
+
+	const handleDeleteVideoLayer = useCallback(
+		(id: string) => {
+			const updated = videoLayers.filter((layer) => layer.id !== id);
+			updateState({ videoLayers: updated });
+			toast.info("Video layer removed");
+		},
+		[videoLayers, updateState],
+	);
 
 	// Non-undoable state
 	const [videoPath, setVideoPath] = useState<string | null>(null);
@@ -3108,6 +3153,10 @@ export default function VideoEditor() {
 											hasNativeCursorRecordingData(cursorRecordingData)
 										}
 										showCursorSettings={showCursorSettings}
+										videoLayers={videoLayers}
+										onAddVideoLayer={handleAddVideoLayer}
+										onUpdateVideoLayer={handleUpdateVideoLayer}
+										onDeleteVideoLayer={handleDeleteVideoLayer}
 									/>
 								</div>
 							</div>

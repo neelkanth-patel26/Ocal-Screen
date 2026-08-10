@@ -435,3 +435,49 @@ function clamp(value: number, min: number, max: number) {
 	if (Number.isNaN(value)) return (min + max) / 2;
 	return Math.min(max, Math.max(min, value));
 }
+
+export type VideoLayerType = "main-screen" | "live-cam" | "overlay-video" | "b-roll";
+export type VideoLayerMask = "rectangle" | "circle" | "square" | "rounded";
+
+export interface VideoLayerTrack {
+	id: string;
+	name: string;
+	type: VideoLayerType;
+	src?: string;
+	enabled: boolean;
+	opacity: number; // 0.0 - 1.0
+	x: number; // normalized position percentage (0 - 100)
+	y: number; // normalized position percentage (0 - 100)
+	width: number; // normalized width percentage (10 - 100)
+	height: number; // normalized height percentage (10 - 100)
+	zIndex: number;
+	maskShape?: VideoLayerMask;
+	borderWidth?: number;
+	borderColor?: string;
+	shadowGlow?: boolean;
+	volume?: number;
+	muted?: boolean;
+	startMs?: number;
+	endMs?: number;
+}
+
+export const DEFAULT_LIVE_CAM_LAYER: VideoLayerTrack = {
+	id: "layer-live-cam-default",
+	name: "Live Camera / PiP",
+	type: "live-cam",
+	enabled: true,
+	opacity: 1.0,
+	x: 72,
+	y: 72,
+	width: 25,
+	height: 25,
+	zIndex: 10,
+	maskShape: "circle",
+	borderWidth: 3,
+	borderColor: "#3b82f6",
+	shadowGlow: true,
+	volume: 1.0,
+	muted: false,
+	startMs: 0,
+};
+
