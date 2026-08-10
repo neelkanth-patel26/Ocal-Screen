@@ -34,6 +34,7 @@ import { Button } from "../ui/button";
 import { Tooltip } from "../ui/tooltip";
 import styles from "./LaunchWindow.module.css";
 import { openSourceSelectorWithPermissionRetry } from "./openSourceSelectorFlow";
+import { WebcamPreviewBubble } from "./WebcamPreviewBubble";
 
 const ICON_SIZE = 20;
 
@@ -110,6 +111,7 @@ export function LaunchWindow() {
 		setSystemAudioEnabled,
 		webcamEnabled,
 		setWebcamEnabled,
+		webcamStream,
 		webcamDeviceId,
 		setWebcamDeviceId,
 		setWebcamDeviceName,
@@ -568,6 +570,8 @@ export function LaunchWindow() {
 				}
 			}}
 		>
+			<WebcamPreviewBubble stream={webcamStream} enabled={webcamEnabled} isLight={isLight} />
+
 			{systemLocaleSuggestion && (
 				<div
 					data-hud-interactive="true"

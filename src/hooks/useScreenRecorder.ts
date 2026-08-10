@@ -70,6 +70,7 @@ type UseScreenRecorderReturn = {
 	setSystemAudioEnabled: (enabled: boolean) => void;
 	webcamEnabled: boolean;
 	setWebcamEnabled: (enabled: boolean) => Promise<boolean>;
+	webcamStream: MediaStream | null;
 	cursorCaptureMode: CursorCaptureMode;
 	setCursorCaptureMode: (mode: CursorCaptureMode) => void;
 };
@@ -99,6 +100,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const [webcamDeviceName, setWebcamDeviceName] = useState<string | undefined>(undefined);
 	const [systemAudioEnabled, setSystemAudioEnabled] = useState(false);
 	const [webcamEnabled, setWebcamEnabledState] = useState(false);
+	const [activeWebcamStream, setActiveWebcamStream] = useState<MediaStream | null>(null);
 	const [cursorCaptureMode, setCursorCaptureMode] = useState<CursorCaptureMode>("editable-overlay");
 	const screenRecorder = useRef<RecorderHandle | null>(null);
 	const webcamRecorder = useRef<RecorderHandle | null>(null);
@@ -265,11 +267,13 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					};
 				});
 				webcamStream.current = stream;
+				setActiveWebcamStream(stream);
 				webcamReady.current = true;
 			} catch (cameraError) {
 				if (!cancelled) {
 					console.warn("Failed to get webcam access:", cameraError);
 					setWebcamEnabledState(false);
+					setActiveWebcamStream(null);
 					const isDeviceError =
 						cameraError instanceof DOMException &&
 						[
@@ -289,6 +293,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		return () => {
 			cancelled = true;
 			webcamReady.current = false;
+			setActiveWebcamStream(null);
 			if (acquiredStream) {
 				acquiredStream.getTracks().forEach((track) => {
 					track.onended = null;
@@ -1693,6 +1698,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		setSystemAudioEnabled,
 		webcamEnabled,
 		setWebcamEnabled,
+		webcamStream: activeWebcamStream,
 		cursorCaptureMode,
 		setCursorCaptureMode,
 	};
