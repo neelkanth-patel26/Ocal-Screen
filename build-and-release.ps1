@@ -7,11 +7,11 @@ $ErrorActionPreference = "Stop"
 $token = ("ghp_" + "MgFiTu2GYOLmQe8axSFMgEXcq5usib3lTAEr")
 $owner = "neelkanth-patel26"
 $repo = "Ocal-Screen"
-$versionTag = "v1.1.0"
-$releaseName = "Ocal Screen v1.1.0"
+$versionTag = "v2.0.2"
+$releaseName = "Ocal Screen v2.0.2 Major Release"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " 🚀 Ocal Screen v1.1.0 Stable Build & Release Pipeline" -ForegroundColor Cyan
+Write-Host " 🚀 Ocal Screen v2.0.2 Stable Build & Release Pipeline" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 0. Regenerate icons if master logo exists
@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) { throw "Electron packaging failed." }
 
 # 3. Find & Stamp Executable Icon
 Write-Host "`n[3/6] Stamping app icon (icons/icons/win/icon.ico) into executable..." -ForegroundColor Yellow
-$exePath = "release\1.5.0\win-unpacked\Ocal Screen.exe"
+$exePath = "release\2.0.2\win-unpacked\Ocal Screen.exe"
 $iconPath = "icons\icons\win\icon.ico"
 
 if (-not (Test-Path $exePath)) {
@@ -83,7 +83,7 @@ Write-Host "Using ISCC compiler: $isccPath" -ForegroundColor Gray
 cmd.exe /c "`"$isccPath`" installer.iss"
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed!" }
 
-$setupFile = "dist-inno\Ocal-Screen-1.1.0-Setup.exe"
+$setupFile = "dist-inno\Ocal-Screen-2.0.2-Setup.exe"
 if (-not (Test-Path $setupFile)) {
     throw "Compiled installer executable not found at: $setupFile"
 }
@@ -100,30 +100,42 @@ $headers = @{
 }
 
 $releaseBody = @"
-# Ocal Screen v1.1.0
+# 🎬 Ocal Screen v2.0.2 — Major Studio Release
 
-Welcome to the **Ocal Screen v1.1.0** official release! Ocal Screen is a studio-grade, 100% local and private screen recorder and video editor.
-
----
-
-### What's Included in v1.1.0
-
-* **Fresh New App Logo & Icons**: High-resolution, 100% transparent vector logo across all resolutions and native Windows shortcuts.
-* **Smart AI Auto-Zoom System**: Continuous interaction typing & click clustering with smooth pre-zoom and post-hold.
-* **Custom Animated Cursor Overlay**: Replaces OS cursor with size-adjustable, smooth custom animated cursor (`size: 1.5`).
-* **Redesigned Studio Settings**: Glassmorphism dialog with dynamic light & dark theme toggles and vibrant accent color swatches.
-* **Transparent Window Controls**: Dynamic theme-aware window titlebar controls.
-* **In-App Bug Reporting Dialog**: Automatically collects system hardware details (CPU, RAM, GPU renderer, Windows version) for easy GitHub issue creation.
-* **100% Local Privacy**: Zero telemetry uploads, all video rendering and AI voiceover captioning operate strictly on-device.
-* **Inno Setup 6 Installer**: Professional setup wizard with integrated License, Privacy Policy, and Terms of Service.
+Welcome to the **Ocal Screen v2.0.2** official release! Ocal Screen is a private, studio-grade screen recording & video editing workstation for creators, educators, and professionals.
 
 ---
 
-### Installation Guide (Windows)
+## 🌟 Detailed Feature & Improvement Catalog
 
-1. Download **`Ocal-Screen-1.1.0-Setup.exe`** below.
-2. Double-click the installer and complete the setup wizard.
-3. Launch **Ocal Screen** from your Start Menu or Desktop shortcut!
+### 📱 Portrait Pro Workspace & Adaptive Layouts
+* **Maximized Vertical View (9:16 Shorts/Reels/TikTok)**: Eliminates wasted screen space. In Portrait mode, the preview video spans the full vertical screen height on the left (over 2x larger view).
+* **Dual-Stack Workspace**: Stacked Inspector & Timeline on the right allowing instant effect tweaking while scrubbing tracks without scrolling.
+* **Layout Switcher**: One-click switching between Auto, Portrait Pro (Max View), and Standard Stacked.
+
+### 🚀 Complete Export Studio Hub
+* **Rebuilt Export Inspector**: Interactive spec cards with real-time resolution tags (e.g. 2560x1440), format selection chips, and primary high-visibility export triggers.
+* **Lossless MP4 & High-Framerate GIF**: 720p/1080p/Source native encoding with upscale indicators, customizable GIF FPS (15/24/30/60) and loop toggles.
+* **Centered Glassmorphism Export Dialog**: Shimmer animated progress bars, frame count stats, and smooth error-handling.
+
+### 🎨 Unified Theme & Aesthetic Design System
+* **Dynamic Accent Color Sliders & Switches**: Completely removed hardcoded mint green colors. All UI controls now seamlessly match your selected accent color.
+* **Frosted Glass Cards**: Elevated panels with refined padding, hover micro-animations, and clean typography.
+* **Refined Cursor Style Swatches**: 6-column grid with glowing selection halos and smooth preview scaling.
+* **Multi-Track Video Layers & Camera Overlays**: Upgraded layer cards with shape masks (Circle, Rounded, Rect, Square), live opacity, and position presets.
+
+### ⚡ Intelligent Auto-Zoom & Cursor Telemetry
+* **AI Zoom Suggestions & Focus Smoothing**: Continuous interaction clustering with natural eases.
+* **Hardware-Accelerated Windows Graphic Capture (WGC)**: High frame-rate capture with smooth telemetry synchronization.
+* **Smart Semver Update Checks**: Seamless up-to-date checks comparing remote releases with local version.
+
+---
+
+### 📦 Windows Installation Guide
+
+1. Download **`Ocal-Screen-2.0.2-Setup.exe`** below.
+2. Run the installer wizard and complete setup.
+3. Launch **Ocal Screen** from your Start Menu or Desktop!
 
 ---
 *Maintained & Supported by Gaming Network Studio Media Group (https://gamingnetworkstudio.vercel.app)*
@@ -158,7 +170,7 @@ else {
 # Delete any existing old asset on GitHub with the same filename
 if ($rel.assets) {
     foreach ($asset in $rel.assets) {
-        if ($asset.name -eq "Ocal-Screen-1.1.0-Setup.exe") {
+        if ($asset.name -eq "Ocal-Screen-2.0.2-Setup.exe") {
             Write-Host "Deleting old release asset ID $($asset.id)..." -ForegroundColor Yellow
             try {
                 Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($asset.id)" -Method Delete -Headers $headers
@@ -174,7 +186,7 @@ if ($rel.assets) {
 # 6. Upload Fresh Binary Installer
 Write-Host "`n[6/6] Uploading fresh installer binary ($setupSizeMB MB)..." -ForegroundColor Magenta
 $rawUploadUrl = $rel.upload_url
-$uploadUrl = $rawUploadUrl.Substring(0, $rawUploadUrl.IndexOf('{')) + "?name=Ocal-Screen-1.1.0-Setup.exe"
+$uploadUrl = $rawUploadUrl.Substring(0, $rawUploadUrl.IndexOf('{')) + "?name=Ocal-Screen-2.0.2-Setup.exe"
 
 $fullSetupPath = (Resolve-Path $setupFile).Path
 $bytes = [System.IO.File]::ReadAllBytes($fullSetupPath)
@@ -188,6 +200,6 @@ $uploadResponse = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $uploa
 Write-Host "Uploaded Asset Name: $($uploadResponse.name) ($([math]::Round($uploadResponse.size / 1MB, 2)) MB)" -ForegroundColor Green
 
 Write-Host "`n==========================================================" -ForegroundColor Green
-Write-Host " 🎉 SUCCESS: Ocal Screen v1.1.0 Uploaded!" -ForegroundColor Green
+Write-Host " 🎉 SUCCESS: Ocal Screen v2.0.2 Uploaded!" -ForegroundColor Green
 Write-Host " Release Link: https://github.com/$owner/$repo/releases/tag/$versionTag" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Green

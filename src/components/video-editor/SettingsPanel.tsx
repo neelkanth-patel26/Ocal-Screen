@@ -48,7 +48,6 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useScopedT } from "@/contexts/I18nContext";
 import { getAssetPath } from "@/lib/assetPath";
-import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
 import { CURSOR_THEMES, DEFAULT_CURSOR_THEME_ID } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
@@ -57,16 +56,15 @@ import {
 	GIF_FRAME_RATES,
 	GIF_SIZE_PRESETS,
 } from "@/lib/exporter";
+import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { cn } from "@/lib/utils";
 import { resolveImageWallpaperUrl, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import { getTestId } from "@/utils/getTestId";
 import ColorPicker from "../ui/color-picker";
 import { AboutDialog } from "./AboutDialog";
-import { ReportBugDialog } from "./ReportBugDialog";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { BlurSettingsPanel } from "./BlurSettingsPanel";
-import { VideoLayersSettingsPanel } from "./VideoLayersSettingsPanel";
 import { BACKGROUND_IMAGE_ACCEPT, isSupportedBackgroundImageType } from "./backgroundImageUpload";
 import { CropControl } from "./CropControl";
 import { parseCustomPlaybackSpeedInput } from "./customPlaybackSpeed";
@@ -80,6 +78,7 @@ import {
 } from "./editorDefaults";
 import { BLUR_REGIONS_ENABLED } from "./featureFlags";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
+import { ReportBugDialog } from "./ReportBugDialog";
 import type {
 	AnnotationRegion,
 	AnnotationType,
@@ -104,6 +103,7 @@ import {
 	SPEED_OPTIONS,
 	ZOOM_DEPTH_SCALES,
 } from "./types";
+import { VideoLayersSettingsPanel } from "./VideoLayersSettingsPanel";
 import { getFocusBoundsForScale } from "./videoPlayback/focusUtils";
 
 function CustomSpeedInput({
@@ -221,7 +221,7 @@ function ZoomFocusCoordInput({
 				"h-7 w-full rounded-md border bg-white/5 px-2 text-[11px] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed",
 				isLight
 					? "border-[#e4e4e7] bg-white text-slate-800 focus:border-slate-400"
-					: "border-white/10 text-slate-200 focus:border-[#34B27B]/50 focus:ring-1 focus:ring-[#34B27B]/30"
+					: "border-white/10 text-slate-200 focus:border-white/30 focus:ring-1 focus:ring-white/20",
 			)}
 		/>
 	);
@@ -381,7 +381,14 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 	{ depth: 6, label: "5×" },
 ];
 
-type SettingsPanelMode = "background" | "effects" | "layout" | "video-layers" | "cursor" | "export" | "timeline";
+type SettingsPanelMode =
+	| "background"
+	| "effects"
+	| "layout"
+	| "video-layers"
+	| "cursor"
+	| "export"
+	| "timeline";
 
 const MP4_EXPORT_SHORT_SIDES = {
 	medium: 720,
@@ -419,11 +426,7 @@ function WallpaperSwatch({
 		<div
 			className={cn(
 				"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
-				isSelected
-					? ""
-					: isLight
-						? "border-[#e4e4e7] bg-[#f4f4f5]"
-						: "border-white/10 bg-white/5",
+				isSelected ? "" : isLight ? "border-[#e4e4e7] bg-[#f4f4f5]" : "border-white/10 bg-white/5",
 			)}
 			style={{
 				borderColor: isSelected ? activeAccent.hex : undefined,
@@ -833,62 +836,71 @@ export function SettingsPanel({
 
 	const commonFooterLinks = (
 		<>
-		<div className={`grid grid-cols-2 gap-1 pt-3 mt-3 border-t ${footerIsLight ? "border-[#e4e4e7]" : "border-white/10"}`}>
-			<button
-				type="button"
-				onClick={() => setReportBugOpen(true)}
-				className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-					footerIsLight
-						? "text-slate-500 hover:text-slate-800 hover:bg-[#f4f4f5]"
-						: "text-slate-400 hover:text-white hover:bg-white/5"
-				}`}
+			<div
+				className={cn(
+					"grid grid-cols-2 gap-1.5 pt-3 mt-3 border-t",
+					footerIsLight ? "border-[#e4e4e7]" : "border-white/[0.08]",
+				)}
 			>
-				<Bug className="w-3 h-3 shrink-0" style={{ color: footerAccent.hex }} />
-				{t("support.reportBug")}
-			</button>
-			{onSaveDiagnostic && (
 				<button
 					type="button"
-					onClick={onSaveDiagnostic}
-					className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+					onClick={() => setReportBugOpen(true)}
+					className={cn(
+						"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border",
 						footerIsLight
-							? "text-slate-500 hover:text-slate-800 hover:bg-[#f4f4f5]"
-							: "text-slate-400 hover:text-white hover:bg-white/5"
-					}`}
+							? "text-slate-600 border-[#e4e4e7] bg-white hover:text-slate-900 hover:bg-[#f4f4f5] shadow-2xs"
+							: "text-slate-300 border-white/[0.06] bg-white/[0.02] hover:text-white hover:bg-white/[0.06] hover:border-white/10",
+					)}
 				>
-					<FileDown className="w-3 h-3 shrink-0" style={{ color: footerAccent.hex }} />
-					{t("support.saveDiagnostics")}
+					<Bug className="w-3.5 h-3.5 shrink-0" style={{ color: footerAccent.hex }} />
+					<span className="truncate">{t("support.reportBug")}</span>
 				</button>
-			)}
-			<button
-				type="button"
-				onClick={() => {
-					window.electronAPI?.openExternalUrl("https://github.com/neelkanth-patel26/Ocal-Screen");
-				}}
-				className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-					footerIsLight
-						? "text-slate-500 hover:text-slate-800 hover:bg-[#f4f4f5]"
-						: "text-slate-400 hover:text-white hover:bg-white/5"
-				}`}
-			>
-				<Star className="w-3 h-3 shrink-0 text-amber-400 fill-amber-400" />
-				{t("support.starOnGithub")}
-			</button>
-			<button
-				type="button"
-				onClick={() => setAboutOpen(true)}
-				className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-					footerIsLight
-						? "text-slate-500 hover:text-slate-800 hover:bg-[#f4f4f5]"
-						: "text-slate-400 hover:text-white hover:bg-white/5"
-				}`}
-			>
-				<Info className="w-3 h-3 shrink-0" style={{ color: footerAccent.hex }} />
-				About
-			</button>
-		</div>
-		<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
-		<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
+				{onSaveDiagnostic && (
+					<button
+						type="button"
+						onClick={onSaveDiagnostic}
+						className={cn(
+							"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border",
+							footerIsLight
+								? "text-slate-600 border-[#e4e4e7] bg-white hover:text-slate-900 hover:bg-[#f4f4f5] shadow-2xs"
+								: "text-slate-300 border-white/[0.06] bg-white/[0.02] hover:text-white hover:bg-white/[0.06] hover:border-white/10",
+						)}
+					>
+						<FileDown className="w-3.5 h-3.5 shrink-0" style={{ color: footerAccent.hex }} />
+						<span className="truncate">{t("support.saveDiagnostics")}</span>
+					</button>
+				)}
+				<button
+					type="button"
+					onClick={() => {
+						window.electronAPI?.openExternalUrl("https://github.com/neelkanth-patel26/Ocal-Screen");
+					}}
+					className={cn(
+						"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border",
+						footerIsLight
+							? "text-slate-600 border-[#e4e4e7] bg-white hover:text-slate-900 hover:bg-[#f4f4f5] shadow-2xs"
+							: "text-slate-300 border-white/[0.06] bg-white/[0.02] hover:text-white hover:bg-white/[0.06] hover:border-white/10",
+					)}
+				>
+					<Star className="w-3.5 h-3.5 shrink-0 text-amber-400 fill-amber-400" />
+					<span className="truncate">{t("support.starOnGithub")}</span>
+				</button>
+				<button
+					type="button"
+					onClick={() => setAboutOpen(true)}
+					className={cn(
+						"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border",
+						footerIsLight
+							? "text-slate-600 border-[#e4e4e7] bg-white hover:text-slate-900 hover:bg-[#f4f4f5] shadow-2xs"
+							: "text-slate-300 border-white/[0.06] bg-white/[0.02] hover:text-white hover:bg-white/[0.06] hover:border-white/10",
+					)}
+				>
+					<Info className="w-3.5 h-3.5 shrink-0" style={{ color: footerAccent.hex }} />
+					<span className="truncate">About</span>
+				</button>
+			</div>
+			<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+			<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
 		</>
 	);
 
@@ -919,7 +931,9 @@ export function SettingsPanel({
 						onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
 					/>
 				</div>
-				<div className={`flex-shrink-0 p-3 border-t ${footerIsLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}>
+				<div
+					className={`flex-shrink-0 p-3 border-t ${footerIsLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}
+				>
 					{commonFooterLinks}
 				</div>
 			</div>
@@ -937,7 +951,9 @@ export function SettingsPanel({
 						onDelete={() => onBlurDelete(selectedBlur.id)}
 					/>
 				</div>
-				<div className={`flex-shrink-0 p-3 border-t ${footerIsLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}>
+				<div
+					className={`flex-shrink-0 p-3 border-t ${footerIsLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}
+				>
 					{commonFooterLinks}
 				</div>
 			</div>
@@ -955,17 +971,26 @@ export function SettingsPanel({
 
 	return (
 		<div
+			style={{ "--active-accent-color": activeAccent.hex } as React.CSSProperties}
 			className={`editor-inspector-shell flex min-w-0 flex-col h-full overflow-hidden border-l ${
-				isLight ? "bg-white border-[#e4e4e7] text-[#18181b]" : "bg-[#09090c] border-white/10 text-slate-200"
+				isLight
+					? "bg-white border-[#e4e4e7] text-[#18181b]"
+					: "bg-[#09090c] border-white/10 text-slate-200"
 			}`}
 		>
 			{/* Top Horizontal Navigation Segmented Tabs */}
 			<div
-				className={`p-2 border-b flex items-center justify-between gap-1.5 shrink-0 ${
-					isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/40 border-white/10"
-				}`}
+				className={cn(
+					"p-2.5 border-b flex items-center justify-between gap-2 shrink-0 backdrop-blur-md",
+					isLight ? "bg-white/80 border-[#e4e4e7]" : "bg-[#090a0f]/80 border-white/[0.08]",
+				)}
 			>
-				<div className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+				<div
+					className={cn(
+						"flex items-center gap-1 p-1 rounded-2xl border flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shadow-2xs",
+						isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/[0.03] border-white/[0.06]",
+					)}
+				>
 					{allModes.map((mode) => {
 						const Icon = mode.icon;
 						const isActive = activePanelMode === mode.id && !hasTimelineSelection;
@@ -986,14 +1011,14 @@ export function SettingsPanel({
 										: undefined
 								}
 								className={cn(
-									"flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer select-none",
+									"flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer select-none",
 									mode.disabled
-										? "cursor-not-allowed opacity-40"
+										? "cursor-not-allowed opacity-30"
 										: isActive
 											? "shadow-md scale-[1.02]"
 											: isLight
 												? "text-slate-600 hover:text-black hover:bg-white"
-												: "text-slate-400 hover:text-white hover:bg-white/10",
+												: "text-slate-400 hover:text-white hover:bg-white/[0.06]",
 								)}
 							>
 								<Icon className="w-3.5 h-3.5" />
@@ -1007,1128 +1032,1365 @@ export function SettingsPanel({
 					type="button"
 					title={t("crop.cropVideo")}
 					onClick={handleCropToggle}
-					className={`flex h-7 w-7 items-center justify-center rounded-full border transition-all shrink-0 cursor-pointer ${
+					className={cn(
+						"flex h-9 w-9 items-center justify-center rounded-2xl border transition-all shrink-0 cursor-pointer shadow-2xs",
 						isLight
-							? "border-[#e4e4e7] bg-white text-slate-700 hover:bg-[#e4e4e7]"
-							: "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
-					}`}
+							? "border-[#e4e4e7] bg-white text-slate-700 hover:bg-[#f4f4f5] hover:text-black"
+							: "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/20",
+					)}
 				>
-					<Crop className="h-3.5 w-3.5" />
+					<Crop className="h-4 w-4" />
 				</button>
 			</div>
 
-			<div className="flex-1 overflow-y-auto custom-scrollbar p-3 pb-0">
+			<div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 pb-2">
 				<div className="mb-3 flex items-center justify-between px-1">
 					<span className={`text-sm font-bold ${isLight ? "text-[#18181b]" : "text-white"}`}>
 						{activeModeLabel}
 					</span>
 					<KeyboardShortcutsHelp />
 				</div>
-					{zoomEnabled && (
-						<div className={cn(
+				{zoomEnabled && (
+					<div
+						className={cn(
 							"p-3.5 rounded-xl border space-y-3.5 shadow-xs mb-3 transition-colors",
-							isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
-						)}>
-							{/* Zoom Level Header & Value Badge */}
-							<div className="flex items-center justify-between">
-								<span className={cn("text-xs font-bold", isLight ? "text-slate-800" : "text-slate-100")}>
-									{t("zoom.level")}
-								</span>
-								<span
-									className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
-									style={{
-										backgroundColor: `${activeAccent.hex}18`,
-										borderColor: `${activeAccent.hex}30`,
-										color: activeAccent.hex
-									}}
-								>
-									{(
-										selectedZoomCustomScale ??
+							isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10",
+						)}
+					>
+						{/* Zoom Level Header & Value Badge */}
+						<div className="flex items-center justify-between">
+							<span
+								className={cn("text-xs font-bold", isLight ? "text-slate-800" : "text-slate-100")}
+							>
+								{t("zoom.level")}
+							</span>
+							<span
+								className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+								style={{
+									backgroundColor: `${activeAccent.hex}18`,
+									borderColor: `${activeAccent.hex}30`,
+									color: activeAccent.hex,
+								}}
+							>
+								{(
+									selectedZoomCustomScale ??
+									(selectedZoomDepth != null
+										? ZOOM_DEPTH_SCALES[selectedZoomDepth]
+										: MIN_ZOOM_SCALE)
+								).toFixed(2)}
+								×
+							</span>
+						</div>
+
+						{/* Preset Buttons Grid */}
+						<div className="grid grid-cols-6 gap-1.5">
+							{ZOOM_DEPTH_OPTIONS.map((option) => {
+								const effectiveScale =
+									selectedZoomCustomScale ??
+									(selectedZoomDepth != null ? ZOOM_DEPTH_SCALES[option.depth] : null);
+								const isActive = effectiveScale === ZOOM_DEPTH_SCALES[option.depth];
+								return (
+									<button
+										key={option.depth}
+										type="button"
+										disabled={!zoomEnabled}
+										onClick={() => onZoomDepthChange?.(option.depth)}
+										style={
+											isActive
+												? {
+														backgroundColor: activeAccent.hex,
+														borderColor: activeAccent.hex,
+														color: activeAccent.textHex,
+													}
+												: undefined
+										}
+										className={cn(
+											"h-8 w-full rounded-xl border px-1 text-center transition-all duration-150 cursor-pointer font-bold text-xs shadow-2xs",
+											isActive
+												? "shadow-sm scale-[1.03]"
+												: isLight
+													? "border-[#e4e4e7] bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+													: "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10",
+										)}
+									>
+										<span>{option.label}</span>
+									</button>
+								);
+							})}
+						</div>
+
+						{/* Slider */}
+						<div>
+							<SliderPrimitive.Root
+								min={MIN_ZOOM_SCALE}
+								max={MAX_ZOOM_SCALE}
+								step={0.01}
+								value={[
+									selectedZoomCustomScale ??
 										(selectedZoomDepth != null
 											? ZOOM_DEPTH_SCALES[selectedZoomDepth]
-											: MIN_ZOOM_SCALE)
-									).toFixed(2)}
-									×
-								</span>
+											: MIN_ZOOM_SCALE),
+								]}
+								onValueChange={(values) => onZoomCustomScaleChange?.(values[0])}
+								onValueCommit={() => onZoomCustomScaleCommit?.()}
+								disabled={!zoomEnabled}
+								className="relative flex w-full touch-none select-none items-center py-1 cursor-pointer"
+							>
+								<SliderPrimitive.Track
+									className={cn(
+										"relative h-1.5 w-full grow overflow-hidden rounded-full border",
+										isLight ? "bg-slate-200 border-[#e4e4e7]" : "bg-white/10 border-white/10",
+									)}
+								>
+									<SliderPrimitive.Range
+										className="absolute h-full transition-colors"
+										style={{ backgroundColor: activeAccent.hex }}
+									/>
+								</SliderPrimitive.Track>
+								<SliderPrimitive.Thumb
+									className="block h-4 w-4 rounded-full border-2 shadow-md cursor-grab active:cursor-grabbing focus:outline-none transition-transform hover:scale-110"
+									style={{ backgroundColor: activeAccent.hex, borderColor: "#ffffff" }}
+								/>
+							</SliderPrimitive.Root>
+							<div
+								className={cn(
+									"flex justify-between text-[10px] font-mono mt-1 font-semibold",
+									isLight ? "text-slate-400" : "text-slate-500",
+								)}
+							>
+								<span>{MIN_ZOOM_SCALE.toFixed(1)}×</span>
+								<span>{MAX_ZOOM_SCALE.toFixed(1)}×</span>
 							</div>
+						</div>
 
-							{/* Preset Buttons Grid */}
-							<div className="grid grid-cols-6 gap-1.5">
-								{ZOOM_DEPTH_OPTIONS.map((option) => {
-									const effectiveScale =
-										selectedZoomCustomScale ??
-										(selectedZoomDepth != null ? ZOOM_DEPTH_SCALES[option.depth] : null);
-									const isActive = effectiveScale === ZOOM_DEPTH_SCALES[option.depth];
+						{/* Focus Mode Selection (Manual vs Auto) */}
+						{hasCursorTelemetry && (
+							<div className="space-y-1.5 pt-1">
+								<div className="flex items-center justify-between gap-3">
+									<span
+										className={cn(
+											"text-xs font-bold",
+											isLight ? "text-slate-700" : "text-slate-200",
+										)}
+									>
+										{t("zoom.focusMode.title")}
+									</span>
+									<div
+										className={cn(
+											"grid w-32 grid-cols-2 gap-1 rounded-xl border p-1",
+											isLight ? "bg-white border-[#e4e4e7]" : "bg-white/5 border-white/10",
+										)}
+									>
+										{(["manual", "auto"] as const).map((mode) => {
+											const isActive = selectedZoomFocusMode === mode;
+											return (
+												<button
+													key={mode}
+													type="button"
+													disabled={focusModeLocked}
+													onClick={() => !focusModeLocked && onZoomFocusModeChange?.(mode)}
+													style={
+														isActive
+															? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+															: undefined
+													}
+													className={cn(
+														"h-6 w-full rounded-lg text-center text-[10px] font-bold capitalize transition-all cursor-pointer",
+														isActive
+															? "shadow-2xs"
+															: isLight
+																? "text-slate-500 hover:text-slate-800"
+																: "text-slate-400 hover:text-white",
+													)}
+												>
+													{t(`zoom.focusMode.${mode}`)}
+												</button>
+											);
+										})}
+									</div>
+								</div>
+								{focusModeLocked && (
+									<div className="flex items-start gap-1 text-[10px] leading-snug text-slate-400">
+										<Info size={11} className="mt-px shrink-0" />
+										<span>{t("zoom.focusMode.lockedDisclaimer")}</span>
+									</div>
+								)}
+							</div>
+						)}
+
+						{/* Hold to Preview Zoom Button */}
+						{onZoomPreviewStart && onZoomPreviewEnd && (
+							<button
+								type="button"
+								onPointerDown={() => onZoomPreviewStart()}
+								onPointerUp={() => onZoomPreviewEnd()}
+								onPointerLeave={() => onZoomPreviewEnd()}
+								onPointerCancel={() => onZoomPreviewEnd()}
+								onKeyDown={(e) => {
+									if ((e.key === " " || e.key === "Enter") && !e.repeat) {
+										e.preventDefault();
+										onZoomPreviewStart();
+									}
+								}}
+								onKeyUp={(e) => {
+									if (e.key === " " || e.key === "Enter") {
+										e.preventDefault();
+										onZoomPreviewEnd();
+									}
+								}}
+								onBlur={() => onZoomPreviewEnd()}
+								className={cn(
+									"h-8 w-full select-none rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-[0.98]",
+									isLight
+										? "border-[#e4e4e7] bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+										: "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white",
+								)}
+							>
+								<Eye size={13} style={{ color: activeAccent.hex }} />
+								<span>{t("zoom.previewHold")}</span>
+							</button>
+						)}
+
+						{/* Focus Coordinates (X, Y) */}
+						{selectedZoomFocusMode !== "auto" &&
+							selectedZoomFocus &&
+							onZoomFocusCoordinateChange &&
+							(() => {
+								const effectiveZoomScale =
+									selectedZoomCustomScale ??
+									(selectedZoomDepth != null
+										? ZOOM_DEPTH_SCALES[selectedZoomDepth]
+										: MIN_ZOOM_SCALE);
+								const bounds = getFocusBoundsForScale(effectiveZoomScale);
+								const xRange = bounds.maxX - bounds.minX;
+								const yRange = bounds.maxY - bounds.minY;
+								const focusToPercentX = (cx: number) =>
+									xRange <= 0
+										? 50
+										: Math.max(0, Math.min(100, ((cx - bounds.minX) / xRange) * 100));
+								const focusToPercentY = (cy: number) =>
+									yRange <= 0
+										? 50
+										: Math.max(0, Math.min(100, ((cy - bounds.minY) / yRange) * 100));
+								const percentToFocusX = (p: number) =>
+									xRange <= 0 ? bounds.minX : bounds.minX + (p / 100) * xRange;
+								const percentToFocusY = (p: number) =>
+									yRange <= 0 ? bounds.minY : bounds.minY + (p / 100) * yRange;
+								return (
+									<div className="space-y-1.5 pt-1">
+										<span
+											className={cn(
+												"text-xs font-bold",
+												isLight ? "text-slate-700" : "text-slate-200",
+											)}
+										>
+											{t("zoom.position.title")}
+										</span>
+										<div className="grid grid-cols-2 gap-2">
+											<div className="flex flex-col gap-1">
+												<label
+													className={cn(
+														"text-[10px] font-bold uppercase tracking-wider",
+														isLight ? "text-slate-500" : "text-slate-400",
+													)}
+												>
+													{t("zoom.position.x")}
+												</label>
+												<ZoomFocusCoordInput
+													ariaLabel={t("zoom.position.x")}
+													percent={focusToPercentX(selectedZoomFocus.cx)}
+													isLight={isLight}
+													onChange={(p) =>
+														onZoomFocusCoordinateChange({
+															cx: percentToFocusX(p),
+															cy: selectedZoomFocus.cy,
+														})
+													}
+													onCommit={onZoomFocusCoordinateCommit}
+												/>
+											</div>
+											<div className="flex flex-col gap-1">
+												<label
+													className={cn(
+														"text-[10px] font-bold uppercase tracking-wider",
+														isLight ? "text-slate-500" : "text-slate-400",
+													)}
+												>
+													{t("zoom.position.y")}
+												</label>
+												<ZoomFocusCoordInput
+													ariaLabel={t("zoom.position.y")}
+													percent={focusToPercentY(selectedZoomFocus.cy)}
+													isLight={isLight}
+													onChange={(p) =>
+														onZoomFocusCoordinateChange({
+															cx: selectedZoomFocus.cx,
+															cy: percentToFocusY(p),
+														})
+													}
+													onCommit={onZoomFocusCoordinateCommit}
+												/>
+											</div>
+										</div>
+									</div>
+								);
+							})()}
+
+						{/* 3D Rotation */}
+						<div className="space-y-1.5 pt-1">
+							<span
+								className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}
+							>
+								{t("zoom.threeD.title")}
+							</span>
+							<div className="grid grid-cols-3 gap-2">
+								{ROTATION_3D_PRESET_ORDER.map((preset) => {
+									const isActive = selectedZoomRotationPreset === preset;
 									return (
 										<button
-											key={option.depth}
+											key={preset}
 											type="button"
-											disabled={!zoomEnabled}
-											onClick={() => onZoomDepthChange?.(option.depth)}
+											onClick={() => onZoomRotationPresetChange?.(isActive ? null : preset)}
 											style={
 												isActive
-													? { backgroundColor: activeAccent.hex, borderColor: activeAccent.hex, color: activeAccent.textHex }
+													? {
+															backgroundColor: activeAccent.hex,
+															borderColor: activeAccent.hex,
+															color: activeAccent.textHex,
+														}
 													: undefined
 											}
 											className={cn(
-												"h-8 w-full rounded-xl border px-1 text-center transition-all duration-150 cursor-pointer font-bold text-xs shadow-2xs",
+												"h-8 w-full rounded-xl border text-center transition-all cursor-pointer font-bold text-xs shadow-2xs capitalize",
 												isActive
 													? "shadow-sm scale-[1.03]"
 													: isLight
 														? "border-[#e4e4e7] bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-														: "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10"
+														: "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10",
 											)}
 										>
-											<span>{option.label}</span>
+											<span>{t(`zoom.threeD.preset.${preset}`)}</span>
 										</button>
 									);
 								})}
 							</div>
-
-							{/* Slider */}
-							<div>
-								<SliderPrimitive.Root
-									min={MIN_ZOOM_SCALE}
-									max={MAX_ZOOM_SCALE}
-									step={0.01}
-									value={[
-										selectedZoomCustomScale ??
-											(selectedZoomDepth != null
-												? ZOOM_DEPTH_SCALES[selectedZoomDepth]
-												: MIN_ZOOM_SCALE),
-									]}
-									onValueChange={(values) => onZoomCustomScaleChange?.(values[0])}
-									onValueCommit={() => onZoomCustomScaleCommit?.()}
-									disabled={!zoomEnabled}
-									className="relative flex w-full touch-none select-none items-center py-1 cursor-pointer"
-								>
-									<SliderPrimitive.Track className={cn("relative h-1.5 w-full grow overflow-hidden rounded-full border", isLight ? "bg-slate-200 border-[#e4e4e7]" : "bg-white/10 border-white/10")}>
-										<SliderPrimitive.Range
-											className="absolute h-full transition-colors"
-											style={{ backgroundColor: activeAccent.hex }}
-										/>
-									</SliderPrimitive.Track>
-									<SliderPrimitive.Thumb
-										className="block h-4 w-4 rounded-full border-2 shadow-md cursor-grab active:cursor-grabbing focus:outline-none transition-transform hover:scale-110"
-										style={{ backgroundColor: activeAccent.hex, borderColor: "#ffffff" }}
-									/>
-								</SliderPrimitive.Root>
-								<div className={cn("flex justify-between text-[10px] font-mono mt-1 font-semibold", isLight ? "text-slate-400" : "text-slate-500")}>
-									<span>{MIN_ZOOM_SCALE.toFixed(1)}×</span>
-									<span>{MAX_ZOOM_SCALE.toFixed(1)}×</span>
-								</div>
-							</div>
-
-							{/* Focus Mode Selection (Manual vs Auto) */}
-							{hasCursorTelemetry && (
-								<div className="space-y-1.5 pt-1">
-									<div className="flex items-center justify-between gap-3">
-										<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-											{t("zoom.focusMode.title")}
-										</span>
-										<div className={cn(
-											"grid w-32 grid-cols-2 gap-1 rounded-xl border p-1",
-											isLight ? "bg-white border-[#e4e4e7]" : "bg-white/5 border-white/10"
-										)}>
-											{(["manual", "auto"] as const).map((mode) => {
-												const isActive = selectedZoomFocusMode === mode;
-												return (
-													<button
-														key={mode}
-														type="button"
-														disabled={focusModeLocked}
-														onClick={() => !focusModeLocked && onZoomFocusModeChange?.(mode)}
-														style={
-															isActive
-																? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
-																: undefined
-														}
-														className={cn(
-															"h-6 w-full rounded-lg text-center text-[10px] font-bold capitalize transition-all cursor-pointer",
-															isActive
-																? "shadow-2xs"
-																: isLight
-																	? "text-slate-500 hover:text-slate-800"
-																	: "text-slate-400 hover:text-white"
-														)}
-													>
-														{t(`zoom.focusMode.${mode}`)}
-													</button>
-												);
-											})}
-										</div>
-									</div>
-									{focusModeLocked && (
-										<div className="flex items-start gap-1 text-[10px] leading-snug text-slate-400">
-											<Info size={11} className="mt-px shrink-0" />
-											<span>{t("zoom.focusMode.lockedDisclaimer")}</span>
-										</div>
-									)}
-								</div>
-							)}
-
-							{/* Hold to Preview Zoom Button */}
-							{onZoomPreviewStart && onZoomPreviewEnd && (
-								<button
-									type="button"
-									onPointerDown={() => onZoomPreviewStart()}
-									onPointerUp={() => onZoomPreviewEnd()}
-									onPointerLeave={() => onZoomPreviewEnd()}
-									onPointerCancel={() => onZoomPreviewEnd()}
-									onKeyDown={(e) => {
-										if ((e.key === " " || e.key === "Enter") && !e.repeat) {
-											e.preventDefault();
-											onZoomPreviewStart();
-										}
-									}}
-									onKeyUp={(e) => {
-										if (e.key === " " || e.key === "Enter") {
-											e.preventDefault();
-											onZoomPreviewEnd();
-										}
-									}}
-									onBlur={() => onZoomPreviewEnd()}
-									className={cn(
-										"h-8 w-full select-none rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-[0.98]",
-										isLight
-											? "border-[#e4e4e7] bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-											: "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white"
-									)}
-								>
-									<Eye size={13} style={{ color: activeAccent.hex }} />
-									<span>{t("zoom.previewHold")}</span>
-								</button>
-							)}
-
-							{/* Focus Coordinates (X, Y) */}
-							{selectedZoomFocusMode !== "auto" &&
-								selectedZoomFocus &&
-								onZoomFocusCoordinateChange &&
-								(() => {
-									const effectiveZoomScale =
-										selectedZoomCustomScale ??
-										(selectedZoomDepth != null
-											? ZOOM_DEPTH_SCALES[selectedZoomDepth]
-											: MIN_ZOOM_SCALE);
-									const bounds = getFocusBoundsForScale(effectiveZoomScale);
-									const xRange = bounds.maxX - bounds.minX;
-									const yRange = bounds.maxY - bounds.minY;
-									const focusToPercentX = (cx: number) =>
-										xRange <= 0
-											? 50
-											: Math.max(0, Math.min(100, ((cx - bounds.minX) / xRange) * 100));
-									const focusToPercentY = (cy: number) =>
-										yRange <= 0
-											? 50
-											: Math.max(0, Math.min(100, ((cy - bounds.minY) / yRange) * 100));
-									const percentToFocusX = (p: number) =>
-										xRange <= 0 ? bounds.minX : bounds.minX + (p / 100) * xRange;
-									const percentToFocusY = (p: number) =>
-										yRange <= 0 ? bounds.minY : bounds.minY + (p / 100) * yRange;
-									return (
-										<div className="space-y-1.5 pt-1">
-											<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-												{t("zoom.position.title")}
-											</span>
-											<div className="grid grid-cols-2 gap-2">
-												<div className="flex flex-col gap-1">
-													<label className={cn("text-[10px] font-bold uppercase tracking-wider", isLight ? "text-slate-500" : "text-slate-400")}>
-														{t("zoom.position.x")}
-													</label>
-													<ZoomFocusCoordInput
-														ariaLabel={t("zoom.position.x")}
-														percent={focusToPercentX(selectedZoomFocus.cx)}
-														isLight={isLight}
-														onChange={(p) =>
-															onZoomFocusCoordinateChange({
-																cx: percentToFocusX(p),
-																cy: selectedZoomFocus.cy,
-															})
-														}
-														onCommit={onZoomFocusCoordinateCommit}
-													/>
-												</div>
-												<div className="flex flex-col gap-1">
-													<label className={cn("text-[10px] font-bold uppercase tracking-wider", isLight ? "text-slate-500" : "text-slate-400")}>
-														{t("zoom.position.y")}
-													</label>
-													<ZoomFocusCoordInput
-														ariaLabel={t("zoom.position.y")}
-														percent={focusToPercentY(selectedZoomFocus.cy)}
-														isLight={isLight}
-														onChange={(p) =>
-															onZoomFocusCoordinateChange({
-																cx: selectedZoomFocus.cx,
-																cy: percentToFocusY(p),
-															})
-														}
-														onCommit={onZoomFocusCoordinateCommit}
-													/>
-												</div>
-											</div>
-										</div>
-									);
-								})()}
-
-							{/* 3D Rotation */}
-							<div className="space-y-1.5 pt-1">
-								<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-									{t("zoom.threeD.title")}
-								</span>
-								<div className="grid grid-cols-3 gap-2">
-									{ROTATION_3D_PRESET_ORDER.map((preset) => {
-										const isActive = selectedZoomRotationPreset === preset;
-										return (
-											<button
-												key={preset}
-												type="button"
-												onClick={() => onZoomRotationPresetChange?.(isActive ? null : preset)}
-												style={
-													isActive
-														? { backgroundColor: activeAccent.hex, borderColor: activeAccent.hex, color: activeAccent.textHex }
-														: undefined
-												}
-												className={cn(
-													"h-8 w-full rounded-xl border text-center transition-all cursor-pointer font-bold text-xs shadow-2xs capitalize",
-													isActive
-														? "shadow-sm scale-[1.03]"
-														: isLight
-															? "border-[#e4e4e7] bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-															: "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10"
-												)}
-											>
-												<span>{t(`zoom.threeD.preset.${preset}`)}</span>
-											</button>
-										);
-									})}
-								</div>
-							</div>
-
-							{/* Delete Zoom Button */}
-							<button
-								type="button"
-								onClick={handleDeleteClick}
-								className={cn(
-									"h-9 w-full rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer mt-2 shadow-2xs active:scale-[0.98]",
-									isLight
-										? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:border-red-300"
-										: "bg-red-500/15 border-red-500/30 text-red-400 hover:bg-red-500/25 hover:border-red-500/40"
-								)}
-							>
-								<Trash2 className="w-3.5 h-3.5" />
-								<span>{t("zoom.deleteZoom")}</span>
-							</button>
 						</div>
-					)}
 
-					{trimEnabled && (
-						<div className="mb-4">
+						{/* Delete Zoom Button */}
+						<button
+							type="button"
+							onClick={handleDeleteClick}
+							className={cn(
+								"h-9 w-full rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer mt-2 shadow-2xs active:scale-[0.98]",
+								isLight
+									? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:border-red-300"
+									: "bg-red-500/15 border-red-500/30 text-red-400 hover:bg-red-500/25 hover:border-red-500/40",
+							)}
+						>
+							<Trash2 className="w-3.5 h-3.5" />
+							<span>{t("zoom.deleteZoom")}</span>
+						</button>
+					</div>
+				)}
+
+				{trimEnabled && (
+					<div className="mb-4">
+						<Button
+							onClick={handleTrimDeleteClick}
+							variant="destructive"
+							size="sm"
+							className="w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all h-8 text-xs"
+						>
+							<Trash2 className="w-3 h-3" />
+							{t("trim.deleteRegion")}
+						</Button>
+					</div>
+				)}
+
+				{selectedSpeedId && (
+					<div className="editor-panel-section mb-3 space-y-3 px-1">
+						<div className="flex items-center justify-between">
+							<span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+								{t("speed.playbackSpeed")}
+							</span>
+							{selectedSpeedId && selectedSpeedValue && (
+								<span className="rounded-full border border-[#d97706]/25 bg-[#d97706]/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#d97706]">
+									{SPEED_OPTIONS.find((o) => o.speed === selectedSpeedValue)?.label ??
+										`${selectedSpeedValue}×`}
+								</span>
+							)}
+						</div>
+						<div className="grid grid-cols-5 gap-1">
+							{SPEED_OPTIONS.map((option) => {
+								const isActive = selectedSpeedValue === option.speed;
+								return (
+									<Button
+										key={option.speed}
+										type="button"
+										disabled={!selectedSpeedId}
+										onClick={() => onSpeedChange?.(option.speed)}
+										className={cn(
+											"h-8 w-full rounded-lg border px-1 text-center transition-all duration-150 ease-out",
+											selectedSpeedId
+												? "opacity-100 cursor-pointer"
+												: "opacity-40 cursor-not-allowed",
+											isActive
+												? "border-[#d97706]/70 bg-[#d97706] text-white shadow-[0_8px_20px_rgba(217,119,6,0.16)]"
+												: "border-white/[0.06] bg-white/[0.035] text-slate-400 hover:bg-white/[0.075] hover:border-white/15 hover:text-slate-200",
+										)}
+									>
+										<span className="text-[11px] font-semibold">{option.label}</span>
+									</Button>
+								);
+							})}
+						</div>
+						<div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1.5">
+							<span
+								className={cn("text-[11px]", selectedSpeedId ? "text-slate-500" : "text-slate-600")}
+							>
+								{t("speed.customPlaybackSpeed")}
+							</span>
+							{selectedSpeedId ? (
+								<CustomSpeedInput
+									value={selectedSpeedValue ?? 1}
+									onChange={(val) => onSpeedChange?.(val)}
+									onError={() => toast.error(t("speed.maxSpeedError"))}
+								/>
+							) : (
+								<div className="flex items-center gap-1 opacity-40">
+									<div className="w-12 bg-white/5 border border-white/10 rounded-md px-1 py-0.5 text-[11px] font-semibold text-slate-600 text-center">
+										--
+									</div>
+									<span className="text-[11px] font-semibold text-slate-600">×</span>
+								</div>
+							)}
+						</div>
+						{selectedSpeedId && (
 							<Button
-								onClick={handleTrimDeleteClick}
+								onClick={() => selectedSpeedId && onSpeedDelete?.(selectedSpeedId)}
 								variant="destructive"
 								size="sm"
 								className="w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all h-8 text-xs"
 							>
 								<Trash2 className="w-3 h-3" />
-								{t("trim.deleteRegion")}
+								{t("speed.deleteRegion")}
 							</Button>
-						</div>
-					)}
+						)}
+					</div>
+				)}
 
-					{selectedSpeedId && (
-						<div className="editor-panel-section mb-3 space-y-3 px-1">
-							<div className="flex items-center justify-between">
-								<span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-									{t("speed.playbackSpeed")}
-								</span>
-								{selectedSpeedId && selectedSpeedValue && (
-									<span className="rounded-full border border-[#d97706]/25 bg-[#d97706]/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[#d97706]">
-										{SPEED_OPTIONS.find((o) => o.speed === selectedSpeedValue)?.label ??
-											`${selectedSpeedValue}×`}
-									</span>
-								)}
-							</div>
-							<div className="grid grid-cols-5 gap-1">
-								{SPEED_OPTIONS.map((option) => {
-									const isActive = selectedSpeedValue === option.speed;
-									return (
-										<Button
-											key={option.speed}
-											type="button"
-											disabled={!selectedSpeedId}
-											onClick={() => onSpeedChange?.(option.speed)}
-											className={cn(
-												"h-8 w-full rounded-lg border px-1 text-center transition-all duration-150 ease-out",
-												selectedSpeedId
-													? "opacity-100 cursor-pointer"
-													: "opacity-40 cursor-not-allowed",
-												isActive
-													? "border-[#d97706]/70 bg-[#d97706] text-white shadow-[0_8px_20px_rgba(217,119,6,0.16)]"
-													: "border-white/[0.06] bg-white/[0.035] text-slate-400 hover:bg-white/[0.075] hover:border-white/15 hover:text-slate-200",
-											)}
-										>
-											<span className="text-[11px] font-semibold">{option.label}</span>
-										</Button>
-									);
-								})}
-							</div>
-							<div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1.5">
-								<span
-									className={cn(
-										"text-[11px]",
-										selectedSpeedId ? "text-slate-500" : "text-slate-600",
-									)}
-								>
-									{t("speed.customPlaybackSpeed")}
-								</span>
-								{selectedSpeedId ? (
-									<CustomSpeedInput
-										value={selectedSpeedValue ?? 1}
-										onChange={(val) => onSpeedChange?.(val)}
-										onError={() => toast.error(t("speed.maxSpeedError"))}
-									/>
-								) : (
-									<div className="flex items-center gap-1 opacity-40">
-										<div className="w-12 bg-white/5 border border-white/10 rounded-md px-1 py-0.5 text-[11px] font-semibold text-slate-600 text-center">
-											--
-										</div>
-										<span className="text-[11px] font-semibold text-slate-600">×</span>
+				{!hasTimelineSelection && (
+					<Accordion type="multiple" value={[activePanelMode]} className="space-y-2">
+						{activePanelMode === "video-layers" && (
+							<AccordionItem value="video-layers" className="editor-panel-section px-3 border-none">
+								<VideoLayersSettingsPanel
+									videoLayers={videoLayers || []}
+									isLight={isLight}
+									activeAccent={activeAccent}
+									onAddLayer={() => onAddVideoLayer?.()}
+									onUpdateLayer={(id, updates) => onUpdateVideoLayer?.(id, updates)}
+									onDeleteLayer={(id) => onDeleteVideoLayer?.(id)}
+								/>
+							</AccordionItem>
+						)}
+						{hasWebcam && activePanelMode === "layout" && (
+							<AccordionItem value="layout" className="editor-panel-section px-3">
+								<AccordionTrigger className="py-2.5 hover:no-underline">
+									<div className="flex items-center gap-2">
+										<Sparkles className="w-4 h-4" style={{ color: activeAccent.hex }} />
+										<span className="text-xs font-medium">{t("layout.title")}</span>
 									</div>
-								)}
-							</div>
-							{selectedSpeedId && (
-								<Button
-									onClick={() => selectedSpeedId && onSpeedDelete?.(selectedSpeedId)}
-									variant="destructive"
-									size="sm"
-									className="w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all h-8 text-xs"
-								>
-									<Trash2 className="w-3 h-3" />
-									{t("speed.deleteRegion")}
-								</Button>
-							)}
-						</div>
-					)}
-
-					{!hasTimelineSelection && (
-						<Accordion type="multiple" value={[activePanelMode]} className="space-y-2">
-							{activePanelMode === "video-layers" && (
-								<AccordionItem value="video-layers" className="editor-panel-section px-3 border-none">
-									<VideoLayersSettingsPanel
-										videoLayers={videoLayers || []}
-										isLight={isLight}
-										activeAccent={activeAccent}
-										onAddLayer={() => onAddVideoLayer?.()}
-										onUpdateLayer={(id, updates) => onUpdateVideoLayer?.(id, updates)}
-										onDeleteLayer={(id) => onDeleteVideoLayer?.(id)}
-									/>
-								</AccordionItem>
-							)}
-							{hasWebcam && activePanelMode === "layout" && (
-								<AccordionItem value="layout" className="editor-panel-section px-3">
-									<AccordionTrigger className="py-2.5 hover:no-underline">
-										<div className="flex items-center gap-2">
-											<Sparkles className="w-4 h-4 text-[#34B27B]" />
-											<span className="text-xs font-medium">{t("layout.title")}</span>
+								</AccordionTrigger>
+								<AccordionContent className="pb-3">
+									<div className="p-2 rounded-lg editor-control-surface">
+										<div className="text-[10px] font-medium text-slate-300 mb-1.5">
+											{t("layout.preset")}
 										</div>
-									</AccordionTrigger>
-									<AccordionContent className="pb-3">
-										<div className="p-2 rounded-lg editor-control-surface">
-											<div className="text-[10px] font-medium text-slate-300 mb-1.5">
-												{t("layout.preset")}
-											</div>
-											<Select
-												value={webcamLayoutPreset}
-												onValueChange={(value: WebcamLayoutPreset) =>
-													onWebcamLayoutPresetChange?.(value)
-												}
+										<Select
+											value={webcamLayoutPreset}
+											onValueChange={(value: WebcamLayoutPreset) =>
+												onWebcamLayoutPresetChange?.(value)
+											}
+										>
+											<SelectTrigger
+												className={`h-8 text-xs ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7] text-[#18181b]" : "bg-black/20 border-white/10 text-slate-200"}`}
 											>
-												<SelectTrigger className={`h-8 text-xs ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7] text-[#18181b]" : "bg-black/20 border-white/10 text-slate-200"}`}>
-													<SelectValue placeholder={t("layout.selectPreset")} />
-												</SelectTrigger>
-												<SelectContent>
-													{WEBCAM_LAYOUT_PRESETS.filter((preset) => {
-														if (preset.value === "picture-in-picture") return true;
-														if (preset.value === "no-webcam") return true;
-														if (preset.value === "vertical-stack") return isPortraitCanvas;
-														return !isPortraitCanvas;
-													}).map((preset) => (
-														<SelectItem key={preset.value} value={preset.value} className="text-xs">
-															{preset.value === "picture-in-picture"
-																? t("layout.pictureInPicture")
-																: preset.value === "vertical-stack"
-																	? t("layout.verticalStack")
-																	: preset.value === "no-webcam"
-																		? t("layout.noWebcam")
-																		: t("layout.dualFrame")}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
+												<SelectValue placeholder={t("layout.selectPreset")} />
+											</SelectTrigger>
+											<SelectContent>
+												{WEBCAM_LAYOUT_PRESETS.filter((preset) => {
+													if (preset.value === "picture-in-picture") return true;
+													if (preset.value === "no-webcam") return true;
+													if (preset.value === "vertical-stack") return isPortraitCanvas;
+													return !isPortraitCanvas;
+												}).map((preset) => (
+													<SelectItem key={preset.value} value={preset.value} className="text-xs">
+														{preset.value === "picture-in-picture"
+															? t("layout.pictureInPicture")
+															: preset.value === "vertical-stack"
+																? t("layout.verticalStack")
+																: preset.value === "no-webcam"
+																	? t("layout.noWebcam")
+																	: t("layout.dualFrame")}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+									{webcamLayoutPreset !== "no-webcam" && (
+										<div className="mt-2 flex items-center justify-between p-2 rounded-lg editor-control-surface">
+											<div className="text-[10px] font-medium text-slate-300">
+												{t("layout.mirrorWebcam")}
+											</div>
+											<Switch
+												checked={webcamMirrored}
+												onCheckedChange={onWebcamMirroredChange}
+												className="scale-90"
+												style={{ accentColor: activeAccent.hex }}
+												aria-label={t("layout.mirrorWebcam")}
+											/>
 										</div>
-										{webcamLayoutPreset !== "no-webcam" && (
-											<div className="mt-2 flex items-center justify-between p-2 rounded-lg editor-control-surface">
-												<div className="text-[10px] font-medium text-slate-300">
-													{t("layout.mirrorWebcam")}
-												</div>
-												<Switch
-													checked={webcamMirrored}
-													onCheckedChange={onWebcamMirroredChange}
-													className="data-[state=checked]:bg-[#34B27B] scale-90"
-													aria-label={t("layout.mirrorWebcam")}
-												/>
-											</div>
-										)}
-										{webcamLayoutPreset === "picture-in-picture" && (
-											<div className="mt-2 flex items-center justify-between p-2 rounded-lg editor-control-surface">
-												<div className="flex items-center gap-1 text-[10px] font-medium text-slate-300">
-													<span>{t("layout.reactiveWebcam")}</span>
-													<Tooltip
-														content={t("layout.reactiveWebcamDescription")}
-														className="max-w-[220px] leading-snug whitespace-normal"
+									)}
+									{webcamLayoutPreset === "picture-in-picture" && (
+										<div className="mt-2 flex items-center justify-between p-2 rounded-lg editor-control-surface">
+											<div className="flex items-center gap-1 text-[10px] font-medium text-slate-300">
+												<span>{t("layout.reactiveWebcam")}</span>
+												<Tooltip
+													content={t("layout.reactiveWebcamDescription")}
+													className="max-w-[220px] leading-snug whitespace-normal"
+												>
+													<button
+														type="button"
+														className="text-slate-400 transition-colors hover:text-slate-200"
+														aria-label={t("layout.reactiveWebcamDescription")}
 													>
-														<button
-															type="button"
-															className="text-slate-400 transition-colors hover:text-slate-200"
-															aria-label={t("layout.reactiveWebcamDescription")}
-														>
-															<Info size={11} />
-														</button>
-													</Tooltip>
-												</div>
-												<Switch
-													checked={webcamReactiveZoom}
-													onCheckedChange={onWebcamReactiveZoomChange}
-													className="data-[state=checked]:bg-[#34B27B] scale-90"
-													aria-label={t("layout.reactiveWebcam")}
-												/>
+														<Info size={11} />
+													</button>
+												</Tooltip>
 											</div>
-										)}
-										{webcamLayoutPreset === "picture-in-picture" && (
-											<div className="mt-2 p-2 rounded-lg editor-control-surface">
-												<div className="text-[10px] font-medium text-slate-300 mb-1.5">
-													{t("layout.webcamShape")}
+											<Switch
+												checked={webcamReactiveZoom}
+												onCheckedChange={onWebcamReactiveZoomChange}
+												className="scale-90"
+												style={{ accentColor: activeAccent.hex }}
+												aria-label={t("layout.reactiveWebcam")}
+											/>
+										</div>
+									)}
+									{webcamLayoutPreset === "picture-in-picture" && (
+										<div className="mt-2 p-2 rounded-lg editor-control-surface">
+											<div className="text-[10px] font-medium text-slate-300 mb-1.5">
+												{t("layout.webcamShape")}
+											</div>
+											<div className="grid grid-cols-4 gap-1.5">
+												{(
+													[
+														{ value: "rectangle", label: "Rect" },
+														{ value: "circle", label: "Circle" },
+														{ value: "square", label: "Square" },
+														{ value: "rounded", label: "Rounded" },
+													] as Array<{ value: WebcamMaskShape; label: string }>
+												).map((shape) => (
+													<button
+														key={shape.value}
+														type="button"
+														onClick={() => onWebcamMaskShapeChange?.(shape.value)}
+														style={
+															webcamMaskShape === shape.value
+																? {
+																		backgroundColor: activeAccent.hex,
+																		borderColor: activeAccent.hex,
+																		color: activeAccent.textHex,
+																	}
+																: undefined
+														}
+														className={cn(
+															"h-10 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer",
+															webcamMaskShape === shape.value
+																? "shadow-sm scale-[1.02]"
+																: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
+														)}
+													>
+														<svg
+															width="16"
+															height="16"
+															viewBox="0 0 16 16"
+															fill="none"
+															xmlns="http://www.w3.org/2000/svg"
+														>
+															{shape.value === "rectangle" && (
+																<rect
+																	x="1"
+																	y="3"
+																	width="14"
+																	height="10"
+																	rx="2"
+																	stroke="currentColor"
+																	strokeWidth="1.5"
+																/>
+															)}
+															{shape.value === "circle" && (
+																<circle
+																	cx="8"
+																	cy="8"
+																	r="6.5"
+																	stroke="currentColor"
+																	strokeWidth="1.5"
+																/>
+															)}
+															{shape.value === "square" && (
+																<rect
+																	x="2"
+																	y="2"
+																	width="12"
+																	height="12"
+																	rx="1"
+																	stroke="currentColor"
+																	strokeWidth="1.5"
+																/>
+															)}
+															{shape.value === "rounded" && (
+																<rect
+																	x="1"
+																	y="3"
+																	width="14"
+																	height="10"
+																	rx="5"
+																	stroke="currentColor"
+																	strokeWidth="1.5"
+																/>
+															)}
+														</svg>
+														<span className="text-[8px] leading-none">{shape.label}</span>
+													</button>
+												))}
+											</div>
+										</div>
+									)}
+									{webcamLayoutPreset === "picture-in-picture" && (
+										<div className="p-2 rounded-lg editor-control-surface mt-2">
+											<div className="flex items-center justify-between mb-1.5">
+												<div className="text-[10px] font-medium text-slate-300">
+													{t("layout.webcamSize")}
 												</div>
-												<div className="grid grid-cols-4 gap-1.5">
-													{(
-														[
-															{ value: "rectangle", label: "Rect" },
-															{ value: "circle", label: "Circle" },
-															{ value: "square", label: "Square" },
-															{ value: "rounded", label: "Rounded" },
-														] as Array<{ value: WebcamMaskShape; label: string }>
-													).map((shape) => (
-														<button
-															key={shape.value}
-															type="button"
-															onClick={() => onWebcamMaskShapeChange?.(shape.value)}
+												<div className="text-[10px] font-medium text-slate-400">
+													{webcamSizePreset}%
+												</div>
+											</div>
+											<Slider
+												value={[webcamSizePreset]}
+												onValueChange={(values) => onWebcamSizePresetChange?.(values[0])}
+												onValueCommit={() => onWebcamSizePresetCommit?.()}
+												min={10}
+												max={50}
+												step={1}
+												className="w-full"
+											/>
+										</div>
+									)}
+								</AccordionContent>
+							</AccordionItem>
+						)}
+
+						{(activePanelMode === "effects" || activePanelMode === "cursor") && (
+							<AccordionItem value={activePanelMode} className="editor-panel-section px-3">
+								<AccordionTrigger className="py-2.5 hover:no-underline">
+									<div className="flex items-center gap-2">
+										{activePanelMode === "cursor" ? (
+											<MousePointerClick className="w-4 h-4" style={{ color: activeAccent.hex }} />
+										) : (
+											<SlidersHorizontal className="w-4 h-4" style={{ color: activeAccent.hex }} />
+										)}
+										<span className="text-xs font-medium">{t("effects.title")}</span>
+									</div>
+								</AccordionTrigger>
+								<AccordionContent className="pb-3">
+									{activePanelMode === "effects" && (
+										<div className="space-y-3 mb-2">
+											{/* Background Blur Card */}
+											<div
+												className={cn(
+													"flex items-center justify-between p-3.5 rounded-2xl border transition-all duration-200 shadow-xs",
+													isLight
+														? "bg-white/90 border-slate-200 hover:border-slate-300"
+														: "bg-white/[0.04] border-white/[0.08] hover:border-white/[0.14]",
+												)}
+											>
+												<div className="flex items-center gap-3">
+													<div
+														className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border"
+														style={{
+															backgroundColor: `${activeAccent.hex}14`,
+															borderColor: `${activeAccent.hex}28`,
+														}}
+													>
+														<Sparkles className="w-4 h-4" style={{ color: activeAccent.hex }} />
+													</div>
+													<div>
+														<div
 															className={cn(
-																"h-10 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all",
-																webcamMaskShape === shape.value
-																	? "bg-[#34B27B] border-[#34B27B] text-white"
-																	: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
+																"text-xs font-extrabold tracking-tight",
+																isLight ? "text-slate-800" : "text-slate-100",
 															)}
 														>
-															<svg
-																width="16"
-																height="16"
-																viewBox="0 0 16 16"
-																fill="none"
-																xmlns="http://www.w3.org/2000/svg"
+															{t("effects.blurBg")}
+														</div>
+														<div className="text-[10px] text-zinc-400 font-medium">
+															Applies ambient blur behind content
+														</div>
+													</div>
+												</div>
+												<Switch
+													checked={showBlur}
+													onCheckedChange={onBlurChange}
+													accentColor={activeAccent.hex}
+													className="cursor-pointer"
+												/>
+											</div>
+
+											{/* Grouped Controls Container */}
+											<div
+												className={cn(
+													"p-4 rounded-2xl border space-y-4 shadow-xs",
+													isLight
+														? "bg-white/90 border-slate-200"
+														: "bg-white/[0.04] border-white/[0.08]",
+												)}
+											>
+												{/* Motion Blur */}
+												<div className="space-y-2">
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-2">
+															<Wind className="w-3.5 h-3.5 text-zinc-400" />
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
 															>
-																{shape.value === "rectangle" && (
-																	<rect
-																		x="1"
-																		y="3"
-																		width="14"
-																		height="10"
-																		rx="2"
-																		stroke="currentColor"
-																		strokeWidth="1.5"
-																	/>
+																{t("effects.motionBlur")}
+															</span>
+														</div>
+														<span
+															className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+															style={{
+																backgroundColor: `${activeAccent.hex}18`,
+																borderColor: `${activeAccent.hex}30`,
+																color: activeAccent.hex,
+															}}
+														>
+															{motionBlurAmount === 0
+																? t("effects.off")
+																: motionBlurAmount.toFixed(2)}
+														</span>
+													</div>
+													<Slider
+														value={[motionBlurAmount]}
+														onValueChange={(values) => onMotionBlurChange?.(values[0])}
+														onValueCommit={() => onMotionBlurCommit?.()}
+														min={0}
+														max={1}
+														step={0.01}
+														accentColor={activeAccent.hex}
+														className="w-full cursor-pointer"
+													/>
+												</div>
+
+												<div
+													className={cn(
+														"h-[1px] w-full",
+														isLight ? "bg-slate-100" : "bg-white/[0.06]",
+													)}
+												/>
+
+												{/* Shadow */}
+												<div className="space-y-2">
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-2">
+															<Sun className="w-3.5 h-3.5 text-zinc-400" />
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
 																)}
-																{shape.value === "circle" && (
-																	<circle
-																		cx="8"
-																		cy="8"
-																		r="6.5"
-																		stroke="currentColor"
-																		strokeWidth="1.5"
-																	/>
+															>
+																{t("effects.shadow")}
+															</span>
+														</div>
+														<span
+															className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+															style={{
+																backgroundColor: `${activeAccent.hex}18`,
+																borderColor: `${activeAccent.hex}30`,
+																color: activeAccent.hex,
+															}}
+														>
+															{Math.round(shadowIntensity * 100)}%
+														</span>
+													</div>
+													<Slider
+														value={[shadowIntensity]}
+														onValueChange={(values) => onShadowChange?.(values[0])}
+														onValueCommit={() => onShadowCommit?.()}
+														min={0}
+														max={1}
+														step={0.01}
+														accentColor={activeAccent.hex}
+														className="w-full cursor-pointer"
+													/>
+												</div>
+
+												<div
+													className={cn(
+														"h-[1px] w-full",
+														isLight ? "bg-slate-100" : "bg-white/[0.06]",
+													)}
+												/>
+
+												{/* Roundness */}
+												<div className="space-y-2">
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-2">
+															<Square className="w-3.5 h-3.5 text-zinc-400" />
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
 																)}
-																{shape.value === "square" && (
-																	<rect
-																		x="2"
-																		y="2"
-																		width="12"
-																		height="12"
-																		rx="1"
-																		stroke="currentColor"
-																		strokeWidth="1.5"
-																	/>
+															>
+																{t("effects.roundness")}
+															</span>
+														</div>
+														<span
+															className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+															style={{
+																backgroundColor: `${activeAccent.hex}18`,
+																borderColor: `${activeAccent.hex}30`,
+																color: activeAccent.hex,
+															}}
+														>
+															{borderRadius}px
+														</span>
+													</div>
+													<Slider
+														value={[borderRadius]}
+														onValueChange={(values) => onBorderRadiusChange?.(values[0])}
+														onValueCommit={() => onBorderRadiusCommit?.()}
+														min={0}
+														max={64}
+														step={0.5}
+														accentColor={activeAccent.hex}
+														className="w-full cursor-pointer"
+													/>
+												</div>
+
+												<div
+													className={cn(
+														"h-[1px] w-full",
+														isLight ? "bg-slate-100" : "bg-white/[0.06]",
+													)}
+												/>
+
+												{/* Padding */}
+												<div
+													className={cn(
+														"space-y-2",
+														webcamLayoutPreset === "vertical-stack"
+															? "opacity-40 pointer-events-none"
+															: "",
+													)}
+												>
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-2">
+															<Maximize2 className="w-3.5 h-3.5 text-zinc-400" />
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
 																)}
-																{shape.value === "rounded" && (
-																	<rect
-																		x="1"
-																		y="3"
-																		width="14"
-																		height="10"
-																		rx="5"
-																		stroke="currentColor"
-																		strokeWidth="1.5"
-																	/>
+															>
+																{t("effects.padding")}
+															</span>
+														</div>
+														<span
+															className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+															style={{
+																backgroundColor: `${activeAccent.hex}18`,
+																borderColor: `${activeAccent.hex}30`,
+																color: activeAccent.hex,
+															}}
+														>
+															{webcamLayoutPreset === "vertical-stack"
+																? "—"
+																: `${Math.round(padding <= 1 ? padding * 100 : padding)}%`}
+														</span>
+													</div>
+													<Slider
+														value={[padding <= 1 ? padding * 100 : padding]}
+														onValueChange={(values) => onPaddingChange?.(values[0])}
+														onValueCommit={() => onPaddingCommit?.()}
+														min={0}
+														max={80}
+														step={1}
+														disabled={webcamLayoutPreset === "vertical-stack"}
+														accentColor={activeAccent.hex}
+														className="w-full cursor-pointer"
+													/>
+												</div>
+											</div>
+										</div>
+									)}
+
+									{activePanelMode === "cursor" && (
+										<div className="space-y-3 mb-2">
+											{/* Toggle Row */}
+											<div
+												className={cn(
+													"flex items-center justify-between p-3.5 rounded-2xl border transition-all duration-200 shadow-xs",
+													isLight
+														? "bg-white/90 border-slate-200 hover:border-slate-300"
+														: "bg-white/[0.04] border-white/[0.08] hover:border-white/[0.14]",
+												)}
+											>
+												<div className="flex items-center gap-3">
+													<div
+														className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border"
+														style={{
+															backgroundColor: `${activeAccent.hex}14`,
+															borderColor: `${activeAccent.hex}28`,
+														}}
+													>
+														<MousePointerClick
+															className="w-4 h-4"
+															style={{ color: activeAccent.hex }}
+														/>
+													</div>
+													<div>
+														<div
+															className={cn(
+																"text-xs font-extrabold tracking-tight",
+																isLight ? "text-slate-800" : "text-slate-100",
+															)}
+														>
+															{t("cursor.show")}
+														</div>
+														<div className="text-[10px] text-zinc-400 font-medium">
+															Render telemetry and animated cursor
+														</div>
+													</div>
+												</div>
+												<Switch
+													checked={showCursor}
+													onCheckedChange={onShowCursorChange}
+													accentColor={activeAccent.hex}
+													className="cursor-pointer"
+												/>
+											</div>
+
+											{showCursor && (
+												<div
+													className={cn(
+														"p-4 rounded-2xl border space-y-4 shadow-xs",
+														isLight
+															? "bg-white/90 border-slate-200"
+															: "bg-white/[0.04] border-white/[0.08]",
+													)}
+												>
+													{/* Clip to Canvas */}
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-1.5 text-xs font-bold">
+															<span className={isLight ? "text-slate-700" : "text-slate-200"}>
+																{t("cursor.clipToBounds")}
+															</span>
+															<Tooltip
+																content={t("cursor.clipToBoundsDescription")}
+																className="max-w-[220px] leading-snug whitespace-normal"
+															>
+																<button
+																	type="button"
+																	className="text-zinc-400 transition-colors hover:text-zinc-200"
+																	aria-label={t("cursor.clipToBoundsDescription")}
+																>
+																	<Info size={12} />
+																</button>
+															</Tooltip>
+														</div>
+														<Switch
+															checked={cursorClipToBounds}
+															onCheckedChange={onCursorClipToBoundsChange}
+															accentColor={activeAccent.hex}
+															className="cursor-pointer"
+															aria-label={t("cursor.clipToBounds")}
+														/>
+													</div>
+
+													{cursorThemeOptions.length > 1 && (
+														<>
+															<div
+																className={cn(
+																	"h-[1px] w-full",
+																	isLight ? "bg-slate-100" : "bg-white/[0.06]",
 																)}
-															</svg>
-															<span className="text-[8px] leading-none">{shape.label}</span>
-														</button>
+															/>
+
+															{/* Cursor Style Swatches */}
+															<div className="space-y-2.5">
+																<div className="flex items-center justify-between">
+																	<span
+																		className={cn(
+																			"text-xs font-bold",
+																			isLight ? "text-slate-700" : "text-slate-200",
+																		)}
+																	>
+																		{t("cursor.theme")}
+																	</span>
+																	<span className="text-[10px] text-zinc-400 font-mono">
+																		{cursorThemeOptions.find((o) => o.id === cursorTheme)?.name ||
+																			"Default"}
+																	</span>
+																</div>
+																<div className="grid grid-cols-6 gap-2">
+																	{cursorThemeOptions.map((option) => {
+																		const isSelected = cursorTheme === option.id;
+																		return (
+																			<button
+																				type="button"
+																				key={option.id}
+																				title={option.name}
+																				aria-label={option.name}
+																				aria-pressed={isSelected}
+																				onClick={() => onCursorThemeChange?.(option.id)}
+																				style={{
+																					borderColor: isSelected ? activeAccent.hex : undefined,
+																					backgroundColor: isSelected
+																						? `${activeAccent.hex}18`
+																						: undefined,
+																					boxShadow: isSelected
+																						? `0 0 14px ${activeAccent.hex}30`
+																						: undefined,
+																				}}
+																				className={cn(
+																					"flex items-center justify-center h-10 rounded-xl border transition-all duration-150 cursor-pointer group",
+																					isSelected
+																						? "scale-105"
+																						: isLight
+																							? "border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300"
+																							: "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10",
+																				)}
+																			>
+																				<img
+																					src={option.previewUrl}
+																					alt=""
+																					className="w-5 h-5 object-contain transition-transform group-hover:scale-110"
+																					draggable={false}
+																				/>
+																			</button>
+																		);
+																	})}
+																</div>
+															</div>
+														</>
+													)}
+
+													<div
+														className={cn(
+															"h-[1px] w-full",
+															isLight ? "bg-slate-100" : "bg-white/[0.06]",
+														)}
+													/>
+
+													{/* Size */}
+													<div className="space-y-2">
+														<div className="flex items-center justify-between">
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																{t("cursor.size")}
+															</span>
+															<span
+																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+																style={{
+																	backgroundColor: `${activeAccent.hex}18`,
+																	borderColor: `${activeAccent.hex}30`,
+																	color: activeAccent.hex,
+																}}
+															>
+																{cursorSize.toFixed(1)}×
+															</span>
+														</div>
+														<Slider
+															value={[cursorSize]}
+															onValueChange={(values) => onCursorSizeChange?.(values[0])}
+															min={0.5}
+															max={10}
+															step={0.1}
+															accentColor={activeAccent.hex}
+															className="w-full cursor-pointer"
+														/>
+													</div>
+
+													<div
+														className={cn(
+															"h-[1px] w-full",
+															isLight ? "bg-slate-100" : "bg-white/[0.06]",
+														)}
+													/>
+
+													{/* Smoothing */}
+													<div className="space-y-2">
+														<div className="flex items-center justify-between">
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																{t("cursor.smoothing")}
+															</span>
+															<span
+																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+																style={{
+																	backgroundColor: `${activeAccent.hex}18`,
+																	borderColor: `${activeAccent.hex}30`,
+																	color: activeAccent.hex,
+																}}
+															>
+																{Math.round(cursorSmoothing * 100)}%
+															</span>
+														</div>
+														<Slider
+															value={[cursorSmoothing]}
+															onValueChange={(values) => onCursorSmoothingChange?.(values[0])}
+															min={0}
+															max={1}
+															step={0.01}
+															accentColor={activeAccent.hex}
+															className="w-full cursor-pointer"
+														/>
+													</div>
+
+													<div
+														className={cn(
+															"h-[1px] w-full",
+															isLight ? "bg-slate-100" : "bg-white/[0.06]",
+														)}
+													/>
+
+													{/* Motion Blur */}
+													<div className="space-y-2">
+														<div className="flex items-center justify-between">
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																{t("cursor.motionBlur")}
+															</span>
+															<span
+																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+																style={{
+																	backgroundColor: `${activeAccent.hex}18`,
+																	borderColor: `${activeAccent.hex}30`,
+																	color: activeAccent.hex,
+																}}
+															>
+																{Math.round(cursorMotionBlur * 100)}%
+															</span>
+														</div>
+														<Slider
+															value={[cursorMotionBlur]}
+															onValueChange={(values) => onCursorMotionBlurChange?.(values[0])}
+															min={0}
+															max={1}
+															step={0.01}
+															accentColor={activeAccent.hex}
+															className="w-full cursor-pointer"
+														/>
+													</div>
+
+													<div
+														className={cn(
+															"h-[1px] w-full",
+															isLight ? "bg-slate-100" : "bg-white/[0.06]",
+														)}
+													/>
+
+													{/* Click Bounce */}
+													<div className="space-y-2">
+														<div className="flex items-center justify-between">
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																{t("cursor.clickBounce")}
+															</span>
+															<span
+																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+																style={{
+																	backgroundColor: `${activeAccent.hex}18`,
+																	borderColor: `${activeAccent.hex}30`,
+																	color: activeAccent.hex,
+																}}
+															>
+																{cursorClickBounce.toFixed(1)}
+															</span>
+														</div>
+														<Slider
+															value={[cursorClickBounce]}
+															onValueChange={(values) => onCursorClickBounceChange?.(values[0])}
+															min={0}
+															max={5}
+															step={0.1}
+															accentColor={activeAccent.hex}
+															className="w-full cursor-pointer"
+														/>
+													</div>
+												</div>
+											)}
+										</div>
+									)}
+								</AccordionContent>
+							</AccordionItem>
+						)}
+
+						{activePanelMode === "background" && (
+							<AccordionItem value="background" className="editor-panel-section px-3">
+								<AccordionTrigger className="py-2.5 hover:no-underline">
+									<div className="flex items-center gap-2">
+										<Palette className="w-4 h-4" style={{ color: activeAccent.hex }} />
+										<span className="text-xs font-medium">{t("background.title")}</span>
+									</div>
+								</AccordionTrigger>
+								<AccordionContent className="pb-3">
+									<div
+										className={`flex items-center p-1 rounded-xl border mb-3 ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}
+									>
+										{(["image", "color", "gradient"] as const).map((tabKey) => {
+											const isActive = bgSubTab === tabKey;
+											return (
+												<button
+													key={tabKey}
+													type="button"
+													onClick={() => setBgSubTab(tabKey)}
+													style={
+														isActive
+															? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+															: undefined
+													}
+													className={cn(
+														"flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center cursor-pointer capitalize",
+														isActive
+															? "shadow-md scale-[1.02]"
+															: isLight
+																? "text-slate-600 hover:text-black"
+																: "text-slate-400 hover:text-white",
+													)}
+												>
+													{t(`background.${tabKey}` as any)}
+												</button>
+											);
+										})}
+									</div>
+
+									<div className="space-y-3">
+										{bgSubTab === "image" && (
+											<div className="space-y-3">
+												<input
+													type="file"
+													ref={fileInputRef}
+													onChange={handleImageUpload}
+													accept={BACKGROUND_IMAGE_ACCEPT}
+													className="hidden"
+												/>
+												<button
+													type="button"
+													onClick={() => fileInputRef.current?.click()}
+													className={cn(
+														"w-full flex items-center justify-center gap-2.5 p-3 rounded-2xl border-2 border-dashed transition-all cursor-pointer group shadow-2xs",
+														isLight
+															? "bg-slate-50/80 border-slate-200 hover:border-slate-300 hover:bg-white text-slate-700"
+															: "bg-white/[0.02] border-white/10 hover:border-white/25 hover:bg-white/[0.05] text-slate-200",
+													)}
+												>
+													<div
+														className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 shadow-2xs"
+														style={{
+															backgroundColor: `${activeAccent.hex}20`,
+															color: activeAccent.hex,
+														}}
+													>
+														<Upload className="w-3.5 h-3.5" />
+													</div>
+													<div className="text-left">
+														<div className="text-xs font-bold leading-tight">
+															{t("background.uploadCustom")}
+														</div>
+														<div className="text-[10px] text-slate-400 font-medium">
+															PNG, JPG or WEBP
+														</div>
+													</div>
+												</button>
+
+												<div className="grid grid-cols-4 gap-2.5 pt-1">
+													{customImages.map((imageUrl, idx) => {
+														const isSelected = selected === imageUrl;
+														return (
+															<div
+																key={`custom-${idx}`}
+																className={cn(
+																	"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 relative group shadow-md hover:scale-105",
+																	isSelected
+																		? ""
+																		: isLight
+																			? "border-[#e4e4e7] bg-[#f4f4f5]"
+																			: "border-white/10 bg-white/5",
+																)}
+																style={{
+																	borderColor: isSelected ? activeAccent.hex : undefined,
+																	boxShadow: isSelected
+																		? `0 0 12px ${activeAccent.hex}80`
+																		: undefined,
+																}}
+																onClick={() => onWallpaperChange(imageUrl)}
+																role="button"
+															>
+																<img
+																	src={imageUrl}
+																	alt="Custom wallpaper"
+																	className="w-full h-full object-cover rounded-xl select-none pointer-events-none"
+																/>
+																<button
+																	onClick={(e) => handleRemoveCustomImage(imageUrl, e)}
+																	className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md cursor-pointer"
+																>
+																	<X className="w-2.5 h-2.5 text-white" />
+																</button>
+															</div>
+														);
+													})}
+
+													{WALLPAPER_PATHS.map((canonicalPath, i) => (
+														<WallpaperSwatch
+															key={canonicalPath}
+															previewUrl={wallpaperPreviewUrls[i] ?? canonicalPath}
+															isSelected={selected === canonicalPath}
+															isLight={isLight}
+															activeAccent={activeAccent}
+															onClick={() => onWallpaperChange(canonicalPath)}
+														/>
 													))}
 												</div>
 											</div>
 										)}
-										{webcamLayoutPreset === "picture-in-picture" && (
-											<div className="p-2 rounded-lg editor-control-surface mt-2">
-												<div className="flex items-center justify-between mb-1.5">
-													<div className="text-[10px] font-medium text-slate-300">
-														{t("layout.webcamSize")}
-													</div>
-													<div className="text-[10px] font-medium text-slate-400">
-														{webcamSizePreset}%
-													</div>
-												</div>
-												<Slider
-													value={[webcamSizePreset]}
-													onValueChange={(values) => onWebcamSizePresetChange?.(values[0])}
-													onValueCommit={() => onWebcamSizePresetCommit?.()}
-													min={10}
-													max={50}
-													step={1}
-													className="w-full"
-												/>
-											</div>
-										)}
-									</AccordionContent>
-								</AccordionItem>
-							)}
 
-							{(activePanelMode === "effects" || activePanelMode === "cursor") && (
-								<AccordionItem value={activePanelMode} className="editor-panel-section px-3">
-									<AccordionTrigger className="py-2.5 hover:no-underline">
-										<div className="flex items-center gap-2">
-											{activePanelMode === "cursor" ? (
-												<MousePointerClick className="w-4 h-4 text-[#34B27B]" />
-											) : (
-												<SlidersHorizontal className="w-4 h-4 text-[#34B27B]" />
-											)}
-											<span className="text-xs font-medium">{t("effects.title")}</span>
-										</div>
-									</AccordionTrigger>
-									<AccordionContent className="pb-3">
-										{activePanelMode === "effects" && (
-											<div className="space-y-3 mb-2">
-												{/* Background Blur Row */}
-												<div className={cn(
-													"flex items-center justify-between p-3 rounded-xl border transition-all shadow-xs",
-													isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
-												)}>
-													<div className="flex items-center gap-2.5">
-														<div className={cn(
-															"w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border",
-															isLight ? "bg-white border-[#e4e4e7] text-slate-700 shadow-2xs" : "bg-white/10 border-white/10 text-slate-200"
-														)}>
-															<Sparkles className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
-														</div>
-														<div>
-															<div className={cn("text-xs font-bold", isLight ? "text-slate-800" : "text-slate-100")}>
-																{t("effects.blurBg")}
-															</div>
-														</div>
-													</div>
-													<Switch
-														checked={showBlur}
-														onCheckedChange={onBlurChange}
-														style={showBlur ? { backgroundColor: activeAccent.hex } : undefined}
-														className="scale-90 cursor-pointer"
-													/>
-												</div>
-
-												{/* Grouped Controls Container */}
-												<div className={cn(
-													"p-3.5 rounded-xl border space-y-3.5 shadow-xs",
-													isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
-												)}>
-													{/* Motion Blur */}
-													<div className="space-y-1.5">
-														<div className="flex items-center justify-between">
-															<div className="flex items-center gap-2">
-																<Wind className="w-3.5 h-3.5 text-slate-400" />
-																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-																	{t("effects.motionBlur")}
-																</span>
-															</div>
-															<span
-																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
-																style={{
-																	backgroundColor: `${activeAccent.hex}18`,
-																	borderColor: `${activeAccent.hex}30`,
-																	color: activeAccent.hex
-																}}
-															>
-																{motionBlurAmount === 0 ? t("effects.off") : motionBlurAmount.toFixed(2)}
-															</span>
-														</div>
-														<Slider
-															value={[motionBlurAmount]}
-															onValueChange={(values) => onMotionBlurChange?.(values[0])}
-															onValueCommit={() => onMotionBlurCommit?.()}
-															min={0}
-															max={1}
-															step={0.01}
-															className="w-full cursor-pointer"
-														/>
-													</div>
-
-													<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
-
-													{/* Shadow */}
-													<div className="space-y-1.5">
-														<div className="flex items-center justify-between">
-															<div className="flex items-center gap-2">
-																<Sun className="w-3.5 h-3.5 text-slate-400" />
-																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-																	{t("effects.shadow")}
-																</span>
-															</div>
-															<span
-																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
-																style={{
-																	backgroundColor: `${activeAccent.hex}18`,
-																	borderColor: `${activeAccent.hex}30`,
-																	color: activeAccent.hex
-																}}
-															>
-																{Math.round(shadowIntensity * 100)}%
-															</span>
-														</div>
-														<Slider
-															value={[shadowIntensity]}
-															onValueChange={(values) => onShadowChange?.(values[0])}
-															onValueCommit={() => onShadowCommit?.()}
-															min={0}
-															max={1}
-															step={0.01}
-															className="w-full cursor-pointer"
-														/>
-													</div>
-
-													<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
-
-													{/* Roundness */}
-													<div className="space-y-1.5">
-														<div className="flex items-center justify-between">
-															<div className="flex items-center gap-2">
-																<Square className="w-3.5 h-3.5 text-slate-400" />
-																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-																	{t("effects.roundness")}
-																</span>
-															</div>
-															<span
-																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
-																style={{
-																	backgroundColor: `${activeAccent.hex}18`,
-																	borderColor: `${activeAccent.hex}30`,
-																	color: activeAccent.hex
-																}}
-															>
-																{borderRadius}px
-															</span>
-														</div>
-														<Slider
-															value={[borderRadius]}
-															onValueChange={(values) => onBorderRadiusChange?.(values[0])}
-															onValueCommit={() => onBorderRadiusCommit?.()}
-															min={0}
-															max={64}
-															step={0.5}
-															className="w-full cursor-pointer"
-														/>
-													</div>
-
-													<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
-
-													{/* Padding */}
-													<div className={cn("space-y-1.5", webcamLayoutPreset === "vertical-stack" ? "opacity-40 pointer-events-none" : "")}>
-														<div className="flex items-center justify-between">
-															<div className="flex items-center gap-2">
-																<Maximize2 className="w-3.5 h-3.5 text-slate-400" />
-																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-																	{t("effects.padding")}
-																</span>
-															</div>
-															<span
-																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
-																style={{
-																	backgroundColor: `${activeAccent.hex}18`,
-																	borderColor: `${activeAccent.hex}30`,
-																	color: activeAccent.hex
-																}}
-															>
-																{webcamLayoutPreset === "vertical-stack" ? "—" : `${Math.round(padding <= 1 ? padding * 100 : padding)}%`}
-															</span>
-														</div>
-														<Slider
-															value={[padding <= 1 ? padding * 100 : padding]}
-															onValueChange={(values) => onPaddingChange?.(values[0])}
-															onValueCommit={() => onPaddingCommit?.()}
-															min={0}
-															max={80}
-															step={1}
-															disabled={webcamLayoutPreset === "vertical-stack"}
-															className="w-full cursor-pointer"
-														/>
-													</div>
-												</div>
-											</div>
-										)}
-
-										{activePanelMode === "cursor" && showCursorSettings && (
-											<div className="space-y-3 mb-2">
-												{/* Toggle Row */}
-												<div className={cn(
-													"flex items-center justify-between p-3 rounded-xl border transition-all shadow-xs",
-													isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
-												)}>
-													<div className="flex items-center gap-2.5">
-														<div className={cn(
-															"w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border",
-															isLight ? "bg-white border-[#e4e4e7] text-slate-700 shadow-2xs" : "bg-white/10 border-white/10 text-slate-200"
-														)}>
-															<MousePointerClick className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
-														</div>
-														<div>
-															<div className={cn("text-xs font-bold", isLight ? "text-slate-800" : "text-slate-100")}>
-																{t("cursor.show")}
-															</div>
-														</div>
-													</div>
-													<Switch
-														checked={showCursor}
-														onCheckedChange={onShowCursorChange}
-														style={showCursor ? { backgroundColor: activeAccent.hex } : undefined}
-														className="scale-90 cursor-pointer"
-													/>
-												</div>
-
-												{showCursor && (
-													<div className={cn(
-														"p-3.5 rounded-xl border space-y-3.5 shadow-xs",
-														isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"
-													)}>
-														{/* Clip to Canvas */}
-														<div className="flex items-center justify-between">
-															<div className="flex items-center gap-1.5 text-xs font-bold">
-																<span className={isLight ? "text-slate-700" : "text-slate-200"}>
-																	{t("cursor.clipToBounds")}
-																</span>
-																<Tooltip
-																	content={t("cursor.clipToBoundsDescription")}
-																	className="max-w-[220px] leading-snug whitespace-normal"
-																>
-																	<button
-																		type="button"
-																		className="text-slate-400 transition-colors hover:text-slate-600"
-																		aria-label={t("cursor.clipToBoundsDescription")}
-																	>
-																		<Info size={12} />
-																	</button>
-																</Tooltip>
-															</div>
-															<Switch
-																checked={cursorClipToBounds}
-																onCheckedChange={onCursorClipToBoundsChange}
-																style={cursorClipToBounds ? { backgroundColor: activeAccent.hex } : undefined}
-																className="scale-90 cursor-pointer"
-																aria-label={t("cursor.clipToBounds")}
-															/>
-														</div>
-
-														{cursorThemeOptions.length > 1 && (
-															<>
-																<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
-
-																{/* Cursor Style Swatches */}
-																<div className="space-y-2">
-																	<div className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-																		{t("cursor.theme")}
-																	</div>
-																	<div className="flex flex-wrap gap-2">
-																		{cursorThemeOptions.map((option) => {
-																			const isSelected = cursorTheme === option.id;
-																			return (
-																				<button
-																					type="button"
-																					key={option.id}
-																					title={option.name}
-																					aria-label={option.name}
-																					aria-pressed={isSelected}
-																					onClick={() => onCursorThemeChange?.(option.id)}
-																					style={{
-																						borderColor: isSelected ? activeAccent.hex : undefined,
-																						backgroundColor: isSelected ? `${activeAccent.hex}15` : undefined,
-																					}}
-																					className={cn(
-																						"flex items-center justify-center w-9 h-9 rounded-xl border transition-all cursor-pointer shadow-2xs",
-																						isSelected
-																							? "ring-2 ring-offset-1 ring-offset-transparent"
-																							: isLight
-																								? "border-[#e4e4e7] bg-white hover:border-slate-300"
-																								: "border-white/10 bg-white/5 hover:border-white/20",
-																					)}
-																				>
-																					<img
-																						src={option.previewUrl}
-																						alt=""
-																						className="w-5 h-5 object-contain"
-																						draggable={false}
-																					/>
-																				</button>
-																			);
-																		})}
-																	</div>
-																</div>
-															</>
-														)}
-
-														<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
-
-														{/* Size */}
-														<div className="space-y-1.5">
-															<div className="flex items-center justify-between">
-																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-																	{t("cursor.size")}
-																</span>
-																<span
-																	className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
-																	style={{
-																		backgroundColor: `${activeAccent.hex}18`,
-																		borderColor: `${activeAccent.hex}30`,
-																		color: activeAccent.hex
-																	}}
-																>
-																	{cursorSize.toFixed(1)}×
-																</span>
-															</div>
-															<Slider
-																value={[cursorSize]}
-																onValueChange={(values) => onCursorSizeChange?.(values[0])}
-																min={0.5}
-																max={10}
-																step={0.1}
-																className="w-full cursor-pointer"
-															/>
-														</div>
-
-														<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
-
-														{/* Smoothing */}
-														<div className="space-y-1.5">
-															<div className="flex items-center justify-between">
-																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-																	{t("cursor.smoothing")}
-																</span>
-																<span
-																	className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
-																	style={{
-																		backgroundColor: `${activeAccent.hex}18`,
-																		borderColor: `${activeAccent.hex}30`,
-																		color: activeAccent.hex
-																	}}
-																>
-																	{Math.round(cursorSmoothing * 100)}%
-																</span>
-															</div>
-															<Slider
-																value={[cursorSmoothing]}
-																onValueChange={(values) => onCursorSmoothingChange?.(values[0])}
-																min={0}
-																max={1}
-																step={0.01}
-																className="w-full cursor-pointer"
-															/>
-														</div>
-
-														<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
-
-														{/* Motion Blur */}
-														<div className="space-y-1.5">
-															<div className="flex items-center justify-between">
-																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-																	{t("cursor.motionBlur")}
-																</span>
-																<span
-																	className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
-																	style={{
-																		backgroundColor: `${activeAccent.hex}18`,
-																		borderColor: `${activeAccent.hex}30`,
-																		color: activeAccent.hex
-																	}}
-																>
-																	{Math.round(cursorMotionBlur * 100)}%
-																</span>
-															</div>
-															<Slider
-																value={[cursorMotionBlur]}
-																onValueChange={(values) => onCursorMotionBlurChange?.(values[0])}
-																min={0}
-																max={1}
-																step={0.01}
-																className="w-full cursor-pointer"
-															/>
-														</div>
-
-														<div className={cn("h-[1px] w-full", isLight ? "bg-[#e4e4e7]" : "bg-white/10")} />
-
-														{/* Click Bounce */}
-														<div className="space-y-1.5">
-															<div className="flex items-center justify-between">
-																<span className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}>
-																	{t("cursor.clickBounce")}
-																</span>
-																<span
-																	className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
-																	style={{
-																		backgroundColor: `${activeAccent.hex}18`,
-																		borderColor: `${activeAccent.hex}30`,
-																		color: activeAccent.hex
-																	}}
-																>
-																	{cursorClickBounce.toFixed(1)}
-																</span>
-															</div>
-															<Slider
-																value={[cursorClickBounce]}
-																onValueChange={(values) => onCursorClickBounceChange?.(values[0])}
-																min={0}
-																max={5}
-																step={0.1}
-																className="w-full cursor-pointer"
-															/>
-														</div>
-													</div>
-												)}
-											</div>
-										)}
-									</AccordionContent>
-								</AccordionItem>
-							)}
-
-							{activePanelMode === "background" && (
-								<AccordionItem value="background" className="editor-panel-section px-3">
-									<AccordionTrigger className="py-2.5 hover:no-underline">
-										<div className="flex items-center gap-2">
-											<Palette className="w-4 h-4 text-[#34B27B]" />
-											<span className="text-xs font-medium">{t("background.title")}</span>
-										</div>
-									</AccordionTrigger>
-									<AccordionContent className="pb-3">
-										<div className={`flex items-center p-1 rounded-xl border mb-3 ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}>
-											{(["image", "color", "gradient"] as const).map((tabKey) => {
-												const isActive = bgSubTab === tabKey;
-												return (
-													<button
-														key={tabKey}
-														type="button"
-														onClick={() => setBgSubTab(tabKey)}
-														style={isActive ? { backgroundColor: activeAccent.hex, color: activeAccent.textHex } : undefined}
-														className={cn(
-															"flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center cursor-pointer capitalize",
-															isActive
-																? "shadow-md scale-[1.02]"
-																: isLight
-																	? "text-slate-600 hover:text-black"
-																	: "text-slate-400 hover:text-white",
-														)}
-													>
-														{t(`background.${tabKey}` as any)}
-													</button>
-												);
-											})}
-										</div>
-
-										<div className="overflow-y-auto custom-scrollbar">
-											{bgSubTab === "image" && (
-												<div className="space-y-3">
-													<input
-														type="file"
-														ref={fileInputRef}
-														onChange={handleImageUpload}
-														accept={BACKGROUND_IMAGE_ACCEPT}
-														className="hidden"
-													/>
-													<Button
-														onClick={() => fileInputRef.current?.click()}
-														variant="outline"
-														className={cn(
-															"w-full gap-2 font-bold transition-all h-9 text-xs rounded-xl cursor-pointer shadow-xs",
-															isLight
-																? "bg-[#f4f4f5] text-[#18181b] border-[#e4e4e7] hover:bg-white hover:border-[#d4d4d8]"
-																: "bg-white/5 text-slate-200 border-white/10 hover:bg-white/10 hover:border-white/20",
-														)}
-													>
-														<Upload className="w-4 h-4" style={{ color: activeAccent.hex }} />
-														{t("background.uploadCustom")}
-													</Button>
-
-													<div className="grid grid-cols-4 gap-2.5">
-														{customImages.map((imageUrl, idx) => {
-															const isSelected = selected === imageUrl;
-															return (
-																<div
-																	key={`custom-${idx}`}
-																	className={cn(
-																		"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 relative group shadow-md hover:scale-105",
-																		isSelected
-																			? ""
-																			: isLight
-																				? "border-[#e4e4e7] bg-[#f4f4f5]"
-																				: "border-white/10 bg-white/5",
-																	)}
-																	style={{
-																		borderColor: isSelected ? activeAccent.hex : undefined,
-																		boxShadow: isSelected ? `0 0 12px ${activeAccent.hex}80` : undefined,
-																	}}
-																	onClick={() => onWallpaperChange(imageUrl)}
-																	role="button"
-																>
-																	<img
-																		src={imageUrl}
-																		alt="Custom wallpaper"
-																		className="w-full h-full object-cover rounded-xl select-none pointer-events-none"
-																	/>
-																	<button
-																		onClick={(e) => handleRemoveCustomImage(imageUrl, e)}
-																		className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md cursor-pointer"
-																	>
-																		<X className="w-2.5 h-2.5 text-white" />
-																	</button>
-																</div>
-															);
-														})}
-
-														{WALLPAPER_PATHS.map((canonicalPath, i) => (
-															<WallpaperSwatch
-																key={canonicalPath}
-																previewUrl={wallpaperPreviewUrls[i] ?? canonicalPath}
-																isSelected={selected === canonicalPath}
-																isLight={isLight}
-																activeAccent={activeAccent}
-																onClick={() => onWallpaperChange(canonicalPath)}
-															/>
-														))}
-													</div>
-												</div>
-											)}
-
-											{bgSubTab === "color" && (
+										{bgSubTab === "color" && (
+											<div className="pt-1">
 												<ColorPicker
 													selectedColor={selectedColor}
 													colorPalette={colorPalette}
@@ -2141,82 +2403,562 @@ export function SettingsPanel({
 														onWallpaperChange(color);
 													}}
 												/>
-											)}
-
-											{bgSubTab === "gradient" && (
-												<div className="grid grid-cols-4 gap-2.5">
-													{GRADIENTS.map((g, idx) => {
-														const isSelected = gradient === g;
-														return (
-															<div
-																key={g}
-																className={cn(
-																	"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
-																	isSelected
-																		? ""
-																		: isLight
-																			? "border-[#e4e4e7] bg-[#f4f4f5]"
-																			: "border-white/10 bg-white/5",
-																)}
-																style={{
-																	borderColor: isSelected ? activeAccent.hex : undefined,
-																	boxShadow: isSelected ? `0 0 12px ${activeAccent.hex}80` : undefined,
-																}}
-																aria-label={t("background.gradientLabel", {
-																	index: idx + 1,
-																})}
-																onClick={() => {
-																	setGradient(g);
-																	onWallpaperChange(g);
-																}}
-																role="button"
-															>
-																<div
-																	className="w-full h-full rounded-xl select-none pointer-events-none"
-																	style={{ background: g }}
-																/>
-																{isSelected && (
-																	<div
-																		className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10"
-																		style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
-																	>
-																		<Check className="w-2.5 h-2.5" />
-																	</div>
-																)}
-															</div>
-														);
-													})}
-												</div>
-											)}
-										</div>
-									</AccordionContent>
-								</AccordionItem>
-							)}
-							{activePanelMode === "timeline" && (
-								<AccordionItem value="timeline" className="editor-panel-section px-3">
-									<AccordionTrigger className="py-2.5 hover:no-underline">
-										<div className="flex items-center gap-2">
-											<Brackets className="w-4 h-4 text-[#34B27B]" />
-											<span className="text-xs font-medium">{t("timeline.title")}</span>
-										</div>
-									</AccordionTrigger>
-									<AccordionContent className="pb-3">
-										<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
-											<div className="text-[10px] font-medium text-slate-300">
-												{t("timeline.waveform")}
 											</div>
-											<Switch
-												checked={showTrimWaveform}
-												onCheckedChange={onTrimWaveformChange}
-												className="data-[state=checked]:bg-[#34B27B] scale-90 ml-2 shrink-0"
-											/>
+										)}
+
+										{bgSubTab === "gradient" && (
+											<div className="grid grid-cols-4 gap-2.5 pt-1">
+												{GRADIENTS.map((g, idx) => {
+													const isSelected = gradient === g;
+													return (
+														<div
+															key={g}
+															className={cn(
+																"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
+																isSelected
+																	? ""
+																	: isLight
+																		? "border-[#e4e4e7] bg-[#f4f4f5]"
+																		: "border-white/10 bg-white/5",
+															)}
+															style={{
+																borderColor: isSelected ? activeAccent.hex : undefined,
+																boxShadow: isSelected
+																	? `0 0 12px ${activeAccent.hex}80`
+																	: undefined,
+															}}
+															aria-label={t("background.gradientLabel", {
+																index: idx + 1,
+															})}
+															onClick={() => {
+																setGradient(g);
+																onWallpaperChange(g);
+															}}
+															role="button"
+														>
+															<div
+																className="w-full h-full rounded-xl select-none pointer-events-none"
+																style={{ background: g }}
+															/>
+															{isSelected && (
+																<div
+																	className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10"
+																	style={{
+																		backgroundColor: activeAccent.hex,
+																		color: activeAccent.textHex,
+																	}}
+																>
+																	<Check className="w-2.5 h-2.5" />
+																</div>
+															)}
+														</div>
+													);
+												})}
+											</div>
+										)}
+									</div>
+								</AccordionContent>
+							</AccordionItem>
+						)}
+						{activePanelMode === "timeline" && (
+							<AccordionItem value="timeline" className="editor-panel-section px-3">
+								<AccordionTrigger className="py-2.5 hover:no-underline">
+									<div className="flex items-center gap-2">
+										<Brackets className="w-4 h-4" style={{ color: activeAccent.hex }} />
+										<span className="text-xs font-medium">{t("timeline.title")}</span>
+									</div>
+								</AccordionTrigger>
+								<AccordionContent className="pb-3">
+									<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
+										<div className="text-[10px] font-medium text-slate-300">
+											{t("timeline.waveform")}
 										</div>
-									</AccordionContent>
-								</AccordionItem>
+										<Switch
+											checked={showTrimWaveform}
+											onCheckedChange={onTrimWaveformChange}
+											className="scale-90 ml-2 shrink-0"
+											style={{ accentColor: activeAccent.hex }}
+										/>
+									</div>
+								</AccordionContent>
+							</AccordionItem>
+						)}
+					</Accordion>
+				)}
+
+				{/* Fulfilling Export Studio Panel */}
+				{activePanelMode === "export" && !hasTimelineSelection && (
+					<div className="space-y-3.5 pb-2 animate-in fade-in duration-150">
+						{/* Hero Overview Card */}
+						<div
+							className={cn(
+								"p-4 rounded-2xl border space-y-3 shadow-xs relative overflow-hidden transition-all",
+								isLight ? "bg-white border-[#e4e4e7]" : "bg-white/[0.03] border-white/10",
 							)}
-						</Accordion>
-					)}
-				</div>
+						>
+							<div
+								className="absolute -right-8 -top-8 w-28 h-28 rounded-full blur-2xl pointer-events-none opacity-20"
+								style={{ backgroundColor: activeAccent.hex }}
+							/>
+
+							<div className="flex items-center gap-3">
+								<div
+									className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+									style={{
+										backgroundColor: `${activeAccent.hex}20`,
+										borderColor: `${activeAccent.hex}40`,
+										color: activeAccent.hex,
+									}}
+								>
+									<Download className="w-5 h-5" />
+								</div>
+								<div className="min-w-0 flex-1">
+									<div className="flex items-center justify-between">
+										<span
+											className={cn(
+												"text-xs font-extrabold truncate",
+												isLight ? "text-slate-900" : "text-white",
+											)}
+										>
+											{exportFormat === "gif" ? "Export as GIF Animation" : "Export as MP4 Video"}
+										</span>
+										<span
+											className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border shrink-0"
+											style={{
+												backgroundColor: `${activeAccent.hex}18`,
+												borderColor: `${activeAccent.hex}30`,
+												color: activeAccent.hex,
+											}}
+										>
+											{exportFormat === "gif"
+												? `${gifOutputDimensions.width}×${gifOutputDimensions.height}`
+												: sourceDimensions
+													? `${sourceDimensions.width}×${sourceDimensions.height}`
+													: "HD"}
+										</span>
+									</div>
+									<p
+										className={cn(
+											"text-[11px] font-medium truncate mt-0.5",
+											isLight ? "text-slate-500" : "text-slate-400",
+										)}
+									>
+										{exportFormat === "gif"
+											? "Optimized looping GIF for instant sharing"
+											: "Lossless H.264 video with crystal-clear audio"}
+									</p>
+								</div>
+							</div>
+
+							{/* Spec details chip grid */}
+							<div
+								className={cn(
+									"grid grid-cols-3 gap-1.5 p-2 rounded-xl border text-center",
+									isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/30 border-white/5",
+								)}
+							>
+								<div>
+									<div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+										Aspect
+									</div>
+									<div
+										className={cn(
+											"text-[11px] font-bold mt-0.5",
+											isLight ? "text-slate-800" : "text-slate-200",
+										)}
+									>
+										{aspectRatio}
+									</div>
+								</div>
+								<div>
+									<div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+										Format
+									</div>
+									<div
+										className={cn(
+											"text-[11px] font-bold mt-0.5 uppercase",
+											isLight ? "text-slate-800" : "text-slate-200",
+										)}
+									>
+										{exportFormat}
+									</div>
+								</div>
+								<div>
+									<div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+										Quality
+									</div>
+									<div
+										className={cn(
+											"text-[11px] font-bold mt-0.5 capitalize",
+											isLight ? "text-slate-800" : "text-slate-200",
+										)}
+									>
+										{exportFormat === "mp4" ? exportQuality : `${gifFrameRate} fps`}
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Format Selector Cards */}
+						<div className="space-y-1.5">
+							<label
+								className={cn(
+									"text-[10px] font-bold uppercase tracking-wider block px-1",
+									isLight ? "text-slate-500" : "text-slate-400",
+								)}
+							>
+								Export Format
+							</label>
+							<div className="grid grid-cols-2 gap-2">
+								{/* MP4 Card */}
+								<button
+									type="button"
+									onClick={() => onExportFormatChange?.("mp4")}
+									className={cn(
+										"p-3 rounded-2xl border text-left transition-all cursor-pointer relative shadow-xs",
+										exportFormat === "mp4"
+											? "shadow-sm scale-[1.01]"
+											: isLight
+												? "bg-white border-[#e4e4e7] hover:border-slate-300 text-slate-700"
+												: "bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.04] text-slate-300",
+									)}
+									style={
+										exportFormat === "mp4"
+											? {
+													backgroundColor: `${activeAccent.hex}12`,
+													borderColor: activeAccent.hex,
+												}
+											: undefined
+									}
+								>
+									<div className="flex items-center justify-between mb-2">
+										<div
+											className="w-8 h-8 rounded-xl flex items-center justify-center"
+											style={{
+												backgroundColor:
+													exportFormat === "mp4"
+														? `${activeAccent.hex}25`
+														: isLight
+															? "#f4f4f5"
+															: "rgba(255,255,255,0.06)",
+												color: exportFormat === "mp4" ? activeAccent.hex : "inherit",
+											}}
+										>
+											<Film className="w-4 h-4" />
+										</div>
+										{exportFormat === "mp4" && (
+											<div
+												className="w-4 h-4 rounded-full flex items-center justify-center"
+												style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+											>
+												<Check className="w-2.5 h-2.5" />
+											</div>
+										)}
+									</div>
+									<div
+										className={cn(
+											"text-xs font-bold leading-tight",
+											exportFormat === "mp4" ? (isLight ? "text-slate-900" : "text-white") : "",
+										)}
+									>
+										MP4 Video
+									</div>
+									<div className="text-[10px] text-slate-400 font-medium mt-0.5">
+										Universal high quality
+									</div>
+								</button>
+
+								{/* GIF Card */}
+								<button
+									type="button"
+									data-testid={getTestId("gif-format-button")}
+									onClick={() => onExportFormatChange?.("gif")}
+									className={cn(
+										"p-3 rounded-2xl border text-left transition-all cursor-pointer relative shadow-xs",
+										exportFormat === "gif"
+											? "shadow-sm scale-[1.01]"
+											: isLight
+												? "bg-white border-[#e4e4e7] hover:border-slate-300 text-slate-700"
+												: "bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.04] text-slate-300",
+									)}
+									style={
+										exportFormat === "gif"
+											? {
+													backgroundColor: `${activeAccent.hex}12`,
+													borderColor: activeAccent.hex,
+												}
+											: undefined
+									}
+								>
+									<div className="flex items-center justify-between mb-2">
+										<div
+											className="w-8 h-8 rounded-xl flex items-center justify-center"
+											style={{
+												backgroundColor:
+													exportFormat === "gif"
+														? `${activeAccent.hex}25`
+														: isLight
+															? "#f4f4f5"
+															: "rgba(255,255,255,0.06)",
+												color: exportFormat === "gif" ? activeAccent.hex : "inherit",
+											}}
+										>
+											<Image className="w-4 h-4" />
+										</div>
+										{exportFormat === "gif" && (
+											<div
+												className="w-4 h-4 rounded-full flex items-center justify-center"
+												style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+											>
+												<Check className="w-2.5 h-2.5" />
+											</div>
+										)}
+									</div>
+									<div
+										className={cn(
+											"text-xs font-bold leading-tight",
+											exportFormat === "gif" ? (isLight ? "text-slate-900" : "text-white") : "",
+										)}
+									>
+										GIF Image
+									</div>
+									<div className="text-[10px] text-slate-400 font-medium mt-0.5">
+										Lightweight loop
+									</div>
+								</button>
+							</div>
+						</div>
+
+						{/* Format Specific Parameters */}
+						{exportFormat === "mp4" && (
+							<div
+								className={cn(
+									"p-3.5 rounded-2xl border space-y-3 shadow-xs",
+									isLight ? "bg-white border-[#e4e4e7]" : "bg-white/[0.03] border-white/10",
+								)}
+							>
+								<div className="flex items-center justify-between">
+									<span
+										className={cn(
+											"text-xs font-bold",
+											isLight ? "text-slate-800" : "text-slate-200",
+										)}
+									>
+										{t("exportQuality.title")}
+									</span>
+									{sourceDimensions && (
+										<span className="text-[10px] font-mono text-slate-400">
+											Source: {sourceDimensions.width}×{sourceDimensions.height}
+										</span>
+									)}
+								</div>
+
+								<div
+									className={cn(
+										"p-1 w-full grid grid-cols-3 h-11 rounded-xl border shadow-2xs",
+										isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/30 border-white/5",
+									)}
+								>
+									<button
+										onClick={() => onExportQualityChange?.("medium")}
+										style={
+											exportQuality === "medium"
+												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+												: undefined
+										}
+										className={cn(
+											"rounded-lg transition-all text-xs font-bold flex flex-col items-center justify-center leading-none gap-0.5 cursor-pointer",
+											exportQuality === "medium"
+												? "shadow-sm scale-[1.02]"
+												: isLight
+													? "text-slate-600 hover:text-black"
+													: "text-slate-400 hover:text-white",
+										)}
+									>
+										<span>{t("exportQuality.low")}</span>
+										<span className="text-[8px] opacity-75 font-mono">
+											{sourceDimensions &&
+											sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.medium
+												? "720p (Upscale)"
+												: "720p"}
+										</span>
+									</button>
+									<button
+										onClick={() => onExportQualityChange?.("good")}
+										style={
+											exportQuality === "good"
+												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+												: undefined
+										}
+										className={cn(
+											"rounded-lg transition-all text-xs font-bold flex flex-col items-center justify-center leading-none gap-0.5 cursor-pointer",
+											exportQuality === "good"
+												? "shadow-sm scale-[1.02]"
+												: isLight
+													? "text-slate-600 hover:text-black"
+													: "text-slate-400 hover:text-white",
+										)}
+									>
+										<span>{t("exportQuality.medium")}</span>
+										<span className="text-[8px] opacity-75 font-mono">
+											{sourceDimensions && sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.good
+												? "1080p (Upscale)"
+												: "1080p"}
+										</span>
+									</button>
+									<button
+										onClick={() => onExportQualityChange?.("source")}
+										style={
+											exportQuality === "source"
+												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+												: undefined
+										}
+										className={cn(
+											"rounded-lg transition-all text-xs font-bold flex flex-col items-center justify-center leading-none gap-0.5 cursor-pointer",
+											exportQuality === "source"
+												? "shadow-sm scale-[1.02]"
+												: isLight
+													? "text-slate-600 hover:text-black"
+													: "text-slate-400 hover:text-white",
+										)}
+									>
+										<span>{t("exportQuality.high")}</span>
+										<span className="text-[8px] opacity-75 font-mono">
+											{sourceDimensions ? `${sourceDimensions.shortSide}p` : "Source"}
+										</span>
+									</button>
+								</div>
+							</div>
+						)}
+
+						{exportFormat === "gif" && (
+							<div
+								className={cn(
+									"p-3.5 rounded-2xl border space-y-3.5 shadow-xs",
+									isLight ? "bg-white border-[#e4e4e7]" : "bg-white/[0.03] border-white/10",
+								)}
+							>
+								{/* Frame Rate */}
+								<div className="space-y-1.5">
+									<div className="flex items-center justify-between">
+										<span
+											className={cn(
+												"text-xs font-bold",
+												isLight ? "text-slate-800" : "text-slate-200",
+											)}
+										>
+											Frame Rate
+										</span>
+										<span className="text-[10px] text-slate-400 font-mono">{gifFrameRate} FPS</span>
+									</div>
+									<div
+										className={cn(
+											"p-1 grid grid-cols-4 h-9 rounded-xl border shadow-2xs",
+											isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/30 border-white/5",
+										)}
+									>
+										{GIF_FRAME_RATES.map((rate) => (
+											<button
+												key={rate.value}
+												onClick={() => onGifFrameRateChange?.(rate.value)}
+												style={
+													gifFrameRate === rate.value
+														? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+														: undefined
+												}
+												className={cn(
+													"rounded-lg transition-all text-[11px] font-bold cursor-pointer",
+													gifFrameRate === rate.value
+														? "shadow-xs scale-[1.02]"
+														: isLight
+															? "text-slate-600 hover:text-black"
+															: "text-slate-400 hover:text-white",
+												)}
+											>
+												{rate.value}
+											</button>
+										))}
+									</div>
+								</div>
+
+								{/* Size Presets */}
+								<div className="space-y-1.5">
+									<div className="flex items-center justify-between">
+										<span
+											className={cn(
+												"text-xs font-bold",
+												isLight ? "text-slate-800" : "text-slate-200",
+											)}
+										>
+											Resolution Preset
+										</span>
+										<span className="text-[10px] text-slate-400 font-mono">
+											{gifOutputDimensions.width}×{gifOutputDimensions.height}px
+										</span>
+									</div>
+									<div
+										className={cn(
+											"p-1 grid grid-cols-4 h-9 rounded-xl border shadow-2xs",
+											isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/30 border-white/5",
+										)}
+									>
+										{Object.entries(GIF_SIZE_PRESETS).map(([key, _preset]) => (
+											<button
+												key={key}
+												data-testid={getTestId(`gif-size-button-${key}`)}
+												onClick={() => onGifSizePresetChange?.(key as GifSizePreset)}
+												style={
+													gifSizePreset === key
+														? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+														: undefined
+												}
+												className={cn(
+													"rounded-lg transition-all text-[10px] font-bold cursor-pointer capitalize",
+													gifSizePreset === key
+														? "shadow-xs scale-[1.02]"
+														: isLight
+															? "text-slate-600 hover:text-black"
+															: "text-slate-400 hover:text-white",
+												)}
+											>
+												{key}
+											</button>
+										))}
+									</div>
+								</div>
+
+								{/* Infinite Loop Switch */}
+								<div
+									className={cn(
+										"flex items-center justify-between p-2.5 rounded-xl border",
+										isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/20 border-white/5",
+									)}
+								>
+									<div>
+										<div
+											className={cn(
+												"text-xs font-bold",
+												isLight ? "text-slate-800" : "text-slate-200",
+											)}
+										>
+											{t("gifSettings.loop")}
+										</div>
+										<div className="text-[10px] text-slate-400 font-medium">
+											Play continuously in an infinite loop
+										</div>
+									</div>
+									<Switch
+										checked={gifLoop}
+										onCheckedChange={onGifLoopChange}
+										className="scale-90 cursor-pointer"
+										style={gifLoop ? { backgroundColor: activeAccent.hex } : undefined}
+									/>
+								</div>
+							</div>
+						)}
+					</div>
+				)}
+			</div>
 
 			{showCropDropdown && cropRegion && onCropChange && (
 				<>
@@ -2263,7 +3005,7 @@ export function SettingsPanel({
 											max={max}
 											value={getCropPixelValue(field)}
 											onChange={(e) => handleCropNumericChange(field, Number(e.target.value))}
-											className="w-[90px] h-8 rounded-md border border-white/10 bg-white/5 px-2 text-xs text-slate-200 outline-none focus:border-[#34B27B]/50 focus:ring-1 focus:ring-[#34B27B]/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+											className="w-[90px] h-8 rounded-md border border-white/10 bg-white/5 px-2 text-xs text-slate-200 outline-none focus:border-white/40 focus:ring-1 focus:ring-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 										/>
 									</div>
 								))}
@@ -2276,7 +3018,7 @@ export function SettingsPanel({
 										<select
 											value={cropAspectRatio}
 											onChange={(e) => applyCropAspectPreset(e.target.value)}
-											className="h-8 rounded-md border border-white/10 bg-[#1a1a1f] px-2 text-xs text-slate-200 outline-none focus:border-[#34B27B]/50 cursor-pointer"
+											className="h-8 rounded-md border border-white/10 bg-[#1a1a1f] px-2 text-xs text-slate-200 outline-none focus:border-white/40 cursor-pointer"
 										>
 											<option value="" className="bg-[#1a1a1f] text-slate-200">
 												{t("crop.free")}
@@ -2303,10 +3045,15 @@ export function SettingsPanel({
 										<button
 											type="button"
 											onClick={() => setCropAspectLocked((prev) => !prev)}
-											className={cn(
-												"h-8 w-8 flex items-center justify-center rounded-md border transition-all",
+											style={
 												cropAspectLocked
-													? "border-[#34B27B]/50 bg-[#34B27B]/10 text-[#34B27B]"
+													? { borderColor: activeAccent.hex, color: activeAccent.hex }
+													: undefined
+											}
+											className={cn(
+												"h-8 w-8 flex items-center justify-center rounded-md border transition-all cursor-pointer",
+												cropAspectLocked
+													? "bg-white/10 shadow-xs"
 													: "border-white/10 bg-white/5 text-slate-400 hover:text-slate-200",
 											)}
 											title={
@@ -2331,7 +3078,8 @@ export function SettingsPanel({
 								<Button
 									onClick={() => setShowCropDropdown(false)}
 									size="lg"
-									className="bg-[#34B27B] hover:bg-[#34B27B]/90 text-white"
+									style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+									className="hover:opacity-90 font-bold transition-all shadow-md cursor-pointer"
 								>
 									{t("crop.done")}
 								</Button>
@@ -2341,235 +3089,17 @@ export function SettingsPanel({
 				</>
 			)}
 
-			<div className={`flex-shrink-0 p-3 border-t ${isLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}>
+			<div
+				className={`flex-shrink-0 p-3.5 border-t ${isLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.08] bg-[#090a0f]"}`}
+			>
 				{activePanelMode === "export" && !hasTimelineSelection && (
 					<>
-						<div className="flex gap-2 mb-3">
-							<button
-								onClick={() => onExportFormatChange?.("mp4")}
-								style={
-									exportFormat === "mp4"
-										? {
-												backgroundColor: `${activeAccent.hex}20`,
-												borderColor: activeAccent.hex,
-												color: activeAccent.hex,
-										  }
-										: undefined
-								}
-								className={cn(
-									"flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border transition-all text-xs font-bold cursor-pointer",
-									exportFormat === "mp4"
-										? "shadow-sm scale-[1.01]"
-										: isLight
-											? "bg-[#f4f4f5] border-[#e4e4e7] text-slate-600 hover:text-black"
-											: "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white",
-								)}
-							>
-								<Film className="w-3.5 h-3.5" />
-								{t("exportFormat.mp4")}
-							</button>
-							<button
-								data-testid={getTestId("gif-format-button")}
-								onClick={() => onExportFormatChange?.("gif")}
-								style={
-									exportFormat === "gif"
-										? {
-												backgroundColor: `${activeAccent.hex}20`,
-												borderColor: activeAccent.hex,
-												color: activeAccent.hex,
-										  }
-										: undefined
-								}
-								className={cn(
-									"flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border transition-all text-xs font-bold cursor-pointer",
-									exportFormat === "gif"
-										? "shadow-sm scale-[1.01]"
-										: isLight
-											? "bg-[#f4f4f5] border-[#e4e4e7] text-slate-600 hover:text-black"
-											: "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white",
-								)}
-							>
-								<Image className="w-3.5 h-3.5" />
-								{t("exportFormat.gif")}
-							</button>
-						</div>
-
-						{exportFormat === "mp4" && (
-							<div className="mb-3 space-y-1.5">
-								{sourceDimensions && (
-									<div className="flex items-center justify-between px-0.5 text-[10px] leading-none text-slate-400 font-medium">
-										<span>{t("exportQuality.title")}</span>
-										<span>
-											Source {sourceDimensions.width}x{sourceDimensions.height}
-										</span>
-									</div>
-								)}
-								<div className={`p-1 w-full grid grid-cols-3 h-10 rounded-xl border ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}>
-									<button
-										onClick={() => onExportQualityChange?.("medium")}
-										style={
-											exportQuality === "medium"
-												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
-												: undefined
-										}
-										className={cn(
-											"rounded-lg transition-all text-[11px] font-bold flex flex-col items-center justify-center leading-none gap-0.5 cursor-pointer",
-											exportQuality === "medium"
-												? "shadow-md scale-[1.02]"
-												: isLight
-													? "text-slate-600 hover:text-black"
-													: "text-slate-400 hover:text-white",
-										)}
-									>
-										<span>{t("exportQuality.low")}</span>
-										{sourceDimensions &&
-											sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.medium && (
-												<span
-													className={cn(
-														"text-[8px] font-medium",
-														exportQuality === "medium" ? "opacity-80" : "text-amber-400",
-													)}
-												>
-													Upscale
-												</span>
-											)}
-									</button>
-									<button
-										onClick={() => onExportQualityChange?.("good")}
-										style={
-											exportQuality === "good"
-												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
-												: undefined
-										}
-										className={cn(
-											"rounded-lg transition-all text-[11px] font-bold flex flex-col items-center justify-center leading-none gap-0.5 cursor-pointer",
-											exportQuality === "good"
-												? "shadow-md scale-[1.02]"
-												: isLight
-													? "text-slate-600 hover:text-black"
-													: "text-slate-400 hover:text-white",
-										)}
-									>
-										<span>{t("exportQuality.medium")}</span>
-										{sourceDimensions &&
-											sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.good && (
-												<span
-													className={cn(
-														"text-[8px] font-medium",
-														exportQuality === "good" ? "opacity-80" : "text-amber-400",
-													)}
-												>
-													Upscale
-												</span>
-											)}
-									</button>
-									<button
-										onClick={() => onExportQualityChange?.("source")}
-										style={
-											exportQuality === "source"
-												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
-												: undefined
-										}
-										className={cn(
-											"rounded-lg transition-all text-[11px] font-bold flex flex-col items-center justify-center leading-none gap-0.5 cursor-pointer",
-											exportQuality === "source"
-												? "shadow-md scale-[1.02]"
-												: isLight
-													? "text-slate-600 hover:text-black"
-													: "text-slate-400 hover:text-white",
-										)}
-									>
-										<span>{t("exportQuality.high")}</span>
-										{sourceDimensions && (
-											<span
-												className={cn(
-													"text-[8px] font-medium",
-													exportQuality === "source" ? "opacity-80" : "text-slate-400",
-												)}
-											>
-												{sourceDimensions.shortSide}p
-											</span>
-										)}
-									</button>
-								</div>
-							</div>
-						)}
-
-						{exportFormat === "gif" && (
-							<div className="mb-3 space-y-2">
-								<div className="flex items-center gap-2">
-									<div className={`flex-1 p-0.5 grid grid-cols-4 h-8 rounded-xl border ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}>
-										{GIF_FRAME_RATES.map((rate) => (
-											<button
-												key={rate.value}
-												onClick={() => onGifFrameRateChange?.(rate.value)}
-												style={
-													gifFrameRate === rate.value
-														? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
-														: undefined
-												}
-												className={cn(
-													"rounded-lg transition-all text-[10px] font-bold cursor-pointer",
-													gifFrameRate === rate.value
-														? "shadow-xs"
-														: isLight
-															? "text-slate-600 hover:text-black"
-															: "text-slate-400 hover:text-white",
-												)}
-											>
-												{rate.value}
-											</button>
-										))}
-									</div>
-									<div className={`flex-1 p-0.5 grid grid-cols-3 h-8 rounded-xl border ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}>
-										{Object.entries(GIF_SIZE_PRESETS).map(([key, _preset]) => (
-											<button
-												key={key}
-												data-testid={getTestId(`gif-size-button-${key}`)}
-												onClick={() => onGifSizePresetChange?.(key as GifSizePreset)}
-												style={
-													gifSizePreset === key
-														? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
-														: undefined
-												}
-												className={cn(
-													"rounded-lg transition-all text-[10px] font-bold cursor-pointer",
-													gifSizePreset === key
-														? "shadow-xs"
-														: isLight
-															? "text-slate-600 hover:text-black"
-															: "text-slate-400 hover:text-white",
-												)}
-											>
-												{key === "original"
-													? "Orig"
-													: key.charAt(0).toUpperCase() + key.slice(1, 3)}
-											</button>
-										))}
-									</div>
-								</div>
-								<div className="flex items-center justify-between">
-									<span className="text-[10px] text-slate-500">
-										{gifOutputDimensions.width} × {gifOutputDimensions.height}px
-									</span>
-									<div className="flex items-center gap-2">
-										<span className="text-[10px] text-slate-400">{t("gifSettings.loop")}</span>
-										<Switch
-											checked={gifLoop}
-											onCheckedChange={onGifLoopChange}
-											className="data-[state=checked]:bg-[#34B27B] scale-75"
-										/>
-									</div>
-								</div>
-							</div>
-						)}
-
 						{unsavedExport && (
 							<Button
 								type="button"
 								size="lg"
 								onClick={onSaveUnsavedExport}
-								className="w-full mb-2 py-5 text-sm font-semibold flex items-center justify-center gap-2 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-500/90 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+								className="w-full mb-2.5 h-11 text-xs font-bold flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 active:scale-[0.98] transition-all duration-200 cursor-pointer"
 							>
 								<Download className="w-4 h-4" />
 								{t("export.chooseSaveLocation")}
@@ -2581,7 +3111,7 @@ export function SettingsPanel({
 							size="lg"
 							onClick={onExport}
 							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
-							className="w-full py-5 text-sm font-extrabold flex items-center justify-center gap-2 rounded-xl shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer hover:opacity-90"
+							className="w-full h-12 text-sm font-extrabold flex items-center justify-center gap-2 rounded-2xl shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer hover:opacity-95"
 						>
 							<Download className="w-4 h-4" />
 							{exportFormat === "gif" ? t("export.gifButton") : t("export.videoButton")}

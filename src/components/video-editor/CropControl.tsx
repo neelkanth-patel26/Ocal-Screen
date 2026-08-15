@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { type AspectRatio } from "@/utils/aspectRatioUtils";
 import { DEFAULT_SOURCE_DIMENSIONS } from "./editorDefaults";
 
@@ -20,6 +20,8 @@ interface CropControlProps {
 type DragHandle = "top" | "right" | "bottom" | "left" | "move" | null;
 
 export function CropControl({ videoElement, cropRegion, onCropChange }: CropControlProps) {
+	const prefs = loadUserPreferences();
+	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isDragging, setIsDragging] = useState<DragHandle>(null);
@@ -197,7 +199,7 @@ export function CropControl({ videoElement, cropRegion, onCropChange }: CropCont
 				/>
 
 				<div
-					className={cn("absolute h-[3px] cursor-ns-resize z-20 pointer-events-auto bg-[#34B27B]")}
+					className="absolute h-[3px] cursor-ns-resize z-20 pointer-events-auto shadow-sm"
 					style={{
 						left: `${cropPixelX}%`,
 						top: `${cropPixelY}%`,
@@ -205,12 +207,13 @@ export function CropControl({ videoElement, cropRegion, onCropChange }: CropCont
 						transform: "translateY(-50%)",
 						willChange: "transform",
 						transition: "none",
+						backgroundColor: activeAccent.hex,
 					}}
 					onPointerDown={(e) => handlePointerDown(e, "top")}
 				/>
 
 				<div
-					className={cn("absolute h-[3px] cursor-ns-resize z-20 pointer-events-auto bg-[#34B27B]")}
+					className="absolute h-[3px] cursor-ns-resize z-20 pointer-events-auto shadow-sm"
 					style={{
 						left: `${cropPixelX}%`,
 						top: `${cropPixelY + cropPixelHeight}%`,
@@ -218,12 +221,13 @@ export function CropControl({ videoElement, cropRegion, onCropChange }: CropCont
 						transform: "translateY(-50%)",
 						willChange: "transform",
 						transition: "none",
+						backgroundColor: activeAccent.hex,
 					}}
 					onPointerDown={(e) => handlePointerDown(e, "bottom")}
 				/>
 
 				<div
-					className={cn("absolute w-[3px] cursor-ew-resize z-20 pointer-events-auto bg-[#34B27B]")}
+					className="absolute w-[3px] cursor-ew-resize z-20 pointer-events-auto shadow-sm"
 					style={{
 						left: `${cropPixelX}%`,
 						top: `${cropPixelY}%`,
@@ -231,12 +235,13 @@ export function CropControl({ videoElement, cropRegion, onCropChange }: CropCont
 						transform: "translateX(-50%)",
 						willChange: "transform",
 						transition: "none",
+						backgroundColor: activeAccent.hex,
 					}}
 					onPointerDown={(e) => handlePointerDown(e, "left")}
 				/>
 
 				<div
-					className={cn("absolute w-[3px] cursor-ew-resize z-20 pointer-events-auto bg-[#34B27B]")}
+					className="absolute w-[3px] cursor-ew-resize z-20 pointer-events-auto shadow-sm"
 					style={{
 						left: `${cropPixelX + cropPixelWidth}%`,
 						top: `${cropPixelY}%`,
@@ -244,6 +249,7 @@ export function CropControl({ videoElement, cropRegion, onCropChange }: CropCont
 						transform: "translateX(-50%)",
 						willChange: "transform",
 						transition: "none",
+						backgroundColor: activeAccent.hex,
 					}}
 					onPointerDown={(e) => handlePointerDown(e, "right")}
 				/>

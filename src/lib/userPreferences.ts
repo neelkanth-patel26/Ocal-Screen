@@ -20,7 +20,10 @@ const VALID_ASPECT_RATIOS: readonly string[] = [
 
 export type AccentColor = "lime" | "cyan" | "orange" | "green" | "purple" | "pink";
 
-export const ACCENT_COLOR_MAP: Record<AccentColor, { label: string; hex: string; textHex: string }> = {
+export const ACCENT_COLOR_MAP: Record<
+	AccentColor,
+	{ label: string; hex: string; textHex: string }
+> = {
 	lime: { label: "Neon Lime", hex: "#e8ff47", textHex: "#000000" },
 	cyan: { label: "Electric Cyan", hex: "#00f0ff", textHex: "#000000" },
 	orange: { label: "Sunset Orange", hex: "#ff6b00", textHex: "#ffffff" },

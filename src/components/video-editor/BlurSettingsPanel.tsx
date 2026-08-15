@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useScopedT } from "@/contexts/I18nContext";
 import { getBlurOverlayColor } from "@/lib/blurEffects";
+import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { cn } from "@/lib/utils";
 import {
 	type AnnotationRegion,
@@ -29,6 +30,8 @@ export function BlurSettingsPanel({
 	onDelete,
 }: BlurSettingsPanelProps) {
 	const t = useScopedT("settings");
+	const prefs = loadUserPreferences();
+	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
 
 	const blurShapeOptions: Array<{ value: BlurShape; labelKey: string }> = [
 		{ value: "rectangle", labelKey: "blurShapeRectangle" },
@@ -43,66 +46,71 @@ export function BlurSettingsPanel({
 		<div className="min-w-0 p-4 flex flex-col h-full overflow-y-auto custom-scrollbar">
 			<div className="mb-3">
 				<div className="mb-4">
-					<span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-						{t("annotation.blurTypeMosaic")}
-					</span>
-					<div className="mt-1 text-xl font-semibold text-slate-100">
-						{t("annotation.typeBlur")}
+					<label className="text-xs font-bold text-slate-300 mb-2 block">
+						{t("annotation.blurShape")}
+					</label>
+					<div className="grid grid-cols-2 gap-2">
+						{blurShapeOptions.map((shape) => {
+							const activeShape = blurRegion.blurData?.shape ?? DEFAULT_BLUR_DATA.shape;
+							const isActive = activeShape === shape.value;
+							return (
+								<button
+									key={shape.value}
+									onClick={() => {
+										const nextBlurData: BlurData = {
+											...DEFAULT_BLUR_DATA,
+											...blurRegion.blurData,
+											type: "mosaic",
+											shape: shape.value,
+										};
+										onBlurDataChange(nextBlurData);
+										requestAnimationFrame(() => {
+											onBlurDataCommit?.();
+										});
+									}}
+									style={
+										isActive
+											? {
+													backgroundColor: activeAccent.hex,
+													borderColor: activeAccent.hex,
+													color: activeAccent.textHex,
+												}
+											: undefined
+									}
+									className={cn(
+										"h-12 rounded-xl border flex items-center justify-center transition-all p-2 gap-2 cursor-pointer font-bold",
+										isActive
+											? "shadow-md scale-[1.02]"
+											: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300",
+									)}
+								>
+									{shape.value === "rectangle" && (
+										<div
+											className={cn(
+												"w-8 h-5 border-2 rounded-md",
+												isActive ? "border-white" : "border-slate-400",
+											)}
+										/>
+									)}
+									{shape.value === "oval" && (
+										<div
+											className={cn(
+												"w-8 h-5 border-2 rounded-full",
+												isActive ? "border-white" : "border-slate-400",
+											)}
+										/>
+									)}
+									<span className="text-xs leading-none font-bold">
+										{t(`annotation.${shape.labelKey}`)}
+									</span>
+								</button>
+							);
+						})}
 					</div>
 				</div>
 
-				<div className="grid grid-cols-2 gap-2">
-					{blurShapeOptions.map((shape) => {
-						const activeShape = blurRegion.blurData?.shape || DEFAULT_BLUR_DATA.shape;
-						const isActive = activeShape === shape.value;
-						return (
-							<button
-								key={shape.value}
-								onClick={() => {
-									const nextBlurData: BlurData = {
-										...DEFAULT_BLUR_DATA,
-										...blurRegion.blurData,
-										type: "mosaic",
-										shape: shape.value,
-									};
-									onBlurDataChange(nextBlurData);
-									requestAnimationFrame(() => {
-										onBlurDataCommit?.();
-									});
-								}}
-								className={cn(
-									"h-12 rounded-lg border flex items-center justify-center transition-all p-2 gap-2",
-									isActive
-										? "bg-[#34B27B] border-[#34B27B]"
-										: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20",
-								)}
-							>
-								{shape.value === "rectangle" && (
-									<div
-										className={cn(
-											"w-8 h-5 border-2 rounded-sm",
-											isActive ? "border-white" : "border-slate-400",
-										)}
-									/>
-								)}
-								{shape.value === "oval" && (
-									<div
-										className={cn(
-											"w-8 h-5 border-2 rounded-full",
-											isActive ? "border-white" : "border-slate-400",
-										)}
-									/>
-								)}
-								<span className="text-[10px] leading-none font-medium">
-									{t(`annotation.${shape.labelKey}`)}
-								</span>
-							</button>
-						);
-					})}
-				</div>
-
 				<div className="mt-4">
-					<label className="text-xs font-medium text-slate-300 mb-2 block">
+					<label className="text-xs font-bold text-slate-300 mb-2 block">
 						{t("annotation.blurColor")}
 					</label>
 					<div className="grid grid-cols-2 gap-2">
@@ -124,15 +132,24 @@ export function BlurSettingsPanel({
 											onBlurDataCommit?.();
 										});
 									}}
-									className={cn(
-										"h-10 rounded-lg border flex items-center gap-2 px-3 transition-all",
+									style={
 										isActive
-											? "bg-[#34B27B] border-[#34B27B]"
-											: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20",
+											? {
+													backgroundColor: activeAccent.hex,
+													borderColor: activeAccent.hex,
+													color: activeAccent.textHex,
+												}
+											: undefined
+									}
+									className={cn(
+										"h-10 rounded-xl border flex items-center gap-2 px-3 transition-all cursor-pointer font-bold",
+										isActive
+											? "shadow-md scale-[1.02]"
+											: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300",
 									)}
 								>
 									<div
-										className="w-4 h-4 rounded-full border border-white/20"
+										className="w-4 h-4 rounded-full border border-white/20 shadow-xs"
 										style={{
 											backgroundColor: getBlurOverlayColor({
 												...DEFAULT_BLUR_DATA,
@@ -141,21 +158,19 @@ export function BlurSettingsPanel({
 											}),
 										}}
 									/>
-									<span className="text-xs text-slate-200">
-										{t(`annotation.${option.labelKey}`)}
-									</span>
+									<span className="text-xs">{t(`annotation.${option.labelKey}`)}</span>
 								</button>
 							);
 						})}
 					</div>
 				</div>
 
-				<div className="mt-4 p-3 rounded-lg editor-control-surface">
+				<div className="mt-4 p-3 rounded-xl editor-control-surface">
 					<div className="flex items-center justify-between mb-2">
-						<span className="text-xs font-medium text-slate-300">
+						<span className="text-xs font-bold text-slate-300">
 							{t("annotation.mosaicBlockSize")}
 						</span>
-						<span className="text-[10px] text-slate-400 font-mono">
+						<span className="text-[10px] text-slate-400 font-mono font-bold">
 							{Math.round(blurRegion.blurData?.blockSize ?? DEFAULT_BLUR_BLOCK_SIZE)}
 							px
 						</span>
@@ -174,7 +189,7 @@ export function BlurSettingsPanel({
 						min={MIN_BLUR_BLOCK_SIZE}
 						max={MAX_BLUR_BLOCK_SIZE}
 						step={1}
-						className="w-full [&_[role=slider]]:bg-[#34B27B] [&_[role=slider]]:border-[#34B27B] [&_[role=slider]]:h-3 [&_[role=slider]]:w-3"
+						className="w-full"
 					/>
 				</div>
 

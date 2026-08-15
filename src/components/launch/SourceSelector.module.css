@@ -1,81 +1,129 @@
 .glassContainer {
-	background: #0c0c0c;
-	border-radius: 20px;
-	border: 1px solid #252525;
+	background: rgba(13, 14, 20, 0.95);
+	backdrop-filter: blur(24px) saturate(180%);
+	-webkit-backdrop-filter: blur(24px) saturate(180%);
+	border-radius: 24px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow: none;
+}
+
+.glassContainerLight {
+	background: rgba(255, 255, 255, 0.96);
+	backdrop-filter: blur(24px) saturate(180%);
+	-webkit-backdrop-filter: blur(24px) saturate(180%);
+	border-radius: 24px;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	box-shadow: none;
 }
 
 .sourceCard {
-	border-radius: 16px;
-	background: #141414;
-	border: 1px solid #252525;
-	transition: all 0.15s ease;
+	border-radius: 14px;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 	cursor: pointer;
+	position: relative;
+	overflow: hidden;
 }
 
 .sourceCard:hover {
-	background: #1a1a1a;
-	border-color: #383838;
-	transform: translateY(-1px);
+	background: rgba(255, 255, 255, 0.07);
+	border-color: rgba(255, 255, 255, 0.16);
+	transform: translateY(-2px);
+	box-shadow: none;
+}
+
+.sourceCardLight {
+	border-radius: 14px;
+	background: #ffffff;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+	cursor: pointer;
+	position: relative;
+	overflow: hidden;
+}
+
+.sourceCardLight:hover {
+	background: #fafafa;
+	border-color: rgba(0, 0, 0, 0.16);
+	transform: translateY(-2px);
+	box-shadow: none;
 }
 
 .selected {
-	border: 2px solid #e8ff47;
-	background: #161616;
+	background: rgba(255, 255, 255, 0.08) !important;
+	transform: translateY(0) !important;
 }
 
-.selected:hover {
-	transform: translateY(0);
-	border-color: #e8ff47;
+.selectedLight {
+	background: #f4f4f5 !important;
+	transform: translateY(0) !important;
 }
 
 .icon {
-	width: 14px;
-	height: 14px;
-	color: #e8e8e8;
+	width: 15px;
+	height: 15px;
+	color: #e4e4e7;
 }
 
 .name {
 	font-size: 0.75rem;
-	color: #e8e8e8;
+	color: #f4f4f5;
 	font-weight: 600;
-	letter-spacing: 0;
+	letter-spacing: -0.01em;
 }
 
 .cardText {
-	color: #888888;
+	color: #a1a1aa;
 	font-size: 0.75rem;
 }
 
 /* Checkmark badge */
 .checkBadge {
-	width: 20px;
-	height: 20px;
-	background: #e8ff47;
-	color: #000000;
+	width: 22px;
+	height: 22px;
 	border-radius: 9999px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	box-shadow: none;
+	font-weight: bold;
 }
 
-/* scrollbar */
-
+/* Scrollbar */
 .sourceGridScroll::-webkit-scrollbar {
-	width: 4px;
+	width: 5px;
 }
 
 .sourceGridScroll::-webkit-scrollbar-track {
-	background: #141414;
-	border-radius: 4px;
+	background: transparent;
+	margin: 4px 0;
 }
 
 .sourceGridScroll::-webkit-scrollbar-thumb {
-	background: #252525;
-	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.12);
+	border-radius: 9999px;
+	transition: background-color 150ms ease;
 }
 
 .sourceGridScroll::-webkit-scrollbar-thumb:hover {
-	background: #383838;
-	cursor: grab;
+	background: rgba(255, 255, 255, 0.25);
+}
+
+.sourceGridScrollLight::-webkit-scrollbar {
+	width: 5px;
+}
+
+.sourceGridScrollLight::-webkit-scrollbar-track {
+	background: transparent;
+	margin: 4px 0;
+}
+
+.sourceGridScrollLight::-webkit-scrollbar-thumb {
+	background: rgba(0, 0, 0, 0.12);
+	border-radius: 9999px;
+}
+
+.sourceGridScrollLight::-webkit-scrollbar-thumb:hover {
+	background: rgba(0, 0, 0, 0.25);
 }

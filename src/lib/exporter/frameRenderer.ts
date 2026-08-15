@@ -688,7 +688,8 @@ export class FrameRenderer {
 		// Padding is a percentage (0-100), where 50% gives a spacious margin on both sides.
 		// Vertical stack is full-bleed, so it ignores padding.
 		const paddingPercent = padding <= 1 ? padding * 100 : padding;
-		const effectivePadding = this.config.webcamLayoutPreset === "vertical-stack" ? 0 : paddingPercent;
+		const effectivePadding =
+			this.config.webcamLayoutPreset === "vertical-stack" ? 0 : paddingPercent;
 		const paddingScale = 1.0 - (effectivePadding / 100) * 0.65;
 		const viewportWidth = width * paddingScale;
 		const viewportHeight = height * paddingScale;

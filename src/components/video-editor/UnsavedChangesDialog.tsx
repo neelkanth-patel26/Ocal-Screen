@@ -81,7 +81,9 @@ export function UnsavedChangesDialog({
 					</div>
 				</DialogHeader>
 
-				<p className={`text-xs font-semibold mb-1 ${isLight ? "text-[#18181b]" : "text-[#e8e8e8]"}`}>
+				<p
+					className={`text-xs font-semibold mb-1 ${isLight ? "text-[#18181b]" : "text-[#e8e8e8]"}`}
+				>
 					{td("unsavedChanges.message")}
 				</p>
 				<DialogDescription className="text-xs text-[#888888] mb-6 leading-relaxed">

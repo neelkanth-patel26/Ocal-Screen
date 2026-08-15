@@ -1,5 +1,6 @@
 import { useTimelineContext } from "dnd-timeline";
 import React, { useEffect, useState } from "react";
+import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 
 interface Keyframe {
 	id: string;
@@ -23,6 +24,8 @@ const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 	videoDurationMs,
 	timelineRef,
 }) => {
+	const prefs = loadUserPreferences();
+	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
 	const { sidebarWidth, range, valueToPixels, pixelsToValue } = useTimelineContext();
 	const [draggingKeyframeId, setDraggingKeyframeId] = useState<string | null>(null);
 
@@ -75,11 +78,12 @@ const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 				return (
 					<div
 						key={kf.id}
-						className={`absolute top-8 cursor-grab active:cursor-grabbing ${isSelected ? "ring-2 ring-[#34B27B]" : ""}`}
+						className="absolute top-8 cursor-grab active:cursor-grabbing rounded-full"
 						style={{
 							left: `${sidebarWidth + offset - 8}px`,
 							zIndex: isDragging ? 50 : 40,
 							transition: isDragging ? "none" : "left 0.1s ease-out",
+							boxShadow: isSelected ? `0 0 0 2px ${activeAccent.hex}` : undefined,
 						}}
 						onMouseDown={(e) => {
 							e.stopPropagation();

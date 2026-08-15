@@ -1,12 +1,16 @@
-import { Building2, ExternalLink, Github, Heart, RefreshCw, Sparkles, User } from "lucide-react";
-import { useCallback, useState } from "react";
 import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
+	Building2,
+	CheckCircle2,
+	ExternalLink,
+	Github,
+	Heart,
+	RefreshCw,
+	Sparkles,
+	User,
+} from "lucide-react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +49,28 @@ interface UpdateInfo {
 	};
 	installerPath?: string;
 	error?: string;
+}
+
+/**
+ * Returns true if remoteVersion is strictly newer/higher than currentVersion
+ */
+function isNewerVersion(remote: string, current: string): boolean {
+	const rParts = remote
+		.replace(/^v/i, "")
+		.split(".")
+		.map((p) => parseInt(p, 10) || 0);
+	const cParts = current
+		.replace(/^v/i, "")
+		.split(".")
+		.map((p) => parseInt(p, 10) || 0);
+
+	for (let i = 0; i < Math.max(rParts.length, cParts.length); i++) {
+		const r = rParts[i] ?? 0;
+		const c = cParts[i] ?? 0;
+		if (r > c) return true;
+		if (r < c) return false;
+	}
+	return false;
 }
 
 export function AboutDialog({
@@ -89,14 +115,15 @@ export function AboutDialog({
 				}
 			}
 
-			const latestVersion = (data.tag_name || "").replace(/^v/, "");
-			const currentVersion = APP_VERSION.replace(/^v/, "");
+			const latestVersion = (data.tag_name || "").replace(/^v/i, "");
+			const currentVersion = APP_VERSION.replace(/^v/i, "");
 
 			const exeAsset = data.assets?.find((a: any) => a.name?.endsWith(".exe"));
 			const downloadUrl = exeAsset?.browser_download_url;
 			const fileName = exeAsset?.name || `Ocal-Screen-${latestVersion}-Setup.exe`;
 
-			if (latestVersion && latestVersion !== currentVersion) {
+			// Only show update-available if the remote version is strictly newer than our current version
+			if (latestVersion && isNewerVersion(latestVersion, currentVersion)) {
 				setUpdateStatus("update-available");
 				setUpdateInfo({
 					latestVersion,
@@ -106,6 +133,9 @@ export function AboutDialog({
 				});
 			} else {
 				setUpdateStatus("up-to-date");
+				setUpdateInfo({
+					latestVersion: currentVersion,
+				});
 			}
 		} catch (err) {
 			setUpdateStatus("error");
@@ -239,10 +269,7 @@ export function AboutDialog({
 				>
 					{/* Software & Studio */}
 					<div className="flex items-center gap-3 px-4 py-3">
-						<Building2
-							className="w-4 h-4 shrink-0"
-							style={{ color: activeAccent.hex }}
-						/>
+						<Building2 className="w-4 h-4 shrink-0" style={{ color: activeAccent.hex }} />
 						<div className="flex-1 min-w-0">
 							<span
 								className={cn(
@@ -273,10 +300,7 @@ export function AboutDialog({
 
 					{/* Maintainer */}
 					<div className="flex items-center gap-3 px-4 py-3">
-						<User
-							className="w-4 h-4 shrink-0"
-							style={{ color: activeAccent.hex }}
-						/>
+						<User className="w-4 h-4 shrink-0" style={{ color: activeAccent.hex }} />
 						<div className="flex-1 min-w-0">
 							<span
 								className={cn(
@@ -297,9 +321,7 @@ export function AboutDialog({
 						</div>
 						<button
 							type="button"
-							onClick={() =>
-								openExternal(`https://github.com/${DETAILS.github}`)
-							}
+							onClick={() => openExternal(`https://github.com/${DETAILS.github}`)}
 							className={cn(
 								"text-[10px] font-semibold px-2 py-1 rounded-md transition-colors cursor-pointer shrink-0 border",
 								isLight
@@ -313,10 +335,7 @@ export function AboutDialog({
 
 					{/* Source Code */}
 					<div className="flex items-center gap-3 px-4 py-3">
-						<Github
-							className="w-4 h-4 shrink-0"
-							style={{ color: activeAccent.hex }}
-						/>
+						<Github className="w-4 h-4 shrink-0" style={{ color: activeAccent.hex }} />
 						<div className="flex-1 min-w-0">
 							<span
 								className={cn(
@@ -358,28 +377,22 @@ export function AboutDialog({
 							onClick={checkForUpdates}
 							variant="outline"
 							className={cn(
-								"w-full h-9 rounded-xl text-xs font-semibold gap-2 cursor-pointer transition-all border",
+								"w-full h-10 rounded-xl text-xs font-bold gap-2 cursor-pointer transition-all border shadow-xs hover:scale-[1.01] active:scale-[0.99]",
 								isLight
-									? "bg-[#f4f4f5] border-[#e4e4e7] text-slate-700 hover:bg-[#e4e4e7]"
-									: "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10",
+									? "bg-[#f4f4f5] border-[#e4e4e7] text-slate-800 hover:bg-[#e4e4e7]"
+									: "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10 hover:border-white/20",
 							)}
 						>
-							<RefreshCw className="w-3.5 h-3.5" />
+							<RefreshCw className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
 							Check for Updates
 						</Button>
 					)}
 
 					{updateStatus === "checking" && (
-						<div className="flex items-center justify-center gap-2 py-2">
-							<RefreshCw
-								className="w-3.5 h-3.5 animate-spin"
-								style={{ color: activeAccent.hex }}
-							/>
+						<div className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-white/5 bg-white/[0.02]">
+							<RefreshCw className="w-4 h-4 animate-spin" style={{ color: activeAccent.hex }} />
 							<span
-								className={cn(
-									"text-xs font-medium",
-									isLight ? "text-slate-500" : "text-slate-400",
-								)}
+								className={cn("text-xs font-medium", isLight ? "text-slate-600" : "text-slate-300")}
 							>
 								Checking for updates…
 							</span>
@@ -389,38 +402,41 @@ export function AboutDialog({
 					{updateStatus === "up-to-date" && (
 						<div
 							className={cn(
-								"flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-medium",
+								"flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold border shadow-xs transition-all",
 								isLight
-									? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-									: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+									? "bg-emerald-50 text-emerald-700 border-emerald-200"
+									: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 shadow-emerald-950/20",
 							)}
 						>
-							<span>✓</span>
-							<span>You're on the latest version</span>
+							<CheckCircle2 className="w-4 h-4 text-emerald-400" />
+							<span>You're on the latest version (v{APP_VERSION})</span>
 						</div>
 					)}
 
 					{updateStatus === "update-available" && (
-						<div className="space-y-2">
+						<div className="space-y-2.5">
 							<div
 								className={cn(
-									"flex items-center justify-between py-2 px-4 rounded-xl text-xs font-medium",
+									"flex items-center justify-between py-2.5 px-4 rounded-xl text-xs font-bold border shadow-xs",
 									isLight
-										? "bg-amber-50 text-amber-700 border border-amber-200"
-										: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+										? "bg-amber-50 text-amber-800 border-amber-200"
+										: "bg-amber-500/10 text-amber-300 border-amber-500/25",
 								)}
 							>
-								<span>v{updateInfo.latestVersion} is available</span>
+								<div className="flex items-center gap-2">
+									<Sparkles className="w-4 h-4 text-amber-400" />
+									<span>v{updateInfo.latestVersion} is available!</span>
+								</div>
 							</div>
 							<Button
 								onClick={startInAppDownload}
-								className="w-full h-9 rounded-xl text-xs font-semibold gap-2 cursor-pointer shadow-md transition-all active:scale-[0.98]"
+								className="w-full h-10 rounded-xl text-xs font-bold gap-2 cursor-pointer shadow-md transition-all active:scale-[0.98]"
 								style={{
 									backgroundColor: activeAccent.hex,
 									color: activeAccent.textHex,
 								}}
 							>
-								<Sparkles className="w-3.5 h-3.5" />
+								<Sparkles className="w-4 h-4" />
 								Download & Install Update
 							</Button>
 							{updateInfo.releaseUrl && (
@@ -428,8 +444,10 @@ export function AboutDialog({
 									type="button"
 									onClick={() => openExternal(updateInfo.releaseUrl!)}
 									className={cn(
-										"w-full text-center text-[11px] underline hover:no-underline cursor-pointer pt-1",
-										isLight ? "text-slate-500" : "text-slate-400",
+										"w-full text-center text-[11px] font-semibold underline hover:no-underline cursor-pointer pt-0.5",
+										isLight
+											? "text-slate-500 hover:text-slate-800"
+											: "text-slate-400 hover:text-white",
 									)}
 								>
 									View Release Notes on GitHub
@@ -550,7 +568,8 @@ export function AboutDialog({
 							: "text-slate-400 border-white/5 bg-white/[0.01]",
 					)}
 				>
-					Made with <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500 inline mx-0.5" /> by {DETAILS.studio}
+					Made with <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500 inline mx-0.5" /> by{" "}
+					{DETAILS.studio}
 				</div>
 			</DialogContent>
 		</Dialog>

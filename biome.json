@@ -94,7 +94,10 @@
 		},
 		"includes": ["**", "**/dist", "**/.eslintrc.cjs", "!**/*.css"]
 	},
-	"javascript": { "formatter": { "quoteStyle": "double" } },
+	"javascript": {
+		"formatter": { "quoteStyle": "double" },
+		"globals": ["__APP_VERSION__"]
+	},
 	"overrides": [
 		{
 			"includes": ["*.ts", "*.tsx", "*.mts", "*.cts"],

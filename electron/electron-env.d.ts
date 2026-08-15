@@ -307,7 +307,11 @@ interface Window {
 			fileName: string,
 		) => Promise<{ success: boolean; path?: string; error?: string }>;
 		onUpdateDownloadProgress?: (
-			callback: (progress: { percent: number; downloadedBytes: number; totalBytes: number }) => void,
+			callback: (progress: {
+				percent: number;
+				downloadedBytes: number;
+				totalBytes: number;
+			}) => void,
 		) => () => void;
 		installAndLaunchUpdate?: (
 			installerPath: string,

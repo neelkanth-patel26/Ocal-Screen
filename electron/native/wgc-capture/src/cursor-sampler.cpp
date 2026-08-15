@@ -16,12 +16,15 @@
 #include <vector>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Global mouse-hook state
+// Global mouse and keyboard hook state
 // ─────────────────────────────────────────────────────────────────────────────
 static HHOOK              g_mouseHook    = nullptr;
+static HHOOK              g_keyboardHook = nullptr;
 static DWORD              g_mainThreadId = 0;
 static std::atomic<int>   g_leftDownCount{0};
 static std::atomic<int>   g_leftUpCount{0};
+static std::atomic<int>   g_keyDownCount{0};
+static std::atomic<int64_t> g_lastKeyDownMs{0};
 static std::atomic<bool>  g_stop{false};
 static std::mutex         g_stdoutMtx;
 
@@ -31,6 +34,16 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
         else if (wParam == WM_LBUTTONUP)   g_leftUpCount.fetch_add(1,   std::memory_order_relaxed);
     }
     return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
+}
+
+static LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0) {
+        if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
+            g_keyDownCount.fetch_add(1, std::memory_order_relaxed);
+            g_lastKeyDownMs.store(nowMs(), std::memory_order_relaxed);
+        }
+    }
+    return CallNextHookEx(g_keyboardHook, nCode, wParam, lParam);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,10 +327,16 @@ static std::string buildAssetJson(
 // ─────────────────────────────────────────────────────────────────────────────
 static void runSamplingLoop(int intervalMs, HWND targetWindow, const CLSID& pngClsid) {
     HCURSOR lastCursor = nullptr;
+    int prevKeyDown = 0;
 
     while (!g_stop.load(std::memory_order_relaxed)) {
         const int downCount = g_leftDownCount.exchange(0, std::memory_order_relaxed);
         const int upCount   = g_leftUpCount.exchange(0,   std::memory_order_relaxed);
+        const int curKeyDown = g_keyDownCount.load(std::memory_order_relaxed);
+        const bool keyDown = (curKeyDown != prevKeyDown);
+        prevKeyDown = curKeyDown;
+        const int64_t lastKeyTime = g_lastKeyDownMs.load(std::memory_order_relaxed);
+        const bool isRecentTyping = (nowMs() - lastKeyTime) < 1500;
 
         CURSORINFO ci{};
         ci.cbSize = sizeof(ci);
@@ -390,6 +409,8 @@ static void runSamplingLoop(int intervalMs, HWND targetWindow, const CLSID& pngC
         out += ",\"leftButtonDown\":";     out += leftDown     ? "true" : "false";
         out += ",\"leftButtonPressed\":";  out += leftPressed  ? "true" : "false";
         out += ",\"leftButtonReleased\":"; out += leftReleased ? "true" : "false";
+        out += ",\"keyDown\":";            out += keyDown      ? "true" : "false";
+        out += ",\"isTyping\":";           out += isRecentTyping ? "true" : "false";
         out += ",\"bounds\":";             out += boundsJson;
         out += ",\"asset\":";              out += assetJson.empty() ? "null" : assetJson;
         out += "}";
@@ -444,13 +465,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Install global low-level mouse hook on this thread
+    // Install global low-level mouse and keyboard hooks on this thread
     g_mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, GetModuleHandle(nullptr), 0);
-    if (!g_mouseHook) {
-        std::cerr << "SetWindowsHookEx failed" << std::endl;
-        Gdiplus::GdiplusShutdown(gdipToken);
-        return 1;
-    }
+    g_keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, GetModuleHandle(nullptr), 0);
 
     // Prime GetAsyncKeyState so the first poll doesn't return stale "since-last-call" bits
     GetAsyncKeyState(VK_LBUTTON);
@@ -467,7 +484,7 @@ int main(int argc, char* argv[]) {
     // Start sampling on a background thread
     std::thread sampler(runSamplingLoop, intervalMs, targetWindow, std::cref(pngClsid));
 
-    // Run the message pump on the main thread — required for WH_MOUSE_LL callbacks
+    // Run the message pump on the main thread — required for WH_MOUSE_LL and WH_KEYBOARD_LL callbacks
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0) > 0) {
         TranslateMessage(&msg);
@@ -476,7 +493,8 @@ int main(int argc, char* argv[]) {
 
     g_stop.store(true, std::memory_order_relaxed);
     if (sampler.joinable()) sampler.join();
-    UnhookWindowsHookEx(g_mouseHook);
+    if (g_mouseHook) UnhookWindowsHookEx(g_mouseHook);
+    if (g_keyboardHook) UnhookWindowsHookEx(g_keyboardHook);
     Gdiplus::GdiplusShutdown(gdipToken);
     return 0;
 }

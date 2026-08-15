@@ -32,7 +32,15 @@ function getCursorSamplerCandidates(): string[] {
 		resolve("electron", "native", "wgc-capture", "build", "Debug", "cursor-sampler.exe"),
 		resolve("electron", "native", "bin", archTag, "cursor-sampler.exe"),
 		resolvePackaged("electron", "native", "bin", archTag, "cursor-sampler.exe"),
-		join(process.cwd(), "electron", "native", "wgc-capture", "build", "Release", "cursor-sampler.exe"),
+		join(
+			process.cwd(),
+			"electron",
+			"native",
+			"wgc-capture",
+			"build",
+			"Release",
+			"cursor-sampler.exe",
+		),
 	].filter((c): c is string => Boolean(c));
 }
 
@@ -238,13 +246,17 @@ export class WindowsNativeRecordingSession implements CursorRecordingSession {
 		const leftButtonDown = payload.leftButtonDown === true;
 		const leftButtonPressed = payload.leftButtonPressed === true;
 		const leftButtonReleased = payload.leftButtonReleased === true;
-		const cursorTypeStr = String(payload.cursorType ?? payload.asset?.cursorType ?? "").toLowerCase();
+		const keyDown = payload.keyDown === true;
+		const isTyping = payload.isTyping === true;
+		const cursorTypeStr = String(
+			payload.cursorType ?? payload.asset?.cursorType ?? "",
+		).toLowerCase();
 		const interactionType =
 			leftButtonPressed || (leftButtonDown && !this.previousLeftButtonDown)
 				? "click"
 				: leftButtonReleased || (!leftButtonDown && this.previousLeftButtonDown)
 					? "mouseup"
-					: cursorTypeStr === "text" || cursorTypeStr === "ibeam"
+					: keyDown || isTyping || cursorTypeStr === "text" || cursorTypeStr === "ibeam"
 						? "typing"
 						: "move";
 		this.previousLeftButtonDown = leftButtonDown;
