@@ -30,6 +30,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useScopedT } from "@/contexts/I18nContext";
 import { normalizeTextAnimation, TEXT_ANIMATION_OPTIONS } from "@/lib/annotationTextAnimation";
 import { type CustomFont, getCustomFonts } from "@/lib/customFonts";
+import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { cn } from "@/lib/utils";
 import ColorPicker from "../ui/color-picker";
 import { AddCustomFontDialog } from "./AddCustomFontDialog";
@@ -166,14 +167,17 @@ export function AnnotationSettingsPanel({
 		event.target.value = "";
 	};
 
+	const prefs = loadUserPreferences();
+	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
+
 	return (
 		<div className="min-w-0 p-4 flex flex-col h-full overflow-y-auto custom-scrollbar">
 			<div className="mb-3">
 				<div className="mb-4">
-					<span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+					<span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
 						{t("annotation.active")}
 					</span>
-					<div className="mt-1 text-xl font-semibold text-slate-100">{t("annotation.title")}</div>
+					<div className="mt-1 text-xl font-bold text-slate-100">{t("annotation.title")}</div>
 				</div>
 
 				{/* Type Selector */}
@@ -182,24 +186,39 @@ export function AnnotationSettingsPanel({
 					onValueChange={(value) => onTypeChange(value as AnnotationType)}
 					className="mb-4"
 				>
-					<TabsList className="mb-4 bg-white/[0.035] border border-white/[0.06] p-0.5 w-full grid grid-cols-3 h-9 rounded-xl">
+					<TabsList className="mb-4 bg-white/[0.035] border border-white/[0.06] p-1 w-full grid grid-cols-3 h-10 rounded-xl">
 						<TabsTrigger
 							value="text"
-							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 rounded-lg transition-all gap-1.5 text-[11px]"
+							style={
+								annotation.type === "text"
+									? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+									: undefined
+							}
+							className="text-slate-400 rounded-lg transition-all gap-1.5 text-xs font-bold"
 						>
 							<Type className="w-4 h-4" />
 							{t("annotation.typeText")}
 						</TabsTrigger>
 						<TabsTrigger
 							value="image"
-							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 rounded-lg transition-all gap-1.5 text-[11px]"
+							style={
+								annotation.type === "image"
+									? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+									: undefined
+							}
+							className="text-slate-400 rounded-lg transition-all gap-1.5 text-xs font-bold"
 						>
 							<ImageIcon className="w-4 h-4" />
 							{t("annotation.typeImage")}
 						</TabsTrigger>
 						<TabsTrigger
 							value="figure"
-							className="data-[state=active]:bg-[#34B27B] data-[state=active]:text-white text-slate-400 rounded-lg transition-all gap-1.5 text-[11px]"
+							style={
+								annotation.type === "figure"
+									? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+									: undefined
+							}
+							className="text-slate-400 rounded-lg transition-all gap-1.5 text-xs font-bold"
 						>
 							<svg
 								className="w-4 h-4"
@@ -217,7 +236,7 @@ export function AnnotationSettingsPanel({
 					{/* Text Content */}
 					<TabsContent value="text" className="mt-0 space-y-4">
 						<div>
-							<label className="text-xs font-medium text-slate-200 mb-2 block">
+							<label className="text-xs font-bold text-slate-200 mb-2 block">
 								{t("annotation.textContent")}
 							</label>
 							<textarea
@@ -225,7 +244,7 @@ export function AnnotationSettingsPanel({
 								onChange={(e) => onContentChange(e.target.value)}
 								placeholder={t("annotation.textPlaceholder")}
 								rows={5}
-								className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-200 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#34B27B] focus:border-transparent resize-none"
+								className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-slate-200 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-white/30 focus:border-white/40 resize-none"
 							/>
 						</div>
 
@@ -332,7 +351,7 @@ export function AnnotationSettingsPanel({
 							<div className="flex items-center justify-between gap-2">
 								<ToggleGroup
 									type="multiple"
-									className="justify-start bg-white/5 p-1 rounded-lg border border-white/5"
+									className="justify-start bg-white/5 p-1 rounded-xl border border-white/5 gap-1"
 								>
 									<ToggleGroupItem
 										value="bold"
@@ -343,7 +362,12 @@ export function AnnotationSettingsPanel({
 												fontWeight: annotation.style.fontWeight === "bold" ? "normal" : "bold",
 											})
 										}
-										className="h-8 w-8 data-[state=on]:bg-[#34B27B] data-[state=on]:text-white text-slate-400 hover:bg-white/5 hover:text-slate-200"
+										style={
+											annotation.style.fontWeight === "bold"
+												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+												: undefined
+										}
+										className="h-8 w-8 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
 									>
 										<Bold className="h-4 w-4" />
 									</ToggleGroupItem>
@@ -356,7 +380,12 @@ export function AnnotationSettingsPanel({
 												fontStyle: annotation.style.fontStyle === "italic" ? "normal" : "italic",
 											})
 										}
-										className="h-8 w-8 data-[state=on]:bg-[#34B27B] data-[state=on]:text-white text-slate-400 hover:bg-white/5 hover:text-slate-200"
+										style={
+											annotation.style.fontStyle === "italic"
+												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+												: undefined
+										}
+										className="h-8 w-8 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
 									>
 										<Italic className="h-4 w-4" />
 									</ToggleGroupItem>
@@ -370,7 +399,12 @@ export function AnnotationSettingsPanel({
 													annotation.style.textDecoration === "underline" ? "none" : "underline",
 											})
 										}
-										className="h-8 w-8 data-[state=on]:bg-[#34B27B] data-[state=on]:text-white text-slate-400 hover:bg-white/5 hover:text-slate-200"
+										style={
+											annotation.style.textDecoration === "underline"
+												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+												: undefined
+										}
+										className="h-8 w-8 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
 									>
 										<Underline className="h-4 w-4" />
 									</ToggleGroupItem>
@@ -379,13 +413,18 @@ export function AnnotationSettingsPanel({
 								<ToggleGroup
 									type="single"
 									value={annotation.style.textAlign}
-									className="justify-start bg-white/5 p-1 rounded-lg border border-white/5"
+									className="justify-start bg-white/5 p-1 rounded-xl border border-white/5 gap-1"
 								>
 									<ToggleGroupItem
 										value="left"
 										aria-label="Align left"
 										onClick={() => onStyleChange({ textAlign: "left" })}
-										className="h-8 w-8 data-[state=on]:bg-[#34B27B] data-[state=on]:text-white text-slate-400 hover:bg-white/5 hover:text-slate-200"
+										style={
+											annotation.style.textAlign === "left"
+												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+												: undefined
+										}
+										className="h-8 w-8 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
 									>
 										<AlignLeft className="h-4 w-4" />
 									</ToggleGroupItem>
@@ -393,7 +432,12 @@ export function AnnotationSettingsPanel({
 										value="center"
 										aria-label="Align center"
 										onClick={() => onStyleChange({ textAlign: "center" })}
-										className="h-8 w-8 data-[state=on]:bg-[#34B27B] data-[state=on]:text-white text-slate-400 hover:bg-white/5 hover:text-slate-200"
+										style={
+											annotation.style.textAlign === "center"
+												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+												: undefined
+										}
+										className="h-8 w-8 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
 									>
 										<AlignCenter className="h-4 w-4" />
 									</ToggleGroupItem>
@@ -401,7 +445,12 @@ export function AnnotationSettingsPanel({
 										value="right"
 										aria-label="Align right"
 										onClick={() => onStyleChange({ textAlign: "right" })}
-										className="h-8 w-8 data-[state=on]:bg-[#34B27B] data-[state=on]:text-white text-slate-400 hover:bg-white/5 hover:text-slate-200"
+										style={
+											annotation.style.textAlign === "right"
+												? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+												: undefined
+										}
+										className="h-8 w-8 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
 									>
 										<AlignRight className="h-4 w-4" />
 									</ToggleGroupItem>

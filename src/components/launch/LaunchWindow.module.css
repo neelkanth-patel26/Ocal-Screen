@@ -18,6 +18,23 @@
 	height: 0;
 }
 
+/* Glassmorphism Bar Styles (No Drop Shadows) */
+.hudBarDark {
+	background: rgba(13, 14, 18, 0.92);
+	backdrop-filter: blur(24px) saturate(180%);
+	-webkit-backdrop-filter: blur(24px) saturate(180%);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	box-shadow: none;
+}
+
+.hudBarLight {
+	background: rgba(255, 255, 255, 0.96);
+	backdrop-filter: blur(24px) saturate(180%);
+	-webkit-backdrop-filter: blur(24px) saturate(180%);
+	border: 1px solid rgba(0, 0, 0, 0.1);
+	box-shadow: none;
+}
+
 .languageMenuScroll {
 	max-height: 16rem;
 	overflow-y: auto;
@@ -37,7 +54,7 @@
 }
 
 .languageMenuScroll::-webkit-scrollbar-thumb {
-	background: #333333;
+	background: rgba(255, 255, 255, 0.15);
 	border-radius: 9999px;
 	transition: background-color 150ms ease;
 }
@@ -53,11 +70,13 @@
 
 .languageMenuPanel {
 	position: fixed;
-	width: 11rem;
-	padding: 0.25rem;
-	border-radius: 0.625rem;
-	border: 1px solid #252525;
-	background: #0c0c0c;
+	width: 12rem;
+	padding: 0.35rem;
+	border-radius: 0.85rem;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	background: rgba(14, 15, 20, 0.98);
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
 	box-shadow: none;
 	pointer-events: auto;
 	box-sizing: border-box;
@@ -68,36 +87,38 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0.425rem 0.5rem;
-	border-radius: 0.45rem;
-	font-size: 11px;
-	color: #e8e8e8;
+	padding: 0.45rem 0.65rem;
+	border-radius: 0.55rem;
+	font-size: 11.5px;
+	font-weight: 500;
+	color: #d4d4d8;
 	background: transparent;
 	border: 0;
 	cursor: pointer;
-	transition: background-color 120ms ease, color 120ms ease;
+	transition: all 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .languageMenuItem:hover,
 .languageMenuItem:focus-visible {
-	background: #1e1e1e;
+	background: rgba(255, 255, 255, 0.08);
 	color: #ffffff;
 	outline: none;
 }
 
 .languageMenuItemActive {
-	background: rgba(232, 255, 71, 0.14);
-	color: #e8ff47;
+	background: rgba(232, 255, 71, 0.15) !important;
+	color: #e8ff47 !important;
+	font-weight: 600;
 }
 
 .languageMenuPanelLight {
 	position: fixed;
-	width: 11rem;
-	padding: 0.25rem;
-	border-radius: 0.625rem;
-	border: 1px solid #e4e4e7;
+	width: 12rem;
+	padding: 0.35rem;
+	border-radius: 0.85rem;
+	border: 1px solid rgba(0, 0, 0, 0.1);
 	background: #ffffff;
-	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+	box-shadow: none;
 	pointer-events: auto;
 	box-sizing: border-box;
 }
@@ -107,25 +128,26 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0.425rem 0.5rem;
-	border-radius: 0.45rem;
-	font-size: 11px;
-	color: #18181b;
+	padding: 0.45rem 0.65rem;
+	border-radius: 0.55rem;
+	font-size: 11.5px;
+	font-weight: 500;
+	color: #27272a;
 	background: transparent;
 	border: 0;
 	cursor: pointer;
-	transition: background-color 120ms ease, color 120ms ease;
+	transition: all 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .languageMenuItemLight:hover,
 .languageMenuItemLight:focus-visible {
 	background: #f4f4f5;
-	color: #000000;
+	color: #09090b;
 	outline: none;
 }
 
 .languageMenuItemActiveLight {
-	background: rgba(232, 255, 71, 0.35);
-	color: #000000;
+	background: rgba(232, 255, 71, 0.4) !important;
+	color: #000000 !important;
 	font-weight: 700;
 }

@@ -22,16 +22,13 @@ import {
 	type ShortcutConflict,
 	type ShortcutsConfig,
 } from "@/lib/shortcuts";
-import { BLUR_REGIONS_ENABLED } from "./featureFlags";
 import { ACCENT_COLOR_MAP, type AccentColor } from "@/lib/userPreferences";
+import { cn } from "@/lib/utils";
+import { BLUR_REGIONS_ENABLED } from "./featureFlags";
 
 const MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta"]);
 
-export function ShortcutsConfigDialog({
-	accentColor = "lime",
-}: {
-	accentColor?: AccentColor;
-}) {
+export function ShortcutsConfigDialog({ accentColor = "lime" }: { accentColor?: AccentColor }) {
 	const activeAccent = ACCENT_COLOR_MAP[accentColor] || ACCENT_COLOR_MAP.lime;
 	const { shortcuts, isMac, isConfigOpen, closeConfig, setShortcuts, persistShortcuts } =
 		useShortcuts();
@@ -140,7 +137,7 @@ export function ShortcutsConfigDialog({
 			<DialogContent className="bg-[#09090b] border-white/10 text-white max-w-[420px] max-h-[85vh] flex flex-col">
 				<DialogHeader className="shrink-0">
 					<DialogTitle className="flex items-center gap-2 text-sm">
-						<Keyboard className="w-4 h-4 text-[#34B27B]" />
+						<Keyboard className="w-4 h-4" style={{ color: activeAccent.hex }} />
 						{t("title")}
 					</DialogTitle>
 				</DialogHeader>
@@ -165,14 +162,23 @@ export function ShortcutsConfigDialog({
 													setCaptureFor(isCapturing ? null : action);
 												}}
 												title={isCapturing ? t("pressEscToCancel") : t("clickToChange")}
-												className={[
-													"px-2 py-1 rounded text-xs font-mono border transition-all min-w-[90px] text-center select-none",
+												style={
 													isCapturing
-														? "bg-[#34B27B]/20 border-[#34B27B] text-[#34B27B] animate-pulse"
+														? {
+																backgroundColor: `${activeAccent.hex}25`,
+																borderColor: activeAccent.hex,
+																color: activeAccent.hex,
+															}
+														: undefined
+												}
+												className={cn(
+													"px-2 py-1 rounded text-xs font-mono border transition-all min-w-[90px] text-center select-none cursor-pointer",
+													isCapturing
+														? "animate-pulse"
 														: hasConflict
 															? "bg-amber-500/10 border-amber-500/50 text-amber-400"
-															: "bg-white/5 border-white/10 text-slate-200 hover:border-[#34B27B]/50 hover:text-[#34B27B] cursor-pointer",
-												].join(" ")}
+															: "bg-white/5 border-white/10 text-slate-200 hover:border-white/20 hover:text-white",
+												)}
 											>
 												{isCapturing ? t("pressKey") : formatBinding(draft[action], isMac)}
 											</button>

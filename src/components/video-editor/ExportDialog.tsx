@@ -1,9 +1,10 @@
-import { Download, Loader2, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Folder, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useScopedT } from "@/contexts/I18nContext";
 import type { ExportProgress } from "@/lib/exporter";
 import { ACCENT_COLOR_MAP, type AccentColor } from "@/lib/userPreferences";
+import { cn } from "@/lib/utils";
 
 interface ExportDialogProps {
 	isOpen: boolean;
@@ -56,7 +57,7 @@ export function ExportDialog({
 			const timer = setTimeout(() => {
 				setShowSuccess(false);
 				onClose();
-			}, 2000);
+			}, 2500);
 			return () => clearTimeout(timer);
 		}
 	}, [isExporting, progress, error, onClose]);
@@ -92,215 +93,290 @@ export function ExportDialog({
 		return t("export.exportingFormat", { format: formatLabel });
 	};
 
+	const percentage = progress?.percentage ?? 0;
+	const isIndeterminate =
+		!progress || isCompiling || (isFinalizing && renderProgress === undefined);
+
 	return (
 		<>
+			{/* Backdrop */}
 			<div
-				className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 animate-in fade-in duration-200"
+				className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 animate-in fade-in duration-200"
 				onClick={isExporting ? undefined : onClose}
 			/>
+
+			{/* Modal Dialog Card */}
 			<div
-				className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] rounded-3xl shadow-2xl border p-8 w-[90vw] max-w-md animate-in zoom-in-95 duration-200 ${
+				className={cn(
+					"fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] rounded-[28px] shadow-2xl border p-6 w-[92vw] max-w-[440px] animate-in zoom-in-95 duration-200 backdrop-blur-2xl transition-all",
 					isLight
-						? "bg-[#ffffff] border-[#e4e4e7] text-[#18181b]"
-						: "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"
-				}`}
+						? "bg-white/95 border-[#e4e4e7] text-[#18181b] shadow-slate-900/10"
+						: "bg-[#0d0e12]/95 border-white/10 text-slate-100 shadow-2xl shadow-black/80",
+				)}
 			>
-				<div className="flex items-center justify-between mb-6">
-					<div className="flex items-center gap-4">
+				{/* Top ambient glow */}
+				<div
+					className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-24 rounded-full blur-3xl pointer-events-none opacity-20"
+					style={{ backgroundColor: error ? "#ef4444" : activeAccent.hex }}
+				/>
+
+				{/* Header with Hero Icon & Status */}
+				<div
+					className={cn(
+						"flex items-center justify-between gap-3.5 relative",
+						(isExporting || error || showSuccess) && "mb-5",
+					)}
+				>
+					<div className="flex items-center gap-3.5 min-w-0 flex-1">
 						{showSuccess ? (
-							<>
-								<div
-									className="w-12 h-12 rounded-2xl flex items-center justify-center border"
-									style={{
-										backgroundColor: `${activeAccent.hex}20`,
-										borderColor: `${activeAccent.hex}50`,
-										color: activeAccent.hex,
-									}}
-								>
-									<Download className="w-6 h-6" style={{ color: activeAccent.hex }} />
-								</div>
-								<div className="flex flex-col gap-1">
-									<span className="text-lg font-extrabold text-[#e8e8e8] block">
-										{t("export.complete")}
-									</span>
-									<span className="text-xs text-[#888888]">
-										{t("export.yourFormatReady", { format: formatLabel.toLowerCase() })}
-									</span>
-									{exportedFilePath && (
-										<Button
-											variant="secondary"
-											onClick={onShowInFolder}
-											className="mt-2 w-fit px-3 py-1 text-xs rounded-full bg-[#141414] hover:bg-[#202020] border border-[#252525] text-[#e8e8e8] font-bold"
-										>
-											{t("export.showInFolder")}
-										</Button>
-									)}
-									{exportedFilePath && (
-										<span className="text-xs text-[#666666] break-all max-w-xs mt-1">
-											{exportedFilePath.split("/").pop()}
-										</span>
-									)}
-								</div>
-							</>
+							<div
+								className="w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 shadow-lg"
+								style={{
+									backgroundColor: `${activeAccent.hex}18`,
+									borderColor: `${activeAccent.hex}40`,
+									color: activeAccent.hex,
+								}}
+							>
+								<CheckCircle2 className="w-6 h-6" style={{ color: activeAccent.hex }} />
+							</div>
+						) : error ? (
+							<div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0 shadow-lg">
+								<AlertCircle className="w-6 h-6 text-red-400" />
+							</div>
 						) : (
-							<>
-								{isExporting ? (
-									<div
-										className="w-12 h-12 rounded-2xl flex items-center justify-center border"
-										style={{
-											backgroundColor: `${activeAccent.hex}20`,
-											borderColor: `${activeAccent.hex}40`,
-											color: activeAccent.hex,
-										}}
-									>
-										<Loader2 className="w-6 h-6 animate-spin" style={{ color: activeAccent.hex }} />
-									</div>
-								) : (
-									<div className="w-12 h-12 rounded-2xl bg-[#141414] flex items-center justify-center border border-[#252525]">
-										<Download className="w-6 h-6 text-[#e8e8e8]" />
-									</div>
-								)}
-								<div>
-									<span className="text-lg font-extrabold text-[#e8e8e8] block">{getTitle()}</span>
-									<span className="text-xs text-[#888888]">{getStatusMessage()}</span>
-								</div>
-							</>
+							<div
+								className="w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 relative shadow-lg"
+								style={{
+									backgroundColor: `${activeAccent.hex}15`,
+									borderColor: `${activeAccent.hex}35`,
+								}}
+							>
+								<Loader2 className="w-6 h-6 animate-spin" style={{ color: activeAccent.hex }} />
+							</div>
 						)}
+
+						<div className="min-w-0 flex-1 flex flex-col justify-center">
+							<h3
+								className={cn(
+									"text-base font-extrabold tracking-tight truncate leading-tight",
+									isLight ? "text-[#18181b]" : "text-white",
+								)}
+							>
+								{showSuccess ? t("export.complete") : getTitle()}
+							</h3>
+							<p
+								className={cn(
+									"text-xs font-medium truncate mt-1 leading-tight",
+									isLight ? "text-slate-500" : "text-slate-400",
+								)}
+							>
+								{showSuccess
+									? t("export.yourFormatReady", { format: formatLabel.toLowerCase() })
+									: getStatusMessage()}
+							</p>
+						</div>
 					</div>
+
 					{!isExporting && (
-						<Button
-							variant="ghost"
-							size="icon"
+						<button
+							type="button"
 							onClick={onClose}
-							className="hover:bg-[#141414] text-[#888888] hover:text-[#e8e8e8] rounded-full"
+							className={cn(
+								"w-8 h-8 rounded-full flex items-center justify-center border transition-all cursor-pointer shrink-0 self-center",
+								isLight
+									? "border-[#e4e4e7] text-slate-500 hover:text-slate-900 hover:bg-[#f4f4f5]"
+									: "border-white/10 text-slate-400 hover:text-white hover:bg-white/10",
+							)}
 						>
-							<X className="w-5 h-5" />
-						</Button>
+							<X className="w-4 h-4" />
+						</button>
 					)}
 				</div>
 
+				{/* Error Box */}
 				{error && (
-					<div className="mb-6 animate-in slide-in-from-top-2">
-						<div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3">
-							<div className="p-1 bg-red-500/20 rounded-full">
-								<X className="w-3 h-3 text-red-400" />
-							</div>
-							<p className="whitespace-pre-wrap break-words text-xs text-red-400 leading-relaxed">
+					<div className="mb-5 animate-in slide-in-from-top-2">
+						<div className="bg-red-500/10 border border-red-500/25 rounded-2xl p-3.5 flex items-center gap-3">
+							<AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+							<p className="whitespace-pre-wrap break-words text-xs text-red-400 leading-relaxed font-medium">
 								{error}
 							</p>
 						</div>
 					</div>
 				)}
 
-				{isExporting && progress && (
-					<div className="space-y-6">
+				{/* Exporting Active Progress Section */}
+				{!showSuccess && !error && (
+					<div className="space-y-4">
+						{/* Progress Bar & Percentage */}
 						<div className="space-y-2">
-							<div className="flex justify-between text-xs font-semibold text-[#888888] uppercase tracking-wider">
-								<span>
+							<div className="flex justify-between items-center text-xs font-bold">
+								<span
+									className={cn(
+										"text-[11px] uppercase tracking-wider",
+										isLight ? "text-slate-500" : "text-slate-400",
+									)}
+								>
 									{isCompiling || isFinalizing
 										? t("export.compiling")
 										: t("export.renderingFrames")}
 								</span>
-								<span className="font-mono text-[#e8e8e8]">
-									{isCompiling || isFinalizing ? (
-										renderProgress !== undefined && renderProgress > 0 ? (
-											`${renderProgress}%`
-										) : (
-											<span className="flex items-center gap-2">
-												<Loader2 className="w-3 h-3 animate-spin" style={{ color: activeAccent.hex }} />
-												{t("export.processing")}
-											</span>
-										)
-									) : (
-										`${progress.percentage.toFixed(0)}%`
-									)}
+								<span
+									className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full border shadow-2xs"
+									style={{
+										backgroundColor: `${activeAccent.hex}15`,
+										borderColor: `${activeAccent.hex}30`,
+										color: activeAccent.hex,
+									}}
+								>
+									{isCompiling || isFinalizing
+										? renderProgress !== undefined && renderProgress > 0
+											? `${renderProgress}%`
+											: t("export.processing")
+										: progress
+											? `${percentage.toFixed(0)}%`
+											: "0%"}
 								</span>
 							</div>
-							<div className="h-2.5 bg-[#141414] rounded-full overflow-hidden border border-[#252525]">
-								{isCompiling || isFinalizing ? (
-									// Real progress if we have it, otherwise an indeterminate bar.
-									renderProgress !== undefined && renderProgress > 0 ? (
+
+							{/* Track */}
+							<div
+								className={cn(
+									"h-2.5 rounded-full overflow-hidden border p-0.5 relative",
+									isLight ? "bg-slate-100 border-[#e4e4e7]" : "bg-black/40 border-white/10",
+								)}
+							>
+								{isIndeterminate ? (
+									<div className="h-full w-full relative overflow-hidden rounded-full">
 										<div
-											className="h-full transition-all duration-300 ease-out"
+											className="absolute h-full w-1/3 rounded-full"
 											style={{
-												width: `${renderProgress}%`,
 												backgroundColor: activeAccent.hex,
-												boxShadow: `0 0 10px ${activeAccent.hex}60`,
+												boxShadow: `0 0 12px ${activeAccent.hex}90`,
+												animation: "export-shimmer 1.5s ease-in-out infinite",
 											}}
 										/>
-									) : (
-										<div className="h-full w-full relative overflow-hidden">
-											<div
-												className="absolute h-full w-1/3"
-												style={{
-													backgroundColor: activeAccent.hex,
-													boxShadow: `0 0 10px ${activeAccent.hex}60`,
-													animation: "indeterminate 1.5s ease-in-out infinite",
-												}}
-											/>
-											<style>{`
-                        @keyframes indeterminate {
-                          0% { transform: translateX(-100%); }
-                          100% { transform: translateX(400%); }
-                        }
-                      `}</style>
-										</div>
-									)
+										<style>{`
+											@keyframes export-shimmer {
+												0% { transform: translateX(-100%); }
+												100% { transform: translateX(350%); }
+											}
+										`}</style>
+									</div>
 								) : (
 									<div
-										className="h-full transition-all duration-300 ease-out"
+										className="h-full rounded-full transition-all duration-300 ease-out"
 										style={{
-											width: `${Math.min(progress.percentage, 100)}%`,
+											width: `${Math.min(percentage, 100)}%`,
 											backgroundColor: activeAccent.hex,
-											boxShadow: `0 0 10px ${activeAccent.hex}60`,
+											boxShadow: `0 0 12px ${activeAccent.hex}80`,
 										}}
 									/>
 								)}
 							</div>
 						</div>
 
-						<div className="grid grid-cols-2 gap-4">
-							<div className="bg-white/5 rounded-xl p-3 border border-white/5">
-								<div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">
+						{/* Stats Info Cards */}
+						<div className="grid grid-cols-2 gap-2.5">
+							<div
+								className={cn(
+									"rounded-2xl p-3 border shadow-2xs flex flex-col justify-center",
+									isLight ? "bg-slate-50 border-[#e4e4e7]" : "bg-white/[0.03] border-white/[0.06]",
+								)}
+							>
+								<div
+									className={cn(
+										"text-[10px] uppercase font-bold tracking-wider mb-0.5",
+										isLight ? "text-slate-400" : "text-slate-500",
+									)}
+								>
 									{isCompiling || isFinalizing ? t("export.status") : t("export.format")}
 								</div>
-								<div className="text-slate-200 font-medium text-sm">
+								<div
+									className={cn(
+										"font-bold text-xs truncate",
+										isLight ? "text-slate-800" : "text-slate-200",
+									)}
+								>
 									{isFinalizing && exportFormat === "mp4"
 										? t("export.finalizing")
 										: isCompiling || isFinalizing
 											? t("export.compilingStatus")
-											: formatLabel}
+											: `${formatLabel} Video`}
 								</div>
 							</div>
-							<div className="bg-white/5 rounded-xl p-3 border border-white/5">
-								<div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">
+
+							<div
+								className={cn(
+									"rounded-2xl p-3 border shadow-2xs flex flex-col justify-center",
+									isLight ? "bg-slate-50 border-[#e4e4e7]" : "bg-white/[0.03] border-white/[0.06]",
+								)}
+							>
+								<div
+									className={cn(
+										"text-[10px] uppercase font-bold tracking-wider mb-0.5",
+										isLight ? "text-slate-400" : "text-slate-500",
+									)}
+								>
 									{t("export.frames")}
 								</div>
-								<div className="text-slate-200 font-medium text-sm">
-									{progress.currentFrame} / {progress.totalFrames}
+								<div
+									className={cn(
+										"font-bold text-xs font-mono truncate",
+										isLight ? "text-slate-800" : "text-slate-200",
+									)}
+								>
+									{progress ? `${progress.currentFrame} / ${progress.totalFrames}` : "Preparing..."}
 								</div>
 							</div>
 						</div>
 
+						{/* Cancel Button */}
 						{onCancel && (
-							<div className="pt-2">
-								<Button
-									onClick={onCancel}
-									variant="destructive"
-									className="w-full py-6 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all rounded-xl"
-								>
-									{t("export.cancelExport")}
-								</Button>
-							</div>
+							<Button
+								onClick={onCancel}
+								variant="outline"
+								className="w-full h-10 rounded-2xl text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all cursor-pointer shadow-xs active:scale-[0.98]"
+							>
+								{t("export.cancelExport")}
+							</Button>
 						)}
 					</div>
 				)}
 
+				{/* Success State */}
 				{showSuccess && (
-					<div className="text-center py-4 animate-in zoom-in-95">
-						<p className="text-lg text-slate-200 font-medium">
-							{t("export.savedSuccessfully", { format: formatLabel })}
-						</p>
+					<div className="space-y-3 animate-in zoom-in-95 pt-1">
+						{exportedFilePath && (
+							<div
+								className={cn(
+									"p-3 rounded-2xl border text-xs break-all shadow-2xs flex items-center gap-2",
+									isLight
+										? "bg-slate-50 border-[#e4e4e7] text-slate-700"
+										: "bg-white/[0.03] border-white/[0.06] text-slate-300",
+								)}
+							>
+								<Folder className="w-4 h-4 shrink-0 text-slate-400" />
+								<span className="truncate flex-1 font-mono text-[11px]">
+									{exportedFilePath.split(/[\\/]/).pop()}
+								</span>
+							</div>
+						)}
+
+						{exportedFilePath && onShowInFolder && (
+							<Button
+								type="button"
+								onClick={onShowInFolder}
+								className="w-full h-10 rounded-2xl text-xs font-bold gap-2 cursor-pointer shadow-md transition-all active:scale-[0.98]"
+								style={{
+									backgroundColor: activeAccent.hex,
+									color: activeAccent.textHex,
+								}}
+							>
+								<Folder className="w-4 h-4" />
+								{t("export.showInFolder")}
+							</Button>
+						)}
 					</div>
 				)}
 			</div>

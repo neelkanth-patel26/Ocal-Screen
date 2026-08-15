@@ -54,24 +54,34 @@ export default function Row({
 					onClick={onAddClick}
 					title={`Add ${label} (${shortcutKey || "+"})`}
 					className={cn(
-						"absolute top-0 bottom-0 left-0 z-30 flex items-center justify-between px-2.5 border-r select-none transition-colors cursor-pointer group/badge",
+						"absolute top-0 bottom-0 left-0 z-30 flex items-center justify-between px-3 border-r select-none transition-all cursor-pointer group/badge",
 						isLight
-							? "bg-white border-[#e4e4e7] hover:bg-[#f4f4f5]"
-							: "bg-[#090a0c] border-white/[0.08] hover:bg-[#14151a]",
+							? "bg-white/95 border-[#e4e4e7] hover:bg-[#f4f4f5]"
+							: "bg-[#0c0d12]/95 border-white/[0.08] hover:bg-[#151720]",
 					)}
 					style={{ width: sidebarWidth }}
 				>
-					<div className="flex items-center gap-1.5 min-w-0">
-						{icon && <span style={{ color: effectiveColor }} className="shrink-0">{icon}</span>}
-						<span className={cn("text-[11px] font-bold tracking-tight truncate", isLight ? "text-[#18181b]" : "text-slate-200")}>
+					<div className="flex items-center gap-2 min-w-0">
+						<div
+							className="w-5 h-5 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
+							style={{ backgroundColor: `${effectiveColor}18`, color: effectiveColor }}
+						>
+							{icon}
+						</div>
+						<span
+							className={cn(
+								"text-xs font-bold tracking-tight truncate",
+								isLight ? "text-slate-800" : "text-slate-200",
+							)}
+						>
 							{label}
 						</span>
 					</div>
 					<div
-						className="w-4 h-4 rounded-md flex items-center justify-center transition-all opacity-60 group-hover/badge:opacity-100 shrink-0"
-						style={{ backgroundColor: `${effectiveColor}20`, color: effectiveColor }}
+						className="w-4 h-4 rounded-md flex items-center justify-center transition-all opacity-40 group-hover/badge:opacity-100 shrink-0"
+						style={{ backgroundColor: `${effectiveColor}25`, color: effectiveColor }}
 					>
-						<Plus className="w-3 h-3" />
+						<Plus className="w-2.5 h-2.5" />
 					</div>
 				</button>
 			)}

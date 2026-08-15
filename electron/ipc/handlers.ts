@@ -38,9 +38,9 @@ import type {
 import { mainT } from "../i18n";
 import { RECORDINGS_DIR } from "../main";
 import { createCursorRecordingSession } from "../native-bridge/cursor/recording/factory";
-import { TelemetryRecordingSession } from "../native-bridge/cursor/recording/telemetryRecordingSession";
 import { requestMacCursorAccessibilityAccess } from "../native-bridge/cursor/recording/macNativeCursorRecordingSession";
 import type { CursorRecordingSession } from "../native-bridge/cursor/recording/session";
+import { TelemetryRecordingSession } from "../native-bridge/cursor/recording/telemetryRecordingSession";
 import { patchWebmDurationOnDisk } from "../recording/webm-duration";
 import { registerNativeBridgeHandlers } from "./nativeBridge";
 import { RecordingStreamRegistry, registerRecordingStreamHandlers } from "./recordingStream";
@@ -818,7 +818,10 @@ async function startCursorRecording(recordingId?: number) {
 	try {
 		await cursorRecordingSession.start();
 	} catch (error) {
-		console.warn("Native cursor recording session unavailable, falling back to TelemetryRecordingSession:", error);
+		console.warn(
+			"Native cursor recording session unavailable, falling back to TelemetryRecordingSession:",
+			error,
+		);
 		const fallbackSession = new TelemetryRecordingSession({
 			getDisplayBounds: getSelectedSourceBounds,
 			maxSamples: MAX_CURSOR_SAMPLES,

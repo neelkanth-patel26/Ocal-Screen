@@ -183,7 +183,16 @@ export interface CursorTelemetryPoint {
 	timeMs: number;
 	cx: number;
 	cy: number;
-	interactionType?: "move" | "click" | "double-click" | "right-click" | "middle-click" | "mouseup" | "typing" | "text" | "pointer";
+	interactionType?:
+		| "move"
+		| "click"
+		| "double-click"
+		| "right-click"
+		| "middle-click"
+		| "mouseup"
+		| "typing"
+		| "text"
+		| "pointer";
 	cursorType?:
 		| "arrow"
 		| "text"
@@ -480,4 +489,3 @@ export const DEFAULT_LIVE_CAM_LAYER: VideoLayerTrack = {
 	muted: false,
 	startMs: 0,
 };
-

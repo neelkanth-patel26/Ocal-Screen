@@ -289,6 +289,7 @@ function setupApplicationMenu() {
 
 function createTray() {
 	tray = new Tray(defaultTrayIcon);
+	tray.setToolTip("Ocal Screen");
 	tray.on("click", () => {
 		showMainWindow();
 	});
@@ -314,7 +315,7 @@ function updateTrayMenu(recording: boolean = false) {
 		? mainT("common", "actions.recordingStatus", {
 				source: selectedSourceName,
 			}) || `Recording: ${selectedSourceName}`
-		: "OpenScreen";
+		: "Ocal Screen";
 	const menuTemplate = recording
 		? [
 				{

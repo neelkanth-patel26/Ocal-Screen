@@ -30,7 +30,7 @@ export const uploadedCursorAssets: Partial<Record<CursorAssetKey, UploadedCursor
 	arrow: {
 		url: arrowUrl,
 		trim: { x: 480, y: 435, width: 333, height: 553 },
-		fallbackAnchor: { x: 0.18, y: 0.1 },
+		fallbackAnchor: { x: 0.005, y: 0.015 },
 	},
 	text: {
 		url: textUrl,
@@ -40,7 +40,7 @@ export const uploadedCursorAssets: Partial<Record<CursorAssetKey, UploadedCursor
 	pointer: {
 		url: pointerUrl,
 		trim: { x: 352, y: 441, width: 466, height: 583 },
-		fallbackAnchor: { x: 0.37, y: 0.08 },
+		fallbackAnchor: { x: 0.387, y: 0.001 },
 	},
 	crosshair: {
 		url: crosshairUrl,

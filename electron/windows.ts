@@ -48,10 +48,7 @@ ipcMain.on("hud-overlay-move-by", (_event, deltaX: number, deltaY: number) => {
 // stays where the user dragged it while only growing/shrinking, which lets the
 // vertical tray layout grow tall instead of scrolling inside a fixed window.
 ipcMain.on("hud-overlay-set-size", (_event, _width?: number, _height?: number) => {
-	if (
-		!hudOverlayWindow ||
-		hudOverlayWindow.isDestroyed()
-	) {
+	if (!hudOverlayWindow || hudOverlayWindow.isDestroyed()) {
 		return;
 	}
 
@@ -104,19 +101,20 @@ export function createHudOverlayWindow(): BrowserWindow {
 			backgroundThrottling: false,
 		},
 	});
+	win.setAlwaysOnTop(true, "screen-saver", 1);
 	win.setIgnoreMouseEvents(true, { forward: true });
 	win.setHasShadow(false);
 
-	// Follow the user across macOS Spaces, else the HUD stays pinned to the Space
-	// it was first opened on.
-	if (process.platform === "darwin") {
-		win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-	}
+	// Follow the user across workspaces/spaces so it stays pinned always on top
+	win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
 	// Show only once painted to avoid the black rectangle flash when a transparent
 	// window is shown before its first paint.
 	win.once("ready-to-show", () => {
-		if (!HEADLESS) win.show();
+		if (!HEADLESS) {
+			win.show();
+			win.setAlwaysOnTop(true, "screen-saver", 1);
+		}
 	});
 
 	win.webContents.on("did-finish-load", () => {

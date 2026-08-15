@@ -21,7 +21,12 @@ import {
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
-import { ACCENT_COLOR_MAP, type AccentColor, loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
+import {
+	ACCENT_COLOR_MAP,
+	type AccentColor,
+	loadUserPreferences,
+	saveUserPreferences,
+} from "@/lib/userPreferences";
 import { nativeBridgeClient } from "@/native";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
 import { useCameraDevices } from "../../hooks/useCameraDevices";
@@ -36,7 +41,7 @@ import styles from "./LaunchWindow.module.css";
 import { openSourceSelectorWithPermissionRetry } from "./openSourceSelectorFlow";
 import { WebcamPreviewBubble } from "./WebcamPreviewBubble";
 
-const ICON_SIZE = 20;
+const ICON_SIZE = 18;
 
 // Vertical tray gap (px): bar's `bottom-5` (20px) plus an 8px gap.
 const HUD_DEVICE_POPUP_GAP = 28;
@@ -44,27 +49,27 @@ const HUD_DEVICE_POPUP_GAP = 28;
 const HUD_DEVICE_POPUP_HORIZONTAL_BOTTOM = 68;
 
 const ICON_CONFIG = {
-	drag: { icon: RxDragHandleDots2, size: ICON_SIZE },
-	monitor: { icon: MdMonitor, size: ICON_SIZE },
-	volumeOn: { icon: MdVolumeUp, size: ICON_SIZE },
-	volumeOff: { icon: MdVolumeOff, size: ICON_SIZE },
-	micOn: { icon: MdMic, size: ICON_SIZE },
-	micOff: { icon: MdMicOff, size: ICON_SIZE },
-	webcamOn: { icon: MdVideocam, size: ICON_SIZE },
-	webcamOff: { icon: MdVideocamOff, size: ICON_SIZE },
-	cursor: { icon: MdMouse, size: ICON_SIZE },
-	pause: { icon: BsPauseCircle, size: ICON_SIZE },
-	resume: { icon: BsPlayCircle, size: ICON_SIZE },
-	stop: { icon: FaRegStopCircle, size: ICON_SIZE },
-	restart: { icon: MdRestartAlt, size: ICON_SIZE },
-	cancel: { icon: MdCancel, size: ICON_SIZE },
-	record: { icon: BsRecordCircle, size: ICON_SIZE },
-	videoFile: { icon: MdVideoFile, size: ICON_SIZE },
-	folder: { icon: FaFolderOpen, size: ICON_SIZE },
-	sun: { icon: FiSun, size: ICON_SIZE },
-	moon: { icon: FiMoon, size: ICON_SIZE },
-	minimize: { icon: FiMinus, size: ICON_SIZE },
-	close: { icon: FiX, size: ICON_SIZE },
+	drag: { icon: RxDragHandleDots2, size: 16 },
+	monitor: { icon: MdMonitor, size: 16 },
+	volumeOn: { icon: MdVolumeUp, size: 16 },
+	volumeOff: { icon: MdVolumeOff, size: 16 },
+	micOn: { icon: MdMic, size: 16 },
+	micOff: { icon: MdMicOff, size: 16 },
+	webcamOn: { icon: MdVideocam, size: 16 },
+	webcamOff: { icon: MdVideocamOff, size: 16 },
+	cursor: { icon: MdMouse, size: 16 },
+	pause: { icon: BsPauseCircle, size: 16 },
+	resume: { icon: BsPlayCircle, size: 16 },
+	stop: { icon: FaRegStopCircle, size: 15 },
+	restart: { icon: MdRestartAlt, size: 16 },
+	cancel: { icon: MdCancel, size: 16 },
+	record: { icon: BsRecordCircle, size: 16 },
+	videoFile: { icon: MdVideoFile, size: 16 },
+	folder: { icon: FaFolderOpen, size: 16 },
+	sun: { icon: FiSun, size: 15 },
+	moon: { icon: FiMoon, size: 15 },
+	minimize: { icon: FiMinus, size: 15 },
+	close: { icon: FiX, size: 15 },
 } as const;
 
 type IconName = keyof typeof ICON_CONFIG;
@@ -76,7 +81,7 @@ function getIcon(name: IconName, className?: string) {
 }
 
 const hudAuxIconBtnClasses =
-	"flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150 text-[#888888] hover:bg-[#252525] disabled:opacity-30 disabled:cursor-not-allowed";
+	"flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 text-white/60 hover:text-white hover:bg-white/10 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed";
 
 /** Launches the floating recording HUD and its recorder controls. */
 export function LaunchWindow() {
@@ -121,11 +126,56 @@ export function LaunchWindow() {
 
 	const [isMicHovered, setIsMicHovered] = useState(false);
 	const [isMicFocused, setIsMicFocused] = useState(false);
+	const micLeaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const micExpanded = isMicHovered || isMicFocused;
 
 	const [isWebcamHovered, setIsWebcamHovered] = useState(false);
 	const [isWebcamFocused, setIsWebcamFocused] = useState(false);
+	const webcamLeaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const webcamExpanded = isWebcamHovered || isWebcamFocused;
+
+	const handleMicEnter = useCallback(() => {
+		if (micLeaveTimeoutRef.current) {
+			clearTimeout(micLeaveTimeoutRef.current);
+			micLeaveTimeoutRef.current = null;
+		}
+		setIsMicHovered(true);
+	}, []);
+
+	const handleMicLeave = useCallback(() => {
+		if (micLeaveTimeoutRef.current) {
+			clearTimeout(micLeaveTimeoutRef.current);
+		}
+		micLeaveTimeoutRef.current = setTimeout(() => {
+			setIsMicHovered(false);
+			micLeaveTimeoutRef.current = null;
+		}, 600);
+	}, []);
+
+	const handleWebcamEnter = useCallback(() => {
+		if (webcamLeaveTimeoutRef.current) {
+			clearTimeout(webcamLeaveTimeoutRef.current);
+			webcamLeaveTimeoutRef.current = null;
+		}
+		setIsWebcamHovered(true);
+	}, []);
+
+	const handleWebcamLeave = useCallback(() => {
+		if (webcamLeaveTimeoutRef.current) {
+			clearTimeout(webcamLeaveTimeoutRef.current);
+		}
+		webcamLeaveTimeoutRef.current = setTimeout(() => {
+			setIsWebcamHovered(false);
+			webcamLeaveTimeoutRef.current = null;
+		}, 600);
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (micLeaveTimeoutRef.current) clearTimeout(micLeaveTimeoutRef.current);
+			if (webcamLeaveTimeoutRef.current) clearTimeout(webcamLeaveTimeoutRef.current);
+		};
+	}, []);
 
 	const showMicControls = microphoneEnabled && !recording && micExpanded;
 	const showWebcamControls = webcamEnabled && !recording && webcamExpanded;
@@ -172,8 +222,8 @@ export function LaunchWindow() {
 	}, [themeMode]);
 
 	const iconBtnClasses = isLight
-		? "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-[#3f3f46] hover:bg-[#e4e4e7] active:scale-95"
-		: "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-[#e8e8e8] hover:bg-[#252525] active:scale-95";
+		? "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-zinc-600 hover:text-zinc-950 hover:bg-black/[0.06] active:scale-95"
+		: "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-zinc-400 hover:text-white hover:bg-white/[0.08] active:scale-95";
 
 	const [supportsCursorModeToggle, setSupportsCursorModeToggle] = useState(false);
 	const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -361,27 +411,17 @@ export function LaunchWindow() {
 		const barEl = hudBarRef.current;
 		if (!barEl || !window.electronAPI?.setHudOverlaySize) return;
 
-		// Breathing room so the drop shadow isn't clipped. TOP_MARGIN must also exceed the
-		// slack in the bar's `max-h: calc(100vh - 2.5rem)` cap (40px reserved - 20px bottom
-		// gap = 20px) so the window stays tall enough that the cap never engages and adds a scrollbar.
+		// Breathing room so the drop shadow isn't clipped.
 		const SIDE_MARGIN = 24;
 		const TOP_MARGIN = 24;
-		// Wide enough that the language menu (11rem) never clips, even when the bar is narrow.
 		const MIN_WIDTH = 220;
 
 		const viewportHeight = window.innerHeight;
 		const centerX = window.innerWidth / 2;
 
-		// Use natural (scroll) size, not the clipped box: vertical mode's max-h cap is a
-		// small-screen fallback, and reading clipped height would pin the window to it.
-		// scrollHeight gives full content height; the cap only engages when the main process clamps to screen.
 		let topFromBottom = viewportHeight - barEl.getBoundingClientRect().bottom + barEl.scrollHeight;
 		let halfWidth = barEl.scrollWidth / 2;
 
-		// Popups drive both dimensions too. Their vertical anchor depends on bar height,
-		// which is fed back through React state and lags by a frame, so derive their top
-		// edge from the bar's natural height instead of the stale rendered position. Keeps
-		// one measurement pass authoritative and avoids a feedback re-measure.
 		if (deviceSelectorRef.current) {
 			const rect = deviceSelectorRef.current.getBoundingClientRect();
 			if (rect.width !== 0 || rect.height !== 0) {
@@ -406,13 +446,15 @@ export function LaunchWindow() {
 			}
 		}
 
-		// The language menu drives both width and height when open so the Electron window expands to contain it.
 		if (languageMenuPanelRef.current) {
 			const rect = languageMenuPanelRef.current.getBoundingClientRect();
 			halfWidth = Math.max(halfWidth, centerX - rect.left, rect.right - centerX);
 			const menuHeight = rect.height || 220;
 			const barBottomOffset = viewportHeight - barEl.getBoundingClientRect().bottom;
-			topFromBottom = Math.max(topFromBottom, barBottomOffset + barEl.scrollHeight + menuHeight + 20);
+			topFromBottom = Math.max(
+				topFromBottom,
+				barBottomOffset + barEl.scrollHeight + menuHeight + 20,
+			);
 		}
 
 		setHudBarHeight((prev) => {
@@ -429,8 +471,6 @@ export function LaunchWindow() {
 		window.electronAPI.setHudOverlaySize(width, height);
 	}, [trayLayout]);
 
-	// One persistent observer; elements wire themselves up via callback refs as they
-	// mount/unmount so measurement re-runs without recreating it or threading mount state through deps.
 	const hudResizeObserverRef = useRef<ResizeObserver | null>(null);
 	useEffect(() => {
 		const observer = new ResizeObserver(() => measureHudSize());
@@ -481,9 +521,46 @@ export function LaunchWindow() {
 		window.electronAPI?.setHudOverlayIgnoreMouseEvents?.(!enabled);
 	}, []);
 
+	const isLanguageMenuOpenRef = useRef(isLanguageMenuOpen);
+	isLanguageMenuOpenRef.current = isLanguageMenuOpen;
+
 	useEffect(() => {
 		setHudMouseEventsEnabled(false);
+
+		const handleGlobalMouseMove = (event: MouseEvent) => {
+			const target = event.target as HTMLElement | null;
+			const isDraggingAny = isDraggingHudRef.current || isDraggingBubbleRef.current;
+			const isInteractive =
+				isLanguageMenuOpenRef.current ||
+				isDraggingAny ||
+				Boolean(target?.closest("[data-hud-interactive='true']"));
+			setHudMouseEventsEnabled(isInteractive);
+		};
+
+		const handleGlobalMouseLeave = (event: MouseEvent) => {
+			if (!event.relatedTarget) {
+				const isDraggingAny = isDraggingHudRef.current || isDraggingBubbleRef.current;
+				if (!isLanguageMenuOpenRef.current && !isDraggingAny) {
+					setHudMouseEventsEnabled(false);
+				}
+			}
+		};
+
+		const handleBlur = () => {
+			const isDraggingAny = isDraggingHudRef.current || isDraggingBubbleRef.current;
+			if (!isLanguageMenuOpenRef.current && !isDraggingAny) {
+				setHudMouseEventsEnabled(false);
+			}
+		};
+
+		window.addEventListener("mousemove", handleGlobalMouseMove, { passive: true });
+		document.addEventListener("mouseleave", handleGlobalMouseLeave);
+		window.addEventListener("blur", handleBlur);
+
 		return () => {
+			window.removeEventListener("mousemove", handleGlobalMouseMove);
+			document.removeEventListener("mouseleave", handleGlobalMouseLeave);
+			window.removeEventListener("blur", handleBlur);
 			window.electronAPI?.setHudOverlayIgnoreMouseEvents?.(false);
 		};
 	}, [setHudMouseEventsEnabled]);
@@ -547,58 +624,134 @@ export function LaunchWindow() {
 			setMicrophoneEnabled(!microphoneEnabled);
 		}
 	};
-	const dragLastPositionRef = useRef<{ x: number; y: number } | null>(null);
+	const HUD_OFFSET_STORAGE_KEY = "ocal_hud_drag_offset";
+	const [hudOffset, setHudOffset] = useState<{ x: number; y: number }>(() => {
+		try {
+			const saved = localStorage.getItem("ocal_hud_drag_offset");
+			if (saved) {
+				const parsed = JSON.parse(saved);
+				if (typeof parsed.x === "number" && typeof parsed.y === "number") {
+					return parsed;
+				}
+			}
+		} catch {
+			// Fallback
+		}
+		return { x: 0, y: 0 };
+	});
+	const hudOffsetRef = useRef(hudOffset);
+	hudOffsetRef.current = hudOffset;
+
+	const isDraggingHudRef = useRef(false);
+	const isDraggingBubbleRef = useRef(false);
+	const dragStartPointerRef = useRef<{
+		startX: number;
+		startY: number;
+		initX: number;
+		initY: number;
+	} | null>(null);
+
 	const handleHudDragPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
 		event.preventDefault();
 		event.stopPropagation();
 		setHudMouseEventsEnabled(true);
+		isDraggingHudRef.current = true;
+		dragStartPointerRef.current = {
+			startX: event.clientX,
+			startY: event.clientY,
+			initX: hudOffsetRef.current.x,
+			initY: hudOffsetRef.current.y,
+		};
 		event.currentTarget.setPointerCapture(event.pointerId);
-		dragLastPositionRef.current = { x: event.screenX, y: event.screenY };
 	};
+
 	const handleHudDragPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-		const lastPosition = dragLastPositionRef.current;
-		if (!lastPosition) return;
-		const deltaX = event.screenX - lastPosition.x;
-		const deltaY = event.screenY - lastPosition.y;
-		dragLastPositionRef.current = { x: event.screenX, y: event.screenY };
-		window.electronAPI?.moveHudOverlayBy?.(deltaX, deltaY);
+		if (!isDraggingHudRef.current || !dragStartPointerRef.current) return;
+		const dx = event.clientX - dragStartPointerRef.current.startX;
+		const dy = event.clientY - dragStartPointerRef.current.startY;
+
+		const nextX = dragStartPointerRef.current.initX + dx;
+		const nextY = dragStartPointerRef.current.initY + dy;
+
+		const barEl = hudBarRef.current;
+		let clampedX = nextX;
+		let clampedY = nextY;
+
+		if (barEl) {
+			const halfWidth = barEl.offsetWidth / 2;
+			const barHeight = barEl.offsetHeight;
+			const vw = window.innerWidth || 1920;
+			const vh = window.innerHeight || 1080;
+
+			const minX = -(vw / 2 - halfWidth - 10);
+			const maxX = vw / 2 - halfWidth - 10;
+			clampedX = Math.min(maxX, Math.max(minX, nextX));
+
+			const minY = -(vh - 20 - barHeight - 10);
+			const maxY = 10;
+			clampedY = Math.min(maxY, Math.max(minY, nextY));
+		}
+
+		hudOffsetRef.current = { x: clampedX, y: clampedY };
+		setHudOffset({ x: clampedX, y: clampedY });
 	};
+
 	const handleHudDragPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
-		dragLastPositionRef.current = null;
+		if (!isDraggingHudRef.current) return;
+		isDraggingHudRef.current = false;
+		dragStartPointerRef.current = null;
 		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
 			event.currentTarget.releasePointerCapture(event.pointerId);
 		}
-		setHudMouseEventsEnabled(false);
+		try {
+			localStorage.setItem(HUD_OFFSET_STORAGE_KEY, JSON.stringify(hudOffsetRef.current));
+		} catch {
+			// ignore storage error
+		}
 	};
 
 	return (
-		// Avoid w-screen/h-screen: 100vw can exceed the inner layout width when scrollbars
-		// affect the viewport (Windows), causing a horizontal scrollbar (issue #305).
 		<div
-			className={`h-full w-full min-w-0 max-w-full overflow-x-hidden overflow-y-hidden bg-transparent ${styles.electronDrag}`}
+			className={`h-full w-full min-w-0 max-w-full overflow-x-hidden overflow-y-hidden bg-transparent ${styles.electronNoDrag}`}
+			style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
 			onPointerMove={(event) => {
 				const target = event.target as HTMLElement | null;
+				const isDraggingAny = isDraggingHudRef.current || isDraggingBubbleRef.current;
 				const shouldCapture =
-					isLanguageMenuOpen || Boolean(target?.closest("[data-hud-interactive='true']"));
+					isLanguageMenuOpen ||
+					isDraggingAny ||
+					Boolean(target?.closest("[data-hud-interactive='true']"));
 				setHudMouseEventsEnabled(shouldCapture);
 			}}
 			onPointerLeave={() => {
-				if (!isLanguageMenuOpen) {
+				const isDraggingAny = isDraggingHudRef.current || isDraggingBubbleRef.current;
+				if (!isLanguageMenuOpen && !isDraggingAny) {
 					setHudMouseEventsEnabled(false);
 				}
 			}}
 		>
-			<WebcamPreviewBubble ref={setWebcamBubbleEl} stream={webcamStream} enabled={webcamEnabled} isLight={isLight} />
+			<WebcamPreviewBubble
+				ref={setWebcamBubbleEl}
+				stream={webcamStream}
+				enabled={webcamEnabled}
+				isLight={isLight}
+				onDraggingChange={(isDragging) => {
+					isDraggingBubbleRef.current = isDragging;
+					if (isDragging) {
+						setHudMouseEventsEnabled(true);
+					}
+				}}
+			/>
 
 			{systemLocaleSuggestion && (
 				<div
 					data-hud-interactive="true"
-					className={`fixed top-8 left-1/2 z-30 w-[calc(100vw-1rem)] max-w-[520px] -translate-x-1/2 rounded-xl border border-white/15 bg-[rgba(20,20,28,0.95)] p-3 shadow-2xl backdrop-blur-xl text-white animate-in fade-in-0 zoom-in-95 duration-200 ${styles.electronNoDrag}`}
+					className={`fixed top-8 left-1/2 z-30 w-[calc(100vw-1rem)] max-w-[520px] -translate-x-1/2 rounded-2xl border border-white/15 bg-[#0e0f14]/95 p-4 shadow-2xl backdrop-blur-2xl text-white animate-in fade-in-0 zoom-in-95 duration-200 ${styles.electronNoDrag}`}
 				>
 					<div className="text-[13px] font-semibold text-white">
 						{t("systemLanguagePrompt.title")}
 					</div>
-					<div className="mt-1 text-[11px] leading-relaxed text-white/75">
+					<div className="mt-1 text-[11px] leading-relaxed text-zinc-300">
 						{t("systemLanguagePrompt.description", {
 							language: suggestedLanguageName,
 						})}
@@ -609,7 +762,7 @@ export function LaunchWindow() {
 							variant="ghost"
 							size="sm"
 							onClick={dismissSystemLocaleSuggestion}
-							className="h-7 text-xs text-white/80 hover:bg-white/10 hover:text-white"
+							className="h-7 text-xs text-zinc-300 hover:bg-white/10 hover:text-white"
 						>
 							{t("systemLanguagePrompt.keepDefault")}
 						</Button>
@@ -617,7 +770,7 @@ export function LaunchWindow() {
 							type="button"
 							size="sm"
 							onClick={acceptSystemLocaleSuggestion}
-							className="h-7 text-xs bg-white text-[#10121b] hover:bg-white/90"
+							className="h-7 text-xs bg-white text-[#10121b] font-medium hover:bg-white/90"
 						>
 							{t("systemLanguagePrompt.switch", {
 								language: suggestedLanguageName,
@@ -627,48 +780,78 @@ export function LaunchWindow() {
 				</div>
 			)}
 
-			{/* Device selectors, fixed above HUD bar, viewport-relative, never clipped */}
+			{/* Device selectors popup */}
 			{(showMicControls || showWebcamControls) && (
 				<div
 					ref={setDeviceSelectorEl}
 					data-hud-interactive="true"
-					className={`fixed left-1/2 -translate-x-1/2 flex items-center gap-2 animate-mic-panel-in ${trayLayout === "vertical" ? "" : "bottom-[68px]"} ${styles.electronNoDrag}`}
-					style={
-						trayLayout === "vertical"
-							? // Sit above the tall vertical tray, anchored to the measured bar
-								// height. Matches the offset in measureHudSize.
-								{ bottom: hudBarHeight + HUD_DEVICE_POPUP_GAP }
-							: undefined
-					}
+					className={`fixed left-1/2 flex items-center gap-2 animate-mic-panel-in ${trayLayout === "vertical" ? "" : "bottom-[68px]"} ${styles.electronNoDrag}`}
+					style={{
+						transform: `translate(calc(-50% + ${hudOffset.x}px), ${hudOffset.y}px)`,
+						...(trayLayout === "vertical"
+							? { bottom: hudBarHeight + HUD_DEVICE_POPUP_GAP }
+							: undefined),
+					}}
 				>
 					{/* Mic selector */}
 					{showMicControls && (
 						<div
-							className={`flex h-9 items-center gap-2 overflow-hidden rounded-full border ${isLight ? "border-slate-300 bg-white/95 text-slate-900 shadow-xl backdrop-blur-md" : "border-white/15 bg-[#0c0c0c]/90 text-white shadow-2xl backdrop-blur-xl"} px-3 py-1.5 transition-all duration-300 ${!micExpanded ? "opacity-75 grayscale-[0.3]" : "opacity-100"}`}
-							onMouseEnter={() => setIsMicHovered(true)}
-							onMouseLeave={() => setIsMicHovered(false)}
-							onFocus={() => setIsMicFocused(true)}
-							onBlur={() => setIsMicFocused(false)}
-							style={{ width: micExpanded ? "240px" : "140px", transition: "width 300ms ease" }}
+							className={`flex h-9 items-center gap-2 overflow-hidden rounded-full border ${
+								isLight
+									? "border-zinc-200/80 bg-white/95 text-zinc-900 backdrop-blur-xl"
+									: "border-white/12 bg-[#0e0f14]/95 text-white backdrop-blur-2xl"
+							} px-3 py-1.5 transition-all duration-300 ${!micExpanded ? "opacity-75 grayscale-[0.3]" : "opacity-100"}`}
+							onMouseEnter={handleMicEnter}
+							onMouseLeave={handleMicLeave}
+							onFocus={() => {
+								if (micLeaveTimeoutRef.current) clearTimeout(micLeaveTimeoutRef.current);
+								setIsMicFocused(true);
+							}}
+							onBlur={() => {
+								setIsMicFocused(false);
+								handleMicLeave();
+							}}
+							style={{
+								width: micExpanded ? "240px" : "140px",
+								transition: "width 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+							}}
 						>
 							<div className="relative flex-1 min-w-0">
 								{!micExpanded && (
-									<div className={`text-[10px] font-semibold truncate ${isLight ? "text-slate-700" : "text-white/80"}`}>
+									<div
+										className={`text-[10px] font-semibold truncate ${isLight ? "text-zinc-700" : "text-zinc-300"}`}
+									>
 										{selectedMicLabel}
 									</div>
 								)}
 								<select
 									value={microphoneDeviceId || selectedMicId}
+									onFocus={() => {
+										if (micLeaveTimeoutRef.current) clearTimeout(micLeaveTimeoutRef.current);
+										setIsMicFocused(true);
+									}}
+									onBlur={() => {
+										setIsMicFocused(false);
+										handleMicLeave();
+									}}
 									onChange={(e) => {
 										const selectedDevice = micDevices.find((d) => d.deviceId === e.target.value);
 										setSelectedMicId(e.target.value);
 										setMicrophoneDeviceId(e.target.value);
 										setMicrophoneDeviceName(selectedDevice?.label);
 									}}
-									className={`w-full appearance-none text-[11px] rounded-lg pl-2 pr-6 py-1 border outline-none transition-colors cursor-pointer ${isLight ? "bg-slate-100 text-slate-900 border-slate-300 hover:bg-slate-200" : "bg-white/5 text-white border-white/10 hover:bg-white/10"} ${!micExpanded ? "sr-only" : ""}`}
+									className={`w-full appearance-none text-[11px] rounded-lg pl-2 pr-6 py-1 border outline-none transition-colors cursor-pointer ${
+										isLight
+											? "bg-zinc-100 text-zinc-900 border-zinc-200 hover:bg-zinc-200"
+											: "bg-white/5 text-white border-white/10 hover:bg-white/10"
+									} ${!micExpanded ? "sr-only" : ""}`}
 								>
 									{micDevices.map((device) => (
-										<option key={device.deviceId} value={device.deviceId} className={isLight ? "bg-white text-slate-900" : "bg-[#1c1c24] text-white"}>
+										<option
+											key={device.deviceId}
+											value={device.deviceId}
+											className={isLight ? "bg-white text-zinc-900" : "bg-[#181920] text-white"}
+										>
 											{device.label}
 										</option>
 									))}
@@ -676,7 +859,7 @@ export function LaunchWindow() {
 								{micExpanded && (
 									<ChevronDown
 										size={12}
-										className={`absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none ${isLight ? "text-slate-500" : "text-white/40"}`}
+										className={`absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none ${isLight ? "text-zinc-500" : "text-zinc-400"}`}
 									/>
 								)}
 							</div>
@@ -690,36 +873,66 @@ export function LaunchWindow() {
 					{/* Webcam selector */}
 					{showWebcamControls && (
 						<div
-							className={`flex h-9 items-center gap-2 overflow-hidden rounded-full border ${isLight ? "border-slate-300 bg-white/95 text-slate-900 shadow-xl backdrop-blur-md" : "border-white/15 bg-[#0c0c0c]/90 text-white shadow-2xl backdrop-blur-xl"} px-3 py-1.5 transition-all duration-300 ${!webcamExpanded ? "opacity-75 grayscale-[0.3]" : "opacity-100"}`}
-							onMouseEnter={() => setIsWebcamHovered(true)}
-							onMouseLeave={() => setIsWebcamHovered(false)}
-							onFocus={() => setIsWebcamFocused(true)}
-							onBlur={() => setIsWebcamFocused(false)}
-							style={{ width: webcamExpanded ? "240px" : "140px", transition: "width 300ms ease" }}
+							className={`flex h-9 items-center gap-2 overflow-hidden rounded-full border ${
+								isLight
+									? "border-zinc-200/80 bg-white/95 text-zinc-900 backdrop-blur-xl"
+									: "border-white/12 bg-[#0e0f14]/95 text-white backdrop-blur-2xl"
+							} px-3 py-1.5 transition-all duration-300 ${!webcamExpanded ? "opacity-75 grayscale-[0.3]" : "opacity-100"}`}
+							onMouseEnter={handleWebcamEnter}
+							onMouseLeave={handleWebcamLeave}
+							onFocus={() => {
+								if (webcamLeaveTimeoutRef.current) clearTimeout(webcamLeaveTimeoutRef.current);
+								setIsWebcamFocused(true);
+							}}
+							onBlur={() => {
+								setIsWebcamFocused(false);
+								handleWebcamLeave();
+							}}
+							style={{
+								width: webcamExpanded ? "240px" : "140px",
+								transition: "width 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+							}}
 						>
 							<div className="relative flex-1 min-w-0">
 								{!webcamExpanded && (
-									<div className={`text-[10px] font-semibold truncate ${isLight ? "text-slate-700" : "text-white/80"}`}>
+									<div
+										className={`text-[10px] font-semibold truncate ${isLight ? "text-zinc-700" : "text-zinc-300"}`}
+									>
 										{selectedCameraLabel}
 									</div>
 								)}
 								{webcamExpanded &&
 									(isCameraDevicesLoading ? (
-										<span className={`text-[10px] italic ${isLight ? "text-slate-500" : "text-white/40"}`}>
+										<span
+											className={`text-[10px] italic ${isLight ? "text-zinc-500" : "text-zinc-400"}`}
+										>
 											{t("webcam.searching")}
 										</span>
 									) : cameraDevicesError ? (
-										<span className={`text-[10px] italic ${isLight ? "text-slate-500" : "text-white/40"}`}>
+										<span
+											className={`text-[10px] italic ${isLight ? "text-zinc-500" : "text-zinc-400"}`}
+										>
 											{t("webcam.unavailable")}
 										</span>
 									) : cameraDevices.length === 0 ? (
-										<span className={`text-[10px] italic ${isLight ? "text-slate-500" : "text-white/40"}`}>
+										<span
+											className={`text-[10px] italic ${isLight ? "text-zinc-500" : "text-zinc-400"}`}
+										>
 											{t("webcam.noneFound")}
 										</span>
 									) : (
 										<>
 											<select
 												value={webcamDeviceId || selectedCameraId}
+												onFocus={() => {
+													if (webcamLeaveTimeoutRef.current)
+														clearTimeout(webcamLeaveTimeoutRef.current);
+													setIsWebcamFocused(true);
+												}}
+												onBlur={() => {
+													setIsWebcamFocused(false);
+													handleWebcamLeave();
+												}}
 												onChange={(e) => {
 													const device = cameraDevices.find(
 														(item) => item.deviceId === e.target.value,
@@ -728,17 +941,27 @@ export function LaunchWindow() {
 													setWebcamDeviceId(e.target.value);
 													setWebcamDeviceName(device?.label);
 												}}
-												className={`w-full appearance-none text-[11px] rounded-lg pl-2 pr-6 py-1 border outline-none transition-colors cursor-pointer ${isLight ? "bg-slate-100 text-slate-900 border-slate-300 hover:bg-slate-200" : "bg-white/5 text-white border-white/10 hover:bg-white/10"}`}
+												className={`w-full appearance-none text-[11px] rounded-lg pl-2 pr-6 py-1 border outline-none transition-colors cursor-pointer ${
+													isLight
+														? "bg-zinc-100 text-zinc-900 border-zinc-200 hover:bg-zinc-200"
+														: "bg-white/5 text-white border-white/10 hover:bg-white/10"
+												}`}
 											>
 												{cameraDevices.map((device) => (
-													<option key={device.deviceId} value={device.deviceId} className={isLight ? "bg-white text-slate-900" : "bg-[#1c1c24] text-white"}>
+													<option
+														key={device.deviceId}
+														value={device.deviceId}
+														className={
+															isLight ? "bg-white text-zinc-900" : "bg-[#181920] text-white"
+														}
+													>
 														{device.label}
 													</option>
 												))}
 											</select>
 											<ChevronDown
 												size={12}
-												className={`absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none ${isLight ? "text-slate-500" : "text-white/40"}`}
+												className={`absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none ${isLight ? "text-zinc-500" : "text-zinc-400"}`}
 											/>
 										</>
 									))}
@@ -748,69 +971,88 @@ export function LaunchWindow() {
 				</div>
 			)}
 
-			{/* HUD bar, fixed at bottom center, viewport-relative, never moves */}
+			{/* Floating HUD Bar */}
 			<div
 				ref={setHudBarEl}
 				data-hud-interactive="true"
 				data-tray-layout={trayLayout}
-				className={`fixed bottom-5 left-1/2 -translate-x-1/2 flex rounded-full border ${styles.noScrollbar} ${
-					isLight
-						? "border-[#e4e4e7] bg-[#ffffff] text-[#18181b] shadow-md shadow-slate-200/50"
-						: "border-[#252525] bg-[#0c0c0c] text-[#e8e8e8] shadow-none"
+				className={`fixed bottom-5 left-1/2 flex rounded-full transition-colors duration-150 select-none ${styles.noScrollbar} ${
+					isLight ? styles.hudBarLight : styles.hudBarDark
 				} ${
 					trayLayout === "vertical"
-						? "max-h-[calc(100vh-2.5rem)] flex-col items-center gap-2 overflow-y-auto px-2.5 py-4 w-[56px]"
-						: "items-center gap-2 px-3 py-1.5"
+						? "max-h-[calc(100vh-2.5rem)] flex-col items-center gap-2 overflow-y-auto px-2 py-3 w-[54px]"
+						: "items-center gap-2.5 px-3 py-1.5"
 				}`}
+				style={{
+					transform: `translate(calc(-50% + ${hudOffset.x}px), ${hudOffset.y}px)`,
+				}}
 				onPointerEnter={() => setHudMouseEventsEnabled(true)}
 				onPointerDown={() => setHudMouseEventsEnabled(true)}
 				onMouseEnter={() => setHudMouseEventsEnabled(true)}
 				onMouseLeave={() => {
-					if (!isLanguageMenuOpen) {
+					if (!isLanguageMenuOpen && !isDraggingHudRef.current) {
 						setHudMouseEventsEnabled(false);
 					}
 				}}
 			>
-				{/* Ocal Brand Badge */}
+				{/* Brand Logo & Pill */}
 				{trayLayout === "vertical" ? (
-					<div className="flex flex-col items-center gap-0.5 pt-1 pb-0.5">
+					<div className="flex flex-col items-center gap-1 pt-0.5 pb-0.5">
 						<span
-							className={`text-[10px] font-black tracking-tight leading-none ${isLight ? "text-[#18181b]" : "text-white"}`}
+							className={`text-[11px] font-black tracking-tight leading-none ${isLight ? "text-zinc-900" : "text-white"}`}
 						>
 							ocal
 						</span>
 						<span
-							className="rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider leading-none shadow-xs"
+							className="rounded-full px-1.5 py-0.5 text-[7.5px] font-black uppercase tracking-wider leading-none"
 							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
 						>
-							SCREEN
+							REC
 						</span>
 					</div>
 				) : (
-					<div className="flex items-center gap-1.5 pl-1 pr-0.5">
-						<span className={`text-xs font-black tracking-tight ${isLight ? "text-[#18181b]" : "text-white"}`}>
+					<div className="flex items-center gap-1.5 pl-0.5">
+						<span
+							className={`text-[13px] font-extrabold tracking-tight ${isLight ? "text-zinc-950" : "text-white"}`}
+						>
 							ocal
 						</span>
 						<span
-							className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-xs"
-							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+							className="rounded-full px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider transition-all duration-200"
+							style={{
+								backgroundColor: activeAccent.hex,
+								color: activeAccent.textHex,
+							}}
 						>
 							SCREEN
 						</span>
 					</div>
 				)}
 
-				{/* Drag handle */}
+				{/* Drag Handle */}
 				<div
-					className={`flex ${trayLayout === "vertical" ? "h-4 w-full" : "h-7 w-6"} cursor-grab items-center justify-center active:cursor-grabbing ${styles.electronNoDrag}`}
+					className={`flex ${trayLayout === "vertical" ? "h-3.5 w-full my-0.5" : "h-7 w-4"} cursor-grab items-center justify-center opacity-40 hover:opacity-100 transition-opacity active:cursor-grabbing ${styles.electronNoDrag}`}
 					onPointerDown={handleHudDragPointerDown}
 					onPointerMove={handleHudDragPointerMove}
 					onPointerUp={handleHudDragPointerEnd}
 					onPointerCancel={handleHudDragPointerEnd}
+					title={t("tooltips.dragHUD") || "Drag toolbar"}
 				>
-					{getIcon("drag", isLight ? "text-black/30" : "text-white/30")}
+					{trayLayout === "vertical" ? (
+						<div className="w-4 h-1 rounded-full bg-current opacity-60" />
+					) : (
+						<div className="flex gap-0.5 items-center">
+							<div
+								className={`w-1 h-3.5 rounded-full ${isLight ? "bg-black/40" : "bg-white/40"}`}
+							/>
+							<div
+								className={`w-1 h-3.5 rounded-full ${isLight ? "bg-black/40" : "bg-white/40"}`}
+							/>
+						</div>
+					)}
 				</div>
 
+				{/* Layout Switcher */}
 				<Tooltip
 					content={
 						trayLayout === "horizontal"
@@ -831,9 +1073,9 @@ export function LaunchWindow() {
 						onClick={toggleTrayLayout}
 					>
 						{trayLayout === "horizontal" ? (
-							<Columns3 size={ICON_SIZE} className={isLight ? "text-[#71717a]" : "text-white/60"} />
+							<Columns3 size={ICON_SIZE} className={isLight ? "text-zinc-600" : "text-zinc-400"} />
 						) : (
-							<Rows3 size={ICON_SIZE} className={isLight ? "text-[#71717a]" : "text-white/60"} />
+							<Rows3 size={ICON_SIZE} className={isLight ? "text-zinc-600" : "text-zinc-400"} />
 						)}
 					</button>
 				</Tooltip>
@@ -843,38 +1085,40 @@ export function LaunchWindow() {
 					data-testid="launch-source-selector-button"
 					className={`${
 						isLight
-							? "bg-white border border-[#e4e4e7] text-[#18181b] hover:bg-[#f4f4f5]"
-							: "bg-[#141414] border border-[#252525] text-[#e8e8e8] hover:bg-[#1c1c1c]"
-					} flex items-center gap-1.5 rounded-full ${trayLayout === "vertical" ? "w-8 h-8 justify-center p-0" : "h-7 px-3"} ${styles.electronNoDrag}`}
+							? "bg-zinc-100 hover:bg-zinc-200/80 active:bg-zinc-300 text-zinc-900 border border-zinc-200/80"
+							: "bg-white/[0.06] hover:bg-white/[0.11] active:bg-white/[0.16] text-zinc-200 hover:text-white border border-white/[0.08]"
+					} flex items-center gap-1.5 rounded-full transition-all duration-150 active:scale-95 ${
+						trayLayout === "vertical" ? "w-8 h-8 justify-center p-0" : "h-7 px-2.5"
+					} ${styles.electronNoDrag}`}
 					onClick={openSourceSelector}
 					disabled={recording}
 					title={selectedSource}
 					aria-label={selectedSource}
 				>
-					{getIcon("monitor", isLight ? "text-[#18181b]" : "text-white/80")}
+					{getIcon("monitor", isLight ? "text-zinc-800" : "text-zinc-200")}
 					<span
-						className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[86px]"} truncate text-[11px] font-semibold ${isLight ? "text-[#18181b]" : "text-white/90"}`}
+						className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[84px]"} truncate text-[11px] font-medium tracking-tight`}
 					>
 						{selectedSource}
 					</span>
 				</button>
 
-				{/* Audio controls group */}
+				{/* Media controls capsule */}
 				<div
 					className={`flex items-center rounded-full border ${
-						isLight ? "border-[#e4e4e7] bg-[#f4f4f5]" : "border-[#252525] bg-[#141414]"
-					} ${trayLayout === "vertical" ? "flex-col gap-1 px-1 py-1.5" : "gap-1 px-1 py-0.5"} ${styles.electronNoDrag}`}
+						isLight ? "border-black/[0.06] bg-black/[0.04]" : "border-white/[0.08] bg-black/40"
+					} ${trayLayout === "vertical" ? "flex-col gap-1 p-1" : "gap-0.5 p-0.5"} ${styles.electronNoDrag}`}
 				>
 					<button
 						data-testid="launch-system-audio-button"
 						className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
 							systemAudioEnabled
 								? isLight
-									? "bg-[#e8ff47] text-black font-bold shadow-xs"
-									: "bg-[#222222] text-[#e8ff47]"
+									? "bg-zinc-900 text-white font-bold"
+									: "bg-white text-zinc-950 font-bold"
 								: isLight
-									? "text-[#71717a] hover:bg-[#e4e4e7]"
-									: "text-[#666666] hover:bg-[#252525]"
+									? "text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.06]"
+									: "text-zinc-400 hover:text-white hover:bg-white/[0.08]"
 						}`}
 						onClick={() => !recording && setSystemAudioEnabled(!systemAudioEnabled)}
 						disabled={recording}
@@ -884,19 +1128,20 @@ export function LaunchWindow() {
 					>
 						{getIcon("volumeOn")}
 					</button>
+
 					<button
 						data-testid="launch-microphone-button"
 						className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
 							microphoneEnabled
 								? isLight
-									? "bg-[#e8ff47] text-black font-bold shadow-xs"
-									: "bg-[#222222] text-[#e8ff47]"
+									? "bg-zinc-900 text-white font-bold"
+									: "bg-white text-zinc-950 font-bold"
 								: isLight
-									? "text-[#71717a] hover:bg-[#e4e4e7]"
-									: "text-[#666666] hover:bg-[#252525]"
+									? "text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.06]"
+									: "text-zinc-400 hover:text-white hover:bg-white/[0.08]"
 						}`}
-						onMouseEnter={() => setIsMicHovered(true)}
-						onMouseLeave={() => setIsMicHovered(false)}
+						onMouseEnter={handleMicEnter}
+						onMouseLeave={handleMicLeave}
 						onClick={toggleMicrophone}
 						disabled={recording}
 						title={microphoneEnabled ? t("audio.disableMicrophone") : t("audio.enableMicrophone")}
@@ -906,19 +1151,20 @@ export function LaunchWindow() {
 					>
 						{getIcon(microphoneEnabled ? "micOn" : "micOff")}
 					</button>
+
 					<button
 						data-testid="launch-webcam-button"
 						className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
 							webcamEnabled
 								? isLight
-									? "bg-[#e8ff47] text-black font-bold shadow-xs"
-									: "bg-[#222222] text-[#e8ff47]"
+									? "bg-zinc-900 text-white font-bold"
+									: "bg-white text-zinc-950 font-bold"
 								: isLight
-									? "text-[#71717a] hover:bg-[#e4e4e7]"
-									: "text-[#666666] hover:bg-[#252525]"
+									? "text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.06]"
+									: "text-zinc-400 hover:text-white hover:bg-white/[0.08]"
 						}`}
-						onMouseEnter={() => setIsWebcamHovered(true)}
-						onMouseLeave={() => setIsWebcamHovered(false)}
+						onMouseEnter={handleWebcamEnter}
+						onMouseLeave={handleWebcamLeave}
 						onClick={async () => {
 							await setWebcamEnabled(!webcamEnabled);
 						}}
@@ -927,17 +1173,18 @@ export function LaunchWindow() {
 					>
 						{getIcon(webcamEnabled ? "webcamOn" : "webcamOff")}
 					</button>
+
 					{supportsCursorModeToggle && (
 						<button
 							data-testid="launch-cursor-mode-button"
 							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
 								cursorCaptureMode === "editable-overlay"
 									? isLight
-										? "font-bold shadow-xs"
-										: "bg-[#222222]"
+										? "font-bold"
+										: "bg-white/20"
 									: isLight
-										? "text-[#71717a] hover:bg-[#e4e4e7]"
-										: "text-[#666666] hover:bg-[#252525]"
+										? "text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.06]"
+										: "text-zinc-400 hover:text-white hover:bg-white/[0.08]"
 							}`}
 							style={
 								cursorCaptureMode === "editable-overlay"
@@ -964,29 +1211,54 @@ export function LaunchWindow() {
 					)}
 				</div>
 
-				{/* Record/Stop group */}
+				{/* Record / Stop Button */}
 				<button
 					data-testid="launch-record-button"
-					className={`flex items-center justify-center rounded-full transition-[min-width,background-color] duration-150 ${trayLayout === "vertical" ? "w-8 h-8 p-0" : "px-3 py-1.5 min-w-[34px] min-h-7"} ${styles.electronNoDrag} ${
+					className={`flex items-center justify-center rounded-full transition-all duration-200 active:scale-95 ${
+						trayLayout === "vertical" ? "w-8 h-8 p-0" : "px-3 py-1 min-h-[30px]"
+					} ${styles.electronNoDrag} ${
 						recording
 							? paused
-								? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-								: "bg-red-500/20 text-red-400 border border-red-500/30"
-							: isLight
-								? "bg-[#18181b] text-white hover:bg-[#27272a] rounded-full border border-[#18181b]"
-								: "bg-[#1f1f1f] text-white hover:bg-[#2a2a2a] border border-[#2c2c2c] rounded-full"
+								? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+								: "bg-red-500/25 text-red-300 border border-red-500/50"
+							: hasSelectedSource
+								? isLight
+									? "bg-red-500 hover:bg-red-600 text-white border border-red-600/40"
+									: "bg-gradient-to-r from-red-500/30 to-red-600/20 hover:from-red-500/40 hover:to-red-600/30 text-red-300 hover:text-red-200 border border-red-500/40"
+								: "bg-white/5 text-zinc-500 border border-white/5 cursor-not-allowed"
 					}`}
 					onClick={toggleRecording}
 					disabled={!hasSelectedSource && !recording}
 					style={{ flex: "0 0 auto" }}
 				>
-					<div className={`flex items-center justify-center ${recording && trayLayout !== "vertical" ? "gap-1.5" : ""}`}>
-						{recording
-							? getIcon("stop", paused ? "text-amber-400" : "text-red-400")
-							: getIcon("record", hasSelectedSource ? "text-white/80" : "text-white/30")}
+					<div
+						className={`flex items-center justify-center ${recording && trayLayout !== "vertical" ? "gap-2" : ""}`}
+					>
+						{recording ? (
+							getIcon("stop", paused ? "text-amber-300" : "text-red-300")
+						) : (
+							<div className="flex items-center gap-1.5">
+								<div
+									className={`w-2.5 h-2.5 rounded-full transition-all ${
+										hasSelectedSource
+											? isLight
+												? "bg-white animate-pulse"
+												: "bg-red-400"
+											: "bg-zinc-600"
+									}`}
+								/>
+								{trayLayout !== "vertical" && (
+									<span
+										className={`text-[11px] font-bold tracking-tight ${isLight ? "text-white" : "text-zinc-100"}`}
+									>
+										REC
+									</span>
+								)}
+							</div>
+						)}
 						{recording && trayLayout !== "vertical" && (
 							<span
-								className={`${paused ? "text-amber-400" : "text-red-400"} inline-block w-[34px] text-left text-xs font-semibold tabular-nums`}
+								className={`${paused ? "text-amber-300" : "text-red-300"} inline-block min-w-[36px] text-left text-xs font-mono font-bold tabular-nums`}
 							>
 								{formatTimePadded(elapsedSeconds)}
 							</span>
@@ -994,9 +1266,10 @@ export function LaunchWindow() {
 					</div>
 				</button>
 
+				{/* Active Recording Secondary Controls */}
 				{recording && (
 					<div
-						className={`flex items-center gap-0.5 ${trayLayout === "vertical" ? "flex-col gap-1" : ""} ${styles.electronNoDrag}`}
+						className={`flex items-center gap-1 ${trayLayout === "vertical" ? "flex-col gap-1" : ""} ${styles.electronNoDrag}`}
 					>
 						{canPauseRecording && (
 							<Tooltip
@@ -1005,24 +1278,25 @@ export function LaunchWindow() {
 								<button className={hudAuxIconBtnClasses} onClick={togglePaused}>
 									{getIcon(
 										paused ? "resume" : "pause",
-										paused ? "text-amber-400" : "text-white/60",
+										paused ? "text-amber-400" : "text-white/75",
 									)}
 								</button>
 							</Tooltip>
 						)}
 						<Tooltip content={t("tooltips.restartRecording")}>
 							<button className={hudAuxIconBtnClasses} onClick={restartRecording}>
-								{getIcon("restart", "text-white/60")}
+								{getIcon("restart", "text-white/75")}
 							</button>
 						</Tooltip>
 						<Tooltip content={t("tooltips.cancelRecording")}>
 							<button className={hudAuxIconBtnClasses} onClick={cancelRecording}>
-								{getIcon("cancel", "text-white/60")}
+								{getIcon("cancel", "text-white/75")}
 							</button>
 						</Tooltip>
 					</div>
 				)}
 
+				{/* Studio Editor Button */}
 				{!recording && (
 					<Tooltip content={t("tooltips.openStudio")}>
 						<button
@@ -1030,32 +1304,44 @@ export function LaunchWindow() {
 							className={`${iconBtnClasses} ${styles.electronNoDrag}`}
 							onClick={() => window.electronAPI.switchToEditor()}
 						>
-							<Clapperboard size={ICON_SIZE} className={isLight ? "text-[#71717a]" : "text-white/60"} />
+							<Clapperboard
+								size={ICON_SIZE}
+								className={isLight ? "text-zinc-600" : "text-zinc-400"}
+							/>
 						</button>
 					</Tooltip>
 				)}
 
-				{/* Right sidebar controls */}
+				{/* Right Utilities Divider */}
 				<div
-					className={`${trayLayout === "vertical" ? (isLight ? "mt-1.5 pt-2 border-t border-[#e4e4e7] flex flex-col items-center gap-1.5" : "mt-1.5 pt-2 border-t border-[#252525] flex flex-col items-center gap-1.5") : (isLight ? "ml-1 pl-2 border-l border-[#e4e4e7] flex items-center gap-1" : "ml-1 pl-2 border-l border-[#252525] flex items-center gap-1")} ${styles.electronNoDrag}`}
+					className={`${
+						trayLayout === "vertical"
+							? isLight
+								? "w-6 h-[1px] bg-black/10 my-1"
+								: "w-6 h-[1px] bg-white/10 my-1"
+							: isLight
+								? "h-4 w-[1px] bg-black/10 mx-0.5"
+								: "h-4 w-[1px] bg-white/10 mx-0.5"
+					} shrink-0`}
+				/>
+
+				{/* Right Utilities Section */}
+				<div
+					className={`flex items-center gap-1.5 ${trayLayout === "vertical" ? "flex-col" : ""} ${styles.electronNoDrag}`}
 				>
-					{/* Theme Toggle (Sun/Moon) */}
+					{/* Theme Toggle */}
 					<Tooltip content={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}>
 						<button
 							type="button"
 							aria-label="Toggle theme"
-							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer ${
-								isLight
-									? "text-[#18181b] hover:bg-[#e4e4e7]"
-									: "hover:bg-[#252525]"
-							} ${styles.electronNoDrag}`}
-							style={!isLight ? { color: activeAccent.hex } : undefined}
+							className={`${iconBtnClasses} ${styles.electronNoDrag}`}
 							onClick={toggleTheme}
 						>
 							{getIcon(isLight ? "moon" : "sun")}
 						</button>
 					</Tooltip>
 
+					{/* Language Selector */}
 					<div className={`${styles.languageMenuContainer} ${styles.electronNoDrag}`}>
 						<button
 							ref={languageTriggerRef}
@@ -1065,17 +1351,17 @@ export function LaunchWindow() {
 							aria-haspopup="menu"
 							onClick={() => setIsLanguageMenuOpen((open) => !open)}
 							title={activeLanguageLabel}
-							className={`flex h-7 items-center rounded-full border ${
+							className={`flex h-7 items-center rounded-full border transition-all duration-150 active:scale-95 ${
 								isLight
-									? "border-[#e4e4e7] bg-white text-[#18181b] hover:bg-[#f4f4f5]"
-									: "border-[#252525] bg-[#141414] text-[#e8e8e8] hover:bg-[#202020]"
-							} shadow-none transition-colors ${
+									? "border-zinc-200/80 bg-zinc-100 hover:bg-zinc-200 text-zinc-900"
+									: "border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.09] text-zinc-300 hover:text-white"
+							} ${
 								trayLayout === "vertical" ? "w-7 justify-center px-0" : "gap-1.5 px-2.5"
 							} ${styles.electronNoDrag}`}
 						>
-							<Languages size={13} className={isLight ? "text-[#71717a]" : "text-white/70"} />
+							<Languages size={13} className={isLight ? "text-zinc-600" : "text-zinc-400"} />
 							<span
-								className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[54px]"} truncate text-[10px] font-semibold ${isLight ? "text-[#18181b]" : "text-white/80"}`}
+								className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[48px]"} truncate text-[10.5px] font-semibold`}
 							>
 								{activeLanguageLabel}
 							</span>
@@ -1094,8 +1380,12 @@ export function LaunchWindow() {
 											WebkitAppRegion: "no-drag",
 											pointerEvents: "auto",
 											right: `${languageMenuStyle.right}px`,
-											top: languageMenuStyle.top !== undefined ? `${languageMenuStyle.top}px` : "auto",
-											bottom: languageMenuStyle.bottom !== undefined ? `${languageMenuStyle.bottom}px` : "auto",
+											top:
+												languageMenuStyle.top !== undefined ? `${languageMenuStyle.top}px` : "auto",
+											bottom:
+												languageMenuStyle.bottom !== undefined
+													? `${languageMenuStyle.bottom}px`
+													: "auto",
 											maxHeight: `${languageMenuStyle.maxHeight}px`,
 										} as React.CSSProperties
 									}
@@ -1122,7 +1412,10 @@ export function LaunchWindow() {
 										>
 											<span className="truncate">{getLocaleName(loc)}</span>
 											{loc === locale ? (
-												<Check size={11} className={isLight ? "text-black" : "text-white/85"} />
+												<Check
+													size={12}
+													className={isLight ? "text-black font-bold" : "text-[#e8ff47]"}
+												/>
 											) : null}
 										</button>
 									))}
@@ -1131,15 +1424,15 @@ export function LaunchWindow() {
 							)
 						: null}
 
-					{/* Window controls */}
+					{/* Window controls (Minimize / Close) */}
 					<div
 						className={`flex items-center gap-0.5 ${trayLayout === "vertical" ? "flex-col" : ""}`}
 					>
 						<button
 							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer ${
 								isLight
-									? "text-[#71717a] hover:text-[#18181b] hover:bg-[#e4e4e7]"
-									: "text-[#666666] hover:text-[#e8e8e8] hover:bg-[#252525]"
+									? "text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.06]"
+									: "text-zinc-400 hover:text-white hover:bg-white/[0.08]"
 							}`}
 							title={t("tooltips.hideHUD")}
 							onClick={sendHudOverlayHide}
@@ -1149,8 +1442,8 @@ export function LaunchWindow() {
 						<button
 							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer ${
 								isLight
-									? "text-[#71717a] hover:text-[#18181b] hover:bg-[#e4e4e7]"
-									: "text-[#666666] hover:text-[#e8e8e8] hover:bg-[#252525]"
+									? "text-zinc-500 hover:text-red-600 hover:bg-red-500/10"
+									: "text-zinc-400 hover:text-red-400 hover:bg-red-500/20"
 							}`}
 							title={t("tooltips.closeApp")}
 							onClick={sendHudOverlayClose}

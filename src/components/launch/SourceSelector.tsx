@@ -1,4 +1,4 @@
-import { LayoutGrid, List, Search, X } from "lucide-react";
+import { LayoutGrid, List, Monitor, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { MdCheck } from "react-icons/md";
 import { useScopedT } from "@/contexts/I18nContext";
@@ -115,7 +115,7 @@ export function SourceSelector() {
 	if (loading) {
 		return (
 			<div
-				className={`h-full flex items-center justify-center ${styles.glassContainer}`}
+				className={`h-full flex items-center justify-center ${isLight ? styles.glassContainerLight : styles.glassContainer}`}
 				style={{ minHeight: "100vh" }}
 			>
 				<OcalLoader text={t("sourceSelector.loading")} />
@@ -126,12 +126,21 @@ export function SourceSelector() {
 	if (hasNoSources) {
 		return (
 			<div
-				className={`h-full flex items-center justify-center ${styles.glassContainer}`}
+				className={`h-full flex items-center justify-center p-6 ${isLight ? styles.glassContainerLight : styles.glassContainer}`}
 				style={{ minHeight: "100vh" }}
 			>
-				<div className="max-w-[320px] px-6 text-center">
-					<h2 className="text-sm font-semibold text-white">{t("sourceSelector.emptyTitle")}</h2>
-					<p className="mt-2 text-xs leading-5 text-zinc-400">
+				<div className="max-w-[340px] text-center flex flex-col items-center">
+					<div
+						className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${isLight ? "bg-zinc-100 text-zinc-600" : "bg-white/5 text-zinc-400"}`}
+					>
+						<Monitor size={24} />
+					</div>
+					<h2 className={`text-sm font-bold ${isLight ? "text-zinc-900" : "text-white"}`}>
+						{t("sourceSelector.emptyTitle")}
+					</h2>
+					<p
+						className={`mt-2 text-xs leading-relaxed ${isLight ? "text-zinc-500" : "text-zinc-400"}`}
+					>
 						{loadFailed
 							? t("sourceSelector.loadFailedDescription")
 							: t("sourceSelector.emptyDescription")}
@@ -139,7 +148,7 @@ export function SourceSelector() {
 					<Button
 						onClick={() => void fetchSources()}
 						style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
-						className="mt-4 h-8 rounded-full px-5 text-[11px] font-extrabold transition-transform duration-150 hover:opacity-90 active:scale-95 cursor-pointer"
+						className="mt-4 h-8 rounded-full px-5 text-[11px] font-extrabold transition-all duration-150 hover:opacity-90 active:scale-95 cursor-pointer shadow-md"
 					>
 						{tc("actions.reload")}
 					</Button>
@@ -158,35 +167,60 @@ export function SourceSelector() {
 					key={source.id}
 					data-testid="source-selector-card"
 					data-source-kind={sourceKind}
-					style={isSelected ? { borderColor: activeAccent.hex } : undefined}
-					className={`flex items-center justify-between p-2 rounded-xl border ${
+					style={
 						isSelected
-							? "border-2 bg-[#161616]"
-							: "border-[#252525] bg-[#141414] hover:bg-[#1a1a1a] hover:border-[#383838]"
-					} transition-all cursor-pointer`}
+							? {
+									borderColor: activeAccent.hex,
+									boxShadow: `0 0 16px ${activeAccent.hex}30`,
+								}
+							: undefined
+					}
+					className={`group flex items-center justify-between p-2 rounded-xl border transition-all duration-150 cursor-pointer ${
+						isSelected
+							? isLight
+								? "border-2 bg-zinc-100/90"
+								: "border-2 bg-white/[0.08]"
+							: isLight
+								? "border-zinc-200/80 bg-white hover:bg-zinc-50 hover:border-zinc-300"
+								: "border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/15"
+					}`}
 					onClick={() => handleSourceSelect(source)}
+					onDoubleClick={handleShare}
 				>
-					<div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-						{source.appIcon && (
-							<img src={source.appIcon} alt="" className="w-5 h-5 flex-shrink-0" />
+					<div className="flex items-center gap-2.5 min-w-0 flex-1 pr-3">
+						{source.appIcon ? (
+							<img src={source.appIcon} alt="" className="w-5 h-5 flex-shrink-0 rounded-md" />
+						) : (
+							<div
+								className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ${isLight ? "bg-zinc-100 text-zinc-600" : "bg-white/10 text-zinc-300"}`}
+							>
+								<Monitor size={12} />
+							</div>
 						)}
-						<span className="text-xs font-semibold text-[#e8e8e8] truncate">{source.name}</span>
+						<span
+							className={`text-xs font-semibold truncate ${isLight ? "text-zinc-900" : "text-zinc-100"}`}
+						>
+							{source.name}
+						</span>
 					</div>
-					<div className="flex items-center gap-2 flex-shrink-0">
+
+					<div className="flex items-center gap-2.5 flex-shrink-0">
 						{source.thumbnail && (
 							<img
 								src={source.thumbnail}
 								alt=""
-								className="w-16 h-10 object-cover rounded-lg border border-[#252525] bg-black"
+								className="w-16 h-10 object-cover rounded-lg border border-black/20 bg-black/80 shadow-xs"
 							/>
 						)}
-						{isSelected && (
+						{isSelected ? (
 							<div
 								className={styles.checkBadge}
 								style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
 							>
 								<MdCheck size={13} style={{ color: activeAccent.textHex }} />
 							</div>
+						) : (
+							<div className="w-[22px] h-[22px]" />
 						)}
 					</div>
 				</div>
@@ -198,18 +232,32 @@ export function SourceSelector() {
 				key={source.id}
 				data-testid="source-selector-card"
 				data-source-kind={sourceKind}
-				style={isSelected ? { borderColor: activeAccent.hex } : undefined}
-				className={`${styles.sourceCard} ${isSelected ? styles.selected : ""} p-2`}
+				style={
+					isSelected
+						? {
+								borderColor: activeAccent.hex,
+								boxShadow: `0 0 20px ${activeAccent.hex}35`,
+							}
+						: undefined
+				}
+				className={`group ${isLight ? styles.sourceCardLight : styles.sourceCard} ${
+					isSelected ? (isLight ? styles.selectedLight : styles.selected) : ""
+				} p-2.5`}
 				onClick={() => handleSourceSelect(source)}
+				onDoubleClick={handleShare}
 			>
-				<div className="relative mb-2 overflow-hidden rounded-xl border border-[#252525] bg-black">
-					<img
-						src={source.thumbnail || ""}
-						alt={source.name}
-						className="w-full aspect-video object-cover"
-					/>
+				<div className="relative mb-2 overflow-hidden rounded-xl border border-white/[0.08] bg-black/90 aspect-video flex items-center justify-center">
+					{source.thumbnail ? (
+						<img
+							src={source.thumbnail}
+							alt={source.name}
+							className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+						/>
+					) : (
+						<Monitor size={32} className="text-zinc-600 animate-pulse" />
+					)}
 					{isSelected && (
-						<div className="absolute right-2 top-2">
+						<div className="absolute right-2 top-2 animate-in zoom-in-75 duration-150">
 							<div
 								className={styles.checkBadge}
 								style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
@@ -219,11 +267,21 @@ export function SourceSelector() {
 						</div>
 					)}
 				</div>
-				<div className="flex items-center gap-1.5 px-1 pb-0.5">
-					{source.appIcon && (
-						<img src={source.appIcon} alt="" className={`${styles.icon} flex-shrink-0`} />
+
+				<div className="flex items-center gap-2 px-1">
+					{source.appIcon ? (
+						<img src={source.appIcon} alt="" className="w-4 h-4 rounded shrink-0" />
+					) : (
+						<Monitor
+							size={13}
+							className={`shrink-0 ${isLight ? "text-zinc-500" : "text-zinc-400"}`}
+						/>
 					)}
-					<div className={`${styles.name} truncate`}>{source.name}</div>
+					<div
+						className={`truncate text-xs font-semibold ${isLight ? "text-zinc-800" : "text-zinc-100"}`}
+					>
+						{source.name}
+					</div>
 				</div>
 			</div>
 		);
@@ -231,30 +289,35 @@ export function SourceSelector() {
 
 	return (
 		<div
-			className={`min-h-screen flex flex-col transition-colors duration-200 ${
-				isLight ? "bg-[#f4f4f5] text-[#18181b]" : "bg-[#0c0c0c] text-[#e8e8e8]"
+			className={`min-h-screen flex flex-col justify-between transition-colors duration-200 ${
+				isLight ? "bg-[#f8f9fa] text-zinc-900" : "bg-[#0b0c10] text-zinc-100"
 			}`}
 		>
-			<div className="flex-1 flex flex-col w-full px-4 pt-3">
+			<div className="flex-1 flex flex-col w-full px-4 pt-3.5 pb-2">
 				<Tabs
 					defaultValue={screenSources.length === 0 ? "windows" : "screens"}
 					onValueChange={(val) => setActiveTab(val as "screens" | "windows")}
 					className="flex-1 flex flex-col"
 				>
-					<div className="flex items-center justify-between gap-2 mb-2">
+					{/* Header Controls: Segmented Tabs + Layout Switcher */}
+					<div className="flex items-center justify-between gap-3 mb-3">
 						<TabsList
-							className={`grid h-9 grid-cols-2 rounded-full border p-1 w-[220px] ${
-								isLight ? "bg-[#ffffff] border-[#e4e4e7]" : "bg-[#141414] border-[#252525]"
+							className={`grid h-8 grid-cols-2 rounded-full border p-0.5 w-[220px] ${
+								isLight ? "bg-zinc-200/70 border-zinc-200" : "bg-white/[0.05] border-white/[0.08]"
 							}`}
 						>
 							<TabsTrigger
 								value="screens"
 								style={
 									activeTab === "screens"
-										? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+										? {
+												backgroundColor: activeAccent.hex,
+												color: activeAccent.textHex,
+												boxShadow: `0 0 10px ${activeAccent.hex}40`,
+											}
 										: undefined
 								}
-								className="rounded-full py-1 text-xs font-semibold text-[#888888] transition-all data-[state=active]:font-extrabold shadow-none"
+								className="rounded-full py-1 text-xs font-bold transition-all duration-150 text-zinc-400 data-[state=active]:text-black"
 							>
 								{t("sourceSelector.screens", { count: String(screenSources.length) })}
 							</TabsTrigger>
@@ -262,31 +325,36 @@ export function SourceSelector() {
 								value="windows"
 								style={
 									activeTab === "windows"
-										? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+										? {
+												backgroundColor: activeAccent.hex,
+												color: activeAccent.textHex,
+												boxShadow: `0 0 10px ${activeAccent.hex}40`,
+											}
 										: undefined
 								}
-								className="rounded-full py-1 text-xs font-semibold text-[#888888] transition-all data-[state=active]:font-extrabold shadow-none"
+								className="rounded-full py-1 text-xs font-bold transition-all duration-150 text-zinc-400 data-[state=active]:text-black"
 							>
 								{t("sourceSelector.windows", { count: String(windowSources.length) })}
 							</TabsTrigger>
 						</TabsList>
 
-						{/* Layout Options (Grid / List toggle) */}
+						{/* Layout Toggle (Grid / List) */}
 						<div
-							className={`flex items-center gap-1 rounded-full border p-0.5 ${
-								isLight ? "bg-[#ffffff] border-[#e4e4e7]" : "bg-[#141414] border-[#252525]"
+							className={`flex items-center gap-0.5 rounded-full border p-0.5 ${
+								isLight ? "bg-zinc-200/70 border-zinc-200" : "bg-white/[0.05] border-white/[0.08]"
 							}`}
 						>
 							<button
 								type="button"
 								onClick={() => setLayoutMode("grid")}
-								style={layoutMode === "grid" ? { color: activeAccent.hex } : undefined}
-								className={`flex h-7 w-7 items-center justify-center rounded-full transition-all ${
+								className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 ${
 									layoutMode === "grid"
 										? isLight
-											? "bg-[#e4e4e7]"
-											: "bg-[#252525]"
-										: "text-[#666666] hover:text-white"
+											? "bg-white text-zinc-900 shadow-xs font-bold"
+											: "bg-white/15 text-white shadow-xs font-bold"
+										: isLight
+											? "text-zinc-500 hover:text-zinc-900"
+											: "text-zinc-400 hover:text-white"
 								}`}
 								title="Grid View"
 							>
@@ -295,13 +363,14 @@ export function SourceSelector() {
 							<button
 								type="button"
 								onClick={() => setLayoutMode("list")}
-								style={layoutMode === "list" ? { color: activeAccent.hex } : undefined}
-								className={`flex h-7 w-7 items-center justify-center rounded-full transition-all ${
+								className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 ${
 									layoutMode === "list"
 										? isLight
-											? "bg-[#e4e4e7]"
-											: "bg-[#252525]"
-										: "text-[#666666] hover:text-white"
+											? "bg-white text-zinc-900 shadow-xs font-bold"
+											: "bg-white/15 text-white shadow-xs font-bold"
+										: isLight
+											? "text-zinc-500 hover:text-zinc-900"
+											: "text-zinc-400 hover:text-white"
 								}`}
 								title="List View"
 							>
@@ -311,83 +380,121 @@ export function SourceSelector() {
 					</div>
 
 					{/* Search input bar */}
-					<div className="relative mb-2.5">
-						<Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888888]" />
+					<div className="relative mb-3">
+						<Search
+							size={13}
+							className={`absolute left-3 top-1/2 -translate-y-1/2 ${
+								isLight ? "text-zinc-400" : "text-zinc-400"
+							}`}
+						/>
 						<input
 							type="text"
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							placeholder="Search sources..."
-							className={`w-full h-8 pl-8 pr-7 text-xs rounded-full border outline-none transition-colors ${
+							placeholder="Search screens or windows..."
+							className={`w-full h-8 pl-8 pr-7 text-xs rounded-full border outline-none transition-all duration-150 ${
 								isLight
-									? "bg-[#ffffff] border-[#e4e4e7] text-[#18181b] placeholder-[#888888] focus:border-[#18181b]"
-									: "bg-[#141414] border-[#252525] text-[#e8e8e8] placeholder-[#666666] focus:border-[#383838]"
+									? "bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+									: "bg-white/[0.04] border-white/[0.08] text-zinc-100 placeholder-zinc-500 focus:border-white/20 focus:bg-white/[0.07] focus:ring-2 focus:ring-white/5"
 							}`}
 						/>
 						{searchQuery && (
 							<button
 								type="button"
 								onClick={() => setSearchQuery("")}
-								className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#888888] hover:text-[#18181b]"
+								className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full ${
+									isLight ? "text-zinc-400 hover:text-zinc-800" : "text-zinc-400 hover:text-white"
+								}`}
 							>
 								<X size={12} />
 							</button>
 						)}
 					</div>
 
+					{/* Content Panels */}
 					<div className="flex-1 min-h-0">
 						<TabsContent value="screens" className="h-full mt-0">
-							<div
-								className={`${
-									layoutMode === "grid"
-										? "grid grid-cols-2 gap-3 auto-rows-min"
-										: "flex flex-col gap-2"
-								} h-[242px] overflow-y-auto pr-1.5 pt-0.5 ${styles.sourceGridScroll}`}
-							>
-								{filteredScreenSources.map(renderSourceCard)}
-							</div>
+							{filteredScreenSources.length === 0 ? (
+								<div className="h-[235px] flex flex-col items-center justify-center text-center p-4">
+									<p className={`text-xs ${isLight ? "text-zinc-500" : "text-zinc-400"}`}>
+										No screens found matching &quot;{searchQuery}&quot;
+									</p>
+								</div>
+							) : (
+								<div
+									className={`${
+										layoutMode === "grid"
+											? "grid grid-cols-2 gap-3 auto-rows-min"
+											: "flex flex-col gap-2"
+									} h-[235px] overflow-y-auto pr-1.5 pt-0.5 ${
+										isLight ? styles.sourceGridScrollLight : styles.sourceGridScroll
+									}`}
+								>
+									{filteredScreenSources.map(renderSourceCard)}
+								</div>
+							)}
 						</TabsContent>
+
 						<TabsContent value="windows" className="h-full mt-0">
-							<div
-								className={`${
-									layoutMode === "grid"
-										? "grid grid-cols-2 gap-3 auto-rows-min"
-										: "flex flex-col gap-2"
-								} h-[242px] overflow-y-auto pr-1.5 pt-0.5 ${styles.sourceGridScroll}`}
-							>
-								{filteredWindowSources.map(renderSourceCard)}
-							</div>
+							{filteredWindowSources.length === 0 ? (
+								<div className="h-[235px] flex flex-col items-center justify-center text-center p-4">
+									<p className={`text-xs ${isLight ? "text-zinc-500" : "text-zinc-400"}`}>
+										No windows found matching &quot;{searchQuery}&quot;
+									</p>
+								</div>
+							) : (
+								<div
+									className={`${
+										layoutMode === "grid"
+											? "grid grid-cols-2 gap-3 auto-rows-min"
+											: "flex flex-col gap-2"
+									} h-[235px] overflow-y-auto pr-1.5 pt-0.5 ${
+										isLight ? styles.sourceGridScrollLight : styles.sourceGridScroll
+									}`}
+								>
+									{filteredWindowSources.map(renderSourceCard)}
+								</div>
+							)}
 						</TabsContent>
 					</div>
 				</Tabs>
 			</div>
+
+			{/* Floating Actions Footer */}
 			<div
-				className={`flex justify-center gap-3 border-t p-3 rounded-b-[20px] ${
-					isLight ? "bg-[#ffffff] border-[#e4e4e7]" : "bg-[#0c0c0c] border-[#252525]"
+				className={`flex items-center justify-end gap-2.5 border-t px-4 py-3 ${
+					isLight
+						? "bg-white/80 border-zinc-200/80 backdrop-blur-md"
+						: "bg-[#0e0f14]/80 border-white/[0.08] backdrop-blur-md"
 				}`}
 			>
 				<Button
 					data-testid="source-selector-cancel-button"
 					variant="ghost"
 					onClick={() => window.close()}
-					className={`h-8 rounded-full px-5 text-xs font-semibold border active:scale-95 cursor-pointer ${
+					className={`h-8 rounded-full px-4 text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
 						isLight
-							? "border-[#e4e4e7] bg-[#f4f4f5] text-[#18181b] hover:bg-[#e4e4e7]"
-							: "border-[#252525] bg-[#141414] text-[#888888] hover:text-white hover:bg-[#202020]"
+							? "border border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900"
+							: "border border-white/[0.08] bg-white/[0.05] text-zinc-300 hover:bg-white/10 hover:text-white"
 					}`}
 				>
 					{tc("actions.cancel")}
 				</Button>
+
 				<Button
 					data-testid="source-selector-share-button"
 					onClick={handleShare}
 					disabled={!selectedSource}
 					style={
 						selectedSource
-							? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+							? {
+									backgroundColor: activeAccent.hex,
+									color: activeAccent.textHex,
+									boxShadow: `0 0 14px ${activeAccent.hex}50`,
+								}
 							: undefined
 					}
-					className="h-8 rounded-full px-6 text-xs font-extrabold transition-transform duration-150 active:scale-95 disabled:bg-[#252525] disabled:text-[#666666] disabled:opacity-50 hover:opacity-90 cursor-pointer"
+					className="h-8 rounded-full px-5 text-xs font-bold transition-all duration-150 active:scale-95 disabled:bg-white/[0.05] disabled:text-zinc-600 disabled:border disabled:border-white/5 disabled:opacity-40 hover:opacity-90 cursor-pointer"
 				>
 					{tc("actions.share")}
 				</Button>

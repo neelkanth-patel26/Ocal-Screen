@@ -12,6 +12,8 @@ export interface WindowsCursorSampleEvent {
 	leftButtonDown?: boolean;
 	leftButtonPressed?: boolean;
 	leftButtonReleased?: boolean;
+	keyDown?: boolean;
+	isTyping?: boolean;
 	bounds?: {
 		x: number;
 		y: number;

@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef, forwardRef } from "react";
 import { Camera, Move, RotateCcw, Sparkles } from "lucide-react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface WebcamPreviewBubbleProps {
 	stream: MediaStream | null;
 	enabled: boolean;
 	isLight?: boolean;
+	onDraggingChange?: (isDragging: boolean) => void;
 }
 
 const STORAGE_KEY = "ocal_cam_preview_pos";
@@ -26,16 +27,14 @@ function loadSavedPosition(): { x: number; y: number } {
 }
 
 export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbleProps>(
-	({ stream, enabled, isLight = false }, ref) => {
+	({ stream, enabled, isLight = false, onDraggingChange }, ref) => {
 		const videoRef = useRef<HTMLVideoElement | null>(null);
 		const [isMirrored, setIsMirrored] = useState(true);
 
-		// Position state + a ref mirror so drag handlers always read fresh values.
 		const [position, setPosition] = useState<{ x: number; y: number }>(loadSavedPosition);
 		const positionRef = useRef(position);
 		positionRef.current = position;
 
-		// Dragging state: tracked in a ref to avoid stale closures inside pointer handlers.
 		const isDraggingRef = useRef(false);
 		const [isDragging, setIsDragging] = useState(false);
 		const dragStartRef = useRef<{
@@ -68,6 +67,7 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 			}
 			isDraggingRef.current = true;
 			setIsDragging(true);
+			onDraggingChange?.(true);
 			dragStartRef.current = {
 				startX: e.clientX,
 				startY: e.clientY,
@@ -96,11 +96,11 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 			if (!isDraggingRef.current) return;
 			isDraggingRef.current = false;
 			setIsDragging(false);
+			onDraggingChange?.(false);
 			dragStartRef.current = null;
 			if (e.currentTarget.hasPointerCapture(e.pointerId)) {
 				e.currentTarget.releasePointerCapture(e.pointerId);
 			}
-			// Save using positionRef to always capture the latest position.
 			try {
 				localStorage.setItem(STORAGE_KEY, JSON.stringify(positionRef.current));
 			} catch {
@@ -117,11 +117,11 @@ export const WebcamPreviewBubble = forwardRef<HTMLDivElement, WebcamPreviewBubbl
 				onPointerUp={handlePointerUp}
 				onPointerCancel={handlePointerUp}
 				className={cn(
-					"fixed z-50 flex flex-col rounded-2xl border overflow-hidden shadow-2xl select-none animate-in fade-in-0 zoom-in-95 duration-200 cursor-grab active:cursor-grabbing group",
+					"fixed z-50 flex flex-col rounded-2xl border overflow-hidden select-none animate-in fade-in-0 zoom-in-95 duration-200 cursor-grab active:cursor-grabbing group",
 					isLight
-						? "border-slate-300 bg-white/95 text-slate-900 shadow-slate-400/30"
-						: "border-white/20 bg-[#0c0c0e]/95 text-white shadow-black/90",
-					isDragging && "scale-[1.02] shadow-2xl border-emerald-500/70",
+						? "border-slate-300 bg-white/95 text-slate-900"
+						: "border-white/20 bg-[#0c0c0e]/95 text-white",
+					isDragging && "scale-[1.02] border-emerald-500/70",
 				)}
 				style={
 					{

@@ -39,6 +39,7 @@ import {
 	resolveInterpolatedNativeCursorFrame,
 	resolveNativeCursorRenderAsset,
 } from "@/lib/cursor/nativeCursor";
+import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { classifyWallpaper, DEFAULT_WALLPAPER, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { getCssClipPath } from "@/lib/webcamMaskShapes";
 import type { CursorRecordingData } from "@/native/contracts";
@@ -338,6 +339,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const scrubEndTimerRef = useRef<number | null>(null);
 		const [isScrubbing, setIsScrubbing] = useState(false);
 		const allowPlaybackRef = useRef(false);
+		const prefs = loadUserPreferences();
+		const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
 		const lockedVideoDimensionsRef = useRef<{
 			width: number;
 			height: number;
@@ -1988,9 +1991,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									zIndex: layer.zIndex || 15,
 									opacity: layer.opacity ?? 1.0,
 									clipPath: shapeClip || undefined,
-									borderRadius: shapeClip ? undefined : layer.maskShape === "rounded" ? "1.5rem" : "0",
-									border: layer.borderWidth ? `${layer.borderWidth}px solid ${layer.borderColor || "#3b82f6"}` : "none",
-									boxShadow: layer.shadowGlow ? `0 0 20px ${layer.borderColor || "#3b82f6"}99` : "none",
+									borderRadius: shapeClip
+										? undefined
+										: layer.maskShape === "rounded"
+											? "1.5rem"
+											: "0",
+									border: layer.borderWidth
+										? `${layer.borderWidth}px solid ${layer.borderColor || "#3b82f6"}`
+										: "none",
+									boxShadow: layer.shadowGlow
+										? `0 0 20px ${layer.borderColor || "#3b82f6"}99`
+										: "none",
 									backgroundColor: "#111",
 								}}
 							>
@@ -2025,8 +2036,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						>
 							<div
 								ref={focusIndicatorRef}
-								className="absolute rounded-md border border-[#34B27B]/80 bg-[#34B27B]/20 shadow-[0_0_0_1px_rgba(52,178,123,0.35)]"
-								style={{ display: "none", pointerEvents: "none" }}
+								className="absolute rounded-xl border shadow-xl transition-all"
+								style={{
+									display: "none",
+									pointerEvents: "none",
+									borderColor: activeAccent.hex,
+									backgroundColor: `${activeAccent.hex}25`,
+									boxShadow: `0 0 0 1px ${activeAccent.hex}60, 0 10px 30px rgba(0,0,0,0.35)`,
+								}}
 							/>
 							{(() => {
 								const filteredAnnotations = (annotationRegions || []).filter((annotation) => {

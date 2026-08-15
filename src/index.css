@@ -80,18 +80,18 @@
 		flex-direction: column;
 		padding: 14px;
 		background:
-			radial-gradient(circle at 18% 0%, rgba(52, 178, 123, 0.08), transparent 30%),
-			linear-gradient(180deg, #08090b 0%, #050606 100%);
+			radial-gradient(circle at 50% 0%, rgba(255, 107, 0, 0.05), transparent 40%),
+			linear-gradient(180deg, #07080a 0%, #040405 100%);
 	}
 
 	.light .editor-workspace,
 	[data-theme="light"] .editor-workspace {
-		background: #f1f3f5;
+		background: #f4f5f7;
 	}
 
 	.editor-main-deck {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) clamp(286px, 20vw, 352px);
+		grid-template-columns: minmax(0, 1fr) clamp(296px, 22vw, 360px);
 		gap: 14px;
 		min-height: 0;
 	}
@@ -106,13 +106,13 @@
 	.editor-timeline-panel,
 	.editor-inspector-shell {
 		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
-			#090a0c;
-		border: 1px solid rgba(255, 255, 255, 0.075);
+			linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+			#0b0c10;
+		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: 18px;
 		box-shadow:
 			0 24px 70px rgba(0, 0, 0, 0.42),
-			inset 0 1px 0 rgba(255, 255, 255, 0.045);
+			inset 0 1px 0 rgba(255, 255, 255, 0.05);
 	}
 
 	.light .editor-preview-panel,
@@ -129,8 +129,8 @@
 	.editor-timeline-panel {
 		border-radius: 16px;
 		background:
-			linear-gradient(180deg, rgba(18, 20, 24, 0.96), rgba(8, 9, 11, 0.98)),
-			#090a0c;
+			linear-gradient(180deg, rgba(16, 18, 22, 0.96), rgba(8, 9, 12, 0.98)),
+			#0a0b0e;
 	}
 
 	.light .editor-timeline-panel,
@@ -164,9 +164,9 @@
 	}
 
 	.editor-control-surface {
-		border: 1px solid rgba(255, 255, 255, 0.055);
+		border: 1px solid rgba(255, 255, 255, 0.06);
 		border-radius: 10px;
-		background: rgba(255, 255, 255, 0.032);
+		background: rgba(255, 255, 255, 0.03);
 		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
 	}
 
@@ -179,20 +179,10 @@
 		letter-spacing: 0;
 	}
 
-	.editor-inspector-shell button:focus-visible,
-	.editor-inspector-shell [role="button"]:focus-visible {
-		outline: 1px solid rgba(52, 178, 123, 0.68);
-		outline-offset: 2px;
-	}
-
 	.editor-inspector-shell [data-radix-collection-item],
 	.editor-inspector-shell input,
 	.editor-inspector-shell textarea {
 		letter-spacing: 0;
-	}
-
-	.editor-inspector-shell [role="slider"] {
-		box-shadow: 0 0 0 4px rgba(52, 178, 123, 0.12);
 	}
 
 	.editor-inspector-shell .editor-panel-section > h3 {
@@ -295,7 +285,7 @@
 		background: #fff;
 		transform: scale(1.15);
 		box-shadow: 0 3px 10px rgba(255, 255, 255, 0.5);
-		border-color: #34b27b;
+		border-color: #fff;
 	}
 
 	input[type="range"]::-webkit-slider-thumb:active {
@@ -317,10 +307,25 @@
 		background: #fff;
 		transform: scale(1.15);
 		box-shadow: 0 3px 10px rgba(255, 255, 255, 0.5);
-		border-color: #34b27b;
+		border-color: #fff;
 	}
 
 	input[type="range"]::-moz-range-thumb:active {
 		transform: scale(1.25);
+	}
+
+	@keyframes overlap-beacon {
+		0%, 100% {
+			transform: scale(1);
+			opacity: 1;
+		}
+		50% {
+			transform: scale(1.04);
+			opacity: 0.9;
+		}
+	}
+
+	.animate-overlap-badge {
+		animation: overlap-beacon 2.4s ease-in-out infinite;
 	}
 }
