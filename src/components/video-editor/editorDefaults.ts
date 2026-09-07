@@ -36,12 +36,28 @@ export const DEFAULT_EDITOR_APPEARANCE_SETTINGS: {
 	motionBlurAmount: number;
 	borderRadius: number;
 	showTrimWaveform: boolean;
+	colorFilterPreset: import("./types").ColorFilterPreset;
+	brightness: number;
+	contrast: number;
+	saturation: number;
+	vignette: number;
+	cursorSpotlight: boolean;
+	cursorSpotlightRadius: number;
+	clickRipple: boolean;
 } = {
 	shadowIntensity: 0,
 	showBlur: false,
 	motionBlurAmount: 0,
 	borderRadius: 0,
 	showTrimWaveform: true,
+	colorFilterPreset: "none",
+	brightness: 0,
+	contrast: 0,
+	saturation: 1,
+	vignette: 0,
+	cursorSpotlight: false,
+	cursorSpotlightRadius: 140,
+	clickRipple: true,
 };
 
 export const DEFAULT_EDITOR_LAYOUT_SETTINGS: {

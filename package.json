@@ -1,7 +1,7 @@
 {
 	"name": "ocal-screen",
 	"private": true,
-	"version": "2.0.2",
+	"version": "2.9.00",
 	"type": "module",
 	"packageManager": "npm@10.9.4",
 	"engines": {
@@ -13,6 +13,7 @@
 		"email": "svaddem@asu.edu"
 	},
 	"scripts": {
+		"start": "npm run dev",
 		"dev": "vite",
 		"build": "tsc && vite build && electron-builder",
 		"lint": "biome check .",

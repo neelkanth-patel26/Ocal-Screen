@@ -6,6 +6,7 @@ import {
 } from "@/components/video-editor/editorDefaults";
 import type {
 	AnnotationRegion,
+	ColorFilterPreset,
 	CropRegion,
 	SpeedRegion,
 	TrimRegion,
@@ -52,6 +53,14 @@ export interface EditorState {
 	webcamSizePreset: WebcamSizePreset;
 	webcamPosition: WebcamPosition | null;
 	videoLayers: VideoLayerTrack[];
+	colorFilterPreset: ColorFilterPreset;
+	brightness: number;
+	contrast: number;
+	saturation: number;
+	vignette: number;
+	cursorSpotlight: boolean;
+	cursorSpotlightRadius: number;
+	clickRipple: boolean;
 }
 
 export const INITIAL_EDITOR_STATE: EditorState = {
@@ -77,6 +86,14 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	webcamReactiveZoom: DEFAULT_WEBCAM_REACTIVE_ZOOM,
 	webcamSizePreset: DEFAULT_WEBCAM_SETTINGS.sizePreset,
 	webcamPosition: DEFAULT_WEBCAM_SETTINGS.position,
+	colorFilterPreset: DEFAULT_EDITOR_APPEARANCE_SETTINGS.colorFilterPreset,
+	brightness: DEFAULT_EDITOR_APPEARANCE_SETTINGS.brightness,
+	contrast: DEFAULT_EDITOR_APPEARANCE_SETTINGS.contrast,
+	saturation: DEFAULT_EDITOR_APPEARANCE_SETTINGS.saturation,
+	vignette: DEFAULT_EDITOR_APPEARANCE_SETTINGS.vignette,
+	cursorSpotlight: DEFAULT_EDITOR_APPEARANCE_SETTINGS.cursorSpotlight,
+	cursorSpotlightRadius: DEFAULT_EDITOR_APPEARANCE_SETTINGS.cursorSpotlightRadius,
+	clickRipple: DEFAULT_EDITOR_APPEARANCE_SETTINGS.clickRipple,
 };
 
 type StateUpdate = Partial<EditorState> | ((prev: EditorState) => Partial<EditorState>);

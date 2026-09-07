@@ -62,6 +62,14 @@ interface GifExporterConfig {
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
 	cursorClickTimestamps?: number[];
+	colorFilterPreset?: import("@/components/video-editor/types").ColorFilterPreset;
+	brightness?: number;
+	contrast?: number;
+	saturation?: number;
+	vignette?: number;
+	cursorSpotlight?: boolean;
+	cursorSpotlightRadius?: number;
+	clickRipple?: boolean;
 	onProgress?: (progress: ExportProgress) => void;
 }
 
@@ -180,6 +188,14 @@ export class GifExporter {
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
 				cursorClickTimestamps: this.config.cursorClickTimestamps,
+				colorFilterPreset: this.config.colorFilterPreset,
+				brightness: this.config.brightness,
+				contrast: this.config.contrast,
+				saturation: this.config.saturation,
+				vignette: this.config.vignette,
+				cursorSpotlight: this.config.cursorSpotlight,
+				cursorSpotlightRadius: this.config.cursorSpotlightRadius,
+				clickRipple: this.config.clickRipple,
 				platform,
 			});
 			await this.renderer.initialize();

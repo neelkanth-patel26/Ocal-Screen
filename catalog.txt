@@ -1,0 +1,61 @@
+===============================================================================
+               OCAL SCREEN v2.9.00 STABLE - STUDIO FEATURE CATALOG
+===============================================================================
+Publisher: Gaming Network Studio Media Group & Ocal Software
+Website  : https://gamingnetworkstudio.vercel.app
+Issues   : https://github.com/neelkanth-patel26/Ocal-Screen/issues
+Releases : https://github.com/neelkanth-patel26/Ocal-Screen/releases
+
+-------------------------------------------------------------------------------
+1. HIGHLIGHTS & WHAT'S NEW IN VERSION 2.9.00 STABLE
+-------------------------------------------------------------------------------
+
+* RE-ENGINEERED INSTALL & UPGRADE PIPELINE
+  - Introducing intelligent upgrade detection: When updating an existing copy
+    of Ocal Screen, Setup offers a Full Studio Upgrade that cleanly purges
+    legacy runtime binaries, cached asars, and stale files before laying down
+    the fresh v2.9.00 build.
+  - Feels like a crisp, brand-new full installation every time.
+  - All your user projects, recordings, presets, and preferences remain
+    100% safe and untouched.
+
+* PORTRAIT PRO WORKSPACE (9:16 SHORTS / REELS / TIKTOK)
+  - Maximized Vertical View: Full-height video preview on the left eliminates
+    wasted letterboxing, giving over 2x larger visual workspace.
+  - Dual-Stack Studio Layout: Inspector and Timeline stacked ergonomically
+    on the right, allowing real-time effect adjustments while scrubbing.
+  - One-Click Layout Switcher: Effortlessly toggle between Auto, Portrait Pro,
+    and Standard Stacked modes.
+
+* COMPLETE EXPORT STUDIO HUB
+  - Real-time resolution indicators (e.g. 1080x1920, 2560x1440, 3840x2160).
+  - Multi-Format Rendering: Lossless MP4 (H.264 / AVC) and ultra-smooth GIF.
+  - Granular Framerate Controls: 15, 24, 30, and 60 FPS options with loop
+    toggles and upscale warning indicators.
+  - Glassmorphism Progress Modal: Shimmer progress bar, active frame render
+    counters, elapsed time stats, and clean error handling.
+
+* UNIFIED THEME ENGINE & AESTHETIC DESIGN SYSTEM
+  - Dynamic Accent Color Synchronization: All sliders, toggles, switches,
+    tabs, and active borders instantly harmonize with your chosen accent color.
+  - Refined Frosted Glass Panels: Deep blur backdrops, elevated borders,
+    and subtle micro-animations for a first-class studio feel.
+  - 6-Column Cursor Swatch Palette: Custom glowing selection halos, size
+    multipliers (up to 2.5x), and smooth preview scaling.
+  - Multi-Track Video & Camera Overlays: Shape masks (Circle, Rounded,
+    Rect, Square), real-time opacity controls, and snap-to-corner presets.
+
+* HARDWARE-ACCELERATED RECORDING & CURSOR TELEMETRY
+  - Windows Graphics Capture (WGC) helper: Smooth, low-latency screen capture.
+  - Native Windows Cursor Engine: Zero-delay cursor capture with high-accuracy
+    position tracking and click bounce dampening.
+  - AI Auto-Zoom: Continuous typing & click clustering with smooth cubic easing.
+
+* 100% PRIVATE & ON-DEVICE
+  - Zero cloud dependencies for video rendering and Whisper voiceover captioning.
+  - No telemetric tracking: Your creative content stays on your machine.
+
+-------------------------------------------------------------------------------
+Thank you for using Ocal Screen! For support or feature requests, visit:
+https://github.com/neelkanth-patel26/Ocal-Screen
+===============================================================================

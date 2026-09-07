@@ -15,6 +15,7 @@ import {
 } from "./editorDefaults";
 import {
 	type AnnotationRegion,
+	type ColorFilterPreset,
 	type CropRegion,
 	clampPlaybackSpeed,
 	DEFAULT_ANNOTATION_POSITION,
@@ -92,6 +93,14 @@ export interface ProjectEditorState {
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
 	cursorTheme: string;
+	colorFilterPreset: ColorFilterPreset;
+	brightness: number;
+	contrast: number;
+	saturation: number;
+	vignette: number;
+	cursorSpotlight: boolean;
+	cursorSpotlightRadius: number;
+	clickRipple: boolean;
 }
 
 export interface EditorProjectData {
@@ -477,6 +486,33 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		padding: isFiniteNumber(editor.padding)
 			? clamp(editor.padding, 0, 100)
 			: DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
+		colorFilterPreset:
+			typeof editor.colorFilterPreset === "string"
+				? (editor.colorFilterPreset as ColorFilterPreset)
+				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.colorFilterPreset,
+		brightness: isFiniteNumber(editor.brightness)
+			? clamp(editor.brightness, -0.5, 0.5)
+			: DEFAULT_EDITOR_APPEARANCE_SETTINGS.brightness,
+		contrast: isFiniteNumber(editor.contrast)
+			? clamp(editor.contrast, -0.5, 0.5)
+			: DEFAULT_EDITOR_APPEARANCE_SETTINGS.contrast,
+		saturation: isFiniteNumber(editor.saturation)
+			? clamp(editor.saturation, 0, 2)
+			: DEFAULT_EDITOR_APPEARANCE_SETTINGS.saturation,
+		vignette: isFiniteNumber(editor.vignette)
+			? clamp(editor.vignette, 0, 1)
+			: DEFAULT_EDITOR_APPEARANCE_SETTINGS.vignette,
+		cursorSpotlight:
+			typeof editor.cursorSpotlight === "boolean"
+				? editor.cursorSpotlight
+				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.cursorSpotlight,
+		cursorSpotlightRadius: isFiniteNumber(editor.cursorSpotlightRadius)
+			? clamp(editor.cursorSpotlightRadius, 40, 400)
+			: DEFAULT_EDITOR_APPEARANCE_SETTINGS.cursorSpotlightRadius,
+		clickRipple:
+			typeof editor.clickRipple === "boolean"
+				? editor.clickRipple
+				: DEFAULT_EDITOR_APPEARANCE_SETTINGS.clickRipple,
 		cropRegion: {
 			x: cropX,
 			y: cropY,

@@ -107,4 +107,21 @@ describe("cursor path smoothing", () => {
 		expect(getSmoothedCursorPath(null, 0.5)).toBeNull();
 		expect(getSmoothedCursorPath(makeRecording([]), 0.5)).toBeNull();
 	});
+
+	it("anchors precisely onto click coordinates at click timestamps", () => {
+		const clickX = 0.654;
+		const clickY = 0.321;
+		const clickTime = 200;
+		const samples: CursorRecordingSample[] = [
+			{ timeMs: 0, cx: 0.1, cy: 0.1, visible: true },
+			{ timeMs: 100, cx: 0.4, cy: 0.25, visible: true },
+			{ timeMs: clickTime, cx: clickX, cy: clickY, visible: true, interactionType: "click" },
+			{ timeMs: 300, cx: 0.7, cy: 0.4, visible: true },
+			{ timeMs: 400, cx: 0.9, cy: 0.6, visible: true },
+		];
+		const smoothed = getSmoothedCursorPath(makeRecording(samples), 0.8)!;
+		const posAtClick = smoothed.sampleAt(clickTime)!;
+		expect(posAtClick.cx).toBeCloseTo(clickX, 3);
+		expect(posAtClick.cy).toBeCloseTo(clickY, 3);
+	});
 });
