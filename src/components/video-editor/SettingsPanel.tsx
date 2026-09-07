@@ -3,11 +3,14 @@ import {
 	Brackets,
 	Bug,
 	Check,
+	Contrast,
 	Crop,
+	Disc,
 	Download,
 	Eye,
 	FileDown,
 	Film,
+	HelpCircle,
 	Image,
 	Info,
 	LayoutPanelTop,
@@ -20,6 +23,7 @@ import {
 	Square,
 	Star,
 	Sun,
+	SunMedium,
 	Trash2,
 	Unlock,
 	Upload,
@@ -36,6 +40,12 @@ import {
 	AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	Select,
 	SelectContent,
@@ -83,6 +93,7 @@ import type {
 	AnnotationRegion,
 	AnnotationType,
 	BlurData,
+	ColorFilterPreset,
 	CropRegion,
 	FigureData,
 	PlaybackSpeed,
@@ -95,6 +106,7 @@ import type {
 	ZoomFocusMode,
 } from "./types";
 import {
+	COLOR_FILTER_PRESETS,
 	DEFAULT_WEBCAM_MIRRORED,
 	DEFAULT_WEBCAM_REACTIVE_ZOOM,
 	MAX_ZOOM_SCALE,
@@ -294,6 +306,27 @@ interface SettingsPanelProps {
 	padding?: number;
 	onPaddingChange?: (padding: number) => void;
 	onPaddingCommit?: () => void;
+	colorFilterPreset?: ColorFilterPreset;
+	onColorFilterPresetChange?: (preset: ColorFilterPreset) => void;
+	brightness?: number;
+	onBrightnessChange?: (brightness: number) => void;
+	onBrightnessCommit?: () => void;
+	contrast?: number;
+	onContrastChange?: (contrast: number) => void;
+	onContrastCommit?: () => void;
+	saturation?: number;
+	onSaturationChange?: (saturation: number) => void;
+	onSaturationCommit?: () => void;
+	vignette?: number;
+	onVignetteChange?: (vignette: number) => void;
+	onVignetteCommit?: () => void;
+	cursorSpotlight?: boolean;
+	onCursorSpotlightChange?: (spotlight: boolean) => void;
+	cursorSpotlightRadius?: number;
+	onCursorSpotlightRadiusChange?: (radius: number) => void;
+	onCursorSpotlightRadiusCommit?: () => void;
+	clickRipple?: boolean;
+	onClickRippleChange?: (ripple: boolean) => void;
 	cropRegion?: CropRegion;
 	onCropChange?: (region: CropRegion) => void;
 	aspectRatio: AspectRatio;
@@ -500,6 +533,27 @@ export function SettingsPanel({
 	padding = DEFAULT_EDITOR_LAYOUT_SETTINGS.padding,
 	onPaddingChange,
 	onPaddingCommit,
+	colorFilterPreset = "none",
+	onColorFilterPresetChange,
+	brightness = 0,
+	onBrightnessChange,
+	onBrightnessCommit,
+	contrast = 0,
+	onContrastChange,
+	onContrastCommit,
+	saturation = 1,
+	onSaturationChange,
+	onSaturationCommit,
+	vignette = 0,
+	onVignetteChange,
+	onVignetteCommit,
+	cursorSpotlight = false,
+	onCursorSpotlightChange,
+	cursorSpotlightRadius = 140,
+	onCursorSpotlightRadiusChange,
+	onCursorSpotlightRadiusCommit,
+	clickRipple = true,
+	onClickRippleChange,
 	cropRegion,
 	onCropChange,
 	aspectRatio,
@@ -730,19 +784,27 @@ export function SettingsPanel({
 	const panelModes: Array<{
 		id: SettingsPanelMode;
 		label: string;
+		shortLabel: string;
 		icon: ComponentType<{ className?: string }>;
 		disabled?: boolean;
 	}> = [
-		{ id: "background", label: t("background.title"), icon: Palette },
-		{ id: "effects", label: t("effects.title"), icon: SlidersHorizontal },
-		{ id: "layout", label: t("layout.title"), icon: LayoutPanelTop, disabled: !hasWebcam },
-		{ id: "video-layers", label: "Video Layers", icon: Film },
-		{ id: "timeline", label: t("timeline.title"), icon: Brackets },
+		{ id: "background", label: t("background.title"), shortLabel: "Canvas", icon: Palette },
+		{ id: "effects", label: t("effects.title"), shortLabel: "Effects", icon: SlidersHorizontal },
+		{
+			id: "layout",
+			label: t("layout.title"),
+			shortLabel: "Webcam",
+			icon: LayoutPanelTop,
+			disabled: !hasWebcam,
+		},
+		{ id: "video-layers", label: "Video Layers", shortLabel: "Layers", icon: Film },
+		{ id: "timeline", label: t("timeline.title"), shortLabel: "Timeline", icon: Brackets },
 		...(hasCursorPanel
 			? [
 					{
 						id: "cursor" as const,
 						label: t("cursor.title") || "Cursor",
+						shortLabel: "Cursor",
 						icon: MousePointerClick,
 					},
 				]
@@ -751,6 +813,7 @@ export function SettingsPanel({
 	const exportPanelMode = {
 		id: "export" as const,
 		label: exportFormat === "gif" ? t("export.gifButton") : t("export.videoButton"),
+		shortLabel: "Export",
 		icon: Download,
 	};
 	const activeModeLabel = hasTimelineSelection
@@ -827,82 +890,12 @@ export function SettingsPanel({
 	const selectedBlur = selectedBlurId
 		? blurRegions.find((region) => region.id === selectedBlurId)
 		: null;
-	const footerPrefs = loadUserPreferences();
-	const footerAccent = ACCENT_COLOR_MAP[footerPrefs.accentColor] || ACCENT_COLOR_MAP.lime;
-	const footerIsLight = footerPrefs.theme === "light";
+	const prefs = loadUserPreferences();
+	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
+	const isLight = prefs.theme === "light";
 
 	const [aboutOpen, setAboutOpen] = useState(false);
 	const [reportBugOpen, setReportBugOpen] = useState(false);
-
-	const commonFooterLinks = (
-		<>
-			<div
-				className={cn(
-					"grid grid-cols-2 gap-1.5 pt-3 mt-3 border-t",
-					footerIsLight ? "border-[#e4e4e7]" : "border-white/[0.08]",
-				)}
-			>
-				<button
-					type="button"
-					onClick={() => setReportBugOpen(true)}
-					className={cn(
-						"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border",
-						footerIsLight
-							? "text-slate-600 border-[#e4e4e7] bg-white hover:text-slate-900 hover:bg-[#f4f4f5] shadow-2xs"
-							: "text-slate-300 border-white/[0.06] bg-white/[0.02] hover:text-white hover:bg-white/[0.06] hover:border-white/10",
-					)}
-				>
-					<Bug className="w-3.5 h-3.5 shrink-0" style={{ color: footerAccent.hex }} />
-					<span className="truncate">{t("support.reportBug")}</span>
-				</button>
-				{onSaveDiagnostic && (
-					<button
-						type="button"
-						onClick={onSaveDiagnostic}
-						className={cn(
-							"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border",
-							footerIsLight
-								? "text-slate-600 border-[#e4e4e7] bg-white hover:text-slate-900 hover:bg-[#f4f4f5] shadow-2xs"
-								: "text-slate-300 border-white/[0.06] bg-white/[0.02] hover:text-white hover:bg-white/[0.06] hover:border-white/10",
-						)}
-					>
-						<FileDown className="w-3.5 h-3.5 shrink-0" style={{ color: footerAccent.hex }} />
-						<span className="truncate">{t("support.saveDiagnostics")}</span>
-					</button>
-				)}
-				<button
-					type="button"
-					onClick={() => {
-						window.electronAPI?.openExternalUrl("https://github.com/neelkanth-patel26/Ocal-Screen");
-					}}
-					className={cn(
-						"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border",
-						footerIsLight
-							? "text-slate-600 border-[#e4e4e7] bg-white hover:text-slate-900 hover:bg-[#f4f4f5] shadow-2xs"
-							: "text-slate-300 border-white/[0.06] bg-white/[0.02] hover:text-white hover:bg-white/[0.06] hover:border-white/10",
-					)}
-				>
-					<Star className="w-3.5 h-3.5 shrink-0 text-amber-400 fill-amber-400" />
-					<span className="truncate">{t("support.starOnGithub")}</span>
-				</button>
-				<button
-					type="button"
-					onClick={() => setAboutOpen(true)}
-					className={cn(
-						"flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border",
-						footerIsLight
-							? "text-slate-600 border-[#e4e4e7] bg-white hover:text-slate-900 hover:bg-[#f4f4f5] shadow-2xs"
-							: "text-slate-300 border-white/[0.06] bg-white/[0.02] hover:text-white hover:bg-white/[0.06] hover:border-white/10",
-					)}
-				>
-					<Info className="w-3.5 h-3.5 shrink-0" style={{ color: footerAccent.hex }} />
-					<span className="truncate">About</span>
-				</button>
-			</div>
-			<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
-			<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
-		</>
-	);
 
 	// Annotation selected: show its settings panel instead.
 	if (
@@ -931,11 +924,8 @@ export function SettingsPanel({
 						onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
 					/>
 				</div>
-				<div
-					className={`flex-shrink-0 p-3 border-t ${footerIsLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}
-				>
-					{commonFooterLinks}
-				</div>
+				<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+				<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
 			</div>
 		);
 	}
@@ -951,22 +941,21 @@ export function SettingsPanel({
 						onDelete={() => onBlurDelete(selectedBlur.id)}
 					/>
 				</div>
-				<div
-					className={`flex-shrink-0 p-3 border-t ${footerIsLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.07] bg-black/25"}`}
-				>
-					{commonFooterLinks}
-				</div>
+				<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+				<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
 			</div>
 		);
 	}
 
-	const prefs = loadUserPreferences();
-	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
-	const isLight = prefs.theme === "light";
-
 	const allModes = [
 		...panelModes,
-		{ id: "export" as const, label: exportPanelMode.label, icon: Download, disabled: false },
+		{
+			id: "export" as const,
+			label: exportPanelMode.label,
+			shortLabel: exportPanelMode.shortLabel,
+			icon: Download,
+			disabled: false,
+		},
 	];
 
 	return (
@@ -981,7 +970,7 @@ export function SettingsPanel({
 			{/* Top Horizontal Navigation Segmented Tabs */}
 			<div
 				className={cn(
-					"p-2.5 border-b flex items-center justify-between gap-2 shrink-0 backdrop-blur-md",
+					"p-2 border-b flex items-center justify-between gap-1.5 shrink-0 backdrop-blur-md",
 					isLight ? "bg-white/80 border-[#e4e4e7]" : "bg-[#090a0f]/80 border-white/[0.08]",
 				)}
 			>
@@ -1011,36 +1000,84 @@ export function SettingsPanel({
 										: undefined
 								}
 								className={cn(
-									"flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer select-none",
+									"flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap",
 									mode.disabled
 										? "cursor-not-allowed opacity-30"
 										: isActive
-											? "shadow-md scale-[1.02]"
+											? "shadow-sm scale-[1.02]"
 											: isLight
 												? "text-slate-600 hover:text-black hover:bg-white"
 												: "text-slate-400 hover:text-white hover:bg-white/[0.06]",
 								)}
 							>
-								<Icon className="w-3.5 h-3.5" />
-								<span>{mode.label}</span>
+								<Icon className="w-3.5 h-3.5 shrink-0" />
+								<span>{mode.shortLabel}</span>
 							</button>
 						);
 					})}
 				</div>
 
-				<button
-					type="button"
-					title={t("crop.cropVideo")}
-					onClick={handleCropToggle}
-					className={cn(
-						"flex h-9 w-9 items-center justify-center rounded-2xl border transition-all shrink-0 cursor-pointer shadow-2xs",
-						isLight
-							? "border-[#e4e4e7] bg-white text-slate-700 hover:bg-[#f4f4f5] hover:text-black"
-							: "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/20",
-					)}
-				>
-					<Crop className="h-4 w-4" />
-				</button>
+				<div className="flex items-center gap-1 shrink-0">
+					<button
+						type="button"
+						title={t("crop.cropVideo")}
+						onClick={handleCropToggle}
+						className={cn(
+							"flex h-8 w-8 items-center justify-center rounded-xl border transition-all shrink-0 cursor-pointer shadow-2xs",
+							cropRegion
+								? "border-amber-400/50 bg-amber-500/10 text-amber-400"
+								: isLight
+									? "border-[#e4e4e7] bg-white text-slate-700 hover:bg-[#f4f4f5] hover:text-black"
+									: "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/20",
+						)}
+					>
+						<Crop className="h-3.5 w-3.5" />
+					</button>
+
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button
+								type="button"
+								title="Help & Support"
+								className={cn(
+									"flex h-8 w-8 items-center justify-center rounded-xl border transition-all shrink-0 cursor-pointer shadow-2xs",
+									isLight
+										? "border-[#e4e4e7] bg-white text-slate-700 hover:bg-[#f4f4f5] hover:text-black"
+										: "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/20",
+								)}
+							>
+								<HelpCircle className="h-3.5 w-3.5" />
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="w-48">
+							<DropdownMenuItem onClick={() => setReportBugOpen(true)} className="cursor-pointer">
+								<Bug className="w-3.5 h-3.5 mr-2 text-rose-400" />
+								<span>{t("support.reportBug")}</span>
+							</DropdownMenuItem>
+							{onSaveDiagnostic && (
+								<DropdownMenuItem onClick={onSaveDiagnostic} className="cursor-pointer">
+									<FileDown className="w-3.5 h-3.5 mr-2 text-cyan-400" />
+									<span>{t("support.saveDiagnostics")}</span>
+								</DropdownMenuItem>
+							)}
+							<DropdownMenuItem
+								onClick={() =>
+									window.electronAPI?.openExternalUrl(
+										"https://github.com/neelkanth-patel26/Ocal-Screen",
+									)
+								}
+								className="cursor-pointer"
+							>
+								<Star className="w-3.5 h-3.5 mr-2 text-amber-400 fill-amber-400" />
+								<span>{t("support.starOnGithub")}</span>
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => setAboutOpen(true)} className="cursor-pointer">
+								<Info className="w-3.5 h-3.5 mr-2 text-indigo-400" />
+								<span>About Ocal Screen</span>
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 			</div>
 
 			<div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 pb-2">
@@ -1938,6 +1975,370 @@ export function SettingsPanel({
 													/>
 												</div>
 											</div>
+
+											{/* Color Grading & Creative Looks */}
+											<div
+												className={cn(
+													"p-4 rounded-2xl border space-y-4 shadow-xs",
+													isLight
+														? "bg-white/90 border-slate-200"
+														: "bg-white/[0.04] border-white/[0.08]",
+												)}
+											>
+												<div className="flex items-center justify-between">
+													<div className="flex items-center gap-2">
+														<SunMedium className="w-3.5 h-3.5 text-amber-400" />
+														<span
+															className={cn(
+																"text-xs font-bold",
+																isLight ? "text-slate-800" : "text-slate-100",
+															)}
+														>
+															Color Grading & Looks
+														</span>
+													</div>
+													<span className="text-[10px] text-zinc-400 font-mono capitalize">
+														{COLOR_FILTER_PRESETS.find((p) => p.id === colorFilterPreset)?.label ||
+															"Natural"}
+													</span>
+												</div>
+
+												{/* Preset Cards */}
+												<div className="grid grid-cols-4 gap-1.5">
+													{COLOR_FILTER_PRESETS.map((preset) => {
+														const isSelected = colorFilterPreset === preset.id;
+														return (
+															<button
+																key={preset.id}
+																type="button"
+																onClick={() => {
+																	onColorFilterPresetChange?.(preset.id);
+																	onBrightnessChange?.(preset.brightness);
+																	onBrightnessCommit?.();
+																	onContrastChange?.(preset.contrast);
+																	onContrastCommit?.();
+																	onSaturationChange?.(preset.saturation);
+																	onSaturationCommit?.();
+																	onVignetteChange?.(preset.vignette);
+																	onVignetteCommit?.();
+																}}
+																style={{
+																	borderColor: isSelected ? activeAccent.hex : undefined,
+																	backgroundColor: isSelected ? `${activeAccent.hex}18` : undefined,
+																	color: isSelected ? activeAccent.hex : undefined,
+																}}
+																className={cn(
+																	"flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer",
+																	isSelected
+																		? "shadow-xs font-bold scale-[1.02]"
+																		: isLight
+																			? "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+																			: "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:border-white/20",
+																)}
+															>
+																<span className="text-[10px] font-bold truncate w-full">
+																	{preset.label}
+																</span>
+															</button>
+														);
+													})}
+												</div>
+
+												<div
+													className={cn(
+														"h-[1px] w-full",
+														isLight ? "bg-slate-100" : "bg-white/[0.06]",
+													)}
+												/>
+
+												{/* Brightness */}
+												<div className="space-y-2">
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-2">
+															<Sun className="w-3.5 h-3.5 text-zinc-400" />
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																Brightness
+															</span>
+														</div>
+														<span
+															className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+															style={{
+																backgroundColor: `${activeAccent.hex}18`,
+																borderColor: `${activeAccent.hex}30`,
+																color: activeAccent.hex,
+															}}
+														>
+															{brightness > 0
+																? `+${Math.round(brightness * 100)}%`
+																: `${Math.round(brightness * 100)}%`}
+														</span>
+													</div>
+													<Slider
+														value={[brightness]}
+														onValueChange={(values) => onBrightnessChange?.(values[0])}
+														onValueCommit={() => onBrightnessCommit?.()}
+														min={-0.5}
+														max={0.5}
+														step={0.01}
+														accentColor={activeAccent.hex}
+														className="w-full cursor-pointer"
+													/>
+												</div>
+
+												<div
+													className={cn(
+														"h-[1px] w-full",
+														isLight ? "bg-slate-100" : "bg-white/[0.06]",
+													)}
+												/>
+
+												{/* Contrast */}
+												<div className="space-y-2">
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-2">
+															<Contrast className="w-3.5 h-3.5 text-zinc-400" />
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																Contrast
+															</span>
+														</div>
+														<span
+															className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+															style={{
+																backgroundColor: `${activeAccent.hex}18`,
+																borderColor: `${activeAccent.hex}30`,
+																color: activeAccent.hex,
+															}}
+														>
+															{contrast > 0
+																? `+${Math.round(contrast * 100)}%`
+																: `${Math.round(contrast * 100)}%`}
+														</span>
+													</div>
+													<Slider
+														value={[contrast]}
+														onValueChange={(values) => onContrastChange?.(values[0])}
+														onValueCommit={() => onContrastCommit?.()}
+														min={-0.5}
+														max={0.5}
+														step={0.01}
+														accentColor={activeAccent.hex}
+														className="w-full cursor-pointer"
+													/>
+												</div>
+
+												<div
+													className={cn(
+														"h-[1px] w-full",
+														isLight ? "bg-slate-100" : "bg-white/[0.06]",
+													)}
+												/>
+
+												{/* Saturation */}
+												<div className="space-y-2">
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-2">
+															<Palette className="w-3.5 h-3.5 text-zinc-400" />
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																Saturation
+															</span>
+														</div>
+														<span
+															className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+															style={{
+																backgroundColor: `${activeAccent.hex}18`,
+																borderColor: `${activeAccent.hex}30`,
+																color: activeAccent.hex,
+															}}
+														>
+															{Math.round(saturation * 100)}%
+														</span>
+													</div>
+													<Slider
+														value={[saturation]}
+														onValueChange={(values) => onSaturationChange?.(values[0])}
+														onValueCommit={() => onSaturationCommit?.()}
+														min={0}
+														max={2}
+														step={0.02}
+														accentColor={activeAccent.hex}
+														className="w-full cursor-pointer"
+													/>
+												</div>
+
+												<div
+													className={cn(
+														"h-[1px] w-full",
+														isLight ? "bg-slate-100" : "bg-white/[0.06]",
+													)}
+												/>
+
+												{/* Vignette */}
+												<div className="space-y-2">
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-2">
+															<Disc className="w-3.5 h-3.5 text-zinc-400" />
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																Vignette
+															</span>
+														</div>
+														<span
+															className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+															style={{
+																backgroundColor: `${activeAccent.hex}18`,
+																borderColor: `${activeAccent.hex}30`,
+																color: activeAccent.hex,
+															}}
+														>
+															{Math.round(vignette * 100)}%
+														</span>
+													</div>
+													<Slider
+														value={[vignette]}
+														onValueChange={(values) => onVignetteChange?.(values[0])}
+														onValueCommit={() => onVignetteCommit?.()}
+														min={0}
+														max={1}
+														step={0.01}
+														accentColor={activeAccent.hex}
+														className="w-full cursor-pointer"
+													/>
+												</div>
+											</div>
+
+											{/* Cursor FX Card */}
+											<div
+												className={cn(
+													"p-4 rounded-2xl border space-y-4 shadow-xs",
+													isLight
+														? "bg-white/90 border-slate-200"
+														: "bg-white/[0.04] border-white/[0.08]",
+												)}
+											>
+												<div className="flex items-center justify-between">
+													<div className="flex items-center gap-2">
+														<MousePointerClick
+															className="w-3.5 h-3.5"
+															style={{ color: activeAccent.hex }}
+														/>
+														<span
+															className={cn(
+																"text-xs font-bold",
+																isLight ? "text-slate-800" : "text-slate-100",
+															)}
+														>
+															Cursor FX & Highlights
+														</span>
+													</div>
+												</div>
+
+												{/* Spotlight Toggle */}
+												<div className="flex items-center justify-between">
+													<div className="space-y-0.5">
+														<span
+															className={cn(
+																"text-xs font-bold block",
+																isLight ? "text-slate-700" : "text-slate-200",
+															)}
+														>
+															Cursor Spotlight
+														</span>
+														<span className="text-[10px] text-zinc-400 block">
+															Dims background, illuminating cursor focus
+														</span>
+													</div>
+													<Switch
+														checked={cursorSpotlight}
+														onCheckedChange={onCursorSpotlightChange}
+														accentColor={activeAccent.hex}
+														className="cursor-pointer"
+													/>
+												</div>
+
+												{cursorSpotlight && (
+													<div className="space-y-2 pt-1">
+														<div className="flex items-center justify-between">
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																Spotlight Radius
+															</span>
+															<span
+																className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border transition-colors"
+																style={{
+																	backgroundColor: `${activeAccent.hex}18`,
+																	borderColor: `${activeAccent.hex}30`,
+																	color: activeAccent.hex,
+																}}
+															>
+																{cursorSpotlightRadius}px
+															</span>
+														</div>
+														<Slider
+															value={[cursorSpotlightRadius]}
+															onValueChange={(values) => onCursorSpotlightRadiusChange?.(values[0])}
+															onValueCommit={() => onCursorSpotlightRadiusCommit?.()}
+															min={80}
+															max={260}
+															step={5}
+															accentColor={activeAccent.hex}
+															className="w-full cursor-pointer"
+														/>
+													</div>
+												)}
+
+												<div
+													className={cn(
+														"h-[1px] w-full",
+														isLight ? "bg-slate-100" : "bg-white/[0.06]",
+													)}
+												/>
+
+												{/* Click Ripple Toggle */}
+												<div className="flex items-center justify-between">
+													<div className="space-y-0.5">
+														<span
+															className={cn(
+																"text-xs font-bold block",
+																isLight ? "text-slate-700" : "text-slate-200",
+															)}
+														>
+															Click Ripple Pulse
+														</span>
+														<span className="text-[10px] text-zinc-400 block">
+															Expanding animated wave on mouse click
+														</span>
+													</div>
+													<Switch
+														checked={clickRipple}
+														onCheckedChange={onClickRippleChange}
+														accentColor={activeAccent.hex}
+														className="cursor-pointer"
+													/>
+												</div>
+											</div>
 										</div>
 									)}
 
@@ -2292,6 +2693,7 @@ export function SettingsPanel({
 																: "text-slate-400 hover:text-white",
 													)}
 												>
+													{/* biome-ignore lint/suspicious/noExplicitAny: dynamic background subtab translation key */}
 													{t(`background.${tabKey}` as any)}
 												</button>
 											);
@@ -3089,38 +3491,36 @@ export function SettingsPanel({
 				</>
 			)}
 
-			<div
-				className={`flex-shrink-0 p-3.5 border-t ${isLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.08] bg-[#090a0f]"}`}
-			>
-				{activePanelMode === "export" && !hasTimelineSelection && (
-					<>
-						{unsavedExport && (
-							<Button
-								type="button"
-								size="lg"
-								onClick={onSaveUnsavedExport}
-								className="w-full mb-2.5 h-11 text-xs font-bold flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 active:scale-[0.98] transition-all duration-200 cursor-pointer"
-							>
-								<Download className="w-4 h-4" />
-								{t("export.chooseSaveLocation")}
-							</Button>
-						)}
+			{activePanelMode === "export" && !hasTimelineSelection && (
+				<div
+					className={`flex-shrink-0 p-3.5 border-t ${isLight ? "border-[#e4e4e7] bg-white" : "border-white/[0.08] bg-[#090a0f]"}`}
+				>
+					{unsavedExport && (
 						<Button
-							data-testid={getTestId("export-button")}
 							type="button"
 							size="lg"
-							onClick={onExport}
-							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
-							className="w-full h-12 text-sm font-extrabold flex items-center justify-center gap-2 rounded-2xl shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer hover:opacity-95"
+							onClick={onSaveUnsavedExport}
+							className="w-full mb-2.5 h-11 text-xs font-bold flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 active:scale-[0.98] transition-all duration-200 cursor-pointer"
 						>
 							<Download className="w-4 h-4" />
-							{exportFormat === "gif" ? t("export.gifButton") : t("export.videoButton")}
+							{t("export.chooseSaveLocation")}
 						</Button>
-					</>
-				)}
-
-				{commonFooterLinks}
-			</div>
+					)}
+					<Button
+						data-testid={getTestId("export-button")}
+						type="button"
+						size="lg"
+						onClick={onExport}
+						style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+						className="w-full h-12 text-sm font-extrabold flex items-center justify-center gap-2 rounded-2xl shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer hover:opacity-95"
+					>
+						<Download className="w-4 h-4" />
+						{exportFormat === "gif" ? t("export.gifButton") : t("export.videoButton")}
+					</Button>
+				</div>
+			)}
+			<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+			<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
 		</div>
 	);
 }

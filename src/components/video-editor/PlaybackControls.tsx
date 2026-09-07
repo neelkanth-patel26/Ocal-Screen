@@ -59,6 +59,23 @@ export default function PlaybackControls({
 	const activeAccent = ACCENT_COLOR_MAP[accentColor] || ACCENT_COLOR_MAP.lime;
 	const isLight = themeMode === "light";
 
+	const [isScrubbing, setIsScrubbing] = useState(false);
+	const [scrubTime, setScrubTime] = useState<number | null>(null);
+
+	useEffect(() => {
+		if (!isScrubbing) return;
+		const handleRelease = () => {
+			setIsScrubbing(false);
+			setScrubTime(null);
+		};
+		window.addEventListener("pointerup", handleRelease);
+		window.addEventListener("pointercancel", handleRelease);
+		return () => {
+			window.removeEventListener("pointerup", handleRelease);
+			window.removeEventListener("pointercancel", handleRelease);
+		};
+	}, [isScrubbing]);
+
 	function formatTime(seconds: number) {
 		if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return "0:00";
 		const mins = Math.floor(seconds / 60);
@@ -67,10 +84,13 @@ export default function PlaybackControls({
 	}
 
 	function handleSeekChange(e: React.ChangeEvent<HTMLInputElement>) {
-		onSeek(parseFloat(e.target.value));
+		const val = parseFloat(e.target.value);
+		setScrubTime(val);
+		onSeek(val);
 	}
 
-	const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+	const displayTime = isScrubbing && scrubTime !== null ? scrubTime : currentTime;
+	const progress = duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0;
 
 	return (
 		<div
@@ -112,7 +132,7 @@ export default function PlaybackControls({
 					isLight ? "text-[#52525b]" : "text-slate-300",
 				)}
 			>
-				{formatTime(currentTime)}
+				{formatTime(displayTime)}
 			</span>
 
 			<div className="flex-1 relative h-6 flex items-center group cursor-pointer">
@@ -124,7 +144,7 @@ export default function PlaybackControls({
 					)}
 				>
 					<div
-						className="h-full rounded-full transition-all duration-75"
+						className="h-full rounded-full"
 						style={{
 							width: `${progress}%`,
 							backgroundColor: activeAccent.hex,
@@ -138,7 +158,17 @@ export default function PlaybackControls({
 					type="range"
 					min="0"
 					max={duration || 100}
-					value={currentTime}
+					value={displayTime}
+					onPointerDown={(e) => {
+						setIsScrubbing(true);
+						const val = parseFloat(e.currentTarget.value);
+						setScrubTime(val);
+						onSeek(val);
+					}}
+					onPointerUp={() => {
+						setIsScrubbing(false);
+						setScrubTime(null);
+					}}
 					onChange={handleSeekChange}
 					step="0.01"
 					className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"

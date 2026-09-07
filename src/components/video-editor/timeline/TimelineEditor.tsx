@@ -1684,143 +1684,151 @@ export default function TimelineEditor({
 			<div
 				className={`flex items-center justify-between gap-3 px-4 py-2 border-b backdrop-blur-xl ${isLight ? "bg-white/95 border-[#e4e4e7]" : "bg-[#0b0c10]/95 border-white/[0.08]"}`}
 			>
-				<div
-					className={`flex items-center gap-1 rounded-2xl border p-1 shadow-inner ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-black/50 border-white/10"}`}
-				>
-					<Button
-						onClick={handleAddZoom}
-						variant="ghost"
-						size="sm"
-						className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-700 hover:text-slate-950 hover:bg-white shadow-2xs" : "text-slate-200 hover:text-white hover:bg-white/10 shadow-2xs"}`}
-						title={t("buttons.addZoom")}
+				<div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+					{/* Zoom & Camera cluster */}
+					<div
+						className={`flex items-center gap-0.5 rounded-2xl border p-0.5 shadow-2xs ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/[0.03] border-white/[0.08]"}`}
 					>
-						<ZoomIn className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
-						<span>Zoom</span>
-					</Button>
-					<Button
-						onClick={() => onToggleAutoZoom?.(!autoZoomEnabled)}
-						variant="ghost"
-						size="sm"
-						aria-pressed={autoZoomEnabled}
-						className={cn(
-							"h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95",
-							autoZoomEnabled
-								? isLight
-									? "bg-white text-slate-900 shadow-xs border border-[#e4e4e7]"
-									: "bg-white/15 text-white shadow-xs border border-white/15"
-								: isLight
-									? "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
-									: "text-slate-400 hover:text-white hover:bg-white/10",
-						)}
-						title={autoZoomEnabled ? t("buttons.autoZoomOn") : t("buttons.autoZoomOff")}
-					>
-						<WandSparkles className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
-						<span>Auto</span>
-					</Button>
-					<Button
-						onClick={() => {
-							onToggleAutoZoom?.(true);
-							onGenerateAIZooms?.();
-						}}
-						variant="ghost"
-						size="sm"
-						className={cn(
-							"h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95",
-							isLight
-								? "text-slate-600 hover:text-slate-900 hover:bg-white shadow-2xs"
-								: "text-slate-300 hover:text-white hover:bg-white/10 shadow-2xs",
-						)}
-						title="Auto-generate AI zoom regions from click events and telemetry"
-					>
-						<Sparkles className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
-						<span>AI Zoom</span>
-					</Button>
-					<Button
-						onClick={() => onToggleAutoFocusAll?.(!autoFocusAll)}
-						variant="ghost"
-						size="sm"
-						aria-pressed={autoFocusAll}
-						className={cn(
-							"h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95",
-							autoFocusAll
-								? isLight
-									? "bg-white text-slate-900 shadow-xs border border-[#e4e4e7]"
-									: "bg-white/15 text-white shadow-xs border border-white/15"
-								: isLight
-									? "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
-									: "text-slate-400 hover:text-white hover:bg-white/10",
-						)}
-						title={autoFocusAll ? t("buttons.autoFocusAllOn") : t("buttons.autoFocusAllOff")}
-					>
-						<ScanEye className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
-						<span>Focus</span>
-					</Button>
-					<div className={`w-[1px] h-4 mx-0.5 ${isLight ? "bg-slate-300" : "bg-white/10"}`} />
-					<Button
-						onClick={handleAddTrim}
-						variant="ghost"
-						size="sm"
-						className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-600 hover:text-red-600 hover:bg-red-50" : "text-slate-300 hover:text-red-400 hover:bg-red-500/10"}`}
-						title={t("buttons.addTrim")}
-					>
-						<Scissors className="w-3.5 h-3.5 text-red-400" />
-						<span>Trim</span>
-					</Button>
-					<Button
-						onClick={handleAddAnnotation}
-						variant="ghost"
-						size="sm"
-						className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-600 hover:text-amber-700 hover:bg-amber-50" : "text-slate-300 hover:text-amber-300 hover:bg-amber-500/10"}`}
-						title={t("buttons.addAnnotation")}
-					>
-						<MessageSquare className="w-3.5 h-3.5 text-amber-300" />
-						<span>Text</span>
-					</Button>
-					{BLUR_REGIONS_ENABLED && (
 						<Button
-							onClick={handleAddBlur}
+							onClick={handleAddZoom}
 							variant="ghost"
 							size="sm"
-							className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-600 hover:text-sky-600 hover:bg-sky-50" : "text-slate-300 hover:text-sky-300 hover:bg-sky-500/10"}`}
-							title={t("buttons.addBlur")}
+							className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-700 hover:text-slate-950 hover:bg-white shadow-2xs" : "text-slate-200 hover:text-white hover:bg-white/10 shadow-2xs"}`}
+							title={t("buttons.addZoom")}
 						>
-							<svg
-								className="w-3.5 h-3.5 text-sky-300"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								strokeWidth="2"
+							<ZoomIn className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+							<span>Zoom</span>
+						</Button>
+						<Button
+							onClick={() => onToggleAutoZoom?.(!autoZoomEnabled)}
+							variant="ghost"
+							size="sm"
+							aria-pressed={autoZoomEnabled}
+							className={cn(
+								"h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95",
+								autoZoomEnabled
+									? isLight
+										? "bg-white text-slate-900 shadow-xs border border-[#e4e4e7]"
+										: "bg-white/15 text-white shadow-xs border border-white/15"
+									: isLight
+										? "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+										: "text-slate-400 hover:text-white hover:bg-white/10",
+							)}
+							title={autoZoomEnabled ? t("buttons.autoZoomOn") : t("buttons.autoZoomOff")}
+						>
+							<WandSparkles className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+							<span>Auto</span>
+						</Button>
+						<Button
+							onClick={() => {
+								onToggleAutoZoom?.(true);
+								onGenerateAIZooms?.();
+							}}
+							variant="ghost"
+							size="sm"
+							className={cn(
+								"h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95",
+								isLight
+									? "text-slate-600 hover:text-slate-900 hover:bg-white shadow-2xs"
+									: "text-slate-300 hover:text-white hover:bg-white/10 shadow-2xs",
+							)}
+							title="Auto-generate AI zoom regions from click events and telemetry"
+						>
+							<Sparkles className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+							<span>AI Zoom</span>
+						</Button>
+						<Button
+							onClick={() => onToggleAutoFocusAll?.(!autoFocusAll)}
+							variant="ghost"
+							size="sm"
+							aria-pressed={autoFocusAll}
+							className={cn(
+								"h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95",
+								autoFocusAll
+									? isLight
+										? "bg-white text-slate-900 shadow-xs border border-[#e4e4e7]"
+										: "bg-white/15 text-white shadow-xs border border-white/15"
+									: isLight
+										? "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+										: "text-slate-400 hover:text-white hover:bg-white/10",
+							)}
+							title={autoFocusAll ? t("buttons.autoFocusAllOn") : t("buttons.autoFocusAllOff")}
+						>
+							<ScanEye className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+							<span>Focus</span>
+						</Button>
+					</div>
+
+					{/* Timeline clip tools cluster */}
+					<div
+						className={`flex items-center gap-0.5 rounded-2xl border p-0.5 shadow-2xs ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/[0.03] border-white/[0.08]"}`}
+					>
+						<Button
+							onClick={handleAddTrim}
+							variant="ghost"
+							size="sm"
+							className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-600 hover:text-red-600 hover:bg-red-50" : "text-slate-300 hover:text-red-400 hover:bg-red-500/10"}`}
+							title={t("buttons.addTrim")}
+						>
+							<Scissors className="w-3.5 h-3.5 text-red-400" />
+							<span>Trim</span>
+						</Button>
+						<Button
+							onClick={handleAddAnnotation}
+							variant="ghost"
+							size="sm"
+							className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-600 hover:text-amber-700 hover:bg-amber-50" : "text-slate-300 hover:text-amber-300 hover:bg-amber-500/10"}`}
+							title={t("buttons.addAnnotation")}
+						>
+							<MessageSquare className="w-3.5 h-3.5 text-amber-300" />
+							<span>Text</span>
+						</Button>
+						{BLUR_REGIONS_ENABLED && (
+							<Button
+								onClick={handleAddBlur}
+								variant="ghost"
+								size="sm"
+								className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-600 hover:text-sky-600 hover:bg-sky-50" : "text-slate-300 hover:text-sky-300 hover:bg-sky-500/10"}`}
+								title={t("buttons.addBlur")}
 							>
-								<circle cx="8" cy="12" r="3" />
-								<circle cx="16" cy="12" r="3" />
-								<path d="M6 6h12M6 18h12" />
-							</svg>
-							<span>Blur</span>
-						</Button>
-					)}
-					<Button
-						onClick={handleAddSpeed}
-						variant="ghost"
-						size="sm"
-						className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-600 hover:text-purple-600 hover:bg-purple-50" : "text-slate-300 hover:text-purple-400 hover:bg-purple-500/10"}`}
-						title={t("buttons.addSpeed")}
-					>
-						<Gauge className="w-3.5 h-3.5 text-purple-400" />
-						<span>Speed</span>
-					</Button>
-					{onGenerateCaptions && (
+								<svg
+									className="w-3.5 h-3.5 text-sky-300"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+								>
+									<circle cx="8" cy="12" r="3" />
+									<circle cx="16" cy="12" r="3" />
+									<path d="M6 6h12M6 18h12" />
+								</svg>
+								<span>Blur</span>
+							</Button>
+						)}
 						<Button
-							onClick={onGenerateCaptions}
-							disabled={isGeneratingCaptions || !videoUrl}
+							onClick={handleAddSpeed}
 							variant="ghost"
 							size="sm"
-							className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 disabled:opacity-40 ${isLight ? "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50" : "text-slate-300 hover:text-indigo-300 hover:bg-indigo-500/10"}`}
-							title={captionsLabel}
+							className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 ${isLight ? "text-slate-600 hover:text-purple-600 hover:bg-purple-50" : "text-slate-300 hover:text-purple-400 hover:bg-purple-500/10"}`}
+							title={t("buttons.addSpeed")}
 						>
-							<Captions className="w-3.5 h-3.5 text-indigo-300" />
-							<span>Captions</span>
+							<Gauge className="w-3.5 h-3.5 text-purple-400" />
+							<span>Speed</span>
 						</Button>
-					)}
+						{onGenerateCaptions && (
+							<Button
+								onClick={onGenerateCaptions}
+								disabled={isGeneratingCaptions || !videoUrl}
+								variant="ghost"
+								size="sm"
+								className={`h-7 px-2.5 rounded-xl transition-all text-xs font-bold gap-1.5 cursor-pointer active:scale-95 disabled:opacity-40 ${isLight ? "text-slate-600 hover:text-indigo-700 hover:bg-indigo-50" : "text-slate-300 hover:text-indigo-300 hover:bg-indigo-500/10"}`}
+								title={captionsLabel}
+							>
+								<Captions className="w-3.5 h-3.5 text-indigo-300" />
+								<span>Captions</span>
+							</Button>
+						)}
+					</div>
 				</div>
 
 				<div className="flex items-center gap-2.5">

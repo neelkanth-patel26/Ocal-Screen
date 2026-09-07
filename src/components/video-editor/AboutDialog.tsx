@@ -37,6 +37,17 @@ type UpdateStatus =
 	| "downloaded"
 	| "error";
 
+interface GitHubReleaseAsset {
+	name?: string;
+	browser_download_url?: string;
+}
+
+interface GitHubRelease {
+	tag_name?: string;
+	html_url?: string;
+	assets?: GitHubReleaseAsset[];
+}
+
 interface UpdateInfo {
 	latestVersion?: string;
 	releaseUrl?: string;
@@ -92,13 +103,13 @@ export function AboutDialog({
 		setUpdateInfo({});
 
 		try {
-			let response = await fetch(
+			const response = await fetch(
 				"https://api.github.com/repos/neelkanth-patel26/Ocal-Screen/releases/latest",
 			);
-			let data: any = null;
+			let data: GitHubRelease | null = null;
 
 			if (response.ok) {
-				data = await response.json();
+				data = (await response.json()) as GitHubRelease;
 			} else {
 				// Fallback to all releases list if latest returns 404
 				const listResp = await fetch(
@@ -107,7 +118,7 @@ export function AboutDialog({
 				if (!listResp.ok) {
 					throw new Error(`GitHub API error: ${listResp.status}`);
 				}
-				const releases = await listResp.json();
+				const releases = (await listResp.json()) as GitHubRelease[];
 				if (Array.isArray(releases) && releases.length > 0) {
 					data = releases[0];
 				} else {
@@ -115,10 +126,10 @@ export function AboutDialog({
 				}
 			}
 
-			const latestVersion = (data.tag_name || "").replace(/^v/i, "");
+			const latestVersion = (data?.tag_name || "").replace(/^v/i, "");
 			const currentVersion = APP_VERSION.replace(/^v/i, "");
 
-			const exeAsset = data.assets?.find((a: any) => a.name?.endsWith(".exe"));
+			const exeAsset = data?.assets?.find((a) => a.name?.endsWith(".exe"));
 			const downloadUrl = exeAsset?.browser_download_url;
 			const fileName = exeAsset?.name || `Ocal-Screen-${latestVersion}-Setup.exe`;
 
@@ -127,7 +138,7 @@ export function AboutDialog({
 				setUpdateStatus("update-available");
 				setUpdateInfo({
 					latestVersion,
-					releaseUrl: data.html_url || "https://github.com/neelkanth-patel26/Ocal-Screen/releases",
+					releaseUrl: data?.html_url || "https://github.com/neelkanth-patel26/Ocal-Screen/releases",
 					downloadUrl,
 					fileName,
 				});
@@ -173,12 +184,12 @@ export function AboutDialog({
 			} else {
 				throw new Error(res?.error || "Download failed");
 			}
-		} catch (err: any) {
+		} catch (err) {
 			if (removeListener) removeListener();
 			setUpdateStatus("error");
 			setUpdateInfo((prev) => ({
 				...prev,
-				error: err?.message || "Failed to download installer",
+				error: err instanceof Error ? err.message : "Failed to download installer",
 			}));
 		}
 	}, [updateInfo.downloadUrl, updateInfo.fileName, updateInfo.releaseUrl]);
@@ -196,380 +207,464 @@ export function AboutDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
 				className={cn(
-					"max-w-[420px] rounded-2xl border p-0 overflow-hidden shadow-2xl transition-colors",
+					"max-w-[420px] max-h-[88vh] flex flex-col rounded-[26px] border p-0 overflow-hidden backdrop-blur-3xl transition-all duration-300 gap-0",
+					"[&>button:last-child]:top-3.5 [&>button:last-child]:right-3.5 [&>button:last-child]:w-7.5 [&>button:last-child]:h-7.5 [&>button:last-child]:rounded-full [&>button:last-child]:flex [&>button:last-child]:items-center [&>button:last-child]:justify-center [&>button:last-child]:border [&>button:last-child]:transition-all [&>button:last-child]:cursor-pointer [&>button:last-child]:opacity-100 [&>button:last-child]:z-30",
 					isLight
-						? "bg-white border-[#e4e4e7] text-[#18181b]"
-						: "bg-[#111113] border-white/10 text-slate-200",
+						? "bg-white/95 border-zinc-200/80 text-zinc-900 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.04),inset_0_1px_0_0_rgba(255,255,255,0.9)] [&>button:last-child]:bg-zinc-100 [&>button:last-child]:hover:bg-zinc-200 [&>button:last-child]:border-zinc-200/80 [&>button:last-child]:text-zinc-500 [&>button:last-child]:hover:text-zinc-900"
+						: "bg-[#0c0d12]/95 border-white/[0.1] text-zinc-100 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.06),inset_0_1px_0_0_rgba(255,255,255,0.12)] [&>button:last-child]:bg-white/[0.06] [&>button:last-child]:hover:bg-white/[0.14] [&>button:last-child]:border-white/10 [&>button:last-child]:text-zinc-400 [&>button:last-child]:hover:text-white",
 				)}
 			>
 				<DialogHeader className="p-0">
 					<DialogTitle className="sr-only">About {APP_NAME}</DialogTitle>
 				</DialogHeader>
 
-				{/* Header with app identity */}
-				<div className="flex flex-col items-center pt-8 pb-3 px-6 text-center">
-					{/* App icon */}
-					<div
-						className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3 shadow-lg relative group"
-						style={{
-							background: `linear-gradient(135deg, ${activeAccent.hex}25, ${activeAccent.hex}50)`,
-							border: `1.5px solid ${activeAccent.hex}40`,
-						}}
-					>
+				{/* Top ambient radial glow matching active accent */}
+				<div
+					className="absolute -top-16 left-1/2 -translate-x-1/2 w-60 h-32 rounded-full blur-3xl pointer-events-none opacity-20 transition-all duration-500"
+					style={{ backgroundColor: activeAccent.hex }}
+				/>
+
+				{/* Scrollable Dialog Body */}
+				<div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+					{/* Header with 3D Glassmorphic Brand Identity */}
+					<div className="flex flex-col items-center pt-6 pb-2 px-6 text-center">
+						{/* App Icon / 3D Glass Squircle */}
 						<div
-							className="w-8 h-8 rounded-xl shadow-md flex items-center justify-center"
+							className="w-13 h-13 rounded-[18px] p-[1px] mb-2.5 relative shadow-xl group cursor-default transition-transform duration-300 hover:scale-105"
 							style={{
-								background: `linear-gradient(135deg, ${activeAccent.hex}, ${activeAccent.hex}dd)`,
+								background: `linear-gradient(135deg, ${activeAccent.hex}70, ${activeAccent.hex}20, rgba(255,255,255,0.12))`,
 							}}
 						>
-							<Sparkles className="w-4 h-4 text-white" />
+							<div
+								className={cn(
+									"w-full h-full rounded-[17px] flex items-center justify-center relative overflow-hidden backdrop-blur-md transition-colors",
+									isLight
+										? "bg-gradient-to-b from-white/95 to-zinc-50/90 shadow-inner"
+										: "bg-gradient-to-b from-zinc-800/90 to-zinc-950/90 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
+								)}
+							>
+								<div
+									className="w-7 h-7 rounded-xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:rotate-6"
+									style={{
+										backgroundColor: activeAccent.hex,
+										color: activeAccent.textHex,
+										boxShadow: `0 3px 12px ${activeAccent.hex}50`,
+									}}
+								>
+									<Sparkles className="w-4 h-4 drop-shadow-xs" />
+								</div>
+							</div>
+						</div>
+
+						<h2
+							className={cn(
+								"text-xl font-black tracking-tight",
+								isLight
+									? "text-zinc-900"
+									: "bg-gradient-to-b from-white via-zinc-100 to-zinc-300 bg-clip-text text-transparent",
+							)}
+						>
+							{APP_NAME}
+						</h2>
+						<div className="mt-1 flex items-center gap-1.5">
+							<span
+								className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border shadow-xs inline-flex items-center gap-1.5"
+								style={{
+									backgroundColor: `${activeAccent.hex}16`,
+									borderColor: `${activeAccent.hex}35`,
+									color: activeAccent.hex,
+								}}
+							>
+								<span
+									className="w-1.5 h-1.5 rounded-full animate-pulse"
+									style={{ backgroundColor: activeAccent.hex }}
+								/>
+								v{APP_VERSION}
+							</span>
 						</div>
 					</div>
 
-					<h2
+					{/* Description */}
+					<div className="px-5 pb-3">
+						<p
+							className={cn(
+								"text-[11px] leading-relaxed text-center font-normal",
+								isLight ? "text-zinc-500" : "text-zinc-400",
+							)}
+						>
+							{APP_DESCRIPTION}
+						</p>
+					</div>
+
+					{/* Info Card List */}
+					<div
 						className={cn(
-							"text-xl font-extrabold tracking-tight",
-							isLight ? "text-[#18181b]" : "text-white",
-						)}
-					>
-						{APP_NAME}
-					</h2>
-					<span
-						className={cn(
-							"text-[11px] font-mono font-semibold mt-1 px-2.5 py-0.5 rounded-full border",
+							"mx-5 rounded-2xl border divide-y overflow-hidden shadow-xs backdrop-blur-sm transition-colors",
 							isLight
-								? "text-slate-600 bg-[#f4f4f5] border-[#e4e4e7]"
-								: "text-slate-300 bg-white/5 border-white/10",
+								? "border-zinc-200/90 bg-zinc-50/70 divide-zinc-200/70"
+								: "border-white/[0.08] bg-white/[0.025] divide-white/[0.06]",
 						)}
 					>
-						v{APP_VERSION}
-					</span>
-				</div>
-
-				{/* Description */}
-				<div className="px-6 pb-4">
-					<p
-						className={cn(
-							"text-xs leading-relaxed text-center",
-							isLight ? "text-slate-500" : "text-slate-400",
-						)}
-					>
-						{APP_DESCRIPTION}
-					</p>
-				</div>
-
-				{/* Info Card List */}
-				<div
-					className={cn(
-						"mx-6 rounded-xl border divide-y overflow-hidden",
-						isLight
-							? "border-[#e4e4e7] bg-[#fafafa] divide-[#e4e4e7]"
-							: "border-white/10 bg-white/[0.02] divide-white/10",
-					)}
-				>
-					{/* Software & Studio */}
-					<div className="flex items-center gap-3 px-4 py-3">
-						<Building2 className="w-4 h-4 shrink-0" style={{ color: activeAccent.hex }} />
-						<div className="flex-1 min-w-0">
-							<span
-								className={cn(
-									"text-[10px] font-bold uppercase tracking-wider block",
-									isLight ? "text-slate-400" : "text-slate-500",
-								)}
-							>
-								Software & Studio
-							</span>
-							<span
-								className={cn(
-									"text-xs font-semibold block truncate",
-									isLight ? "text-[#18181b]" : "text-slate-200",
-								)}
-							>
-								{DETAILS.software}
-							</span>
-							<span
-								className={cn(
-									"text-[11px] font-medium block truncate",
-									isLight ? "text-slate-500" : "text-slate-400",
-								)}
-							>
-								by {DETAILS.studio}
-							</span>
-						</div>
-					</div>
-
-					{/* Maintainer */}
-					<div className="flex items-center gap-3 px-4 py-3">
-						<User className="w-4 h-4 shrink-0" style={{ color: activeAccent.hex }} />
-						<div className="flex-1 min-w-0">
-							<span
-								className={cn(
-									"text-[10px] font-bold uppercase tracking-wider block",
-									isLight ? "text-slate-400" : "text-slate-500",
-								)}
-							>
-								Maintainer & Developer
-							</span>
-							<span
-								className={cn(
-									"text-xs font-semibold block truncate",
-									isLight ? "text-[#18181b]" : "text-slate-200",
-								)}
-							>
-								{DETAILS.developer}
-							</span>
-						</div>
-						<button
-							type="button"
-							onClick={() => openExternal(`https://github.com/${DETAILS.github}`)}
-							className={cn(
-								"text-[10px] font-semibold px-2 py-1 rounded-md transition-colors cursor-pointer shrink-0 border",
-								isLight
-									? "text-slate-600 bg-white border-[#e4e4e7] hover:text-slate-900 hover:bg-[#f4f4f5]"
-									: "text-slate-300 bg-white/5 border-white/10 hover:text-white hover:bg-white/10",
-							)}
-						>
-							@{DETAILS.github}
-						</button>
-					</div>
-
-					{/* Source Code */}
-					<div className="flex items-center gap-3 px-4 py-3">
-						<Github className="w-4 h-4 shrink-0" style={{ color: activeAccent.hex }} />
-						<div className="flex-1 min-w-0">
-							<span
-								className={cn(
-									"text-[10px] font-bold uppercase tracking-wider block",
-									isLight ? "text-slate-400" : "text-slate-500",
-								)}
-							>
-								Source Code
-							</span>
-							<span
-								className={cn(
-									"text-xs font-semibold block truncate",
-									isLight ? "text-[#18181b]" : "text-slate-200",
-								)}
-							>
-								Open Source · MIT License
-							</span>
-						</div>
-						<button
-							type="button"
-							onClick={() => openExternal(DETAILS.repoUrl)}
-							className={cn(
-								"flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md transition-colors cursor-pointer shrink-0 border",
-								isLight
-									? "text-slate-600 bg-white border-[#e4e4e7] hover:text-slate-900 hover:bg-[#f4f4f5]"
-									: "text-slate-300 bg-white/5 border-white/10 hover:text-white hover:bg-white/10",
-							)}
-						>
-							<ExternalLink className="w-3 h-3" />
-							View Repo
-						</button>
-					</div>
-				</div>
-
-				{/* Check for updates */}
-				<div className="px-6 pt-4 pb-5">
-					{updateStatus === "idle" && (
-						<Button
-							onClick={checkForUpdates}
-							variant="outline"
-							className={cn(
-								"w-full h-10 rounded-xl text-xs font-bold gap-2 cursor-pointer transition-all border shadow-xs hover:scale-[1.01] active:scale-[0.99]",
-								isLight
-									? "bg-[#f4f4f5] border-[#e4e4e7] text-slate-800 hover:bg-[#e4e4e7]"
-									: "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10 hover:border-white/20",
-							)}
-						>
-							<RefreshCw className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
-							Check for Updates
-						</Button>
-					)}
-
-					{updateStatus === "checking" && (
-						<div className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-white/5 bg-white/[0.02]">
-							<RefreshCw className="w-4 h-4 animate-spin" style={{ color: activeAccent.hex }} />
-							<span
-								className={cn("text-xs font-medium", isLight ? "text-slate-600" : "text-slate-300")}
-							>
-								Checking for updates…
-							</span>
-						</div>
-					)}
-
-					{updateStatus === "up-to-date" && (
+						{/* Software & Studio */}
 						<div
 							className={cn(
-								"flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold border shadow-xs transition-all",
-								isLight
-									? "bg-emerald-50 text-emerald-700 border-emerald-200"
-									: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 shadow-emerald-950/20",
+								"flex items-center gap-3 px-3.5 py-2.5 transition-colors group/row",
+								isLight ? "hover:bg-zinc-100/50" : "hover:bg-white/[0.02]",
 							)}
 						>
-							<CheckCircle2 className="w-4 h-4 text-emerald-400" />
-							<span>You're on the latest version (v{APP_VERSION})</span>
-						</div>
-					)}
-
-					{updateStatus === "update-available" && (
-						<div className="space-y-2.5">
 							<div
 								className={cn(
-									"flex items-center justify-between py-2.5 px-4 rounded-xl text-xs font-bold border shadow-xs",
+									"w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
 									isLight
-										? "bg-amber-50 text-amber-800 border-amber-200"
-										: "bg-amber-500/10 text-amber-300 border-amber-500/25",
+										? "bg-white border-zinc-200/80 text-zinc-700 shadow-xs"
+										: "bg-white/[0.04] border-white/[0.08] text-white shadow-xs",
 								)}
 							>
-								<div className="flex items-center gap-2">
-									<Sparkles className="w-4 h-4 text-amber-400" />
-									<span>v{updateInfo.latestVersion} is available!</span>
-								</div>
+								<Building2 className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
 							</div>
-							<Button
-								onClick={startInAppDownload}
-								className="w-full h-10 rounded-xl text-xs font-bold gap-2 cursor-pointer shadow-md transition-all active:scale-[0.98]"
-								style={{
-									backgroundColor: activeAccent.hex,
-									color: activeAccent.textHex,
-								}}
-							>
-								<Sparkles className="w-4 h-4" />
-								Download & Install Update
-							</Button>
-							{updateInfo.releaseUrl && (
-								<button
-									type="button"
-									onClick={() => openExternal(updateInfo.releaseUrl!)}
+							<div className="flex-1 min-w-0">
+								<span
 									className={cn(
-										"w-full text-center text-[11px] font-semibold underline hover:no-underline cursor-pointer pt-0.5",
-										isLight
-											? "text-slate-500 hover:text-slate-800"
-											: "text-slate-400 hover:text-white",
+										"text-[9px] font-bold uppercase tracking-wider block mb-0.5",
+										isLight ? "text-zinc-400" : "text-zinc-500",
 									)}
 								>
-									View Release Notes on GitHub
-								</button>
+									Software & Studio
+								</span>
+								<span
+									className={cn(
+										"text-xs font-semibold block truncate leading-tight",
+										isLight ? "text-zinc-900" : "text-zinc-100",
+									)}
+								>
+									{DETAILS.software}
+								</span>
+								<span
+									className={cn(
+										"text-[10px] font-medium block truncate leading-tight mt-0.5",
+										isLight ? "text-zinc-500" : "text-zinc-400",
+									)}
+								>
+									by {DETAILS.studio}
+								</span>
+							</div>
+						</div>
+
+						{/* Maintainer */}
+						<div
+							className={cn(
+								"flex items-center gap-3 px-3.5 py-2.5 transition-colors group/row",
+								isLight ? "hover:bg-zinc-100/50" : "hover:bg-white/[0.02]",
 							)}
-						</div>
-					)}
-
-					{updateStatus === "downloading" && (
-						<div className="space-y-2">
+						>
 							<div
 								className={cn(
-									"p-3 rounded-xl border text-left text-xs space-y-2",
+									"w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
 									isLight
-										? "bg-slate-50 border-slate-200 text-slate-700"
-										: "bg-white/5 border-white/10 text-slate-300",
+										? "bg-white border-zinc-200/80 text-zinc-700 shadow-xs"
+										: "bg-white/[0.04] border-white/[0.08] text-white shadow-xs",
 								)}
 							>
-								<div className="flex items-center justify-between font-medium">
-									<span>Downloading v{updateInfo.latestVersion}…</span>
-									<span>{updateInfo.downloadProgress?.percent || 0}%</span>
-								</div>
-								<div className="w-full h-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden relative">
-									<div
-										className="h-full rounded-full transition-all duration-300"
-										style={{
-											width: `${updateInfo.downloadProgress?.percent || 0}%`,
-											backgroundColor: activeAccent.hex,
-										}}
-									/>
-								</div>
-								<div className="flex items-center justify-between text-[11px] opacity-75">
-									<span>
-										{updateInfo.downloadProgress?.downloadedBytes
-											? `${(updateInfo.downloadProgress.downloadedBytes / 1048576).toFixed(1)} MB`
-											: "0 MB"}{" "}
-										/{" "}
-										{updateInfo.downloadProgress?.totalBytes
-											? `${(updateInfo.downloadProgress.totalBytes / 1048576).toFixed(1)} MB`
-											: "..."}
-									</span>
-									<span className="animate-pulse">Downloading in background…</span>
-								</div>
+								<User className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
 							</div>
+							<div className="flex-1 min-w-0">
+								<span
+									className={cn(
+										"text-[9px] font-bold uppercase tracking-wider block mb-0.5",
+										isLight ? "text-zinc-400" : "text-zinc-500",
+									)}
+								>
+									Maintainer & Developer
+								</span>
+								<span
+									className={cn(
+										"text-xs font-semibold block truncate leading-tight",
+										isLight ? "text-zinc-900" : "text-zinc-100",
+									)}
+								>
+									{DETAILS.developer}
+								</span>
+							</div>
+							<button
+								type="button"
+								onClick={() => openExternal(`https://github.com/${DETAILS.github}`)}
+								className={cn(
+									"inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg border transition-all cursor-pointer shrink-0 shadow-xs active:scale-95",
+									isLight
+										? "bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-700 hover:text-zinc-900"
+										: "bg-white/[0.05] hover:bg-white/[0.1] border-white/10 text-zinc-300 hover:text-white",
+								)}
+							>
+								@{DETAILS.github}
+							</button>
 						</div>
-					)}
 
-					{updateStatus === "downloaded" && (
-						<div className="space-y-2">
+						{/* Source Code */}
+						<div
+							className={cn(
+								"flex items-center gap-3 px-3.5 py-2.5 transition-colors group/row",
+								isLight ? "hover:bg-zinc-100/50" : "hover:bg-white/[0.02]",
+							)}
+						>
 							<div
 								className={cn(
-									"flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-medium",
+									"w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
 									isLight
-										? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-										: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+										? "bg-white border-zinc-200/80 text-zinc-700 shadow-xs"
+										: "bg-white/[0.04] border-white/[0.08] text-white shadow-xs",
 								)}
 							>
-								<span>✓</span>
-								<span>Installer downloaded & ready!</span>
+								<Github className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
 							</div>
-							<Button
-								onClick={installUpdateNow}
-								className="w-full h-10 rounded-xl text-xs font-semibold gap-2 cursor-pointer shadow-lg animate-bounce"
-								style={{
-									backgroundColor: activeAccent.hex,
-									color: activeAccent.textHex,
-								}}
-							>
-								<Sparkles className="w-4 h-4" />
-								Relaunch & Install Now
-							</Button>
-							<p
+							<div className="flex-1 min-w-0">
+								<span
+									className={cn(
+										"text-[9px] font-bold uppercase tracking-wider block mb-0.5",
+										isLight ? "text-zinc-400" : "text-zinc-500",
+									)}
+								>
+									Source Code
+								</span>
+								<span
+									className={cn(
+										"text-xs font-semibold block truncate leading-tight",
+										isLight ? "text-zinc-900" : "text-zinc-100",
+									)}
+								>
+									Open Source · MIT License
+								</span>
+							</div>
+							<button
+								type="button"
+								onClick={() => openExternal(DETAILS.repoUrl)}
 								className={cn(
-									"text-[11px] text-center opacity-75",
-									isLight ? "text-slate-500" : "text-slate-400",
+									"inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg border transition-all cursor-pointer shrink-0 shadow-xs active:scale-95",
+									isLight
+										? "bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-700 hover:text-zinc-900"
+										: "bg-white/[0.05] hover:bg-white/[0.1] border-white/10 text-zinc-300 hover:text-white",
 								)}
 							>
-								Ocal Screen will close and launch the setup wizard automatically.
-							</p>
+								<ExternalLink className="w-3 h-3" />
+								<span>View Repo</span>
+							</button>
 						</div>
-					)}
+					</div>
 
-					{updateStatus === "error" && (
-						<div className="space-y-2">
-							<div
-								className={cn(
-									"py-2 px-4 rounded-xl text-xs font-medium",
-									isLight
-										? "bg-red-50 text-red-600 border border-red-200"
-										: "bg-red-500/10 text-red-400 border border-red-500/20",
-								)}
-							>
-								{updateInfo.error || "Failed to check for updates"}
-							</div>
+					{/* Check for updates */}
+					<div className="px-5 pt-3 pb-3.5">
+						{updateStatus === "idle" && (
 							<Button
 								onClick={checkForUpdates}
 								variant="outline"
 								className={cn(
-									"w-full h-9 rounded-xl text-xs font-semibold gap-2 cursor-pointer border",
+									"w-full h-10 rounded-xl text-xs font-bold gap-2 cursor-pointer transition-all border shadow-sm hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center group",
 									isLight
-										? "border-[#e4e4e7] text-slate-600 hover:bg-[#f4f4f5]"
-										: "border-white/10 text-slate-300 hover:bg-white/10",
+										? "bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-800 shadow-zinc-200/50"
+										: "bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] hover:border-white/20 text-zinc-200 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]",
 								)}
 							>
-								<RefreshCw className="w-3.5 h-3.5" />
-								Try Again
+								<RefreshCw
+									className="w-3.5 h-3.5 transition-transform duration-500 group-hover:rotate-180"
+									style={{ color: activeAccent.hex }}
+								/>
+								Check for Updates
 							</Button>
-						</div>
-					)}
+						)}
+
+						{updateStatus === "checking" && (
+							<div
+								className={cn(
+									"flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl border backdrop-blur-sm shadow-xs",
+									isLight
+										? "bg-zinc-50/80 border-zinc-200 text-zinc-700"
+										: "bg-white/[0.03] border-white/[0.08] text-zinc-300",
+								)}
+							>
+								<RefreshCw className="w-4 h-4 animate-spin" style={{ color: activeAccent.hex }} />
+								<span className="text-xs font-semibold">Checking for updates…</span>
+							</div>
+						)}
+
+						{updateStatus === "up-to-date" && (
+							<div
+								className={cn(
+									"flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold border shadow-xs transition-all",
+									isLight
+										? "bg-emerald-50 text-emerald-700 border-emerald-200/80"
+										: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 shadow-emerald-950/20",
+								)}
+							>
+								<CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+								<span>You're on the latest version (v{APP_VERSION})</span>
+							</div>
+						)}
+
+						{updateStatus === "update-available" && (
+							<div className="space-y-2.5">
+								<div
+									className={cn(
+										"flex items-center justify-between py-2 px-3.5 rounded-xl text-xs font-bold border shadow-xs",
+										isLight
+											? "bg-amber-50 text-amber-800 border-amber-200"
+											: "bg-amber-500/10 text-amber-300 border-amber-500/25",
+									)}
+								>
+									<div className="flex items-center gap-2">
+										<Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+										<span>v{updateInfo.latestVersion} is available!</span>
+									</div>
+								</div>
+								<Button
+									onClick={startInAppDownload}
+									className="w-full h-10 rounded-xl text-xs font-bold gap-2 cursor-pointer shadow-lg transition-all active:scale-[0.98] border-0"
+									style={{
+										backgroundColor: activeAccent.hex,
+										color: activeAccent.textHex,
+										boxShadow: `0 6px 18px ${activeAccent.hex}35`,
+									}}
+								>
+									<Sparkles className="w-4 h-4" />
+									Download & Install Update
+								</Button>
+								{updateInfo.releaseUrl && (
+									<button
+										type="button"
+										onClick={() => openExternal(updateInfo.releaseUrl!)}
+										className={cn(
+											"w-full text-center text-[11px] font-semibold underline hover:no-underline cursor-pointer pt-0.5",
+											isLight
+												? "text-zinc-500 hover:text-zinc-800"
+												: "text-zinc-400 hover:text-white",
+										)}
+									>
+										View Release Notes on GitHub
+									</button>
+								)}
+							</div>
+						)}
+
+						{updateStatus === "downloading" && (
+							<div className="space-y-2">
+								<div
+									className={cn(
+										"p-3 rounded-xl border text-left text-xs space-y-2 shadow-xs",
+										isLight
+											? "bg-zinc-50 border-zinc-200 text-zinc-700"
+											: "bg-white/[0.03] border-white/[0.08] text-zinc-300",
+									)}
+								>
+									<div className="flex items-center justify-between font-semibold">
+										<span>Downloading v{updateInfo.latestVersion}…</span>
+										<span className="font-mono text-[11px]">
+											{updateInfo.downloadProgress?.percent || 0}%
+										</span>
+									</div>
+									<div className="w-full h-1.5 rounded-full bg-zinc-200 dark:bg-white/10 overflow-hidden relative">
+										<div
+											className="h-full rounded-full transition-all duration-300"
+											style={{
+												width: `${updateInfo.downloadProgress?.percent || 0}%`,
+												backgroundColor: activeAccent.hex,
+											}}
+										/>
+									</div>
+									<div className="flex items-center justify-between text-[11px] opacity-75">
+										<span className="font-mono">
+											{updateInfo.downloadProgress?.downloadedBytes
+												? `${(updateInfo.downloadProgress.downloadedBytes / 1048576).toFixed(1)} MB`
+												: "0 MB"}{" "}
+											/{" "}
+											{updateInfo.downloadProgress?.totalBytes
+												? `${(updateInfo.downloadProgress.totalBytes / 1048576).toFixed(1)} MB`
+												: "..."}
+										</span>
+										<span className="animate-pulse">Downloading in background…</span>
+									</div>
+								</div>
+							</div>
+						)}
+
+						{updateStatus === "downloaded" && (
+							<div className="space-y-2">
+								<div
+									className={cn(
+										"flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl text-xs font-bold border",
+										isLight
+											? "bg-emerald-50 text-emerald-700 border-emerald-200"
+											: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+									)}
+								>
+									<CheckCircle2 className="w-4 h-4 text-emerald-400" />
+									<span>Installer downloaded & ready!</span>
+								</div>
+								<Button
+									onClick={installUpdateNow}
+									className="w-full h-10 rounded-xl text-xs font-bold gap-2 cursor-pointer shadow-lg animate-bounce border-0"
+									style={{
+										backgroundColor: activeAccent.hex,
+										color: activeAccent.textHex,
+										boxShadow: `0 6px 18px ${activeAccent.hex}35`,
+									}}
+								>
+									<Sparkles className="w-4 h-4" />
+									Relaunch & Install Now
+								</Button>
+								<p
+									className={cn(
+										"text-[10px] text-center opacity-75 font-medium",
+										isLight ? "text-zinc-500" : "text-zinc-400",
+									)}
+								>
+									Ocal Screen will close and launch the setup wizard automatically.
+								</p>
+							</div>
+						)}
+
+						{updateStatus === "error" && (
+							<div className="space-y-2">
+								<div
+									className={cn(
+										"py-2 px-3.5 rounded-xl text-xs font-semibold border",
+										isLight
+											? "bg-rose-50 text-rose-600 border-rose-200"
+											: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+									)}
+								>
+									{updateInfo.error || "Failed to check for updates"}
+								</div>
+								<Button
+									onClick={checkForUpdates}
+									variant="outline"
+									className={cn(
+										"w-full h-9 rounded-xl text-xs font-bold gap-2 cursor-pointer border",
+										isLight
+											? "border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+											: "border-white/10 text-zinc-300 hover:bg-white/10",
+									)}
+								>
+									<RefreshCw className="w-3.5 h-3.5" />
+									Try Again
+								</Button>
+							</div>
+						)}
+					</div>
 				</div>
 
 				{/* Footer */}
 				<div
 					className={cn(
-						"flex items-center justify-center gap-1 py-3 text-[11px] border-t font-medium",
+						"flex items-center justify-center gap-1.5 py-2.5 text-[11px] border-t font-medium transition-colors shrink-0 relative z-10",
 						isLight
-							? "text-slate-500 border-[#e4e4e7] bg-[#fafafa]"
-							: "text-slate-400 border-white/5 bg-white/[0.01]",
+							? "text-zinc-500 border-zinc-200/80 bg-zinc-50/50"
+							: "text-zinc-400 border-white/[0.06] bg-white/[0.015]",
 					)}
 				>
-					Made with <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500 inline mx-0.5" /> by{" "}
-					{DETAILS.studio}
+					<span>Made with</span>
+					<Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 inline transition-transform hover:scale-125 duration-200 cursor-pointer" />
+					<span>by</span>
+					<span className={cn("font-semibold", isLight ? "text-zinc-700" : "text-zinc-300")}>
+						{DETAILS.studio}
+					</span>
 				</div>
 			</DialogContent>
 		</Dialog>

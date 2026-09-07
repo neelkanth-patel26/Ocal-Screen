@@ -147,6 +147,14 @@ interface VideoPlaybackProps {
 	cursorClickBounce?: number;
 	cursorClipToBounds?: boolean;
 	cursorTheme?: string;
+	colorFilterPreset?: import("./types").ColorFilterPreset;
+	brightness?: number;
+	contrast?: number;
+	saturation?: number;
+	vignette?: number;
+	cursorSpotlight?: boolean;
+	cursorSpotlightRadius?: number;
+	clickRipple?: boolean;
 	// Render the selected zoom at the playhead even while paused, so the editor can
 	// preview the effect without leaving the focus-edit view.
 	isPreviewingZoom?: boolean;
@@ -275,6 +283,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorClickBounce = DEFAULT_CURSOR_SETTINGS.clickBounce,
 			cursorClipToBounds = DEFAULT_CURSOR_SETTINGS.clipToBounds,
 			cursorTheme = DEFAULT_CURSOR_SETTINGS.theme,
+			colorFilterPreset: _colorFilterPreset = "none",
+			brightness = 0,
+			contrast = 0,
+			saturation = 1,
+			vignette = 0,
+			cursorSpotlight = false,
+			cursorSpotlightRadius = 140,
+			clickRipple = false,
 			isPreviewingZoom = false,
 		},
 		ref,
@@ -287,6 +303,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const webcamLayoutPresetRef = useRef(webcamLayoutPreset);
 		const webcamPositionRef = useRef(webcamPosition);
 		const containerRef = useRef<HTMLDivElement | null>(null);
+		const spotlightOverlayRef = useRef<HTMLDivElement | null>(null);
+		const clickRippleRef = useRef<HTMLDivElement | null>(null);
+		const cursorSpotlightRef = useRef(cursorSpotlight);
+		const cursorSpotlightRadiusRef = useRef(cursorSpotlightRadius);
+		const clickRippleEnabledRef = useRef(clickRipple);
 		const appRef = useRef<Application | null>(null);
 		const videoSpriteRef = useRef<Sprite | null>(null);
 		const videoContainerRef = useRef<Container | null>(null);
@@ -825,6 +846,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [cursorRecordingData]);
 
 		useEffect(() => {
+			cursorSpotlightRef.current = cursorSpotlight;
+			cursorSpotlightRadiusRef.current = cursorSpotlightRadius;
+			clickRippleEnabledRef.current = clickRipple;
+		}, [cursorSpotlight, cursorSpotlightRadius, clickRipple]);
+
+		useEffect(() => {
 			cropRegionRef.current = cropRegion;
 		}, [cropRegion]);
 
@@ -1218,7 +1245,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			layoutVideoContentRef.current?.();
 			video.pause();
 
-			const { handlePlay, handlePause, handleSeeked, handleSeeking } = createVideoEventHandlers({
+			const {
+				handlePlay,
+				handlePlaying,
+				handlePause,
+				handleSeeked,
+				handleSeeking,
+				handleTimeUpdate,
+			} = createVideoEventHandlers({
 				video,
 				isSeekingRef,
 				isPlayingRef,
@@ -1235,17 +1269,21 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			});
 
 			video.addEventListener("play", handlePlay);
+			video.addEventListener("playing", handlePlaying);
 			video.addEventListener("pause", handlePause);
 			video.addEventListener("ended", handlePause);
 			video.addEventListener("seeked", handleSeeked);
 			video.addEventListener("seeking", handleSeeking);
+			video.addEventListener("timeupdate", handleTimeUpdate);
 
 			return () => {
 				video.removeEventListener("play", handlePlay);
+				video.removeEventListener("playing", handlePlaying);
 				video.removeEventListener("pause", handlePause);
 				video.removeEventListener("ended", handlePause);
 				video.removeEventListener("seeked", handleSeeked);
 				video.removeEventListener("seeking", handleSeeking);
+				video.removeEventListener("timeupdate", handleTimeUpdate);
 
 				if (timeUpdateAnimationRef.current) {
 					cancelAnimationFrame(timeUpdateAnimationRef.current);
@@ -1563,6 +1601,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					if (nativeCursorClipRef.current) {
 						nativeCursorClipRef.current.style.clipPath = "";
 					}
+					if (spotlightOverlayRef.current) {
+						spotlightOverlayRef.current.style.display = "none";
+					}
+					if (clickRippleRef.current) {
+						clickRippleRef.current.style.display = "none";
+					}
 					resetNativeCursorMotionBlurState(nativeCursorMotionBlurStateRef.current);
 				};
 				if (nativeCursorImage) {
@@ -1668,6 +1712,56 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								nativeCursorImage.style.transform = `translate3d(${
 									projectedStagePoint.x - renderAsset.hotspotX * transformedScale
 								}px, ${projectedStagePoint.y - renderAsset.hotspotY * transformedScale}px, 0)`;
+
+								// Cursor Spotlight Effect
+								if (spotlightOverlayRef.current) {
+									if (cursorSpotlightRef.current) {
+										spotlightOverlayRef.current.style.display = "block";
+										const spotR =
+											(cursorSpotlightRadiusRef.current || 140) *
+											Math.abs(cameraContainer?.scale.x || 1);
+										spotlightOverlayRef.current.style.background = `radial-gradient(circle ${spotR}px at ${projectedStagePoint.x}px ${projectedStagePoint.y}px, transparent 0%, rgba(0, 0, 0, 0.28) 65%, rgba(0, 0, 0, 0.55) 100%)`;
+									} else {
+										spotlightOverlayRef.current.style.display = "none";
+									}
+								}
+
+								// Click Ripple Wave Effect
+								if (clickRippleRef.current) {
+									if (
+										clickRippleEnabledRef.current &&
+										cursorClickTimestampsRef.current.length > 0
+									) {
+										const RIPPLE_DURATION = 420;
+										let activeElapsed: number | null = null;
+										for (const clickTime of cursorClickTimestampsRef.current) {
+											const elapsed = timeMs - clickTime;
+											if (elapsed >= 0 && elapsed <= RIPPLE_DURATION) {
+												activeElapsed = elapsed;
+												break;
+											}
+										}
+										if (activeElapsed !== null) {
+											const progress = activeElapsed / RIPPLE_DURATION;
+											const easeOut = 1 - Math.pow(1 - progress, 3);
+											const radius = (12 + 40 * easeOut) * Math.abs(cameraContainer?.scale.x || 1);
+											const alpha = (1 - progress) * 0.85;
+											clickRippleRef.current.style.display = "block";
+											clickRippleRef.current.style.transform = `translate3d(${projectedStagePoint.x}px, ${projectedStagePoint.y}px, 0)`;
+											clickRippleRef.current.style.width = `${radius * 2}px`;
+											clickRippleRef.current.style.height = `${radius * 2}px`;
+											clickRippleRef.current.style.marginLeft = `${-radius}px`;
+											clickRippleRef.current.style.marginTop = `${-radius}px`;
+											clickRippleRef.current.style.borderColor = `rgba(59, 130, 246, ${alpha.toFixed(2)})`;
+											clickRippleRef.current.style.backgroundColor = `rgba(59, 130, 246, ${(alpha * 0.25).toFixed(2)})`;
+										} else {
+											clickRippleRef.current.style.display = "none";
+										}
+									} else {
+										clickRippleRef.current.style.display = "none";
+									}
+								}
+
 								if (nativeCursorSprite) {
 									nativeCursorSprite.visible = false;
 									if (nativeCursorTextureIdRef.current !== renderAsset.id) {
@@ -1926,12 +2020,32 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						ref={containerRef}
 						className="absolute inset-0"
 						style={{
-							filter:
-								showShadow && shadowIntensity > 0
-									? `drop-shadow(0 ${shadowIntensity * 12}px ${shadowIntensity * 48}px rgba(0,0,0,${shadowIntensity * 0.7})) drop-shadow(0 ${shadowIntensity * 4}px ${shadowIntensity * 16}px rgba(0,0,0,${shadowIntensity * 0.5})) drop-shadow(0 ${shadowIntensity * 2}px ${shadowIntensity * 8}px rgba(0,0,0,${shadowIntensity * 0.3}))`
-									: "none",
+							filter: (() => {
+								const shadowFilter =
+									showShadow && shadowIntensity > 0
+										? `drop-shadow(0 ${shadowIntensity * 12}px ${shadowIntensity * 48}px rgba(0,0,0,${shadowIntensity * 0.7})) drop-shadow(0 ${shadowIntensity * 4}px ${shadowIntensity * 16}px rgba(0,0,0,${shadowIntensity * 0.5})) drop-shadow(0 ${shadowIntensity * 2}px ${shadowIntensity * 8}px rgba(0,0,0,${shadowIntensity * 0.3}))`
+										: "";
+								const b = brightness ?? 0;
+								const c = contrast ?? 0;
+								const s = saturation ?? 1;
+								const hasColorFilter = b !== 0 || c !== 0 || s !== 1;
+								const colorFilter = hasColorFilter
+									? `brightness(${(1 + b).toFixed(2)}) contrast(${(1 + c).toFixed(2)}) saturate(${s.toFixed(2)})`
+									: "";
+								return [shadowFilter, colorFilter].filter(Boolean).join(" ") || "none";
+							})(),
 						}}
 					/>
+					{vignette !== undefined && vignette > 0 && (
+						<div
+							className="absolute inset-0 pointer-events-none"
+							style={{
+								background: `radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,${Math.min(1, vignette * 0.85).toFixed(2)}) 100%)`,
+								zIndex: 12,
+								borderRadius: borderRadius ? `${borderRadius}px` : undefined,
+							}}
+						/>
+					)}
 					{webcamVideoPath &&
 						(() => {
 							const clipPath = getCssClipPath(webcamLayout?.maskShape ?? "rectangle");
@@ -2171,9 +2285,22 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				    keeps working during 3D zoom rotations; bounds are set dynamically. */}
 				<div
 					ref={nativeCursorClipRef}
-					className="absolute inset-0"
+					className="absolute inset-0 overflow-hidden"
 					style={{ zIndex: 18, pointerEvents: "none" }}
 				>
+					<div
+						ref={spotlightOverlayRef}
+						className="absolute inset-0 pointer-events-none"
+						style={{ display: "none" }}
+					/>
+					<div
+						ref={clickRippleRef}
+						className="absolute left-0 top-0 rounded-full border-2 pointer-events-none transition-none"
+						style={{
+							display: "none",
+							transformOrigin: "center center",
+						}}
+					/>
 					<img
 						ref={nativeCursorImageRef}
 						alt=""

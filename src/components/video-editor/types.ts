@@ -489,3 +489,88 @@ export const DEFAULT_LIVE_CAM_LAYER: VideoLayerTrack = {
 	muted: false,
 	startMs: 0,
 };
+
+export type ColorFilterPreset =
+	| "none"
+	| "cinematic"
+	| "warm"
+	| "vibrant"
+	| "cool"
+	| "noir"
+	| "vintage";
+
+export interface ColorFilterPresetConfig {
+	id: ColorFilterPreset;
+	label: string;
+	description: string;
+	brightness: number;
+	contrast: number;
+	saturation: number;
+	vignette: number;
+}
+
+export const COLOR_FILTER_PRESETS: ColorFilterPresetConfig[] = [
+	{
+		id: "none",
+		label: "Natural",
+		description: "Original capture tone",
+		brightness: 0,
+		contrast: 0,
+		saturation: 1,
+		vignette: 0,
+	},
+	{
+		id: "cinematic",
+		label: "Cinematic",
+		description: "Deep shadows, rich mood",
+		brightness: -0.02,
+		contrast: 0.14,
+		saturation: 1.15,
+		vignette: 0.25,
+	},
+	{
+		id: "warm",
+		label: "Warm Studio",
+		description: "Golden radiant look",
+		brightness: 0.02,
+		contrast: 0.08,
+		saturation: 1.2,
+		vignette: 0.15,
+	},
+	{
+		id: "vibrant",
+		label: "Vibrant",
+		description: "Punchy & high clarity",
+		brightness: 0.03,
+		contrast: 0.15,
+		saturation: 1.4,
+		vignette: 0.1,
+	},
+	{
+		id: "cool",
+		label: "Cool Tech",
+		description: "Clean modern blue undertone",
+		brightness: -0.02,
+		contrast: 0.1,
+		saturation: 0.95,
+		vignette: 0.2,
+	},
+	{
+		id: "noir",
+		label: "Noir Mono",
+		description: "High-contrast monochrome",
+		brightness: -0.05,
+		contrast: 0.28,
+		saturation: 0,
+		vignette: 0.35,
+	},
+	{
+		id: "vintage",
+		label: "Vintage Film",
+		description: "Nostalgic analog warmth",
+		brightness: 0.04,
+		contrast: -0.05,
+		saturation: 0.85,
+		vignette: 0.3,
+	},
+];

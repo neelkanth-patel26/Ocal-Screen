@@ -155,6 +155,13 @@ export function createVideoEventHandlers(params: VideoEventHandlersParams) {
 			}
 			emitTime(video.currentTime);
 		}
+
+		if (isPlayingRef.current && !video.paused && !video.ended) {
+			if (timeUpdateAnimationRef.current) {
+				cancelAnimationFrame(timeUpdateAnimationRef.current);
+			}
+			timeUpdateAnimationRef.current = requestAnimationFrame(updateTime);
+		}
 	};
 
 	const handleSeeking = () => {
@@ -174,10 +181,28 @@ export function createVideoEventHandlers(params: VideoEventHandlersParams) {
 		emitTime(video.currentTime);
 	};
 
+	const handlePlaying = () => {
+		isPlayingRef.current = true;
+		onPlayStateChange(true);
+		if (timeUpdateAnimationRef.current) {
+			cancelAnimationFrame(timeUpdateAnimationRef.current);
+		}
+		timeUpdateAnimationRef.current = requestAnimationFrame(updateTime);
+	};
+
+	const handleTimeUpdate = () => {
+		emitTime(video.currentTime);
+		if (isPlayingRef.current && !video.paused && !video.ended && !timeUpdateAnimationRef.current) {
+			timeUpdateAnimationRef.current = requestAnimationFrame(updateTime);
+		}
+	};
+
 	return {
 		handlePlay,
+		handlePlaying,
 		handlePause,
 		handleSeeked,
 		handleSeeking,
+		handleTimeUpdate,
 	};
 }

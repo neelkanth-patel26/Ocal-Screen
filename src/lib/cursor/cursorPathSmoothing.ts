@@ -55,7 +55,19 @@ function binarySearchAtOrBefore(
 	return result;
 }
 
-/** Linear interpolation of a sample run's position at an arbitrary time. */
+function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
+	const t2 = t * t;
+	const t3 = t2 * t;
+	return (
+		0.5 *
+		(2 * p1 +
+			(-p0 + p2) * t +
+			(2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+			(-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+	);
+}
+
+/** Catmull-Rom spline interpolation of a sample run's position at an arbitrary time. */
 function interpolateRun(samples: CursorRecordingSample[], timeMs: number): SmoothedCursorPosition {
 	const last = samples.length - 1;
 	if (timeMs <= samples[0].timeMs) return { cx: samples[0].cx, cy: samples[0].cy };
@@ -70,29 +82,63 @@ function interpolateRun(samples: CursorRecordingSample[], timeMs: number): Smoot
 	const span = b.timeMs - a.timeMs;
 	if (span <= 0) return { cx: a.cx, cy: a.cy };
 	const t = (timeMs - a.timeMs) / span;
-	return { cx: a.cx + (b.cx - a.cx) * t, cy: a.cy + (b.cy - a.cy) * t };
+
+	// For runs with 2 samples, linear interpolation is exact
+	if (samples.length <= 2) {
+		return { cx: a.cx + (b.cx - a.cx) * t, cy: a.cy + (b.cy - a.cy) * t };
+	}
+
+	// 4 control points for Catmull-Rom spline
+	const s0 = samples[Math.max(0, i - 1)];
+	const s3 = samples[Math.min(last, i + 2)];
+
+	const cx = clamp(catmullRom(s0.cx, a.cx, b.cx, s3.cx, t), 0, 1);
+	const cy = clamp(catmullRom(s0.cy, a.cy, b.cy, s3.cy, t), 0, 1);
+	return { cx, cy };
 }
 
 /**
- * Drive a spring across `targets`, returning the smoothed series. Semi-implicit
- * (symplectic) Euler, stable for these stiffness values at the 240Hz grid.
+ * Drive a bidirectional spring across `targets`, returning zero-phase smoothed series.
+ * Runs forward and backward passes to completely cancel phase lag while eliminating jitter.
  */
-function springSmooth(
+function bidirectionalSpringSmooth(
 	targets: Float32Array,
 	stiffness: number,
 	damping: number,
 	mass: number,
 ): Float32Array {
-	const out = new Float32Array(targets.length);
-	if (targets.length === 0) return out;
-	let x = targets[0];
-	let v = 0;
-	out[0] = x;
-	for (let i = 1; i < targets.length; i++) {
-		const accel = (-stiffness * (x - targets[i]) - damping * v) / mass;
-		v += accel * STEP_S;
-		x += v * STEP_S;
-		out[i] = x;
+	const n = targets.length;
+	if (n === 0) return new Float32Array(0);
+	if (n === 1) return new Float32Array(targets);
+
+	// Forward pass
+	const fwd = new Float32Array(n);
+	let xFwd = targets[0];
+	let vFwd = 0;
+	fwd[0] = xFwd;
+	for (let i = 1; i < n; i++) {
+		const accel = (-stiffness * (xFwd - targets[i]) - damping * vFwd) / mass;
+		vFwd += accel * STEP_S;
+		xFwd += vFwd * STEP_S;
+		fwd[i] = xFwd;
+	}
+
+	// Backward pass (from end to start)
+	const bwd = new Float32Array(n);
+	let xBwd = targets[n - 1];
+	let vBwd = 0;
+	bwd[n - 1] = xBwd;
+	for (let i = n - 2; i >= 0; i--) {
+		const accel = (-stiffness * (xBwd - targets[i]) - damping * vBwd) / mass;
+		vBwd += accel * STEP_S;
+		xBwd += vBwd * STEP_S;
+		bwd[i] = xBwd;
+	}
+
+	// Zero-phase blend (cancels out phase delay)
+	const out = new Float32Array(n);
+	for (let i = 0; i < n; i++) {
+		out[i] = 0.5 * (fwd[i] + bwd[i]);
 	}
 	return out;
 }
@@ -133,15 +179,34 @@ function buildSmoothedRun(
 		rawX[i] = p.cx;
 		rawY[i] = p.cy;
 	}
-	// The spring is itself a strong low-pass (~3Hz cutoff), so it removes capture tremor without a
-	// separate denoise pass. Chasing the raw target keeps the cursor accurate near sharp stops (no
-	// acausal pull toward neighbouring samples that would offset clicks/dwells).
+
+	const smoothX = bidirectionalSpringSmooth(rawX, stiffness, damping, mass);
+	const smoothY = bidirectionalSpringSmooth(rawY, stiffness, damping, mass);
+
+	// Click Anchor Snapping: precisely anchor the path to exact coordinates on click events
+	const clickAnchors = samples.filter((s) => s.interactionType === "click");
+	const ANCHOR_WINDOW_MS = 90;
+
+	if (clickAnchors.length > 0) {
+		for (const anchor of clickAnchors) {
+			for (let i = 0; i < n; i++) {
+				const dt = Math.abs(times[i] - anchor.timeMs);
+				if (dt <= ANCHOR_WINDOW_MS) {
+					// Smooth cosine bell curve weighting
+					const weight = 0.5 + 0.5 * Math.cos((Math.PI * dt) / ANCHOR_WINDOW_MS);
+					smoothX[i] = (1 - weight) * smoothX[i] + weight * anchor.cx;
+					smoothY[i] = (1 - weight) * smoothY[i] + weight * anchor.cy;
+				}
+			}
+		}
+	}
+
 	return {
 		start,
 		end,
 		times,
-		xs: springSmooth(rawX, stiffness, damping, mass),
-		ys: springSmooth(rawY, stiffness, damping, mass),
+		xs: smoothX,
+		ys: smoothY,
 	};
 }
 

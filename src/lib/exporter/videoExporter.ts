@@ -53,6 +53,14 @@ export interface VideoExporterConfig extends ExportConfig {
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
 	cursorClickTimestamps?: number[];
+	colorFilterPreset?: import("@/components/video-editor/types").ColorFilterPreset;
+	brightness?: number;
+	contrast?: number;
+	saturation?: number;
+	vignette?: number;
+	cursorSpotlight?: boolean;
+	cursorSpotlightRadius?: number;
+	clickRipple?: boolean;
 	onProgress?: (progress: ExportProgress) => void;
 }
 
@@ -119,6 +127,14 @@ export function getSourceCopyFastPathBlockers(
 	}
 	if (config.showBlur) blockers.push("background blur is enabled");
 	if ((config.motionBlurAmount ?? 0) > SOURCE_COPY_EPSILON) blockers.push("motion blur is enabled");
+	if ((config.brightness ?? 0) !== 0) blockers.push("brightness adjustment is enabled");
+	if ((config.contrast ?? 0) !== 0) blockers.push("contrast adjustment is enabled");
+	if (config.saturation !== undefined && Math.abs(config.saturation - 1) > SOURCE_COPY_EPSILON) {
+		blockers.push("saturation adjustment is enabled");
+	}
+	if ((config.vignette ?? 0) > SOURCE_COPY_EPSILON) blockers.push("vignette is enabled");
+	if (config.cursorSpotlight) blockers.push("cursor spotlight is enabled");
+	if (config.clickRipple) blockers.push("click ripple is enabled");
 
 	return blockers;
 }
@@ -262,6 +278,14 @@ export class VideoExporter {
 				previewHeight: this.config.previewHeight,
 				cursorTelemetry: this.config.cursorTelemetry,
 				cursorClickTimestamps: this.config.cursorClickTimestamps,
+				colorFilterPreset: this.config.colorFilterPreset,
+				brightness: this.config.brightness,
+				contrast: this.config.contrast,
+				saturation: this.config.saturation,
+				vignette: this.config.vignette,
+				cursorSpotlight: this.config.cursorSpotlight,
+				cursorSpotlightRadius: this.config.cursorSpotlightRadius,
+				clickRipple: this.config.clickRipple,
 				platform,
 			});
 			this.renderer = renderer;

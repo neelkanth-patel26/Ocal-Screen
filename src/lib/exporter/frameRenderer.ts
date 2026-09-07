@@ -107,6 +107,14 @@ interface FrameRenderConfig {
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
 	cursorClickTimestamps?: number[];
+	colorFilterPreset?: import("@/components/video-editor/types").ColorFilterPreset;
+	brightness?: number;
+	contrast?: number;
+	saturation?: number;
+	vignette?: number;
+	cursorSpotlight?: boolean;
+	cursorSpotlightRadius?: number;
+	clickRipple?: boolean;
 	platform: string;
 }
 
@@ -629,6 +637,60 @@ export class FrameRenderer {
 			);
 			this.foregroundCtx.clip();
 		}
+		// Cursor Spotlight Effect (ambient dimming with radial beam centered at cursor)
+		if (this.config.cursorSpotlight) {
+			const mask = this.cameraAwareMaskRect();
+			if (mask) {
+				const spotR = (this.config.cursorSpotlightRadius ?? 140) * appliedScale;
+				this.foregroundCtx.save();
+				this.foregroundCtx.beginPath();
+				this.foregroundCtx.roundRect(mask.x, mask.y, mask.width, mask.height, mask.br);
+				this.foregroundCtx.clip();
+
+				const spotGrad = this.foregroundCtx.createRadialGradient(
+					canvasX,
+					canvasY,
+					spotR * 0.35,
+					canvasX,
+					canvasY,
+					spotR,
+				);
+				spotGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
+				spotGrad.addColorStop(0.7, "rgba(0, 0, 0, 0.28)");
+				spotGrad.addColorStop(1, "rgba(0, 0, 0, 0.52)");
+				this.foregroundCtx.fillStyle = spotGrad;
+				this.foregroundCtx.fillRect(mask.x, mask.y, mask.width, mask.height);
+				this.foregroundCtx.restore();
+			}
+		}
+
+		// Click Ripple Wave Effect
+		if (this.config.clickRipple && this.config.cursorClickTimestamps?.length) {
+			const RIPPLE_DURATION = 420;
+			for (const clickTime of this.config.cursorClickTimestamps) {
+				const elapsed = timeMs - clickTime;
+				if (elapsed >= 0 && elapsed <= RIPPLE_DURATION) {
+					const progress = elapsed / RIPPLE_DURATION;
+					const easeOut = 1 - Math.pow(1 - progress, 3);
+					const radius = (12 + 40 * easeOut) * appliedScale;
+					const alpha = (1 - progress) * 0.85;
+
+					this.foregroundCtx.save();
+					this.foregroundCtx.beginPath();
+					this.foregroundCtx.arc(canvasX, canvasY, radius, 0, Math.PI * 2);
+					this.foregroundCtx.strokeStyle = `rgba(59, 130, 246, ${alpha.toFixed(2)})`;
+					this.foregroundCtx.lineWidth = 3 * (1 - progress * 0.5) * appliedScale;
+					this.foregroundCtx.stroke();
+
+					this.foregroundCtx.beginPath();
+					this.foregroundCtx.arc(canvasX, canvasY, radius * 0.55, 0, Math.PI * 2);
+					this.foregroundCtx.fillStyle = `rgba(59, 130, 246, ${(alpha * 0.25).toFixed(2)})`;
+					this.foregroundCtx.fill();
+					this.foregroundCtx.restore();
+				}
+			}
+		}
+
 		const previousFilter = this.foregroundCtx.filter;
 		if (blurPx > 0) {
 			this.foregroundCtx.filter = `blur(${blurPx.toFixed(2)}px)`;
@@ -988,6 +1050,14 @@ export class FrameRenderer {
 			console.warn("[FrameRenderer] No background sprite found during compositing!");
 		}
 
+		const b = this.config.brightness ?? 0;
+		const c = this.config.contrast ?? 0;
+		const s = this.config.saturation ?? 1;
+		const hasColorFilter = b !== 0 || c !== 0 || s !== 1;
+		const colorFilterStr = hasColorFilter
+			? `brightness(${(1 + b).toFixed(2)}) contrast(${(1 + c).toFixed(2)}) saturate(${s.toFixed(2)})`
+			: "";
+
 		// Foreground (transparent): recording + webcam. Shadow baked here only on the
 		// flat path; the 3D path applies it after rotation (see renderFrame).
 		fgCtx.clearRect(0, 0, w, h);
@@ -1011,12 +1081,46 @@ export class FrameRenderer {
 			const baseAlpha3 = 0.3 * intensity;
 			const baseOffset = 12 * intensity;
 
-			shadowCtx.filter = `drop-shadow(0 ${baseOffset}px ${baseBlur1}px rgba(0,0,0,${baseAlpha1})) drop-shadow(0 ${baseOffset / 3}px ${baseBlur2}px rgba(0,0,0,${baseAlpha2})) drop-shadow(0 ${baseOffset / 6}px ${baseBlur3}px rgba(0,0,0,${baseAlpha3}))`;
+			const dropShadowFilters = `drop-shadow(0 ${baseOffset}px ${baseBlur1}px rgba(0,0,0,${baseAlpha1})) drop-shadow(0 ${baseOffset / 3}px ${baseBlur2}px rgba(0,0,0,${baseAlpha2})) drop-shadow(0 ${baseOffset / 6}px ${baseBlur3}px rgba(0,0,0,${baseAlpha3}))`;
+			shadowCtx.filter = hasColorFilter
+				? `${dropShadowFilters} ${colorFilterStr}`
+				: dropShadowFilters;
 			shadowCtx.drawImage(videoCanvas, 0, 0, w, h);
 			shadowCtx.restore();
 			fgCtx.drawImage(this.shadowCanvas, 0, 0, w, h);
 		} else {
-			fgCtx.drawImage(videoCanvas, 0, 0, w, h);
+			if (hasColorFilter) {
+				fgCtx.save();
+				fgCtx.filter = colorFilterStr;
+				fgCtx.drawImage(videoCanvas, 0, 0, w, h);
+				fgCtx.restore();
+			} else {
+				fgCtx.drawImage(videoCanvas, 0, 0, w, h);
+			}
+		}
+
+		if (this.config.vignette && this.config.vignette > 0) {
+			const mask = this.cameraAwareMaskRect();
+			if (mask) {
+				fgCtx.save();
+				fgCtx.beginPath();
+				fgCtx.roundRect(mask.x, mask.y, mask.width, mask.height, mask.br);
+				fgCtx.clip();
+				const cx = mask.x + mask.width / 2;
+				const cy = mask.y + mask.height / 2;
+				const rx = mask.width / 2;
+				const ry = mask.height / 2;
+				const maxR = Math.max(rx, ry);
+				const grad = fgCtx.createRadialGradient(cx, cy, maxR * 0.35, cx, cy, maxR);
+				grad.addColorStop(0, "rgba(0, 0, 0, 0)");
+				grad.addColorStop(
+					1,
+					`rgba(0, 0, 0, ${Math.min(1, this.config.vignette * 0.85).toFixed(2)})`,
+				);
+				fgCtx.fillStyle = grad;
+				fgCtx.fillRect(mask.x, mask.y, mask.width, mask.height);
+				fgCtx.restore();
+			}
 		}
 
 		const webcamRect = this.layoutCache?.webcamRect ?? null;
