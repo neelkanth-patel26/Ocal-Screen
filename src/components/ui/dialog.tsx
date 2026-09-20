@@ -37,13 +37,13 @@ const DialogContent = React.forwardRef<
 			<DialogPrimitive.Content
 				ref={ref}
 				className={cn(
-					"pointer-events-auto relative w-full max-w-lg border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
+					"pointer-events-auto relative w-full max-w-lg border border-black/[0.06] dark:border-white/[0.1] bg-card p-6 sm:p-7 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.25)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-[28px]",
 					className,
 				)}
 				{...props}
 			>
 				{children}
-				<DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+				<DialogPrimitive.Close className="absolute right-4 top-4 z-50 h-8 w-8 rounded-full flex items-center justify-center opacity-80 transition-all hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white focus:outline-none disabled:pointer-events-none cursor-pointer border border-transparent dark:border-white/5">
 					<X className="h-4 w-4" />
 					<span className="sr-only">Close</span>
 				</DialogPrimitive.Close>

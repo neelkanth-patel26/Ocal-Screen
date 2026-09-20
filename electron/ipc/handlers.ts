@@ -45,7 +45,9 @@ import { patchWebmDurationOnDisk } from "../recording/webm-duration";
 import { registerNativeBridgeHandlers } from "./nativeBridge";
 import { RecordingStreamRegistry, registerRecordingStreamHandlers } from "./recordingStream";
 
-const PROJECT_FILE_EXTENSION = "openscreen";
+const PROJECT_FILE_EXTENSION = "ocalscreen";
+const LEGACY_PROJECT_FILE_EXTENSION = "openscreen";
+const SUPPORTED_PROJECT_EXTENSIONS = [PROJECT_FILE_EXTENSION, LEGACY_PROJECT_FILE_EXTENSION];
 export const SHORTCUTS_FILE = path.join(app.getPath("userData"), "shortcuts.json");
 const RECORDING_FILE_PREFIX = "recording-";
 const RECORDING_SESSION_SUFFIX = ".session.json";
@@ -2622,7 +2624,9 @@ export function registerIpcHandlers(
 			const safeName = (suggestedName || `project-${Date.now()}`).replace(/[^a-zA-Z0-9-_]/g, "_");
 			const defaultName = safeName.endsWith(`.${PROJECT_FILE_EXTENSION}`)
 				? safeName
-				: `${safeName}.${PROJECT_FILE_EXTENSION}`;
+				: safeName.endsWith(`.${LEGACY_PROJECT_FILE_EXTENSION}`)
+					? `${safeName.slice(0, -`.${LEGACY_PROJECT_FILE_EXTENSION}`.length)}.${PROJECT_FILE_EXTENSION}`
+					: `${safeName}.${PROJECT_FILE_EXTENSION}`;
 
 			const dialogOptions = buildDialogOptions(
 				{
@@ -2630,8 +2634,8 @@ export function registerIpcHandlers(
 					defaultPath: path.join(RECORDINGS_DIR, defaultName),
 					filters: [
 						{
-							name: mainT("dialogs", "fileDialogs.openscreenProject"),
-							extensions: [PROJECT_FILE_EXTENSION],
+							name: mainT("dialogs", "fileDialogs.openscreenProject") || "Ocal Screen Project",
+							extensions: SUPPORTED_PROJECT_EXTENSIONS,
 						},
 						{ name: "JSON", extensions: ["json"] },
 					],
@@ -2697,8 +2701,8 @@ export function registerIpcHandlers(
 					defaultPath: defaultDir,
 					filters: [
 						{
-							name: mainT("dialogs", "fileDialogs.openscreenProject"),
-							extensions: [PROJECT_FILE_EXTENSION],
+							name: mainT("dialogs", "fileDialogs.openscreenProject") || "Ocal Screen Project",
+							extensions: SUPPORTED_PROJECT_EXTENSIONS,
 						},
 						{ name: "JSON", extensions: ["json"] },
 						{ name: mainT("dialogs", "fileDialogs.allFiles"), extensions: ["*"] },
@@ -2744,8 +2748,9 @@ export function registerIpcHandlers(
 				return { success: false, message: "Invalid file path" };
 			}
 			// Validate extension and readability
-			if (path.extname(filePath).toLowerCase() !== `.${PROJECT_FILE_EXTENSION}`) {
-				return { success: false, message: "Not an Openscreen project file" };
+			const ext = path.extname(filePath).toLowerCase().replace(/^\./, "");
+			if (!SUPPORTED_PROJECT_EXTENSIONS.includes(ext)) {
+				return { success: false, message: "Not an Ocal Screen project file" };
 			}
 			const stats = await fs.stat(filePath).catch(() => null);
 			if (!stats?.isFile()) {

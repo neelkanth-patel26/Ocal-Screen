@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { NativeCursorAsset } from "@/native/contracts";
+import type { NativeCursorAsset } from "../../native/contracts";
 import {
 	getNativeCursorClickBounceProgress,
 	getNativeCursorClickBounceScale,
 	hasNativeCursorRecordingData,
+	projectNativeCursorToLocal,
 	resolveInterpolatedNativeCursorFrame,
 	resolveNativeCursorRenderAsset,
 } from "./nativeCursor";
@@ -215,5 +216,51 @@ describe("custom cursor themes", () => {
 		);
 
 		expect(rendered.id).toBe("pretty:text");
+	});
+});
+
+describe("projectNativeCursorToLocal", () => {
+	it("places cursor exactly on video pixels using baseOffset, baseScale, and videoDimensions", () => {
+		const point = projectNativeCursorToLocal({
+			baseOffset: { x: 50, y: 100 },
+			baseScale: 0.5,
+			sample: { timeMs: 0, cx: 0.25, cy: 0.75 },
+			videoDimensions: { width: 1920, height: 1080 },
+		});
+
+		// x = 50 + 0.25 * 1920 * 0.5 = 50 + 240 = 290
+		// y = 100 + 0.75 * 1080 * 0.5 = 100 + 405 = 505
+		expect(point).not.toBeNull();
+		expect(point?.x).toBe(290);
+		expect(point?.y).toBe(505);
+	});
+
+	it("handles cropped and offset video correctly", () => {
+		// Video 2560x1600 (16:10) on a 16:9 stage with padding
+		// spriteX = -100, spriteY = 40, baseScale = 0.4
+		const point = projectNativeCursorToLocal({
+			baseOffset: { x: -100, y: 40 },
+			baseScale: 0.4,
+			sample: { timeMs: 0, cx: 0.5, cy: 0.5 },
+			videoDimensions: { width: 2560, height: 1600 },
+		});
+
+		// x = -100 + 0.5 * 2560 * 0.4 = -100 + 512 = 412
+		// y = 40 + 0.5 * 1600 * 0.4 = 40 + 320 = 360
+		expect(point).not.toBeNull();
+		expect(point?.x).toBe(412);
+		expect(point?.y).toBe(360);
+	});
+
+	it("falls back to maskRect when baseOffset/baseScale are not provided", () => {
+		const point = projectNativeCursorToLocal({
+			cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+			maskRect: { x: 10, y: 20, width: 800, height: 600 },
+			sample: { timeMs: 0, cx: 0.5, cy: 0.5 },
+		});
+
+		expect(point).not.toBeNull();
+		expect(point?.x).toBe(410);
+		expect(point?.y).toBe(320);
 	});
 });

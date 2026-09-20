@@ -37,17 +37,6 @@ export interface NativeCursorMotionBlurState {
 	initialized: boolean;
 }
 
-interface ProjectNativeCursorOptions {
-	cropRegion: CropRegion;
-	maskRect: { x: number; y: number; width: number; height: number };
-	sample: CursorRecordingSample;
-}
-
-interface ProjectNativeCursorToStageOptions extends ProjectNativeCursorOptions {
-	cameraContainer: Container;
-	videoContainerPosition: { x: number; y: number };
-}
-
 function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
 }
@@ -477,12 +466,49 @@ export function resolveInterpolatedNativeCursorFrame(
 	};
 }
 
+export interface ProjectNativeCursorOptions {
+	cropRegion?: CropRegion;
+	maskRect?: { x: number; y: number; width: number; height: number };
+	sample: CursorRecordingSample;
+	baseOffset?: { x: number; y: number };
+	baseScale?: number;
+	videoDimensions?: { width: number; height: number };
+}
+
+export interface ProjectNativeCursorToStageOptions extends ProjectNativeCursorOptions {
+	cameraContainer: Container;
+	videoContainerPosition: { x: number; y: number };
+}
+
 export function projectNativeCursorToLocal({
 	cropRegion,
 	maskRect,
 	sample,
+	baseOffset,
+	baseScale,
+	videoDimensions,
 }: ProjectNativeCursorOptions) {
-	const maskPoint = getNativeCursorMaskPoint(sample, cropRegion);
+	if (
+		baseOffset &&
+		typeof baseScale === "number" &&
+		videoDimensions &&
+		videoDimensions.width > 0 &&
+		videoDimensions.height > 0
+	) {
+		return new Point(
+			baseOffset.x + sample.cx * videoDimensions.width * baseScale,
+			baseOffset.y + sample.cy * videoDimensions.height * baseScale,
+		);
+	}
+
+	if (!maskRect) {
+		return null;
+	}
+
+	const maskPoint = getNativeCursorMaskPoint(
+		sample,
+		cropRegion ?? { x: 0, y: 0, width: 1, height: 1 },
+	);
 	if (!maskPoint) {
 		return null;
 	}

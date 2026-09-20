@@ -18,7 +18,19 @@ const VALID_ASPECT_RATIOS: readonly string[] = [
 	"native",
 ];
 
-export type AccentColor = "lime" | "cyan" | "orange" | "green" | "purple" | "pink";
+export type AccentColor =
+	| "lime"
+	| "cyan"
+	| "yellow"
+	| "orange"
+	| "red"
+	| "rose"
+	| "pink"
+	| "purple"
+	| "indigo"
+	| "blue"
+	| "teal"
+	| "green";
 
 export const ACCENT_COLOR_MAP: Record<
 	AccentColor,
@@ -26,10 +38,16 @@ export const ACCENT_COLOR_MAP: Record<
 > = {
 	lime: { label: "Neon Lime", hex: "#e8ff47", textHex: "#000000" },
 	cyan: { label: "Electric Cyan", hex: "#00f0ff", textHex: "#000000" },
+	yellow: { label: "Cyber Yellow", hex: "#ffd000", textHex: "#000000" },
 	orange: { label: "Sunset Orange", hex: "#ff6b00", textHex: "#ffffff" },
-	green: { label: "Emerald Green", hex: "#34b27b", textHex: "#ffffff" },
-	purple: { label: "Royal Purple", hex: "#a855f7", textHex: "#ffffff" },
+	red: { label: "Vibrant Crimson", hex: "#ef4444", textHex: "#ffffff" },
+	rose: { label: "Neon Rose", hex: "#f43f5e", textHex: "#ffffff" },
 	pink: { label: "Hot Pink", hex: "#ff2a85", textHex: "#ffffff" },
+	purple: { label: "Royal Purple", hex: "#a855f7", textHex: "#ffffff" },
+	indigo: { label: "Deep Indigo", hex: "#6366f1", textHex: "#ffffff" },
+	blue: { label: "Sky Blue", hex: "#0ea5e9", textHex: "#ffffff" },
+	teal: { label: "Mint Teal", hex: "#14b8a6", textHex: "#000000" },
+	green: { label: "Emerald Green", hex: "#22c55e", textHex: "#ffffff" },
 };
 
 export interface UserPreferences {

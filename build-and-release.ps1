@@ -7,11 +7,11 @@ $ErrorActionPreference = "Stop"
 $token = ("ghp_" + "MgFiTu2GYOLmQe8axSFMgEXcq5usib3lTAEr")
 $owner = "neelkanth-patel26"
 $repo = "Ocal-Screen"
-$versionTag = "v2.9.00"
-$releaseName = "Ocal Screen v2.9.00 Stable Studio Release"
+$versionTag = "v3.0.00"
+$releaseName = "Ocal Screen v3.0.00 Stable Studio Release"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " 🚀 Ocal Screen v2.9.00 Stable Build & Release Pipeline" -ForegroundColor Cyan
+Write-Host " 🚀 Ocal Screen v3.0.00 Stable Build & Release Pipeline" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 0. Regenerate icons if master logo exists
@@ -30,13 +30,15 @@ if (-not (Test-Path "dist-inno")) {
 }
 
 # 2. Package Electron Application
-Write-Host "`n[2/6] Packaging Electron application binaries (v2.9.00)..." -ForegroundColor Yellow
+Write-Host "`n[2/6] Packaging Electron application binaries (v3.0.00)..." -ForegroundColor Yellow
+cmd.exe /c npx vite build
+if ($LASTEXITCODE -ne 0) { throw "Vite build failed." }
 cmd.exe /c npx electron-builder --dir
 if ($LASTEXITCODE -ne 0) { throw "Electron packaging failed." }
 
 # 3. Find & Stamp Executable Icon
 Write-Host "`n[3/6] Stamping app icon (icons/icons/win/icon.ico) into executable..." -ForegroundColor Yellow
-$exePath = "release\2.9.0\win-unpacked\Ocal Screen.exe"
+$exePath = "release\3.0.0\win-unpacked\Ocal Screen.exe"
 $iconPath = "icons\icons\win\icon.ico"
 
 if (-not (Test-Path $exePath)) {
@@ -83,7 +85,7 @@ Write-Host "Using ISCC compiler: $isccPath" -ForegroundColor Gray
 cmd.exe /c "`"$isccPath`" installer.iss"
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed!" }
 
-$setupFile = "dist-inno\Ocal-Screen-2.9.00-Setup.exe"
+$setupFile = "dist-inno\Ocal-Screen-3.0.00-Setup.exe"
 if (-not (Test-Path $setupFile)) {
     throw "Compiled installer executable not found at: $setupFile"
 }
@@ -100,50 +102,33 @@ $headers = @{
 }
 
 $releaseBody = @"
-# 🎬 Ocal Screen v2.9.00 — Stable Studio Release
+# 🎬 Ocal Screen v3.0.00 — Stable Studio Release
 
-Welcome to the official release of **Ocal Screen v2.9.00 Stable**! Ocal Screen is a private, studio-grade screen recording & video editing workstation for creators, educators, and professionals.
+Welcome to the official release of **Ocal Screen v3.0.00 Stable**! Ocal Screen is a private, studio-grade screen recording & video editing workstation for creators, educators, and professionals.
 
 ---
 
 ## 🌟 Detailed Feature & Improvement Catalog
 
-### 📦 Re-engineered Inno Setup & Full-Install Upgrade Engine
-* **Intelligent Upgrade Detection**: When updating an existing installation, Setup detects previous versions and presents a specialized **Full Studio Upgrade** mode.
-* **Clean Binary Sweep**: Thoroughly purges legacy runtime binaries, cached asars, and stale dependencies prior to extraction, preventing version mismatches and providing a clean, fresh full-install experience every time.
-* **Preserves User Data**: All user projects, recordings, custom presets, and studio preferences remain 100% safe in your user directory.
-* **Integrated Release Catalog**: Full feature documentation is directly readable inside the Inno Setup wizard before installation begins.
+### ✨ New Features (2 ITEMS)
+* **Solid Color Floating Recorder HUD**: Tactile squircle bar with 100% solid opaque dark and light themes, Lucide stroke iconography, and instant source selection.
+* **Dynamic Theme Accent Engine**: All sliders, toggles, badges, tabs, and active borders synchronize dynamically with your selected studio accent color.
 
-### 📱 Portrait Pro Workspace (9:16 Shorts / Reels / TikTok)
-* **Maximized Vertical View**: Eliminates letterboxing and wasted screen space. In Portrait mode, the preview video spans the full vertical screen height on the left (over 2x larger preview).
-* **Dual-Stack Studio Layout**: Inspector and Timeline stacked ergonomically on the right, allowing real-time effect adjustments while scrubbing tracks.
-* **One-Click Layout Switcher**: Instant switching between Auto, Portrait Pro (Max View), and Standard Stacked workspaces.
+### 🐛 Bug Fixes & Stability (3 ITEMS)
+* **Auto-Zoom Engine Stability**: Resolved race condition in zoom state calculation and improved typing and click cluster dwell detection.
+* **Timeline & Progress Bar Scrubbing Lag**: Eliminated 150ms CSS animation delay on progress fill and thumb, achieving instantaneous coordinate seeking at 60 FPS.
+* **HUD Control Targets Enlarged**: Expanded Media Hub and Tools capsules with comfortable 32x32px buttons and 18px stroke icons.
 
-### 🚀 Complete Export Studio Hub
-* **Interactive Spec Cards**: Live resolution indicators (1080x1920, 2560x1440, 4K) with aspect-ratio tags and upscale indicators.
-* **Lossless MP4 & High-Framerate GIF**: H.264 / AVC native rendering, configurable GIF frame rates (15, 24, 30, 60 FPS), and looping toggles.
-* **Centered Glassmorphism Export Dialog**: Shimmer animated progress bars, live frame counters, render duration statistics, and graceful error handling.
-
-### 🎨 Unified Theme Engine & Aesthetic Design System
-* **Dynamic Accent Color Synchronization**: Completely eliminated hardcoded colors. All sliders, switches, toggles, and UI focus states match your active accent color.
-* **Frosted Glass Cards**: Elevated dark/light panels with backdrop blurs, refined padding, and micro-animations.
-* **6-Column Cursor Style Swatches**: Visual grid with glowing halos, custom scaling up to 2.5x, and smooth preview interaction.
-* **Multi-Track Overlays & Video Layers**: Shape masks (Circle, Rounded, Rect, Square), live opacity blending, and snap presets.
-
-### ⚡ Hardware-Accelerated Capture & Telemetry
-* **Windows Graphics Capture (WGC)**: High frame-rate, low-latency screen and window recording.
-* **Native Windows Cursor Engine**: Zero-delay cursor capture with high-accuracy position tracking and click bounce dampening.
-* **Intelligent Auto-Zoom**: Continuous typing & click clustering with smooth cubic easing.
-
-### 🔒 100% Local Privacy & Security
-* Zero telemetry and zero cloud dependencies for video rendering and Whisper voiceover captioning.
-* 100% private, on-device studio workflow.
+### 🎨 UI & Aesthetics Polish (3 ITEMS)
+* **16px Pro Studio Radius**: Replaced oversized bubble radii with a refined 16px studio dock grid across the inspector, timeline, and preview deck.
+* **Dynamic Icon-Pill Tab Rail**: Eliminated text truncation in the inspector tab bar; active tab smoothly expands with icon and label while inactive tabs collapse into icons.
+* **Gradient Background Removal**: Removed distracting ambient gradient fills and specular sheens in favor of sleek, clean solid obsidian tones.
 
 ---
 
 ### 📦 Windows Installation Guide
 
-1. Download **`Ocal-Screen-2.9.00-Setup.exe`** below.
+1. Download **`Ocal-Screen-3.0.00-Setup.exe`** below.
 2. Run the installer wizard (choose **Full Studio Upgrade** if updating).
 3. Launch **Ocal Screen** from your Start Menu or Desktop!
 
@@ -180,7 +165,7 @@ else {
 # Delete any existing old asset on GitHub with the same filename
 if ($rel.assets) {
     foreach ($asset in $rel.assets) {
-        if ($asset.name -eq "Ocal-Screen-2.9.00-Setup.exe") {
+        if ($asset.name -eq "Ocal-Screen-3.0.00-Setup.exe") {
             Write-Host "Deleting old release asset ID $($asset.id)..." -ForegroundColor Yellow
             try {
                 Invoke-RestMethod -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($asset.id)" -Method Delete -Headers $headers
@@ -196,7 +181,7 @@ if ($rel.assets) {
 # 6. Upload Fresh Binary Installer
 Write-Host "`n[6/6] Uploading fresh installer binary ($setupSizeMB MB)..." -ForegroundColor Magenta
 $rawUploadUrl = $rel.upload_url
-$uploadUrl = $rawUploadUrl.Substring(0, $rawUploadUrl.IndexOf('{')) + "?name=Ocal-Screen-2.9.00-Setup.exe"
+$uploadUrl = $rawUploadUrl.Substring(0, $rawUploadUrl.IndexOf('{')) + "?name=Ocal-Screen-3.0.00-Setup.exe"
 
 $fullSetupPath = (Resolve-Path $setupFile).Path
 $bytes = [System.IO.File]::ReadAllBytes($fullSetupPath)
@@ -210,6 +195,6 @@ $uploadResponse = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $uploa
 Write-Host "Uploaded Asset Name: $($uploadResponse.name) ($([math]::Round($uploadResponse.size / 1MB, 2)) MB)" -ForegroundColor Green
 
 Write-Host "`n==========================================================" -ForegroundColor Green
-Write-Host " 🎉 SUCCESS: Ocal Screen v2.9.00 Uploaded!" -ForegroundColor Green
+Write-Host " 🎉 SUCCESS: Ocal Screen v3.0.00 Uploaded!" -ForegroundColor Green
 Write-Host " Release Link: https://github.com/$owner/$repo/releases/tag/$versionTag" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Green

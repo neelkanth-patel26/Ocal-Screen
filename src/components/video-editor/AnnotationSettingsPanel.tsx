@@ -169,6 +169,7 @@ export function AnnotationSettingsPanel({
 
 	const prefs = loadUserPreferences();
 	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
+	const isLight = prefs.theme === "light";
 
 	return (
 		<div className="min-w-0 p-4 flex flex-col h-full overflow-y-auto custom-scrollbar">
@@ -486,6 +487,8 @@ export function AnnotationSettingsPanel({
 											<ColorPicker
 												selectedColor={annotation.style.color}
 												colorPalette={colorPalette}
+												activeAccentHex={activeAccent.hex}
+												isLight={isLight}
 												translations={{
 													colorWheel: t("annotation.colorWheel"),
 													colorPalette: t("annotation.colorPalette"),
@@ -529,6 +532,8 @@ export function AnnotationSettingsPanel({
 											<ColorPicker
 												selectedColor={annotation.style.backgroundColor}
 												colorPalette={colorPalette}
+												activeAccentHex={activeAccent.hex}
+												isLight={isLight}
 												translations={{
 													colorWheel: t("annotation.colorWheel"),
 													colorPalette: t("annotation.colorPalette"),

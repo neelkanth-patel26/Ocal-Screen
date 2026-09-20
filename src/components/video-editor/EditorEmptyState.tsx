@@ -1,17 +1,8 @@
-import {
-	AlertCircle,
-	Captions,
-	Film,
-	FolderOpen,
-	MousePointer,
-	Sparkles,
-	Upload,
-	Wand2,
-	X,
-} from "lucide-react";
+import { AlertCircle, ChevronLeft, Film, FolderOpen, Sparkles, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useScopedT } from "@/contexts/I18nContext";
+import { CHANGELOG_DATA } from "@/data/changelog";
 import {
 	ACCENT_COLOR_MAP,
 	type AccentColor,
@@ -21,6 +12,8 @@ import {
 } from "@/lib/userPreferences";
 import { cn } from "@/lib/utils";
 import { nativeBridgeClient } from "@/native";
+import { DotMatrixText } from "../ui/dot-matrix-text";
+import { WhatsNewSection } from "./WhatsNewSection";
 
 interface EditorEmptyStateProps {
 	onVideoImported: (videoPath: string) => void;
@@ -52,6 +45,8 @@ export function EditorEmptyState({
 	if (dropError !== null) {
 		lastDropErrorRef.current = dropError;
 	}
+
+	const [whatsNewOpen, setWhatsNewOpen] = useState(false);
 
 	const handleImportVideo = useCallback(async () => {
 		const result = await window.electronAPI.openVideoFilePicker();
@@ -139,7 +134,10 @@ export function EditorEmptyState({
 				}
 			}
 
-			const projectFile = files.find((f) => f.name.endsWith(".openscreen"));
+			const projectFile = files.find((f) => {
+				const lower = f.name.toLowerCase();
+				return lower.endsWith(".ocalscreen") || lower.endsWith(".openscreen");
+			});
 			if (!projectFile) {
 				setDropError("unsupported-format");
 				return;
@@ -177,24 +175,13 @@ export function EditorEmptyState({
 	return (
 		<div
 			className={cn(
-				"relative flex-1 w-full h-full flex flex-col items-center justify-start md:justify-center overflow-y-auto px-4 py-6 sm:py-8 transition-colors duration-200 select-none",
-				isLight ? "bg-[#f8f9fc] text-zinc-900" : "bg-[#090a0f] text-zinc-100",
+				"relative flex-1 w-full h-full flex flex-col items-center justify-start md:justify-center overflow-hidden px-4 py-6 sm:py-8 transition-colors duration-200 select-none",
+				isLight ? "bg-[#edf0f2] text-zinc-900" : "bg-[#0b0c10] text-zinc-100",
 			)}
 			onDragOver={handleDragOver}
 			onDragLeave={handleDragLeave}
 			onDrop={handleDrop}
 		>
-			{/* Masked studio canvas grid — smooth edge fade, NO murky background blur glow */}
-			<div
-				className={cn(
-					"pointer-events-none absolute inset-0 transition-opacity duration-300",
-					isLight
-						? "opacity-[0.35] [background-image:radial-gradient(#94a3b8_1px,transparent_1px)]"
-						: "opacity-[0.09] [background-image:radial-gradient(#ffffff_1px,transparent_1px)]",
-					"[background-size:24px_24px] [mask-image:radial-gradient(ellipse_65%_55%_at_50%_45%,#000_50%,transparent_100%)]",
-				)}
-			/>
-
 			{/* Fullscreen Drop Overlay */}
 			{isDraggingOver && (
 				<div
@@ -214,7 +201,7 @@ export function EditorEmptyState({
 						Release to Open Video or Project
 					</p>
 					<p className={cn("text-xs font-medium", isLight ? "text-zinc-600" : "text-zinc-400")}>
-						Supports MP4, MOV, WebM, MKV, AVI, and .openscreen project files
+						Supports MP4, MOV, WebM, MKV, AVI, and .ocalscreen project files
 					</p>
 				</div>
 			)}
@@ -286,38 +273,46 @@ export function EditorEmptyState({
 			</Dialog>
 
 			{/* Main Centered Stage */}
-			<div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full my-auto">
-				{/* Top Welcome Greeting */}
-				{userName && (
-					<div className="mb-2.5">
+			<div className="relative z-10 flex flex-col items-center text-center max-w-2xl w-full my-auto py-4">
+				{/* Top Welcome Greeting & Quick Status */}
+				<div className="flex items-center justify-center gap-2 mb-3">
+					{userName && (
 						<span
 							className={cn(
-								"inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border backdrop-blur-md transition-all shadow-sm",
+								"inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-1.5 rounded-full border backdrop-blur-md transition-all shadow-sm",
 								isLight
-									? "bg-white/80 border-zinc-200/80 text-zinc-600"
-									: "bg-white/[0.04] border-white/[0.08] text-zinc-400",
+									? "bg-white/90 border-black/[0.06] text-zinc-700 shadow-[0_2px_8px_rgba(0,0,0,0.03)]"
+									: "bg-white/[0.04] border-white/[0.08] text-zinc-300",
 							)}
 						>
 							<span
-								className="w-1.5 h-1.5 rounded-full animate-pulse"
+								className="w-2 h-2 rounded-full animate-pulse"
 								style={{ backgroundColor: activeAccent.hex }}
 							/>
 							<span>Welcome back,</span>
-							<strong className={cn("font-bold", isLight ? "text-zinc-900" : "text-white")}>
+							<strong className={cn("font-bold", isLight ? "text-zinc-950" : "text-white")}>
 								{userName}
 							</strong>
 						</span>
-					</div>
-				)}
+					)}
+
+					<span
+						className={cn(
+							"neon-accent-badge text-[10px] uppercase font-black px-2.5 py-1 shadow-sm",
+						)}
+					>
+						Studio Pro
+					</span>
+				</div>
 
 				{/* Primary Headline */}
 				<h1
 					className={cn(
-						"text-2xl sm:text-3xl font-black tracking-tight mb-1.5",
+						"text-3xl sm:text-4xl font-extrabold tracking-tight mb-2",
 						isLight ? "text-zinc-950" : "text-white",
 					)}
 				>
-					{te("emptyState.title") || "No project open"}
+					{te("emptyState.title") || "Ocal Screen Studio"}
 				</h1>
 
 				{/* Subtitle */}
@@ -328,59 +323,141 @@ export function EditorEmptyState({
 					)}
 				>
 					{te("emptyState.description") ||
-						"Import a video to start editing, or load an existing Ocal Screen project."}
+						"Drop your screen recordings or project files to edit with smart zoom, smooth splines & 4K wallpapers."}
 				</p>
 
-				{/* Central Interactive Hero Dropzone Card */}
+				{/* Top Dot-Matrix Telemetry Deck (Reference Image Inspired Style) */}
+				<div className="grid grid-cols-3 gap-2.5 w-full max-w-lg mb-5">
+					{/* Stat 1: Resolution */}
+					<div
+						className={cn(
+							"flex flex-col items-center justify-center py-2.5 px-3 rounded-[20px] border transition-all duration-200",
+							isLight
+								? "bg-white/90 border-black/[0.05] shadow-[0_4px_16px_rgba(0,0,0,0.03)] text-zinc-900"
+								: "bg-white/[0.03] border-white/[0.07] text-white",
+						)}
+					>
+						<div className="flex items-center gap-1.5 mb-1">
+							<DotMatrixText text="4K" size="sm" color={isLight ? "#18181b" : "#ffffff"} />
+							<span className="neon-accent-badge text-[8px] font-bold px-1.5 py-0.2 rounded-full">
+								Ultra
+							</span>
+						</div>
+						<span
+							className={cn(
+								"text-[9.5px] font-medium tracking-wide uppercase",
+								isLight ? "text-zinc-500" : "text-zinc-400",
+							)}
+						>
+							Resolution
+						</span>
+					</div>
+
+					{/* Stat 2: Frame Rate */}
+					<div
+						className={cn(
+							"flex flex-col items-center justify-center py-2.5 px-3 rounded-[20px] border transition-all duration-200",
+							isLight
+								? "bg-white/90 border-black/[0.05] shadow-[0_4px_16px_rgba(0,0,0,0.03)] text-zinc-900"
+								: "bg-white/[0.03] border-white/[0.07] text-white",
+						)}
+					>
+						<div className="flex items-center gap-1.5 mb-1">
+							<DotMatrixText text="60" size="sm" color={isLight ? "#18181b" : "#ffffff"} />
+							<span
+								className={cn(
+									"text-[8px] font-bold px-1.5 py-0.2 rounded-full border",
+									isLight
+										? "bg-zinc-100 text-zinc-600 border-zinc-200"
+										: "bg-white/10 text-zinc-300 border-white/10",
+								)}
+							>
+								FPS
+							</span>
+						</div>
+						<span
+							className={cn(
+								"text-[9.5px] font-medium tracking-wide uppercase",
+								isLight ? "text-zinc-500" : "text-zinc-400",
+							)}
+						>
+							Fluid Render
+						</span>
+					</div>
+
+					{/* Stat 3: Ready State */}
+					<div
+						className={cn(
+							"flex flex-col items-center justify-center py-2.5 px-3 rounded-[20px] border transition-all duration-200",
+							isLight
+								? "bg-white/90 border-black/[0.05] shadow-[0_4px_16px_rgba(0,0,0,0.03)] text-zinc-900"
+								: "bg-white/[0.03] border-white/[0.07] text-white",
+						)}
+					>
+						<div className="flex items-center gap-1.5 mb-1">
+							<DotMatrixText text="00:00" size="xs" color={activeAccent.hex} />
+						</div>
+						<span
+							className={cn(
+								"text-[9.5px] font-medium tracking-wide uppercase",
+								isLight ? "text-zinc-500" : "text-zinc-400",
+							)}
+						>
+							Timeline Ready
+						</span>
+					</div>
+				</div>
+
+				{/* Central Interactive Squircle Hero Dropzone Card */}
 				<div
 					className={cn(
-						"relative w-full rounded-2xl border transition-all duration-300 overflow-hidden shadow-2xl backdrop-blur-xl group",
+						"relative w-full rounded-[30px] border transition-all duration-300 overflow-hidden group",
 						isLight
-							? "bg-white/90 hover:bg-white border-zinc-200/90 hover:border-zinc-300 shadow-zinc-200/50"
-							: "bg-[#111218]/90 hover:bg-[#14161f]/90 border-white/[0.08] hover:border-white/[0.16] shadow-[0_24px_60px_-15px_rgba(0,0,0,0.7)]",
+							? "bg-white border-black/[0.05] shadow-[0_16px_40px_-8px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.02)]"
+							: "bg-[#111319] border-white/[0.08] shadow-[0_24px_60px_-15px_rgba(0,0,0,0.7)]",
 					)}
 				>
 					{/* Drop Canvas Area */}
 					<div
 						onClick={handleImportVideo}
 						className={cn(
-							"p-6 sm:p-7 cursor-pointer flex flex-col items-center text-center transition-colors border-b",
+							"p-7 sm:p-8 cursor-pointer flex flex-col items-center text-center transition-colors border-b",
 							isLight
-								? "border-zinc-100 hover:bg-zinc-50/60"
+								? "border-zinc-100 hover:bg-zinc-50/50"
 								: "border-white/[0.05] hover:bg-white/[0.02]",
 						)}
 					>
-						{/* Precision Studio Upload Target Frame (Clean, zero glow) */}
-						<div className="relative mb-3.5 flex items-center justify-center">
+						{/* Precision Studio Upload Target Frame */}
+						<div className="relative mb-4 flex items-center justify-center">
 							<div
 								className={cn(
-									"relative flex h-14 w-14 items-center justify-center rounded-2xl border transition-all duration-300 group-hover:scale-105 group-hover:-translate-y-0.5 shadow-md",
+									"relative flex h-16 w-16 items-center justify-center rounded-[22px] border transition-all duration-300 group-hover:scale-105 group-hover:-translate-y-0.5",
 									isLight
-										? "bg-gradient-to-b from-white to-zinc-100 border-zinc-200 text-zinc-900 shadow-zinc-200/60"
-										: "bg-gradient-to-b from-[#181a24] to-[#101118] border-white/[0.12] text-white shadow-black/60 group-hover:border-white/25",
+										? "bg-gradient-to-b from-zinc-50 to-zinc-100/80 border-black/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
+										: "bg-gradient-to-b from-[#1c1e28] to-[#12131b] border-white/[0.12] shadow-black/60",
 								)}
 							>
 								{/* Stylized Viewfinder Corner Accents */}
 								<span
-									className="absolute top-1.5 left-1.5 w-1.5 h-1.5 border-t border-l rounded-tl-[2px] transition-colors"
+									className="absolute top-2 left-2 w-2 h-2 border-t-2 border-l-2 rounded-tl-sm transition-colors"
 									style={{ borderColor: activeAccent.hex }}
 								/>
 								<span
-									className="absolute top-1.5 right-1.5 w-1.5 h-1.5 border-t border-r rounded-tr-[2px] transition-colors"
+									className="absolute top-2 right-2 w-2 h-2 border-t-2 border-r-2 rounded-tr-sm transition-colors"
 									style={{ borderColor: activeAccent.hex }}
 								/>
 								<span
-									className="absolute bottom-1.5 left-1.5 w-1.5 h-1.5 border-b border-l rounded-bl-[2px] transition-colors"
+									className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 rounded-bl-sm transition-colors"
 									style={{ borderColor: activeAccent.hex }}
 								/>
 								<span
-									className="absolute bottom-1.5 right-1.5 w-1.5 h-1.5 border-b border-r rounded-br-[2px] transition-colors"
+									className="absolute bottom-2 right-2 w-2 h-2 border-b-2 border-r-2 rounded-br-sm transition-colors"
 									style={{ borderColor: activeAccent.hex }}
 								/>
 
 								{/* Crisp Upload Icon */}
 								<Upload
-									className="h-6 w-6 stroke-[2.2] transition-transform duration-300 group-hover:-translate-y-0.5"
+									className="h-7 w-7 stroke-[2.2] transition-transform duration-300 group-hover:-translate-y-0.5"
 									style={{ color: activeAccent.hex }}
 								/>
 							</div>
@@ -388,8 +465,8 @@ export function EditorEmptyState({
 
 						<h2
 							className={cn(
-								"text-base sm:text-lg font-bold tracking-tight mb-1",
-								isLight ? "text-zinc-900" : "text-white",
+								"text-lg sm:text-xl font-bold tracking-tight mb-1.5",
+								isLight ? "text-zinc-950" : "text-white",
 							)}
 						>
 							Drop your video or project file here
@@ -397,20 +474,20 @@ export function EditorEmptyState({
 
 						<p
 							className={cn(
-								"text-xs max-w-sm mb-3.5 leading-relaxed",
+								"text-xs max-w-sm mb-4 leading-relaxed",
 								isLight ? "text-zinc-500" : "text-zinc-400",
 							)}
 						>
-							Click to browse your files, or drag and drop any recording directly into this window
+							Click to browse your files, or drag and drop any recording directly onto this canvas
 						</p>
 
 						{/* Format Badges Pill Strip */}
 						<div className="flex flex-wrap items-center justify-center gap-1.5">
-							{["MP4", "MOV", "WEBM", "MKV", "AVI", ".OPENSCREEN"].map((fmt) => (
+							{["MP4", "MOV", "WEBM", "MKV", "AVI", ".OCALSCREEN"].map((fmt) => (
 								<span
 									key={fmt}
 									className={cn(
-										"px-2 py-0.5 rounded-md text-[9.5px] font-mono font-bold tracking-wider transition-colors",
+										"px-2.5 py-1 rounded-full text-[9.5px] font-mono font-bold tracking-wider transition-colors",
 										isLight
 											? "bg-zinc-100 text-zinc-700 border border-zinc-200/80"
 											: "bg-white/[0.04] text-zinc-300 border border-white/[0.06] group-hover:border-white/[0.12]",
@@ -425,9 +502,9 @@ export function EditorEmptyState({
 					{/* Integrated Action Buttons Bar */}
 					<div
 						className={cn(
-							"p-3 sm:p-3.5 flex flex-col sm:flex-row items-center justify-center gap-2.5",
+							"p-4 sm:p-4.5 flex flex-col sm:flex-row items-center justify-center gap-3",
 							isLight
-								? "bg-zinc-50/80 border-t border-zinc-100"
+								? "bg-[#fafbfc] border-t border-zinc-100"
 								: "bg-black/25 border-t border-white/[0.04]",
 						)}
 					>
@@ -435,9 +512,9 @@ export function EditorEmptyState({
 							type="button"
 							onClick={handleImportVideo}
 							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
-							className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-5 h-8.5 rounded-full font-black text-xs tracking-wide transition-all cursor-pointer hover:opacity-90 active:scale-95 shadow-md"
+							className="flex items-center justify-center gap-2 w-full sm:w-auto px-7 h-11 rounded-full font-bold text-sm tracking-wide transition-all duration-200 cursor-pointer hover:brightness-105 active:scale-[0.98] shadow-md hover:shadow-lg"
 						>
-							<Film className="h-3.5 w-3.5" />
+							<Film className="h-4 w-4 stroke-[2.2]" />
 							<span>{te("emptyState.importVideoButton") || "Import Video File..."}</span>
 						</button>
 
@@ -445,13 +522,13 @@ export function EditorEmptyState({
 							type="button"
 							onClick={handleLoadProject}
 							className={cn(
-								"flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 h-8.5 rounded-full border font-bold text-xs tracking-wide transition-all cursor-pointer active:scale-95",
+								"flex items-center justify-center gap-2 w-full sm:w-auto px-5 h-11 rounded-full border font-semibold text-sm tracking-wide transition-all duration-200 cursor-pointer active:scale-[0.98] shadow-sm",
 								isLight
-									? "bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-900 shadow-sm"
-									: "bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.1] text-zinc-200 hover:text-white",
+									? "bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-900"
+									: "bg-white/[0.06] hover:bg-white/[0.12] border-white/[0.12] hover:border-white/[0.2] text-zinc-100 hover:text-white",
 							)}
 						>
-							<FolderOpen className="h-3.5 w-3.5" />
+							<FolderOpen className="h-4 w-4" />
 							<span>{te("emptyState.loadProjectButton") || "Load Project..."}</span>
 						</button>
 
@@ -460,200 +537,145 @@ export function EditorEmptyState({
 								type="button"
 								onClick={onStartRecording}
 								className={cn(
-									"flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 h-8.5 rounded-full border font-bold text-xs tracking-wide transition-all cursor-pointer active:scale-95",
+									"flex items-center justify-center gap-2.5 w-full sm:w-auto px-5 h-11 rounded-full border font-semibold text-sm tracking-wide transition-all duration-200 cursor-pointer active:scale-[0.98] shadow-sm",
 									isLight
-										? "bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-900 shadow-sm"
-										: "bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.1] text-zinc-200 hover:text-white",
+										? "bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-900"
+										: "bg-white/[0.06] hover:bg-white/[0.12] border-white/[0.12] hover:border-white/[0.2] text-zinc-100 hover:text-white",
 								)}
 							>
-								<span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+								<span className="relative flex h-2.5 w-2.5">
+									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+									<span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+								</span>
 								<span>Record Screen</span>
 							</button>
 						)}
 					</div>
 				</div>
 
-				{/* Studio Superpowers Showcase Grid */}
-				<div className="grid grid-cols-2 lg:grid-cols-4 gap-2 w-full max-w-2xl mt-4">
-					{/* Card 1: Auto-Zoom */}
-					<div
-						className={cn(
-							"flex flex-col p-2.5 rounded-xl border text-left transition-all duration-200 hover:-translate-y-0.5",
-							isLight
-								? "bg-white/70 hover:bg-white border-zinc-200/80 hover:border-zinc-300 shadow-sm"
-								: "bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06] hover:border-white/[0.12]",
-						)}
-					>
-						<div className="flex items-center justify-between mb-1.5">
-							<div
-								className="flex h-6 w-6 items-center justify-center rounded-lg"
-								style={{ backgroundColor: `${activeAccent.hex}20`, color: activeAccent.hex }}
-							>
-								<Wand2 className="h-3 w-3" />
-							</div>
-							<span
-								className="text-[8.5px] font-mono font-bold uppercase tracking-wider px-1 py-0.5 rounded"
-								style={{ backgroundColor: `${activeAccent.hex}18`, color: activeAccent.hex }}
-							>
-								Focus
-							</span>
-						</div>
-						<div
-							className={cn(
-								"text-[11.5px] font-bold mb-0.5",
-								isLight ? "text-zinc-900" : "text-zinc-200",
-							)}
-						>
-							Smart Auto-Zoom
-						</div>
-						<p
-							className={cn(
-								"text-[10px] leading-snug",
-								isLight ? "text-zinc-500" : "text-zinc-400",
-							)}
-						>
-							Smooth dynamic zoom into clicks & keystrokes.
-						</p>
-					</div>
-
-					{/* Card 2: Cursor Smoothing */}
-					<div
-						className={cn(
-							"flex flex-col p-2.5 rounded-xl border text-left transition-all duration-200 hover:-translate-y-0.5",
-							isLight
-								? "bg-white/70 hover:bg-white border-zinc-200/80 hover:border-zinc-300 shadow-sm"
-								: "bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06] hover:border-white/[0.12]",
-						)}
-					>
-						<div className="flex items-center justify-between mb-1.5">
-							<div
-								className="flex h-6 w-6 items-center justify-center rounded-lg"
-								style={{ backgroundColor: `${activeAccent.hex}20`, color: activeAccent.hex }}
-							>
-								<MousePointer className="h-3 w-3" />
-							</div>
-							<span
-								className="text-[8.5px] font-mono font-bold uppercase tracking-wider px-1 py-0.5 rounded"
-								style={{ backgroundColor: `${activeAccent.hex}18`, color: activeAccent.hex }}
-							>
-								Splines
-							</span>
-						</div>
-						<div
-							className={cn(
-								"text-[11.5px] font-bold mb-0.5",
-								isLight ? "text-zinc-900" : "text-zinc-200",
-							)}
-						>
-							Cursor Smoothing
-						</div>
-						<p
-							className={cn(
-								"text-[10px] leading-snug",
-								isLight ? "text-zinc-500" : "text-zinc-400",
-							)}
-						>
-							Sub-pixel splines, click ripples & motion blur.
-						</p>
-					</div>
-
-					{/* Card 3: 4K Wallpaper Studio */}
-					<div
-						className={cn(
-							"flex flex-col p-2.5 rounded-xl border text-left transition-all duration-200 hover:-translate-y-0.5",
-							isLight
-								? "bg-white/70 hover:bg-white border-zinc-200/80 hover:border-zinc-300 shadow-sm"
-								: "bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06] hover:border-white/[0.12]",
-						)}
-					>
-						<div className="flex items-center justify-between mb-1.5">
-							<div
-								className="flex h-6 w-6 items-center justify-center rounded-lg"
-								style={{ backgroundColor: `${activeAccent.hex}20`, color: activeAccent.hex }}
-							>
-								<Sparkles className="h-3 w-3" />
-							</div>
-							<span
-								className="text-[8.5px] font-mono font-bold uppercase tracking-wider px-1 py-0.5 rounded"
-								style={{ backgroundColor: `${activeAccent.hex}18`, color: activeAccent.hex }}
-							>
-								Canvas
-							</span>
-						</div>
-						<div
-							className={cn(
-								"text-[11.5px] font-bold mb-0.5",
-								isLight ? "text-zinc-900" : "text-zinc-200",
-							)}
-						>
-							4K Wallpaper Studio
-						</div>
-						<p
-							className={cn(
-								"text-[10px] leading-snug",
-								isLight ? "text-zinc-500" : "text-zinc-400",
-							)}
-						>
-							Mesh gradients, 3D tilt & rounded bezels.
-						</p>
-					</div>
-
-					{/* Card 4: AI Auto-Captions */}
-					<div
-						className={cn(
-							"flex flex-col p-2.5 rounded-xl border text-left transition-all duration-200 hover:-translate-y-0.5",
-							isLight
-								? "bg-white/70 hover:bg-white border-zinc-200/80 hover:border-zinc-300 shadow-sm"
-								: "bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06] hover:border-white/[0.12]",
-						)}
-					>
-						<div className="flex items-center justify-between mb-1.5">
-							<div
-								className="flex h-6 w-6 items-center justify-center rounded-lg"
-								style={{ backgroundColor: `${activeAccent.hex}20`, color: activeAccent.hex }}
-							>
-								<Captions className="h-3 w-3" />
-							</div>
-							<span
-								className="text-[8.5px] font-mono font-bold uppercase tracking-wider px-1 py-0.5 rounded"
-								style={{ backgroundColor: `${activeAccent.hex}18`, color: activeAccent.hex }}
-							>
-								Whisper
-							</span>
-						</div>
-						<div
-							className={cn(
-								"text-[11.5px] font-bold mb-0.5",
-								isLight ? "text-zinc-900" : "text-zinc-200",
-							)}
-						>
-							AI Auto-Captions
-						</div>
-						<p
-							className={cn(
-								"text-[10px] leading-snug",
-								isLight ? "text-zinc-500" : "text-zinc-400",
-							)}
-						>
-							On-device speech-to-text with word timing.
-						</p>
-					</div>
-				</div>
-
-				{/* Quick Tips / Keyboard Shortcut Strip */}
-				<div className="flex items-center justify-center gap-1.5 mt-3 text-[10.5px] font-medium text-zinc-500">
-					<span>Tip: Press</span>
+				{/* Quick Tips / Keyboard Shortcut Pill Strip */}
+				<div
+					className={cn(
+						"flex items-center justify-center gap-2 mt-4 px-4 py-1.5 rounded-full border text-[11px] font-medium shadow-sm",
+						isLight
+							? "bg-white/80 border-black/[0.05] text-zinc-600"
+							: "bg-white/[0.03] border-white/[0.06] text-zinc-400",
+					)}
+				>
+					<span>Quick open:</span>
 					<kbd
 						className={cn(
-							"px-1.5 py-0.5 rounded border text-[9.5px] font-mono font-bold",
+							"px-2 py-0.5 rounded-full border text-[10px] font-mono font-bold shadow-2xs",
 							isLight
-								? "bg-zinc-100 border-zinc-300 text-zinc-700"
-								: "bg-white/[0.06] border-white/10 text-zinc-300",
+								? "bg-zinc-100 border-zinc-300 text-zinc-800"
+								: "bg-white/[0.08] border-white/15 text-zinc-200",
 						)}
 					>
 						Ctrl + O
 					</kbd>
-					<span>to open video or project, or drag files anywhere onto this screen</span>
+					<span className="text-zinc-400">•</span>
+					<span>or drag files anywhere to load</span>
+				</div>
+			</div>
+
+			{/* Floating "What's New" Button — Bottom Right */}
+			{!whatsNewOpen && (
+				<button
+					type="button"
+					onClick={() => setWhatsNewOpen(true)}
+					className={cn(
+						"absolute bottom-5 right-5 z-20 flex items-center gap-2 px-4 py-2.5 rounded-full border text-xs font-bold transition-all duration-200 cursor-pointer shadow-lg hover:scale-[1.03] active:scale-[0.97] group",
+						isLight
+							? "bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-800 shadow-zinc-200/60"
+							: "bg-[#151720] hover:bg-[#1a1d2a] border-white/[0.1] hover:border-white/[0.18] text-zinc-200 shadow-black/40",
+					)}
+				>
+					<span
+						className="flex items-center justify-center w-5 h-5 rounded-md transition-colors"
+						style={{ backgroundColor: `${activeAccent.hex}20` }}
+					>
+						<Sparkles className="w-3 h-3 text-amber-400" />
+					</span>
+					<span>What's New</span>
+					<span
+						className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider"
+						style={{
+							backgroundColor: `${activeAccent.hex}18`,
+							borderColor: `${activeAccent.hex}35`,
+							color: activeAccent.hex,
+						}}
+					>
+						{CHANGELOG_DATA[0].version}
+					</span>
+				</button>
+			)}
+
+			{/* Slide-In "What's New" Panel — Right Side, No Overlay */}
+			<div
+				className={cn(
+					"absolute top-0 right-0 bottom-0 z-30 flex flex-col transition-transform duration-300 ease-out",
+					"w-[380px] max-w-[90vw]",
+					isLight
+						? "bg-white border-l border-zinc-200 shadow-[-8px_0_30px_rgba(0,0,0,0.06)]"
+						: "bg-[#0e1017] border-l border-white/[0.08] shadow-[-8px_0_30px_rgba(0,0,0,0.5)]",
+					whatsNewOpen ? "translate-x-0" : "translate-x-full",
+				)}
+			>
+				{/* Panel Header */}
+				<div
+					className={cn(
+						"flex items-center justify-between px-5 py-3.5 border-b shrink-0",
+						isLight ? "border-zinc-200" : "border-white/[0.06]",
+					)}
+				>
+					<div className="flex items-center gap-2.5">
+						<div
+							className="w-7 h-7 rounded-xl flex items-center justify-center"
+							style={{ backgroundColor: `${activeAccent.hex}18` }}
+						>
+							<Sparkles className="w-3.5 h-3.5 text-amber-400" />
+						</div>
+						<div>
+							<h2
+								className={cn(
+									"text-sm font-bold tracking-tight leading-tight",
+									isLight ? "text-zinc-900" : "text-white",
+								)}
+							>
+								What's New
+							</h2>
+							<span
+								className={cn(
+									"text-[10px] font-medium",
+									isLight ? "text-zinc-500" : "text-zinc-400",
+								)}
+							>
+								Ocal Screen v{CHANGELOG_DATA[0].version}
+							</span>
+						</div>
+					</div>
+					<button
+						type="button"
+						onClick={() => setWhatsNewOpen(false)}
+						className={cn(
+							"flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer active:scale-95",
+							isLight
+								? "bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-600 hover:text-zinc-900"
+								: "bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white",
+						)}
+					>
+						<ChevronLeft className="w-3.5 h-3.5" />
+						<span>Close</span>
+					</button>
+				</div>
+
+				{/* Scrollable Content */}
+				<div className="flex-1 overflow-y-auto custom-scrollbar py-3">
+					<WhatsNewSection
+						isLight={isLight}
+						accentHex={activeAccent.hex}
+						initialVersion={CHANGELOG_DATA[0].version}
+					/>
 				</div>
 			</div>
 		</div>

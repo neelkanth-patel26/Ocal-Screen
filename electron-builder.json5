@@ -45,6 +45,18 @@
       "to": "caption-assets"
     }
   ],
+  "fileAssociations": [
+    {
+      "ext": "ocalscreen",
+      "name": "Ocal Screen Project",
+      "role": "Editor"
+    },
+    {
+      "ext": "openscreen",
+      "name": "Ocal Screen Legacy Project",
+      "role": "Editor"
+    }
+  ],
 
   "mac": {
     "notarize": false,

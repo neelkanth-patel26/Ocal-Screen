@@ -1628,23 +1628,43 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								: frame.sample;
 							const cameraContainer = cameraContainerRef.current;
 							const videoContainer = videoContainerRef.current;
-							const cropRegionValue = cropRegionRef.current ?? { x: 0, y: 0, width: 1, height: 1 };
+							const crop = cropRegionRef.current ?? { x: 0, y: 0, width: 1, height: 1 };
+							const fullVideoWidth =
+								videoRef.current?.videoWidth ||
+								(videoSizeRef.current.width > 0 && crop.width > 0
+									? videoSizeRef.current.width / crop.width
+									: 0);
+							const fullVideoHeight =
+								videoRef.current?.videoHeight ||
+								(videoSizeRef.current.height > 0 && crop.height > 0
+									? videoSizeRef.current.height / crop.height
+									: 0);
+							const videoDims =
+								fullVideoWidth > 0 && fullVideoHeight > 0
+									? { width: fullVideoWidth, height: fullVideoHeight }
+									: undefined;
 							const projectedLocalPoint = projectNativeCursorToLocal({
-								cropRegion: cropRegionValue,
+								baseOffset: baseOffsetRef.current,
+								baseScale: baseScaleRef.current,
+								cropRegion: crop,
 								maskRect: baseMaskRef.current,
 								sample: displaySample,
+								videoDimensions: videoDims,
 							});
 							const projectedStagePoint =
 								cameraContainer && videoContainer
 									? projectNativeCursorToStage({
+											baseOffset: baseOffsetRef.current,
+											baseScale: baseScaleRef.current,
 											cameraContainer,
-											cropRegion: cropRegionValue,
+											cropRegion: crop,
 											maskRect: baseMaskRef.current,
 											videoContainerPosition: {
 												x: videoContainer.x,
 												y: videoContainer.y,
 											},
 											sample: displaySample,
+											videoDimensions: videoDims,
 										})
 									: null;
 							if (projectedLocalPoint && projectedStagePoint) {
@@ -1665,10 +1685,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									getNativeCursorClickBounceScale(cursorClickBounceRef.current, bounceProgress);
 								// Normalize cursor size to the displayed video width so the cursor
 								// appears at the same fraction of the video in both preview and export.
-								const crop = cropRegionRef.current ?? { x: 0, y: 0, width: 1, height: 1 };
 								const croppedVideoWidth = (videoRef.current?.videoWidth ?? 0) * crop.width;
 								const sizeNorm =
-									croppedVideoWidth > 0 ? baseMaskRef.current.width / croppedVideoWidth : 1;
+									baseScaleRef.current > 0
+										? baseScaleRef.current
+										: croppedVideoWidth > 0
+											? baseMaskRef.current.width / croppedVideoWidth
+											: 1;
 								const transformedScale = scale * Math.abs(cameraContainer?.scale.x || 1) * sizeNorm;
 								const blurPx =
 									!isPlayingRef.current || isSeekingRef.current
