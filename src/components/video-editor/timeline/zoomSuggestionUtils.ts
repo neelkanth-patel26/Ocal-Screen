@@ -159,15 +159,23 @@ export interface AutoZoomSuggestion {
 	intent?: "text-input" | "click" | "dwell" | "flow";
 }
 
+export type AutoZoomIntensity = "subtle" | "balanced" | "cinematic";
+export type AutoZoomFraming = "rule-of-thirds" | "centered";
+
 /**
  * Calculates balanced framing using the Rule of Thirds and Margin Guardian,
  * ensuring the zoomed camera viewport stays comfortably within video bounds
  * while keeping essential context (menus, fields) in frame.
  */
-function calculateFramingFocus(cx: number, cy: number, scale: number): ZoomFocus {
+export function calculateFramingFocus(
+	cx: number,
+	cy: number,
+	scale: number,
+	framing: AutoZoomFraming = "rule-of-thirds",
+): ZoomFocus {
 	const halfWidth = 0.5 / scale;
 	const halfHeight = 0.5 / scale;
-	const margin = 0.03;
+	const margin = 0.035;
 	const minX = halfWidth + margin;
 	const maxX = 1 - halfWidth - margin;
 	const minY = halfHeight + margin;
@@ -177,16 +185,18 @@ function calculateFramingFocus(cx: number, cy: number, scale: number): ZoomFocus
 	let framedY = cy;
 
 	// Rule of Thirds contextual bias: leave breathing room for dropdowns/menus below top targets
-	if (cy < 0.4) {
-		framedY = Math.min(maxY, cy + 0.04);
-	} else if (cy > 0.6) {
-		framedY = Math.max(minY, cy - 0.04);
-	}
+	if (framing === "rule-of-thirds") {
+		if (cy < 0.4) {
+			framedY = Math.min(maxY, cy + 0.045);
+		} else if (cy > 0.6) {
+			framedY = Math.max(minY, cy - 0.045);
+		}
 
-	if (cx < 0.4) {
-		framedX = Math.min(maxX, cx + 0.04);
-	} else if (cx > 0.6) {
-		framedX = Math.max(minX, cx - 0.04);
+		if (cx < 0.4) {
+			framedX = Math.min(maxX, cx + 0.045);
+		} else if (cx > 0.6) {
+			framedX = Math.max(minX, cx - 0.045);
+		}
 	}
 
 	return {
@@ -201,6 +211,8 @@ export function buildAutoZoomSuggestions(options: {
 	totalMs: number;
 	existingRegions: { startMs: number; endMs: number }[];
 	defaultDurationMs: number;
+	intensity?: AutoZoomIntensity;
+	framing?: AutoZoomFraming;
 }): AutoZoomSuggestion[] {
 	const {
 		cursorTelemetry,
@@ -208,6 +220,8 @@ export function buildAutoZoomSuggestions(options: {
 		totalMs,
 		existingRegions,
 		defaultDurationMs,
+		intensity = "balanced",
+		framing = "rule-of-thirds",
 	} = options;
 	if (totalMs <= 0) {
 		return [];
@@ -220,11 +234,19 @@ export function buildAutoZoomSuggestions(options: {
 
 	const normalizedSamples = normalizeCursorTelemetry(cursorTelemetry, totalMs);
 
+	// Scale multipliers based on chosen intensity preset
+	const intensityMultipliers = {
+		subtle: { click: 1.35, text: 1.55, flow: 1.25, dwell: 1.3 },
+		balanced: { click: 1.55, text: 1.85, flow: 1.38, dwell: 1.45 },
+		cinematic: { click: 1.75, text: 2.15, flow: 1.5, dwell: 1.6 },
+	}[intensity] ?? { click: 1.55, text: 1.85, flow: 1.38, dwell: 1.45 };
+
 	// 1. Detect all active interaction points with intent tagging
 	interface DetectedPoint {
 		timeMs: number;
 		cx: number;
 		cy: number;
+		weight: number;
 		intent: "text-input" | "click" | "action";
 	}
 
@@ -237,6 +259,7 @@ export function buildAutoZoomSuggestions(options: {
 				timeMs: clickMs,
 				cx: clampFocus(focus.cx),
 				cy: clampFocus(focus.cy),
+				weight: 3.0, // Primary click weight
 				intent: "click",
 			});
 		}
@@ -256,6 +279,7 @@ export function buildAutoZoomSuggestions(options: {
 				timeMs: s.timeMs,
 				cx: clampFocus(s.cx),
 				cy: clampFocus(s.cy),
+				weight: 2.5,
 				intent: "text-input",
 			});
 		} else if (isClick) {
@@ -263,6 +287,7 @@ export function buildAutoZoomSuggestions(options: {
 				timeMs: s.timeMs,
 				cx: clampFocus(s.cx),
 				cy: clampFocus(s.cy),
+				weight: 3.0,
 				intent: "click",
 			});
 		}
@@ -276,6 +301,65 @@ export function buildAutoZoomSuggestions(options: {
 		customScale: number;
 		intent: "text-input" | "click" | "dwell" | "flow";
 	}> = [];
+
+	const computeClusterCenter = (cluster: DetectedPoint[]) => {
+		let totalWeight = 0;
+		let sumX = 0;
+		let sumY = 0;
+		for (let idx = 0; idx < cluster.length; idx++) {
+			const p = cluster[idx];
+			// Progressive temporal weighting: recent points in sequence carry extra weight
+			const recency = 1 + 0.3 * (idx / Math.max(1, cluster.length - 1));
+			const w = p.weight * recency;
+			totalWeight += w;
+			sumX += p.cx * w;
+			sumY += p.cy * w;
+		}
+		return {
+			cx: totalWeight > 0 ? sumX / totalWeight : 0.5,
+			cy: totalWeight > 0 ? sumY / totalWeight : 0.5,
+		};
+	};
+
+	const emitClusterCandidate = (cluster: DetectedPoint[]) => {
+		if (cluster.length === 0) return;
+
+		const hasTextInput = cluster.some((p) => p.intent === "text-input");
+		const isMultiActionFlow = cluster.length >= 3;
+
+		let intent: "text-input" | "click" | "flow" = "click";
+		let targetScale = intensityMultipliers.click;
+		let preRoll = 420;
+		let postHold = 2000;
+
+		if (hasTextInput) {
+			intent = "text-input";
+			targetScale = intensityMultipliers.text;
+			preRoll = 500;
+			postHold = 2600;
+		} else if (isMultiActionFlow) {
+			intent = "flow";
+			targetScale = intensityMultipliers.flow;
+			preRoll = 450;
+			postHold = 2200;
+		}
+
+		const start = Math.max(0, Math.round(cluster[0].timeMs - preRoll));
+		const lastTime = cluster[cluster.length - 1].timeMs;
+		const end = Math.min(totalMs, Math.round(lastTime + postHold));
+
+		const center = computeClusterCenter(cluster);
+		const framedFocus = calculateFramingFocus(center.cx, center.cy, targetScale, framing);
+
+		candidates.push({
+			startMs: start,
+			endMs: Math.max(end, start + Math.max(defaultDuration, 2400)),
+			focus: framedFocus,
+			strength: 100000 + cluster.length * 100 + (hasTextInput ? 500 : 0),
+			customScale: targetScale,
+			intent,
+		});
+	};
 
 	if (eventPoints.length > 0) {
 		eventPoints.sort((a, b) => a.timeMs - b.timeMs);
@@ -297,86 +381,13 @@ export function buildAutoZoomSuggestions(options: {
 			if (shouldFuse) {
 				currentCluster.push(curr);
 			} else {
-				const hasTextInput = currentCluster.some((p) => p.intent === "text-input");
-				const isMultiActionFlow = currentCluster.length >= 3;
-
-				let intent: "text-input" | "click" | "flow" = "click";
-				let targetScale = 1.55;
-				let preRoll = 420;
-				let postHold = 2000;
-
-				if (hasTextInput) {
-					intent = "text-input";
-					targetScale = 1.85; // Deep zoom on typing & form fields
-					preRoll = 500;
-					postHold = 2500;
-				} else if (isMultiActionFlow) {
-					intent = "flow";
-					targetScale = 1.38; // Medium balanced zoom for multi-step workflows
-					preRoll = 450;
-					postHold = 2200;
-				}
-
-				const start = Math.max(0, Math.round(currentCluster[0].timeMs - preRoll));
-				const lastTime = currentCluster[currentCluster.length - 1].timeMs;
-				const end = Math.min(totalMs, Math.round(lastTime + postHold));
-
-				const rawCx = currentCluster.reduce((sum, p) => sum + p.cx, 0) / currentCluster.length;
-				const rawCy = currentCluster.reduce((sum, p) => sum + p.cy, 0) / currentCluster.length;
-
-				const framedFocus = calculateFramingFocus(rawCx, rawCy, targetScale);
-
-				candidates.push({
-					startMs: start,
-					endMs: Math.max(end, start + Math.max(defaultDuration, 2400)),
-					focus: framedFocus,
-					strength: 100000 + currentCluster.length * 100 + (hasTextInput ? 500 : 0),
-					customScale: targetScale,
-					intent,
-				});
-
+				emitClusterCandidate(currentCluster);
 				currentCluster = [curr];
 			}
 		}
 
 		if (currentCluster.length > 0) {
-			const hasTextInput = currentCluster.some((p) => p.intent === "text-input");
-			const isMultiActionFlow = currentCluster.length >= 3;
-
-			let intent: "text-input" | "click" | "flow" = "click";
-			let targetScale = 1.55;
-			let preRoll = 420;
-			let postHold = 2000;
-
-			if (hasTextInput) {
-				intent = "text-input";
-				targetScale = 1.85;
-				preRoll = 500;
-				postHold = 2500;
-			} else if (isMultiActionFlow) {
-				intent = "flow";
-				targetScale = 1.38;
-				preRoll = 450;
-				postHold = 2200;
-			}
-
-			const start = Math.max(0, Math.round(currentCluster[0].timeMs - preRoll));
-			const lastTime = currentCluster[currentCluster.length - 1].timeMs;
-			const end = Math.min(totalMs, Math.round(lastTime + postHold));
-
-			const rawCx = currentCluster.reduce((sum, p) => sum + p.cx, 0) / currentCluster.length;
-			const rawCy = currentCluster.reduce((sum, p) => sum + p.cy, 0) / currentCluster.length;
-
-			const framedFocus = calculateFramingFocus(rawCx, rawCy, targetScale);
-
-			candidates.push({
-				startMs: start,
-				endMs: Math.max(end, start + Math.max(defaultDuration, 2400)),
-				focus: framedFocus,
-				strength: 100000 + currentCluster.length * 100 + (hasTextInput ? 500 : 0),
-				customScale: targetScale,
-				intent,
-			});
+			emitClusterCandidate(currentCluster);
 		}
 	}
 
@@ -388,8 +399,8 @@ export function buildAutoZoomSuggestions(options: {
 			const end = Math.min(totalMs, Math.round(dwell.centerTimeMs + defaultDuration / 2));
 			const coveredByCluster = candidates.some((c) => start < c.endMs && end > c.startMs);
 			if (!coveredByCluster) {
-				const dwellScale = 1.42;
-				const framed = calculateFramingFocus(dwell.focus.cx, dwell.focus.cy, dwellScale);
+				const dwellScale = intensityMultipliers.dwell;
+				const framed = calculateFramingFocus(dwell.focus.cx, dwell.focus.cy, dwellScale, framing);
 				candidates.push({
 					startMs: start,
 					endMs: end,

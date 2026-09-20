@@ -9,6 +9,11 @@ export default defineConfig({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version),
 	},
+	server: {
+		watch: {
+			ignored: ["**/release/**", "**/dist-electron/**", "**/dist-inno/**", "**/dist/**"],
+		},
+	},
 	plugins: [
 		react(),
 		electron({

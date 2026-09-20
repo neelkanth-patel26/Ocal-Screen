@@ -1,13 +1,13 @@
 ; ============================================================
 ;  Ocal Screen - Inno Setup 6 Installer Script
-;  Version  : 2.9.00 Stable
+;  Version  : 3.0.00 Stable
 ;  Publisher: Gaming Network Studio Media Group & Ocal Software
 ; ============================================================
 
 [Setup]
 AppName=Ocal Screen
-AppVersion=2.9.00
-AppVerName=Ocal Screen 2.9.00 Stable
+AppVersion=3.0.00
+AppVerName=Ocal Screen 3.0.00 Stable
 AppPublisher=Gaming Network Studio Media Group & Ocal Software
 AppPublisherURL=https://gamingnetworkstudio.vercel.app
 AppSupportURL=https://github.com/neelkanth-patel26/Ocal-Screen/issues
@@ -16,7 +16,7 @@ AppCopyright=Copyright (C) 2026 Gaming Network Studio Media Group
 DefaultDirName={autopf}\Ocal Screen
 DefaultGroupName=Ocal Screen
 OutputDir=dist-inno
-OutputBaseFilename=Ocal-Screen-2.9.00-Setup
+OutputBaseFilename=Ocal-Screen-3.0.00-Setup
 SetupIconFile=icons\icons\win\icon.ico
 Compression=lzma2/max
 SolidCompression=yes
@@ -26,12 +26,12 @@ LicenseFile=license.txt
 InfoBeforeFile=catalog.txt
 PrivilegesRequired=admin
 UninstallDisplayIcon={app}\Ocal Screen.exe
-UninstallDisplayName=Ocal Screen 2.9.00 Stable
-VersionInfoVersion=2.9.0.0
+UninstallDisplayName=Ocal Screen 3.0.00 Stable
+VersionInfoVersion=3.0.0.0
 VersionInfoCompany=Gaming Network Studio Media Group
 VersionInfoDescription=Ocal Screen Studio Installer
 VersionInfoProductName=Ocal Screen
-VersionInfoProductVersion=2.9.0.0
+VersionInfoProductVersion=3.0.0.0
 WizardStyle=modern
 WizardResizable=no
 ShowLanguageDialog=no
@@ -43,7 +43,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Package all unpacked Electron application files cleanly
-Source: "release\2.9.0\win-unpacked\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "release\3.0.0\win-unpacked\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\Ocal Screen";       Filename: "{app}\Ocal Screen.exe"; IconFilename: "{app}\Ocal Screen.exe"; AppUserModelID: "com.ocal.screen.v2"
@@ -52,7 +52,7 @@ Name: "{autodesktop}\Ocal Screen";         Filename: "{app}\Ocal Screen.exe"; Ta
 
 [Run]
 Filename: "{app}\Ocal Screen.exe"; Description: "{cm:LaunchProgram,Ocal Screen}"; Flags: nowait postinstall skipifsilent
-Filename: "https://github.com/neelkanth-patel26/Ocal-Screen/releases/tag/v2.9.00"; Description: "View Detailed Studio Catalog on GitHub"; Flags: shellexec postinstall skipifsilent unchecked
+Filename: "https://github.com/neelkanth-patel26/Ocal-Screen/releases/tag/v3.0.00"; Description: "View Detailed Studio Catalog on GitHub"; Flags: shellexec postinstall skipifsilent unchecked
 
 [Code]
 var
@@ -93,14 +93,14 @@ begin
       wpInfoBefore,
       'Upgrade Mode Selection',
       'An existing installation of Ocal Screen was detected on this system.',
-      'Select how you would like Setup to perform this v2.9.00 upgrade:',
+      'Select how you would like Setup to perform this v3.0.00 upgrade:',
       True, False
     );
 
     UpgradeModePage.Add(
       'Full Studio Upgrade (Recommended)'#13#10 +
       '   Performs a clean, complete install: Purges previous application binaries'#13#10 +
-      '   and cached runtime files before installing v2.9.00 Stable. User projects,'#13#10 +
+      '   and cached runtime files before installing v3.0.00 Stable. User projects,'#13#10 +
       '   recordings, and studio preferences remain completely safe and intact.'
     );
     UpgradeModePage.Add(
@@ -115,10 +115,10 @@ begin
     UpgradeModePage.SelectedValueIndex := 0;
 
     // Update Welcome labels dynamically
-    WizardForm.WelcomeLabel1.Caption := 'Welcome to Ocal Screen v2.9.00 Stable Upgrade';
+    WizardForm.WelcomeLabel1.Caption := 'Welcome to Ocal Screen v3.0.00 Stable Upgrade';
     WizardForm.WelcomeLabel2.Caption :=
       'Setup detected an existing version of Ocal Screen.'#13#10#13#10 +
-      'This wizard will upgrade your installation to Ocal Screen v2.9.00 Stable with all new features, studio layouts, and performance improvements.'#13#10#13#10 +
+      'This wizard will upgrade your installation to Ocal Screen v3.0.00 Stable with all new features, studio layouts, and performance improvements.'#13#10#13#10 +
       'Click Next to review the detailed feature catalog and configure your upgrade.';
   end;
 end;

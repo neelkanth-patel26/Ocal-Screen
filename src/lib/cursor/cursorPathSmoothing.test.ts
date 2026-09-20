@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CursorRecordingData, CursorRecordingSample } from "@/native/contracts";
+import type { CursorRecordingData, CursorRecordingSample } from "../../native/contracts";
 import { getSmoothedCursorPath } from "./cursorPathSmoothing";
 
 function makeRecording(samples: CursorRecordingSample[]): CursorRecordingData {

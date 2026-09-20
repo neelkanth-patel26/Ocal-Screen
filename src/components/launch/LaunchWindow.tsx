@@ -1,10 +1,28 @@
-import { Check, ChevronDown, Clapperboard, Columns3, Languages, Rows3 } from "lucide-react";
+import {
+	Check,
+	ChevronDown,
+	Clapperboard,
+	Columns3,
+	Languages,
+	Mic,
+	MicOff,
+	Minus,
+	Monitor,
+	Moon,
+	MousePointer,
+	Rows3,
+	Sun,
+	Video,
+	VideoOff,
+	Volume2,
+	VolumeX,
+	X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
 import { FaRegStopCircle } from "react-icons/fa";
 import { FaFolderOpen } from "react-icons/fa6";
-import { FiMinus, FiMoon, FiSun, FiX } from "react-icons/fi";
 import {
 	MdCancel,
 	MdMic,
@@ -27,6 +45,7 @@ import {
 	loadUserPreferences,
 	saveUserPreferences,
 } from "@/lib/userPreferences";
+import { cn } from "@/lib/utils";
 import { nativeBridgeClient } from "@/native";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
 import { useCameraDevices } from "../../hooks/useCameraDevices";
@@ -40,8 +59,6 @@ import { Tooltip } from "../ui/tooltip";
 import styles from "./LaunchWindow.module.css";
 import { openSourceSelectorWithPermissionRetry } from "./openSourceSelectorFlow";
 import { WebcamPreviewBubble } from "./WebcamPreviewBubble";
-
-const ICON_SIZE = 18;
 
 // Vertical tray gap (px): bar's `bottom-5` (20px) plus an 8px gap.
 const HUD_DEVICE_POPUP_GAP = 28;
@@ -66,10 +83,6 @@ const ICON_CONFIG = {
 	record: { icon: BsRecordCircle, size: 16 },
 	videoFile: { icon: MdVideoFile, size: 16 },
 	folder: { icon: FaFolderOpen, size: 16 },
-	sun: { icon: FiSun, size: 15 },
-	moon: { icon: FiMoon, size: 15 },
-	minimize: { icon: FiMinus, size: 15 },
-	close: { icon: FiX, size: 15 },
 } as const;
 
 type IconName = keyof typeof ICON_CONFIG;
@@ -222,8 +235,8 @@ export function LaunchWindow() {
 	}, [themeMode]);
 
 	const iconBtnClasses = isLight
-		? "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-zinc-600 hover:text-zinc-950 hover:bg-black/[0.06] active:scale-95"
-		: "flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-zinc-400 hover:text-white hover:bg-white/[0.08] active:scale-95";
+		? "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200 active:scale-95"
+		: "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150 cursor-pointer text-zinc-400 hover:text-white hover:bg-[#202433] active:scale-95";
 
 	const [supportsCursorModeToggle, setSupportsCursorModeToggle] = useState(false);
 	const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -996,36 +1009,24 @@ export function LaunchWindow() {
 					}
 				}}
 			>
-				{/* Brand Logo & Pill */}
+				{/* Brand Logo */}
 				{trayLayout === "vertical" ? (
-					<div className="flex flex-col items-center gap-1 pt-0.5 pb-0.5">
+					<div className="flex flex-col items-center pt-1 pb-0.5 shrink-0">
 						<span
-							className={`text-[11px] font-black tracking-tight leading-none ${isLight ? "text-zinc-900" : "text-white"}`}
+							className={`text-[11px] font-bold tracking-tight leading-none ${isLight ? "text-zinc-950" : "text-white"}`}
 						>
 							ocal
-						</span>
-						<span
-							className="rounded-full px-1.5 py-0.5 text-[7.5px] font-black uppercase tracking-wider leading-none"
-							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
-						>
-							REC
 						</span>
 					</div>
 				) : (
-					<div className="flex items-center gap-1.5 pl-0.5">
+					<div className="flex items-center pl-2 pr-1 shrink-0">
 						<span
-							className={`text-[13px] font-extrabold tracking-tight ${isLight ? "text-zinc-950" : "text-white"}`}
+							className={cn(
+								"text-[13px] font-extrabold tracking-tight whitespace-nowrap select-none",
+								isLight ? "text-zinc-950" : "text-white",
+							)}
 						>
-							ocal
-						</span>
-						<span
-							className="rounded-full px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider transition-all duration-200"
-							style={{
-								backgroundColor: activeAccent.hex,
-								color: activeAccent.textHex,
-							}}
-						>
-							SCREEN
+							ocal screen
 						</span>
 					</div>
 				)}
@@ -1034,8 +1035,8 @@ export function LaunchWindow() {
 				<div
 					className={`flex items-center justify-center cursor-grab active:cursor-grabbing ${styles.dragGrip} ${styles.electronNoDrag} ${
 						trayLayout === "vertical"
-							? "w-full h-3.5 my-0.5"
-							: "h-7 px-1 rounded-md hover:bg-white/5"
+							? "w-full h-3 my-0.5"
+							: "h-7.5 px-1 rounded-md hover:bg-white/5"
 					}`}
 					onPointerDown={handleHudDragPointerDown}
 					onPointerMove={handleHudDragPointerMove}
@@ -1052,21 +1053,25 @@ export function LaunchWindow() {
 				{/* Source Selector Pill */}
 				<button
 					data-testid="launch-source-selector-button"
-					className={`${
-						isLight ? styles.sourcePillLight : styles.sourcePillDark
-					} flex items-center gap-1.5 rounded-full transition-all duration-150 active:scale-95 cursor-pointer ${
-						trayLayout === "vertical" ? "w-8 h-8 justify-center p-0" : "h-7 px-2.5"
-					} ${styles.electronNoDrag} ${recording ? "opacity-60 cursor-not-allowed" : ""}`}
+					className={cn(
+						"flex items-center gap-2 rounded-full transition-all duration-150 active:scale-95 cursor-pointer border shadow-2xs",
+						isLight ? styles.sourcePillLight : styles.sourcePillDark,
+						trayLayout === "vertical" ? "w-8 h-8 justify-center p-0" : "h-8 px-3",
+						styles.electronNoDrag,
+						recording ? "opacity-50 cursor-not-allowed" : "",
+					)}
 					onClick={openSourceSelector}
 					disabled={recording}
 					title={selectedSource}
 					aria-label={selectedSource}
 				>
-					{getIcon("monitor", isLight ? "text-zinc-700" : "text-zinc-300")}
+					<Monitor size={15} className={isLight ? "text-zinc-700" : "text-zinc-300"} />
 					<span
-						className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[80px]"} truncate text-[11px] font-medium tracking-tight ${
-							isLight ? "text-zinc-800" : "text-zinc-200"
-						}`}
+						className={cn(
+							"truncate text-[11.5px] font-semibold tracking-tight",
+							trayLayout === "vertical" ? "sr-only" : "max-w-[85px]",
+							isLight ? "text-zinc-800" : "text-zinc-200",
+						)}
 					>
 						{selectedSource}
 					</span>
@@ -1077,22 +1082,21 @@ export function LaunchWindow() {
 
 				{/* Divider */}
 				<div
-					className={`${
-						trayLayout === "vertical"
-							? isLight
-								? "w-6 h-[1px] bg-black/10 my-0.5"
-								: "w-6 h-[1px] bg-white/10 my-0.5"
-							: isLight
-								? "h-4 w-[1px] bg-black/10 mx-0.5"
-								: "h-4 w-[1px] bg-white/10 mx-0.5"
-					} shrink-0`}
+					className={cn(
+						trayLayout === "vertical" ? "w-6 h-px my-0.5" : "h-4 w-px mx-0.5",
+						isLight ? styles.dividerLight : styles.dividerDark,
+						"shrink-0",
+					)}
 				/>
 
 				{/* Studio Media Hub (Audio, Mic, Webcam, Cursor) */}
 				<div
-					className={`flex items-center rounded-full ${
-						isLight ? styles.mediaCapsuleLight : styles.mediaCapsuleDark
-					} ${trayLayout === "vertical" ? "flex-col gap-1 p-1" : "gap-0.5 p-0.5"} ${styles.electronNoDrag}`}
+					className={cn(
+						"flex items-center rounded-full border shadow-2xs p-1",
+						isLight ? styles.mediaCapsuleLight : styles.mediaCapsuleDark,
+						trayLayout === "vertical" ? "flex-col gap-1.5 p-1.5" : "gap-1",
+						styles.electronNoDrag,
+					)}
 				>
 					<Tooltip
 						content={
@@ -1101,25 +1105,26 @@ export function LaunchWindow() {
 					>
 						<button
 							data-testid="launch-system-audio-button"
-							className={`relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
+							className={cn(
+								"relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95",
 								systemAudioEnabled
 									? isLight
-										? "bg-zinc-900 text-white shadow-sm"
-										: "bg-white/20 text-white shadow-sm"
+										? "bg-white text-zinc-950 shadow-xs font-semibold"
+										: "bg-[#282d3e] text-white shadow-xs"
 									: isLight
-										? "text-zinc-400 hover:text-zinc-800 hover:bg-black/[0.05]"
-										: "text-zinc-400 hover:text-white hover:bg-white/[0.07]"
-							}`}
+										? "text-zinc-500 hover:text-zinc-950 hover:bg-zinc-200"
+										: "text-zinc-400 hover:text-white hover:bg-[#202433]",
+							)}
 							onClick={() => !recording && setSystemAudioEnabled(!systemAudioEnabled)}
 							disabled={recording}
 							aria-label={
 								systemAudioEnabled ? t("audio.disableSystemAudio") : t("audio.enableSystemAudio")
 							}
 						>
-							{getIcon("volumeOn")}
+							{systemAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
 							{systemAudioEnabled && (
 								<span
-									className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
+									className="absolute top-1 right-1 w-2 h-2 rounded-full shadow-xs"
 									style={{ backgroundColor: activeAccent.hex }}
 								/>
 							)}
@@ -1131,15 +1136,16 @@ export function LaunchWindow() {
 					>
 						<button
 							data-testid="launch-microphone-button"
-							className={`relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
+							className={cn(
+								"relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95",
 								microphoneEnabled
 									? isLight
-										? "bg-zinc-900 text-white shadow-sm"
-										: "bg-white/20 text-white shadow-sm"
+										? "bg-white text-zinc-950 shadow-xs font-semibold"
+										: "bg-[#282d3e] text-white shadow-xs"
 									: isLight
-										? "text-zinc-400 hover:text-zinc-800 hover:bg-black/[0.05]"
-										: "text-zinc-400 hover:text-white hover:bg-white/[0.07]"
-							}`}
+										? "text-zinc-500 hover:text-zinc-950 hover:bg-zinc-200"
+										: "text-zinc-400 hover:text-white hover:bg-[#202433]",
+							)}
 							onMouseEnter={handleMicEnter}
 							onMouseLeave={handleMicLeave}
 							onClick={toggleMicrophone}
@@ -1151,10 +1157,10 @@ export function LaunchWindow() {
 								setRecordPointerDownCount((count) => count + 1);
 							}}
 						>
-							{getIcon(microphoneEnabled ? "micOn" : "micOff")}
+							{microphoneEnabled ? <Mic size={18} /> : <MicOff size={18} />}
 							{microphoneEnabled && (
 								<span
-									className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
+									className="absolute top-1 right-1 w-2 h-2 rounded-full shadow-xs"
 									style={{ backgroundColor: activeAccent.hex }}
 								/>
 							)}
@@ -1164,15 +1170,16 @@ export function LaunchWindow() {
 					<Tooltip content={webcamEnabled ? t("webcam.disableWebcam") : t("webcam.enableWebcam")}>
 						<button
 							data-testid="launch-webcam-button"
-							className={`relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
+							className={cn(
+								"relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95",
 								webcamEnabled
 									? isLight
-										? "bg-zinc-900 text-white shadow-sm"
-										: "bg-white/20 text-white shadow-sm"
+										? "bg-white text-zinc-950 shadow-xs font-semibold"
+										: "bg-[#282d3e] text-white shadow-xs"
 									: isLight
-										? "text-zinc-400 hover:text-zinc-800 hover:bg-black/[0.05]"
-										: "text-zinc-400 hover:text-white hover:bg-white/[0.07]"
-							}`}
+										? "text-zinc-500 hover:text-zinc-950 hover:bg-zinc-200"
+										: "text-zinc-400 hover:text-white hover:bg-[#202433]",
+							)}
 							onMouseEnter={handleWebcamEnter}
 							onMouseLeave={handleWebcamLeave}
 							onClick={async () => {
@@ -1181,10 +1188,10 @@ export function LaunchWindow() {
 							disabled={recording}
 							aria-label={webcamEnabled ? t("webcam.disableWebcam") : t("webcam.enableWebcam")}
 						>
-							{getIcon(webcamEnabled ? "webcamOn" : "webcamOff")}
+							{webcamEnabled ? <Video size={18} /> : <VideoOff size={18} />}
 							{webcamEnabled && (
 								<span
-									className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
+									className="absolute top-1 right-1 w-2 h-2 rounded-full shadow-xs"
 									style={{ backgroundColor: activeAccent.hex }}
 								/>
 							)}
@@ -1201,22 +1208,16 @@ export function LaunchWindow() {
 						>
 							<button
 								data-testid="launch-cursor-mode-button"
-								className={`relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95 ${
+								className={cn(
+									"relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150 cursor-pointer active:scale-95",
 									cursorCaptureMode === "editable-overlay"
 										? isLight
-											? "font-bold shadow-sm"
-											: "bg-white/20 shadow-sm"
+											? "bg-white text-zinc-950 shadow-xs font-semibold"
+											: "bg-[#282d3e] text-white shadow-xs"
 										: isLight
-											? "text-zinc-400 hover:text-zinc-800 hover:bg-black/[0.05]"
-											: "text-zinc-400 hover:text-white hover:bg-white/[0.07]"
-								}`}
-								style={
-									cursorCaptureMode === "editable-overlay"
-										? isLight
-											? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
-											: { color: activeAccent.hex }
-										: undefined
-								}
+											? "text-zinc-500 hover:text-zinc-950 hover:bg-zinc-200"
+											: "text-zinc-400 hover:text-white hover:bg-[#202433]",
+								)}
 								onClick={() =>
 									!recording &&
 									setCursorCaptureMode(
@@ -1230,10 +1231,10 @@ export function LaunchWindow() {
 										: t("cursor.useEditableCursor")
 								}
 							>
-								{getIcon("cursor")}
+								<MousePointer size={18} />
 								{cursorCaptureMode === "editable-overlay" && (
 									<span
-										className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
+										className="absolute top-1 right-1 w-2 h-2 rounded-full shadow-xs"
 										style={{ backgroundColor: activeAccent.hex }}
 									/>
 								)}
@@ -1242,125 +1243,145 @@ export function LaunchWindow() {
 					)}
 				</div>
 
-				{/* Hero Record Button & Recording Controls */}
-				<button
-					data-testid="launch-record-button"
-					className={`flex items-center justify-center rounded-full transition-all duration-200 active:scale-95 cursor-pointer select-none ${
-						trayLayout === "vertical" ? "w-8 h-8 p-0" : "px-3.5 py-1 min-h-[30px]"
-					} ${styles.electronNoDrag} ${
-						recording
-							? paused
-								? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
-								: "bg-red-500/25 text-red-200 border border-red-500/50 " + styles.recGlowActive
-							: hasSelectedSource
-								? isLight
-									? "bg-red-600 hover:bg-red-700 text-white shadow-[0_4px_14px_rgba(220,38,38,0.35)] hover:shadow-[0_6px_18px_rgba(220,38,38,0.45)] border border-red-700/40"
-									: "bg-gradient-to-r from-red-500/35 to-red-600/25 hover:from-red-500/45 hover:to-red-600/35 text-red-100 hover:text-white border border-red-500/40 shadow-[0_0_16px_rgba(239,68,68,0.25)] hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]"
-								: "bg-white/5 text-zinc-500 border border-white/5 cursor-not-allowed"
-					}`}
-					onClick={toggleRecording}
-					disabled={!hasSelectedSource && !recording}
-					style={{ flex: "0 0 auto" }}
-				>
-					<div
-						className={`flex items-center justify-center ${recording && trayLayout !== "vertical" ? "gap-2" : ""}`}
-					>
-						{recording ? (
-							getIcon("stop", paused ? "text-amber-300" : "text-red-300")
-						) : (
-							<div className="flex items-center gap-1.5">
-								<div
-									className={`w-2.5 h-2.5 rounded-full transition-all ${
-										hasSelectedSource
-											? isLight
-												? "bg-white"
-												: "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"
-											: "bg-zinc-600"
-									}`}
-								/>
-								{trayLayout !== "vertical" && (
-									<span
-										className={`text-[11px] font-black tracking-wider uppercase ${isLight ? "text-white" : "text-zinc-100"}`}
-									>
-										REC
-									</span>
-								)}
-							</div>
-						)}
-						{recording && trayLayout !== "vertical" && (
-							<span
-								className={`${paused ? "text-amber-300" : "text-red-200"} inline-block min-w-[36px] text-left text-xs font-mono font-bold tabular-nums`}
-							>
-								{formatTimePadded(elapsedSeconds)}
-							</span>
-						)}
-					</div>
-				</button>
+				{/* Divider */}
+				<div
+					className={cn(
+						trayLayout === "vertical" ? "w-6 h-px my-0.5" : "h-4 w-px mx-0.5",
+						isLight ? styles.dividerLight : styles.dividerDark,
+						"shrink-0",
+					)}
+				/>
 
-				{/* Active Recording Secondary Controls */}
-				{recording && (
-					<div
-						className={`flex items-center gap-1 ${trayLayout === "vertical" ? "flex-col gap-1" : ""} ${styles.electronNoDrag}`}
+				{/* Hero Record Button & Recording Controls */}
+				<div className={cn("flex items-center gap-1.5", styles.electronNoDrag)}>
+					<button
+						data-testid="launch-record-button"
+						className={cn(
+							"flex items-center justify-center rounded-full transition-all duration-200 active:scale-95 cursor-pointer select-none",
+							trayLayout === "vertical" ? "w-8 h-8 p-0" : "h-8 px-3.5",
+							styles.electronNoDrag,
+							recording
+								? paused
+									? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+									: "bg-red-500/25 text-red-100 border border-red-500/60 shadow-[0_0_16px_rgba(239,68,68,0.3)] " +
+										styles.recGlowActive
+								: hasSelectedSource
+									? isLight
+										? "bg-red-600 hover:bg-red-700 text-white shadow-[0_2px_10px_rgba(220,38,38,0.35)] hover:shadow-[0_4px_14px_rgba(220,38,38,0.45)] border border-red-700/40"
+										: "bg-red-500/20 hover:bg-red-500/30 text-white border border-red-500/40 hover:border-red-500/60 shadow-[0_0_16px_rgba(239,68,68,0.25)] hover:shadow-[0_0_22px_rgba(239,68,68,0.4)]"
+									: "bg-white/5 text-zinc-500 border border-white/5 cursor-not-allowed",
+						)}
+						onClick={toggleRecording}
+						disabled={!hasSelectedSource && !recording}
+						style={{ flex: "0 0 auto" }}
 					>
-						{canPauseRecording && (
-							<Tooltip
-								content={paused ? t("tooltips.resumeRecording") : t("tooltips.pauseRecording")}
-							>
-								<button className={hudAuxIconBtnClasses} onClick={togglePaused}>
-									{getIcon(
-										paused ? "resume" : "pause",
-										paused ? "text-amber-400" : "text-white/75",
+						<div
+							className={cn(
+								"flex items-center justify-center",
+								recording && trayLayout !== "vertical" ? "gap-2" : "",
+							)}
+						>
+							{recording ? (
+								getIcon("stop", paused ? "text-amber-300" : "text-red-300")
+							) : (
+								<div className="flex items-center gap-1.5">
+									<div
+										className={cn(
+											"w-2.5 h-2.5 rounded-full transition-all",
+											hasSelectedSource
+												? isLight
+													? "bg-white"
+													: "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"
+												: "bg-zinc-600",
+										)}
+									/>
+									{trayLayout !== "vertical" && (
+										<span
+											className={cn(
+												"text-[11px] font-black tracking-wider uppercase",
+												isLight ? "text-white" : "text-zinc-100",
+											)}
+										>
+											REC
+										</span>
 									)}
+								</div>
+							)}
+							{recording && trayLayout !== "vertical" && (
+								<span className="inline-flex items-center min-w-[38px] pl-0.5">
+									<span className="text-xs font-mono font-bold tracking-tight tabular-nums text-red-200">
+										{formatTimePadded(elapsedSeconds)}
+									</span>
+								</span>
+							)}
+						</div>
+					</button>
+
+					{/* Active Recording Secondary Controls */}
+					{recording && (
+						<div
+							className={cn(
+								"flex items-center gap-1",
+								trayLayout === "vertical" ? "flex-col" : "",
+								styles.electronNoDrag,
+							)}
+						>
+							{canPauseRecording && (
+								<Tooltip
+									content={paused ? t("tooltips.resumeRecording") : t("tooltips.pauseRecording")}
+								>
+									<button className={hudAuxIconBtnClasses} onClick={togglePaused}>
+										{getIcon(
+											paused ? "resume" : "pause",
+											paused ? "text-amber-400" : "text-white/80",
+										)}
+									</button>
+								</Tooltip>
+							)}
+							<Tooltip content={t("tooltips.restartRecording")}>
+								<button className={hudAuxIconBtnClasses} onClick={restartRecording}>
+									{getIcon("restart", "text-white/80")}
 								</button>
 							</Tooltip>
-						)}
-						<Tooltip content={t("tooltips.restartRecording")}>
-							<button className={hudAuxIconBtnClasses} onClick={restartRecording}>
-								{getIcon("restart", "text-white/75")}
-							</button>
-						</Tooltip>
-						<Tooltip content={t("tooltips.cancelRecording")}>
-							<button className={hudAuxIconBtnClasses} onClick={cancelRecording}>
-								{getIcon("cancel", "text-white/75")}
-							</button>
-						</Tooltip>
-					</div>
-				)}
+							<Tooltip content={t("tooltips.cancelRecording")}>
+								<button className={hudAuxIconBtnClasses} onClick={cancelRecording}>
+									{getIcon("cancel", "text-white/80")}
+								</button>
+							</Tooltip>
+						</div>
+					)}
+				</div>
 
 				{/* Divider */}
 				<div
-					className={`${
-						trayLayout === "vertical"
-							? isLight
-								? "w-6 h-[1px] bg-black/10 my-0.5"
-								: "w-6 h-[1px] bg-white/10 my-0.5"
-							: isLight
-								? "h-4 w-[1px] bg-black/10 mx-0.5"
-								: "h-4 w-[1px] bg-white/10 mx-0.5"
-					} shrink-0`}
+					className={cn(
+						trayLayout === "vertical" ? "w-6 h-px my-0.5" : "h-4 w-px mx-0.5",
+						isLight ? styles.dividerLight : styles.dividerDark,
+						"shrink-0",
+					)}
 				/>
 
-				{/* Right Utilities Section */}
+				{/* Studio, Layout & Theme Tools Dock (Red Box 2) */}
 				<div
-					className={`flex items-center gap-1.5 ${trayLayout === "vertical" ? "flex-col" : ""} ${styles.electronNoDrag}`}
+					className={cn(
+						"flex items-center rounded-full border shadow-2xs p-1",
+						isLight ? styles.mediaCapsuleLight : styles.mediaCapsuleDark,
+						trayLayout === "vertical" ? "flex-col gap-1.5 p-1.5" : "gap-1",
+						styles.electronNoDrag,
+					)}
 				>
-					{/* Studio Editor Button */}
 					{!recording && (
 						<Tooltip content={t("tooltips.openStudio")}>
 							<button
 								data-testid="launch-open-studio-button"
-								className={`${iconBtnClasses} ${styles.electronNoDrag}`}
+								className={cn(iconBtnClasses, styles.electronNoDrag)}
 								onClick={() => window.electronAPI.switchToEditor()}
 							>
-								<Clapperboard
-									size={ICON_SIZE}
-									className={isLight ? "text-zinc-600" : "text-zinc-400"}
-								/>
+								<Clapperboard size={18} />
 							</button>
 						</Tooltip>
 					)}
 
-					{/* Layout Switcher */}
 					<Tooltip
 						content={
 							trayLayout === "horizontal"
@@ -1377,34 +1398,35 @@ export function LaunchWindow() {
 									: t("tooltips.useHorizontalTray")
 							}
 							aria-pressed={trayLayout === "vertical"}
-							className={`${iconBtnClasses} ${styles.electronNoDrag}`}
+							className={cn(iconBtnClasses, styles.electronNoDrag)}
 							onClick={toggleTrayLayout}
 						>
-							{trayLayout === "horizontal" ? (
-								<Columns3
-									size={ICON_SIZE}
-									className={isLight ? "text-zinc-600" : "text-zinc-400"}
-								/>
-							) : (
-								<Rows3 size={ICON_SIZE} className={isLight ? "text-zinc-600" : "text-zinc-400"} />
-							)}
+							{trayLayout === "horizontal" ? <Columns3 size={18} /> : <Rows3 size={18} />}
 						</button>
 					</Tooltip>
 
-					{/* Theme Toggle */}
 					<Tooltip content={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}>
 						<button
 							type="button"
 							aria-label="Toggle theme"
-							className={`${iconBtnClasses} ${styles.electronNoDrag}`}
+							className={cn(iconBtnClasses, styles.electronNoDrag)}
 							onClick={toggleTheme}
 						>
-							{getIcon(isLight ? "moon" : "sun")}
+							{isLight ? <Moon size={18} /> : <Sun size={18} />}
 						</button>
 					</Tooltip>
+				</div>
 
+				{/* Language & Window Controls Dock */}
+				<div
+					className={cn(
+						"flex items-center gap-1",
+						trayLayout === "vertical" ? "flex-col" : "",
+						styles.electronNoDrag,
+					)}
+				>
 					{/* Language Selector */}
-					<div className={`${styles.languageMenuContainer} ${styles.electronNoDrag}`}>
+					<div className={cn(styles.languageMenuContainer, styles.electronNoDrag)}>
 						<button
 							ref={languageTriggerRef}
 							type="button"
@@ -1413,17 +1435,19 @@ export function LaunchWindow() {
 							aria-haspopup="menu"
 							onClick={() => setIsLanguageMenuOpen((open) => !open)}
 							title={activeLanguageLabel}
-							className={`flex h-7 items-center rounded-full border transition-all duration-150 active:scale-95 cursor-pointer ${
-								isLight
-									? "border-zinc-200/80 bg-zinc-100 hover:bg-zinc-200 text-zinc-900"
-									: "border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.09] text-zinc-300 hover:text-white"
-							} ${
-								trayLayout === "vertical" ? "w-7 justify-center px-0" : "gap-1.5 px-2.5"
-							} ${styles.electronNoDrag}`}
+							className={cn(
+								"flex h-8 items-center rounded-full border transition-all duration-150 active:scale-95 cursor-pointer shadow-2xs",
+								isLight ? styles.languagePillLight : styles.languagePillDark,
+								trayLayout === "vertical" ? "w-8 justify-center px-0" : "gap-1.5 px-3",
+								styles.electronNoDrag,
+							)}
 						>
-							<Languages size={13} className={isLight ? "text-zinc-600" : "text-zinc-400"} />
+							<Languages size={14} className={isLight ? "text-zinc-600" : "text-zinc-400"} />
 							<span
-								className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[48px]"} truncate text-[10.5px] font-semibold`}
+								className={cn(
+									"truncate text-[11px] font-semibold",
+									trayLayout === "vertical" ? "sr-only" : "max-w-[55px]",
+								)}
 							>
 								{activeLanguageLabel}
 							</span>
@@ -1488,29 +1512,32 @@ export function LaunchWindow() {
 
 					{/* Window controls (Minimize / Close) */}
 					<div
-						className={`flex items-center gap-0.5 ${trayLayout === "vertical" ? "flex-col" : ""}`}
+						className={cn(
+							"flex items-center gap-0.5 pl-0.5",
+							trayLayout === "vertical" ? "flex-col" : "",
+						)}
 					>
 						<button
-							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer ${
-								isLight
-									? "text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.06]"
-									: "text-zinc-400 hover:text-white hover:bg-white/[0.08]"
-							}`}
+							className={cn(
+								"flex h-8 w-8 items-center justify-center cursor-pointer",
+								isLight ? styles.windowControlBtnLight : styles.windowControlBtnDark,
+							)}
 							title={t("tooltips.hideHUD")}
 							onClick={sendHudOverlayHide}
 						>
-							{getIcon("minimize")}
+							<Minus size={15} />
 						</button>
 						<button
-							className={`flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 cursor-pointer ${
+							className={cn(
+								"flex h-8 w-8 items-center justify-center cursor-pointer",
 								isLight
-									? "text-zinc-500 hover:text-red-600 hover:bg-red-500/10"
-									: "text-zinc-400 hover:text-red-400 hover:bg-red-500/20"
-							}`}
+									? cn(styles.windowControlBtnLight, styles.windowControlCloseLight)
+									: cn(styles.windowControlBtnDark, styles.windowControlCloseDark),
+							)}
 							title={t("tooltips.closeApp")}
 							onClick={sendHudOverlayClose}
 						>
-							{getIcon("close")}
+							<X size={15} />
 						</button>
 					</div>
 				</div>

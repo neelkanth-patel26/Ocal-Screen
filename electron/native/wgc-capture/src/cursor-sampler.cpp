@@ -1,3 +1,6 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <gdiplus.h>
 #include <objbase.h>
@@ -14,6 +17,16 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+static int64_t nowMs() {
+    return static_cast<int64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+        .count());
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Global mouse and keyboard hook state
@@ -44,16 +57,6 @@ static LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lP
         }
     }
     return CallNextHookEx(g_keyboardHook, nCode, wParam, lParam);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Utilities
-// ─────────────────────────────────────────────────────────────────────────────
-static int64_t nowMs() {
-    return static_cast<int64_t>(
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch())
-        .count());
 }
 
 static void writeJsonLine(const std::string& json) {
@@ -436,7 +439,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    const int intervalMs = std::max(1, std::atoi(argv[1]));
+    const int intervalMs = (std::max)(1, std::atoi(argv[1]));
 
     HWND targetWindow = nullptr;
     if (argc >= 3) {

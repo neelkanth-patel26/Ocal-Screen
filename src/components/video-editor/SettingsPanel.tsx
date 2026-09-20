@@ -3,6 +3,7 @@ import {
 	Brackets,
 	Bug,
 	Check,
+	ChevronRight,
 	Contrast,
 	Crop,
 	Disc,
@@ -18,6 +19,8 @@ import {
 	Maximize2,
 	MousePointerClick,
 	Palette,
+	Pipette,
+	RotateCcw,
 	SlidersHorizontal,
 	Sparkles,
 	Square,
@@ -27,6 +30,7 @@ import {
 	Trash2,
 	Unlock,
 	Upload,
+	WandSparkles,
 	Wind,
 	X,
 } from "lucide-react";
@@ -57,6 +61,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useScopedT } from "@/contexts/I18nContext";
+import { CHANGELOG_DATA } from "@/data/changelog";
 import { getAssetPath } from "@/lib/assetPath";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
 import { CURSOR_THEMES, DEFAULT_CURSOR_THEME_ID } from "@/lib/cursor/cursorThemes";
@@ -89,6 +94,7 @@ import {
 import { BLUR_REGIONS_ENABLED } from "./featureFlags";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import { ReportBugDialog } from "./ReportBugDialog";
+import type { AutoZoomFraming, AutoZoomIntensity } from "./timeline/zoomSuggestionUtils";
 import type {
 	AnnotationRegion,
 	AnnotationType,
@@ -117,6 +123,143 @@ import {
 } from "./types";
 import { VideoLayersSettingsPanel } from "./VideoLayersSettingsPanel";
 import { getFocusBoundsForScale } from "./videoPlayback/focusUtils";
+
+function Zoom2DFocusPad({
+	percentX,
+	percentY,
+	isLight,
+	activeAccentHex,
+	onChange,
+	onCommit,
+}: {
+	percentX: number;
+	percentY: number;
+	isLight: boolean;
+	activeAccentHex: string;
+	onChange: (pos: { percentX: number; percentY: number }) => void;
+	onCommit?: () => void;
+}) {
+	const padRef = useRef<HTMLDivElement>(null);
+	const isDraggingRef = useRef(false);
+
+	const updateFromPointer = useCallback(
+		(clientX: number, clientY: number) => {
+			if (!padRef.current) return;
+			const rect = padRef.current.getBoundingClientRect();
+			const rawX = ((clientX - rect.left) / rect.width) * 100;
+			const rawY = ((clientY - rect.top) / rect.height) * 100;
+			const clampedX = Math.max(0, Math.min(100, Math.round(rawX)));
+			const clampedY = Math.max(0, Math.min(100, Math.round(rawY)));
+			onChange({ percentX: clampedX, percentY: clampedY });
+		},
+		[onChange],
+	);
+
+	const handlePointerDown = (e: React.PointerEvent) => {
+		e.preventDefault();
+		(e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+		isDraggingRef.current = true;
+		updateFromPointer(e.clientX, e.clientY);
+	};
+
+	const handlePointerMove = (e: React.PointerEvent) => {
+		if (!isDraggingRef.current) return;
+		updateFromPointer(e.clientX, e.clientY);
+	};
+
+	const handlePointerUp = (e: React.PointerEvent) => {
+		if (isDraggingRef.current) {
+			isDraggingRef.current = false;
+			try {
+				(e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+			} catch {}
+			onCommit?.();
+		}
+	};
+
+	const ANCHORS = [
+		{ label: "TL", x: 20, y: 20 },
+		{ label: "TR", x: 80, y: 20 },
+		{ label: "Center", x: 50, y: 50 },
+		{ label: "BL", x: 20, y: 80 },
+		{ label: "BR", x: 80, y: 80 },
+	];
+
+	return (
+		<div className="space-y-2">
+			<div
+				ref={padRef}
+				onPointerDown={handlePointerDown}
+				onPointerMove={handlePointerMove}
+				onPointerUp={handlePointerUp}
+				onPointerCancel={handlePointerUp}
+				className={cn(
+					"relative w-full aspect-[16/9] rounded-2xl border cursor-crosshair select-none overflow-hidden transition-all shadow-inner",
+					isLight
+						? "bg-slate-100 border-slate-200 hover:border-slate-300"
+						: "bg-black/40 border-white/[0.08] hover:border-white/[0.14]",
+				)}
+			>
+				{/* Thirds Grid Overlay */}
+				<div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-20">
+					<div className="border-r border-b border-white" />
+					<div className="border-r border-b border-white" />
+					<div className="border-b border-white" />
+					<div className="border-r border-b border-white" />
+					<div className="border-r border-b border-white" />
+					<div className="border-b border-white" />
+					<div className="border-r border-white" />
+					<div className="border-r border-white" />
+					<div />
+				</div>
+
+				{/* Center crosshair dot */}
+				<div className="absolute left-1/2 top-1/2 w-1.5 h-1.5 -ml-[3px] -mt-[3px] rounded-full bg-white/20 pointer-events-none" />
+
+				{/* Reticle Target */}
+				<div
+					className="absolute w-6 h-6 -ml-3 -mt-3 pointer-events-none transition-all duration-75 flex items-center justify-center"
+					style={{ left: `${percentX}%`, top: `${percentY}%` }}
+				>
+					<div
+						className="w-5 h-5 rounded-full border-2 border-white shadow-md flex items-center justify-center"
+						style={{ backgroundColor: activeAccentHex }}
+					>
+						<div className="w-1.5 h-1.5 rounded-full bg-white" />
+					</div>
+				</div>
+			</div>
+
+			{/* Quick Anchor Pills */}
+			<div className="flex items-center justify-between gap-1">
+				{ANCHORS.map((anchor) => {
+					const isActive = Math.abs(percentX - anchor.x) < 6 && Math.abs(percentY - anchor.y) < 6;
+					return (
+						<button
+							key={anchor.label}
+							type="button"
+							onClick={() => {
+								onChange({ percentX: anchor.x, percentY: anchor.y });
+								onCommit?.();
+							}}
+							className={cn(
+								"px-2 py-1 rounded-lg text-[10px] font-bold tracking-tight transition-all cursor-pointer border",
+								isActive
+									? "border-transparent text-white shadow-2xs"
+									: isLight
+										? "border-slate-200 bg-white/80 text-slate-600 hover:bg-white"
+										: "border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.08] hover:text-white",
+							)}
+							style={isActive ? { backgroundColor: activeAccentHex } : undefined}
+						>
+							{anchor.label}
+						</button>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
 
 function CustomSpeedInput({
 	value,
@@ -401,6 +544,21 @@ interface SettingsPanelProps {
 	onAddVideoLayer?: () => void;
 	onUpdateVideoLayer?: (id: string, updates: Partial<import("./types").VideoLayerTrack>) => void;
 	onDeleteVideoLayer?: (id: string) => void;
+	// AI Auto-Zoom Studio props
+	autoZoomEnabled?: boolean;
+	onToggleAutoZoom?: (enabled: boolean) => void;
+	onGenerateAIZooms?: () => void;
+	onClearAutoZooms?: () => void;
+	autoZoomIntensity?: AutoZoomIntensity;
+	onAutoZoomIntensityChange?: (intensity: AutoZoomIntensity) => void;
+	autoZoomFraming?: AutoZoomFraming;
+	onAutoZoomFramingChange?: (framing: AutoZoomFraming) => void;
+	autoFocusAll?: boolean;
+	onToggleAutoFocusAll?: (enabled: boolean) => void;
+	cursorTrackingMode?: "cinematic" | "adaptive" | "direct";
+	onCursorTrackingModeChange?: (mode: "cinematic" | "adaptive" | "direct") => void;
+	cursorSnapToClicks?: boolean;
+	onCursorSnapToClicksChange?: (enabled: boolean) => void;
 }
 
 export default SettingsPanel;
@@ -458,19 +616,22 @@ function WallpaperSwatch({
 	return (
 		<div
 			className={cn(
-				"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
-				isSelected ? "" : isLight ? "border-[#e4e4e7] bg-[#f4f4f5]" : "border-white/10 bg-white/5",
+				"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-sm hover:scale-[1.03] relative group",
+				isSelected
+					? "ring-2 ring-offset-2 ring-offset-[#121214]"
+					: isLight
+						? "border-slate-200 bg-slate-100 hover:border-slate-300"
+						: "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
 			)}
 			style={{
 				borderColor: isSelected ? activeAccent.hex : undefined,
-				boxShadow: isSelected ? `0 0 12px ${activeAccent.hex}80` : undefined,
+				boxShadow: isSelected ? `0 0 16px ${activeAccent.hex}60` : undefined,
+				color: isSelected ? activeAccent.hex : undefined,
 			}}
 			onClick={onClick}
 			role="button"
 		>
-			{!loaded && (
-				<div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 animate-pulse rounded-xl" />
-			)}
+			{!loaded && <div className="absolute inset-0 bg-white/[0.05] animate-pulse rounded-xl" />}
 			<img
 				src={previewUrl}
 				alt="Wallpaper preview"
@@ -478,16 +639,16 @@ function WallpaperSwatch({
 				decoding="async"
 				onLoad={() => setLoaded(true)}
 				className={cn(
-					"w-full h-full object-cover rounded-xl select-none pointer-events-none transition-opacity duration-300",
+					"w-full h-full object-cover rounded-xl select-none pointer-events-none transition-transform duration-300 group-hover:scale-105",
 					loaded ? "opacity-100" : "opacity-0",
 				)}
 			/>
 			{isSelected && (
 				<div
-					className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10"
+					className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10 animate-in zoom-in-50 duration-150"
 					style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
 				>
-					<Check className="w-2.5 h-2.5" />
+					<Check className="w-2.5 h-2.5 stroke-[3]" />
 				</div>
 			)}
 		</div>
@@ -623,6 +784,20 @@ export function SettingsPanel({
 	onAddVideoLayer,
 	onUpdateVideoLayer,
 	onDeleteVideoLayer,
+	autoZoomEnabled = true,
+	onToggleAutoZoom,
+	onGenerateAIZooms,
+	onClearAutoZooms,
+	autoZoomIntensity = "balanced",
+	onAutoZoomIntensityChange,
+	autoZoomFraming = "rule-of-thirds",
+	onAutoZoomFramingChange,
+	autoFocusAll = false,
+	onToggleAutoFocusAll,
+	cursorTrackingMode = "adaptive",
+	onCursorTrackingModeChange,
+	cursorSnapToClicks = true,
+	onCursorSnapToClicksChange,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
 	const [activePanelMode, setActivePanelMode] = useState<SettingsPanelMode>("background");
@@ -895,6 +1070,7 @@ export function SettingsPanel({
 	const isLight = prefs.theme === "light";
 
 	const [aboutOpen, setAboutOpen] = useState(false);
+	const [aboutInitialTab, setAboutInitialTab] = useState<"about" | "changelog">("about");
 	const [reportBugOpen, setReportBugOpen] = useState(false);
 
 	// Annotation selected: show its settings panel instead.
@@ -924,7 +1100,7 @@ export function SettingsPanel({
 						onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
 					/>
 				</div>
-				<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+				<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} initialTab={aboutInitialTab} />
 				<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
 			</div>
 		);
@@ -941,7 +1117,7 @@ export function SettingsPanel({
 						onDelete={() => onBlurDelete(selectedBlur.id)}
 					/>
 				</div>
-				<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+				<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} initialTab={aboutInitialTab} />
 				<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
 			</div>
 		);
@@ -976,7 +1152,7 @@ export function SettingsPanel({
 			>
 				<div
 					className={cn(
-						"flex items-center gap-1 p-1 rounded-2xl border flex-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shadow-2xs",
+						"flex items-center gap-1 p-1 rounded-2xl border flex-1 overflow-hidden shadow-2xs",
 						isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/[0.03] border-white/[0.06]",
 					)}
 				>
@@ -996,22 +1172,28 @@ export function SettingsPanel({
 								}}
 								style={
 									isActive
-										? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+										? {
+												backgroundColor: `${activeAccent.hex}22`,
+												borderColor: `${activeAccent.hex}44`,
+												color: isLight ? "#0f172a" : "#ffffff",
+												boxShadow: `0 0 14px ${activeAccent.hex}20`,
+											}
 										: undefined
 								}
 								className={cn(
-									"flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap",
+									"flex items-center justify-center transition-all duration-200 shrink-0 cursor-pointer select-none whitespace-nowrap rounded-xl border",
+									isActive
+										? "gap-1.5 px-2.5 py-1 text-xs font-bold border-current/30 shadow-xs"
+										: "w-7 h-7 p-0 border-transparent text-slate-400 hover:text-white hover:bg-white/[0.06]",
 									mode.disabled
 										? "cursor-not-allowed opacity-30"
-										: isActive
-											? "shadow-sm scale-[1.02]"
-											: isLight
-												? "text-slate-600 hover:text-black hover:bg-white"
-												: "text-slate-400 hover:text-white hover:bg-white/[0.06]",
+										: isLight && !isActive
+											? "text-slate-600 hover:text-black hover:bg-white"
+											: undefined,
 								)}
 							>
 								<Icon className="w-3.5 h-3.5 shrink-0" />
-								<span>{mode.shortLabel}</span>
+								{isActive && <span>{mode.shortLabel}</span>}
 							</button>
 						);
 					})}
@@ -1071,7 +1253,23 @@ export function SettingsPanel({
 								<Star className="w-3.5 h-3.5 mr-2 text-amber-400 fill-amber-400" />
 								<span>{t("support.starOnGithub")}</span>
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => setAboutOpen(true)} className="cursor-pointer">
+							<DropdownMenuItem
+								onClick={() => {
+									setAboutInitialTab("changelog");
+									setAboutOpen(true);
+								}}
+								className="cursor-pointer"
+							>
+								<Sparkles className="w-3.5 h-3.5 mr-2 text-amber-400" />
+								<span>What's New ({CHANGELOG_DATA[0].version})</span>
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={() => {
+									setAboutInitialTab("about");
+									setAboutOpen(true);
+								}}
+								className="cursor-pointer"
+							>
 								<Info className="w-3.5 h-3.5 mr-2 text-indigo-400" />
 								<span>About Ocal Screen</span>
 							</DropdownMenuItem>
@@ -1080,13 +1278,41 @@ export function SettingsPanel({
 				</div>
 			</div>
 
-			<div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 pb-2">
-				<div className="mb-3 flex items-center justify-between px-1">
-					<span className={`text-sm font-bold ${isLight ? "text-[#18181b]" : "text-white"}`}>
+			{/* Inspector Section Header */}
+			<div
+				className={cn(
+					"px-3.5 py-2 border-b flex items-center justify-between shrink-0",
+					isLight ? "bg-slate-50/70 border-[#e4e4e7]" : "bg-white/[0.02] border-white/[0.05]",
+				)}
+			>
+				<div className="flex items-center gap-2 min-w-0">
+					<div
+						className="w-2 h-2 rounded-full shrink-0"
+						style={{
+							backgroundColor: activeAccent.hex,
+							boxShadow: `0 0 8px ${activeAccent.hex}80`,
+						}}
+					/>
+					<span
+						className={cn(
+							"text-xs font-bold uppercase tracking-wider truncate",
+							isLight ? "text-slate-800" : "text-slate-200",
+						)}
+					>
 						{activeModeLabel}
 					</span>
+				</div>
+				<div className="flex items-center gap-1.5 shrink-0">
+					{hasTimelineSelection && (
+						<span className="text-[10px] font-medium text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+							Selected Clip
+						</span>
+					)}
 					<KeyboardShortcutsHelp />
 				</div>
+			</div>
+
+			<div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 pb-2">
 				{zoomEnabled && (
 					<div
 						className={cn(
@@ -1228,16 +1454,21 @@ export function SettingsPanel({
 													onClick={() => !focusModeLocked && onZoomFocusModeChange?.(mode)}
 													style={
 														isActive
-															? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+															? {
+																	backgroundColor: `${activeAccent.hex}22`,
+																	borderColor: `${activeAccent.hex}44`,
+																	color: isLight ? "#0f172a" : "#ffffff",
+																	boxShadow: `0 0 10px ${activeAccent.hex}20`,
+																}
 															: undefined
 													}
 													className={cn(
-														"h-6 w-full rounded-lg text-center text-[10px] font-bold capitalize transition-all cursor-pointer",
+														"h-6 w-full rounded-lg text-center text-[10px] font-bold capitalize transition-all cursor-pointer border",
 														isActive
-															? "shadow-2xs"
+															? "shadow-2xs border-current/30"
 															: isLight
-																? "text-slate-500 hover:text-slate-800"
-																: "text-slate-400 hover:text-white",
+																? "border-transparent text-slate-500 hover:text-slate-800"
+																: "border-transparent text-slate-400 hover:text-white",
 													)}
 												>
 													{t(`zoom.focusMode.${mode}`)}
@@ -1314,15 +1545,37 @@ export function SettingsPanel({
 								const percentToFocusY = (p: number) =>
 									yRange <= 0 ? bounds.minY : bounds.minY + (p / 100) * yRange;
 								return (
-									<div className="space-y-1.5 pt-1">
-										<span
-											className={cn(
-												"text-xs font-bold",
-												isLight ? "text-slate-700" : "text-slate-200",
-											)}
-										>
-											{t("zoom.position.title")}
-										</span>
+									<div className="space-y-2.5 pt-1">
+										<div className="flex items-center justify-between">
+											<span
+												className={cn(
+													"text-xs font-bold",
+													isLight ? "text-slate-700" : "text-slate-200",
+												)}
+											>
+												{t("zoom.position.title")}
+											</span>
+											<span className="text-[10px] text-zinc-400 font-mono">
+												{focusToPercentX(selectedZoomFocus.cx).toFixed(0)}%,{" "}
+												{focusToPercentY(selectedZoomFocus.cy).toFixed(0)}%
+											</span>
+										</div>
+
+										{/* Interactive 2D Focus Pad */}
+										<Zoom2DFocusPad
+											percentX={focusToPercentX(selectedZoomFocus.cx)}
+											percentY={focusToPercentY(selectedZoomFocus.cy)}
+											isLight={isLight}
+											activeAccentHex={activeAccent.hex}
+											onChange={({ percentX, percentY }) => {
+												onZoomFocusCoordinateChange({
+													cx: percentToFocusX(percentX),
+													cy: percentToFocusY(percentY),
+												});
+											}}
+											onCommit={onZoomFocusCoordinateCommit}
+										/>
+
 										<div className="grid grid-cols-2 gap-2">
 											<div className="flex flex-col gap-1">
 												<label
@@ -1635,16 +1888,17 @@ export function SettingsPanel({
 														style={
 															webcamMaskShape === shape.value
 																? {
-																		backgroundColor: activeAccent.hex,
-																		borderColor: activeAccent.hex,
-																		color: activeAccent.textHex,
+																		backgroundColor: `${activeAccent.hex}22`,
+																		borderColor: `${activeAccent.hex}44`,
+																		color: isLight ? "#0f172a" : "#ffffff",
+																		boxShadow: `0 0 12px ${activeAccent.hex}20`,
 																	}
 																: undefined
 														}
 														className={cn(
 															"h-10 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer",
 															webcamMaskShape === shape.value
-																? "shadow-sm scale-[1.02]"
+																? "shadow-sm border-current/30 scale-[1.02]"
 																: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
 														)}
 													>
@@ -2397,6 +2651,106 @@ export function SettingsPanel({
 															: "bg-white/[0.04] border-white/[0.08]",
 													)}
 												>
+													{/* Tracking Physics Mode */}
+													<div className="space-y-2">
+														<div className="flex items-center justify-between">
+															<span
+																className={cn(
+																	"text-xs font-bold",
+																	isLight ? "text-slate-700" : "text-slate-200",
+																)}
+															>
+																Tracking Dynamics
+															</span>
+															<span className="text-[10px] text-zinc-400 font-mono capitalize">
+																{cursorTrackingMode}
+															</span>
+														</div>
+														<div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl border bg-black/20 border-white/[0.08]">
+															{(
+																[
+																	{ id: "cinematic", label: "Cinematic" },
+																	{ id: "adaptive", label: "Adaptive" },
+																	{ id: "direct", label: "Direct" },
+																] as const
+															).map((mode) => {
+																const isModeActive = cursorTrackingMode === mode.id;
+																return (
+																	<button
+																		key={mode.id}
+																		type="button"
+																		onClick={() => onCursorTrackingModeChange?.(mode.id)}
+																		style={
+																			isModeActive
+																				? {
+																						backgroundColor: activeAccent.hex,
+																						color: activeAccent.textHex,
+																					}
+																				: undefined
+																		}
+																		className={cn(
+																			"py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer font-bold text-[11px]",
+																			isModeActive
+																				? "shadow-2xs"
+																				: isLight
+																					? "text-slate-600 hover:text-slate-950 hover:bg-slate-200"
+																					: "text-zinc-400 hover:text-white hover:bg-white/5",
+																		)}
+																	>
+																		{mode.label}
+																	</button>
+																);
+															})}
+														</div>
+													</div>
+
+													<div
+														className={cn(
+															"h-[1px] w-full",
+															isLight ? "bg-slate-100" : "bg-white/[0.06]",
+														)}
+													/>
+
+													{/* Click Target Lock */}
+													<div className="flex items-center justify-between">
+														<div className="space-y-0.5">
+															<div className="flex items-center gap-1.5 text-xs font-bold">
+																<span className={isLight ? "text-slate-700" : "text-slate-200"}>
+																	Click Target Lock
+																</span>
+																<Tooltip
+																	content="Guarantees cursor lands dead-center on clicked buttons and links with smooth C2 hermite interpolation"
+																	className="max-w-[220px] leading-snug whitespace-normal"
+																>
+																	<button
+																		type="button"
+																		className="text-zinc-400 transition-colors hover:text-zinc-200"
+																		aria-label="Click Target Lock Info"
+																	>
+																		<Info size={12} />
+																	</button>
+																</Tooltip>
+															</div>
+															<span className="text-[10px] text-zinc-400 block">
+																Zero drift on clicks & form buttons
+															</span>
+														</div>
+														<Switch
+															checked={cursorSnapToClicks}
+															onCheckedChange={onCursorSnapToClicksChange}
+															accentColor={activeAccent.hex}
+															className="cursor-pointer"
+															aria-label="Click Target Lock"
+														/>
+													</div>
+
+													<div
+														className={cn(
+															"h-[1px] w-full",
+															isLight ? "bg-slate-100" : "bg-white/[0.06]",
+														)}
+													/>
+
 													{/* Clip to Canvas */}
 													<div className="flex items-center justify-between">
 														<div className="flex items-center gap-1.5 text-xs font-bold">
@@ -2670,10 +3024,17 @@ export function SettingsPanel({
 								</AccordionTrigger>
 								<AccordionContent className="pb-3">
 									<div
-										className={`flex items-center p-1 rounded-xl border mb-3 ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7]" : "bg-white/5 border-white/10"}`}
+										className={cn(
+											"flex items-center p-1 rounded-xl border mb-3 transition-all",
+											isLight
+												? "bg-slate-100/90 border-slate-200"
+												: "bg-white/[0.04] border-white/[0.08]",
+										)}
 									>
 										{(["image", "color", "gradient"] as const).map((tabKey) => {
 											const isActive = bgSubTab === tabKey;
+											const TabIcon =
+												tabKey === "image" ? Image : tabKey === "color" ? Pipette : Sparkles;
 											return (
 												<button
 													key={tabKey}
@@ -2681,20 +3042,26 @@ export function SettingsPanel({
 													onClick={() => setBgSubTab(tabKey)}
 													style={
 														isActive
-															? { backgroundColor: activeAccent.hex, color: activeAccent.textHex }
+															? {
+																	backgroundColor: `${activeAccent.hex}22`,
+																	borderColor: `${activeAccent.hex}50`,
+																	color: isLight ? "#0f172a" : "#ffffff",
+																	boxShadow: `0 0 12px ${activeAccent.hex}20`,
+																}
 															: undefined
 													}
 													className={cn(
-														"flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center cursor-pointer capitalize",
+														"flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer capitalize border",
 														isActive
-															? "shadow-md scale-[1.02]"
+															? "shadow-xs border-current/30"
 															: isLight
-																? "text-slate-600 hover:text-black"
-																: "text-slate-400 hover:text-white",
+																? "border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60"
+																: "border-transparent text-slate-400 hover:text-white hover:bg-white/[0.04]",
 													)}
 												>
+													<TabIcon className="w-3.5 h-3.5" />
 													{/* biome-ignore lint/suspicious/noExplicitAny: dynamic background subtab translation key */}
-													{t(`background.${tabKey}` as any)}
+													<span>{t(`background.${tabKey}` as any)}</span>
 												</button>
 											);
 										})}
@@ -2714,49 +3081,56 @@ export function SettingsPanel({
 													type="button"
 													onClick={() => fileInputRef.current?.click()}
 													className={cn(
-														"w-full flex items-center justify-center gap-2.5 p-3 rounded-2xl border-2 border-dashed transition-all cursor-pointer group shadow-2xs",
+														"w-full flex items-center justify-between px-3 py-2.5 rounded-2xl border transition-all cursor-pointer group shadow-xs",
 														isLight
-															? "bg-slate-50/80 border-slate-200 hover:border-slate-300 hover:bg-white text-slate-700"
-															: "bg-white/[0.02] border-white/10 hover:border-white/25 hover:bg-white/[0.05] text-slate-200",
+															? "bg-slate-50/90 border-slate-200 hover:border-slate-300 hover:bg-white text-slate-800"
+															: "bg-white/[0.02] border-white/[0.08] hover:border-white/20 hover:bg-white/[0.05] text-slate-200",
 													)}
 												>
-													<div
-														className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 shadow-2xs"
-														style={{
-															backgroundColor: `${activeAccent.hex}20`,
-															color: activeAccent.hex,
-														}}
-													>
-														<Upload className="w-3.5 h-3.5" />
+													<div className="flex items-center gap-2.5">
+														<div
+															className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-2xs"
+															style={{
+																backgroundColor: `${activeAccent.hex}20`,
+																color: activeAccent.hex,
+																border: `1px solid ${activeAccent.hex}40`,
+															}}
+														>
+															<Upload className="w-3.5 h-3.5" />
+														</div>
+														<div className="text-left">
+															<div className="text-xs font-bold leading-tight flex items-center gap-1.5">
+																{t("background.uploadCustom")}
+															</div>
+															<div className="text-[10px] text-slate-400 font-medium">
+																PNG, JPG, WEBP
+															</div>
+														</div>
 													</div>
-													<div className="text-left">
-														<div className="text-xs font-bold leading-tight">
-															{t("background.uploadCustom")}
-														</div>
-														<div className="text-[10px] text-slate-400 font-medium">
-															PNG, JPG or WEBP
-														</div>
+													<div className="text-[11px] font-semibold text-slate-400 group-hover:text-slate-200 flex items-center gap-1 transition-colors">
+														Browse
+														<ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
 													</div>
 												</button>
 
-												<div className="grid grid-cols-4 gap-2.5 pt-1">
+												<div className="grid grid-cols-3 gap-2.5 pt-1">
 													{customImages.map((imageUrl, idx) => {
 														const isSelected = selected === imageUrl;
 														return (
 															<div
 																key={`custom-${idx}`}
 																className={cn(
-																	"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 relative group shadow-md hover:scale-105",
+																	"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 relative group shadow-sm hover:scale-[1.03]",
 																	isSelected
-																		? ""
+																		? "ring-2 ring-offset-2 ring-offset-[#121214]"
 																		: isLight
-																			? "border-[#e4e4e7] bg-[#f4f4f5]"
-																			: "border-white/10 bg-white/5",
+																			? "border-slate-200 bg-slate-100 hover:border-slate-300"
+																			: "border-white/10 bg-white/5 hover:border-white/20",
 																)}
 																style={{
 																	borderColor: isSelected ? activeAccent.hex : undefined,
 																	boxShadow: isSelected
-																		? `0 0 12px ${activeAccent.hex}80`
+																		? `0 0 16px ${activeAccent.hex}60`
 																		: undefined,
 																}}
 																onClick={() => onWallpaperChange(imageUrl)}
@@ -2765,7 +3139,7 @@ export function SettingsPanel({
 																<img
 																	src={imageUrl}
 																	alt="Custom wallpaper"
-																	className="w-full h-full object-cover rounded-xl select-none pointer-events-none"
+																	className="w-full h-full object-cover rounded-xl select-none pointer-events-none transition-transform duration-300 group-hover:scale-105"
 																/>
 																<button
 																	onClick={(e) => handleRemoveCustomImage(imageUrl, e)}
@@ -2773,6 +3147,17 @@ export function SettingsPanel({
 																>
 																	<X className="w-2.5 h-2.5 text-white" />
 																</button>
+																{isSelected && (
+																	<div
+																		className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10 animate-in zoom-in-50 duration-150"
+																		style={{
+																			backgroundColor: activeAccent.hex,
+																			color: activeAccent.textHex,
+																		}}
+																	>
+																		<Check className="w-2.5 h-2.5 stroke-[3]" />
+																	</div>
+																)}
 															</div>
 														);
 													})}
@@ -2796,6 +3181,8 @@ export function SettingsPanel({
 												<ColorPicker
 													selectedColor={selectedColor}
 													colorPalette={colorPalette}
+													activeAccentHex={activeAccent.hex}
+													isLight={isLight}
 													translations={{
 														colorWheel: t("background.colorWheel"),
 														colorPalette: t("background.colorPalette"),
@@ -2809,24 +3196,24 @@ export function SettingsPanel({
 										)}
 
 										{bgSubTab === "gradient" && (
-											<div className="grid grid-cols-4 gap-2.5 pt-1">
+											<div className="grid grid-cols-3 gap-2.5 pt-1">
 												{GRADIENTS.map((g, idx) => {
 													const isSelected = gradient === g;
 													return (
 														<div
 															key={g}
 															className={cn(
-																"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-md hover:scale-105 relative",
+																"w-full aspect-square rounded-2xl border-2 p-0.5 overflow-hidden cursor-pointer transition-all duration-200 shadow-sm hover:scale-[1.04] relative group",
 																isSelected
-																	? ""
+																	? "ring-2 ring-offset-2 ring-offset-[#121214]"
 																	: isLight
-																		? "border-[#e4e4e7] bg-[#f4f4f5]"
-																		: "border-white/10 bg-white/5",
+																		? "border-slate-200 bg-slate-100 hover:border-slate-300"
+																		: "border-white/10 bg-white/5 hover:border-white/20",
 															)}
 															style={{
 																borderColor: isSelected ? activeAccent.hex : undefined,
 																boxShadow: isSelected
-																	? `0 0 12px ${activeAccent.hex}80`
+																	? `0 0 16px ${activeAccent.hex}60`
 																	: undefined,
 															}}
 															aria-label={t("background.gradientLabel", {
@@ -2839,18 +3226,18 @@ export function SettingsPanel({
 															role="button"
 														>
 															<div
-																className="w-full h-full rounded-xl select-none pointer-events-none"
+																className="w-full h-full rounded-xl select-none pointer-events-none transition-transform duration-300 group-hover:scale-105"
 																style={{ background: g }}
 															/>
 															{isSelected && (
 																<div
-																	className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10"
+																	className="absolute bottom-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-md z-10 animate-in zoom-in-50 duration-150"
 																	style={{
 																		backgroundColor: activeAccent.hex,
 																		color: activeAccent.textHex,
 																	}}
 																>
-																	<Check className="w-2.5 h-2.5" />
+																	<Check className="w-2.5 h-2.5 stroke-[3]" />
 																</div>
 															)}
 														</div>
@@ -2863,24 +3250,271 @@ export function SettingsPanel({
 							</AccordionItem>
 						)}
 						{activePanelMode === "timeline" && (
-							<AccordionItem value="timeline" className="editor-panel-section px-3">
-								<AccordionTrigger className="py-2.5 hover:no-underline">
-									<div className="flex items-center gap-2">
-										<Brackets className="w-4 h-4" style={{ color: activeAccent.hex }} />
-										<span className="text-xs font-medium">{t("timeline.title")}</span>
-									</div>
-								</AccordionTrigger>
-								<AccordionContent className="pb-3">
-									<div className="flex items-center justify-between p-2 rounded-lg editor-control-surface">
-										<div className="text-[10px] font-medium text-slate-300">
-											{t("timeline.waveform")}
+							<AccordionItem value="timeline" className="editor-panel-section px-3 border-none">
+								<AccordionContent className="pb-3 space-y-3 pt-1">
+									{/* AI Auto-Zoom Engine Card */}
+									<div
+										className={cn(
+											"p-4 rounded-2xl border space-y-4 shadow-xs",
+											isLight
+												? "bg-white/90 border-slate-200"
+												: "bg-white/[0.04] border-white/[0.08]",
+										)}
+									>
+										<div className="flex items-center justify-between">
+											<div className="flex items-center gap-2.5">
+												<div
+													className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border"
+													style={{
+														backgroundColor: `${activeAccent.hex}14`,
+														borderColor: `${activeAccent.hex}28`,
+													}}
+												>
+													<Sparkles className="w-4 h-4" style={{ color: activeAccent.hex }} />
+												</div>
+												<div>
+													<div
+														className={cn(
+															"text-xs font-extrabold tracking-tight",
+															isLight ? "text-slate-800" : "text-slate-100",
+														)}
+													>
+														AI Auto-Zoom Engine
+													</div>
+													<div className="text-[10px] text-zinc-400 font-medium">
+														Smart click clustering & dwell tracking
+													</div>
+												</div>
+											</div>
+											<div className="flex items-center gap-2">
+												<span
+													className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border"
+													style={{
+														backgroundColor: autoZoomEnabled
+															? `${activeAccent.hex}18`
+															: "transparent",
+														borderColor: autoZoomEnabled
+															? `${activeAccent.hex}30`
+															: "rgba(255,255,255,0.1)",
+														color: autoZoomEnabled ? activeAccent.hex : "#71717a",
+													}}
+												>
+													{autoZoomEnabled ? "Active" : "Off"}
+												</span>
+												<Switch
+													checked={autoZoomEnabled}
+													onCheckedChange={onToggleAutoZoom}
+													accentColor={activeAccent.hex}
+													className="cursor-pointer scale-90"
+												/>
+											</div>
 										</div>
-										<Switch
-											checked={showTrimWaveform}
-											onCheckedChange={onTrimWaveformChange}
-											className="scale-90 ml-2 shrink-0"
-											style={{ accentColor: activeAccent.hex }}
+
+										{/* Action Button: Generate AI Zooms */}
+										<div className="flex gap-2">
+											<Button
+												type="button"
+												onClick={() => onGenerateAIZooms?.()}
+												className="flex-1 h-9 rounded-xl font-bold text-xs gap-2 shadow-xs transition-transform active:scale-[0.98] cursor-pointer"
+												style={{
+													backgroundColor: activeAccent.hex,
+													color: activeAccent.textHex,
+												}}
+											>
+												<WandSparkles className="w-4 h-4" />
+												<span>Generate AI Zooms</span>
+											</Button>
+											{onClearAutoZooms && (
+												<Button
+													type="button"
+													variant="outline"
+													onClick={onClearAutoZooms}
+													className={cn(
+														"h-9 px-3 rounded-xl font-bold text-xs gap-1.5 transition-all cursor-pointer",
+														isLight
+															? "border-slate-200 text-slate-600 hover:bg-slate-100"
+															: "border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white",
+													)}
+													title="Clear all auto-generated zooms"
+												>
+													<RotateCcw className="w-3.5 h-3.5" />
+													<span>Reset</span>
+												</Button>
+											)}
+										</div>
+
+										<div
+											className={cn("h-[1px] w-full", isLight ? "bg-slate-100" : "bg-white/[0.06]")}
 										/>
+
+										{/* Zoom Intensity Presets */}
+										<div className="space-y-2">
+											<div className="flex items-center justify-between">
+												<span
+													className={cn(
+														"text-xs font-bold",
+														isLight ? "text-slate-700" : "text-slate-200",
+													)}
+												>
+													Zoom Intensity
+												</span>
+												<span className="text-[10px] text-zinc-400 font-mono capitalize">
+													{autoZoomIntensity}
+												</span>
+											</div>
+											<div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl border bg-black/20 border-white/[0.08]">
+												{(
+													[
+														{ id: "subtle", label: "Subtle", scale: "1.35×" },
+														{ id: "balanced", label: "Balanced", scale: "1.55×" },
+														{ id: "cinematic", label: "Cinematic", scale: "1.85×" },
+													] as const
+												).map((preset) => {
+													const isActive = autoZoomIntensity === preset.id;
+													return (
+														<button
+															key={preset.id}
+															type="button"
+															onClick={() => onAutoZoomIntensityChange?.(preset.id)}
+															style={
+																isActive
+																	? {
+																			backgroundColor: activeAccent.hex,
+																			color: activeAccent.textHex,
+																		}
+																	: undefined
+															}
+															className={cn(
+																"py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer font-bold text-[11px]",
+																isActive
+																	? "shadow-2xs"
+																	: isLight
+																		? "text-slate-600 hover:text-slate-950 hover:bg-slate-200"
+																		: "text-zinc-400 hover:text-white hover:bg-white/5",
+															)}
+														>
+															<div>{preset.label}</div>
+															<div className="text-[9px] opacity-70 font-mono">{preset.scale}</div>
+														</button>
+													);
+												})}
+											</div>
+										</div>
+
+										<div
+											className={cn("h-[1px] w-full", isLight ? "bg-slate-100" : "bg-white/[0.06]")}
+										/>
+
+										{/* Framing Style */}
+										<div className="space-y-2">
+											<div className="flex items-center justify-between">
+												<span
+													className={cn(
+														"text-xs font-bold",
+														isLight ? "text-slate-700" : "text-slate-200",
+													)}
+												>
+													Framing Composition
+												</span>
+												<span className="text-[10px] text-zinc-400 font-mono">
+													{autoZoomFraming === "rule-of-thirds" ? "Rule of Thirds" : "Centered"}
+												</span>
+											</div>
+											<div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl border bg-black/20 border-white/[0.08]">
+												{(
+													[
+														{ id: "rule-of-thirds", label: "Rule of Thirds" },
+														{ id: "centered", label: "Center Target" },
+													] as const
+												).map((rule) => {
+													const isActive = autoZoomFraming === rule.id;
+													return (
+														<button
+															key={rule.id}
+															type="button"
+															onClick={() => onAutoZoomFramingChange?.(rule.id)}
+															style={
+																isActive
+																	? {
+																			backgroundColor: activeAccent.hex,
+																			color: activeAccent.textHex,
+																		}
+																	: undefined
+															}
+															className={cn(
+																"py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer font-bold text-[11px]",
+																isActive
+																	? "shadow-2xs"
+																	: isLight
+																		? "text-slate-600 hover:text-slate-950 hover:bg-slate-200"
+																		: "text-zinc-400 hover:text-white hover:bg-white/5",
+															)}
+														>
+															{rule.label}
+														</button>
+													);
+												})}
+											</div>
+										</div>
+
+										<div
+											className={cn("h-[1px] w-full", isLight ? "bg-slate-100" : "bg-white/[0.06]")}
+										/>
+
+										{/* Auto-Follow Cursor switch */}
+										<div className="flex items-center justify-between">
+											<div className="space-y-0.5">
+												<span
+													className={cn(
+														"text-xs font-bold block",
+														isLight ? "text-slate-700" : "text-slate-200",
+													)}
+												>
+													Auto-Follow Cursor
+												</span>
+												<span className="text-[10px] text-zinc-400 block">
+													Camera smoothly tracks cursor movements inside zooms
+												</span>
+											</div>
+											<Switch
+												checked={autoFocusAll}
+												onCheckedChange={onToggleAutoFocusAll}
+												accentColor={activeAccent.hex}
+												className="cursor-pointer"
+											/>
+										</div>
+									</div>
+
+									{/* Waveform Card */}
+									<div
+										className={cn(
+											"p-4 rounded-2xl border space-y-2 shadow-xs",
+											isLight
+												? "bg-white/90 border-slate-200"
+												: "bg-white/[0.04] border-white/[0.08]",
+										)}
+									>
+										<div className="flex items-center justify-between">
+											<div className="space-y-0.5">
+												<span
+													className={cn(
+														"text-xs font-bold block",
+														isLight ? "text-slate-700" : "text-slate-200",
+													)}
+												>
+													{t("timeline.waveform")}
+												</span>
+												<span className="text-[10px] text-zinc-400 block">
+													Render high-resolution audio waveform on trim tracks
+												</span>
+											</div>
+											<Switch
+												checked={showTrimWaveform}
+												onCheckedChange={onTrimWaveformChange}
+												accentColor={activeAccent.hex}
+												className="cursor-pointer"
+											/>
+										</div>
 									</div>
 								</AccordionContent>
 							</AccordionItem>
@@ -3519,7 +4153,7 @@ export function SettingsPanel({
 					</Button>
 				</div>
 			)}
-			<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+			<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} initialTab={aboutInitialTab} />
 			<ReportBugDialog open={reportBugOpen} onOpenChange={setReportBugOpen} />
 		</div>
 	);

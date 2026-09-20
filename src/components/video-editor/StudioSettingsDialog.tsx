@@ -1,11 +1,11 @@
 import {
 	Check,
-	CheckCircle2,
 	Layout,
 	Moon,
 	Palette,
 	Settings,
 	Sliders,
+	Sparkles,
 	Sun,
 	User,
 	X,
@@ -79,47 +79,43 @@ export function StudioSettingsDialog({
 		<Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
 			<DialogContent
 				className={cn(
-					"max-w-[430px] max-h-[88vh] flex flex-col rounded-[28px] border p-0 overflow-hidden backdrop-blur-3xl transition-all duration-300 gap-0 shadow-2xl relative [&>button:last-child]:hidden",
+					"max-w-[460px] max-h-[90vh] flex flex-col rounded-2xl border p-0 overflow-hidden backdrop-blur-3xl transition-all duration-300 gap-0 shadow-2xl relative [&>button:last-child]:hidden",
 					isLight
-						? "bg-white/95 border-zinc-200/80 text-zinc-900 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.04),inset_0_1px_0_0_rgba(255,255,255,0.9)]"
-						: "bg-[#0d0e12]/95 border-white/10 text-slate-100 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.06),inset_0_1px_0_0_rgba(255,255,255,0.12)]",
+						? "bg-white border-slate-200 text-slate-900 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.15)]"
+						: "bg-[#0d0f17] border-white/10 text-slate-100 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.85)]",
 				)}
 			>
-				{/* Top ambient glow matching active accent */}
-				<div
-					className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-24 rounded-full blur-3xl pointer-events-none opacity-20 transition-all duration-500"
-					style={{ backgroundColor: activeAccent.hex }}
-				/>
-
-				{/* Header with Hero Icon & Vertically Aligned Close Button */}
-				<div className="flex items-center justify-between gap-3.5 px-6 pt-6 pb-2 relative z-10">
-					<div className="flex items-center gap-3.5 min-w-0 flex-1">
+				{/* Header with Studio Emblem & Clean Close Button */}
+				<div className="flex items-center justify-between px-5 pt-5 pb-3.5 relative z-10">
+					<div className="flex items-center gap-3 min-w-0 flex-1">
 						<div
-							className="w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 shadow-lg"
+							className="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 shadow-xs relative overflow-hidden"
 							style={{
 								backgroundColor: `${activeAccent.hex}18`,
-								borderColor: `${activeAccent.hex}40`,
-								color: activeAccent.hex,
+								borderColor: `${activeAccent.hex}35`,
 							}}
 						>
-							<Settings className="w-6 h-6" style={{ color: activeAccent.hex }} />
+							<Settings
+								className="w-5 h-5 transition-transform duration-500 hover:rotate-90"
+								style={{ color: activeAccent.hex }}
+							/>
 						</div>
-						<div className="min-w-0 flex-1 flex flex-col justify-center">
+						<div className="min-w-0 flex-1">
 							<DialogTitle
 								className={cn(
-									"text-base font-extrabold tracking-tight truncate leading-tight",
-									isLight ? "text-[#18181b]" : "text-white",
+									"text-base font-bold tracking-tight truncate leading-tight",
+									isLight ? "text-slate-900" : "text-white",
 								)}
 							>
 								Studio Settings
 							</DialogTitle>
 							<p
 								className={cn(
-									"text-xs font-medium truncate mt-1 leading-tight",
+									"text-xs font-medium truncate mt-0.5 leading-tight",
 									isLight ? "text-slate-500" : "text-slate-400",
 								)}
 							>
-								Preferences, profile & layout options
+								Personalize your workspace, theme & controls
 							</p>
 						</div>
 					</div>
@@ -128,9 +124,9 @@ export function StudioSettingsDialog({
 						type="button"
 						onClick={onClose}
 						className={cn(
-							"w-8 h-8 rounded-full flex items-center justify-center border transition-all cursor-pointer shrink-0 self-center",
+							"w-8 h-8 rounded-full flex items-center justify-center border transition-all cursor-pointer shrink-0",
 							isLight
-								? "border-[#e4e4e7] text-slate-500 hover:text-slate-900 hover:bg-[#f4f4f5]"
+								? "border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
 								: "border-white/10 text-slate-400 hover:text-white hover:bg-white/10",
 						)}
 					>
@@ -138,50 +134,66 @@ export function StudioSettingsDialog({
 					</button>
 				</div>
 
+				{/* Solid Hairline Divider */}
+				<div className={cn("h-px w-full", isLight ? "bg-slate-200" : "bg-white/[0.08]")} />
+
 				{/* Scrollable Body */}
-				<div className="flex-1 overflow-y-auto custom-scrollbar px-6 pt-3 pb-5 space-y-4 relative z-10">
+				<div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-4 relative z-10">
 					{/* 1. User Profile Section */}
 					<div className="space-y-2">
-						<div className="flex items-center justify-between">
+						<div className="flex items-center gap-1.5">
+							<User className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
 							<span
 								className={cn(
-									"text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5",
-									isLight ? "text-zinc-500" : "text-zinc-400",
+									"text-[11px] font-bold uppercase tracking-wider",
+									isLight ? "text-slate-500" : "text-slate-400",
 								)}
 							>
-								<User size={12} style={{ color: activeAccent.hex }} />
-								<span>User Profile</span>
+								User Profile
 							</span>
 						</div>
 
 						<div
 							className={cn(
-								"flex items-center gap-3.5 p-3 rounded-2xl border transition-colors shadow-xs backdrop-blur-sm",
+								"flex items-center gap-3 p-3 rounded-2xl border transition-colors shadow-xs backdrop-blur-sm",
 								isLight
-									? "bg-zinc-50/70 border-zinc-200/80"
-									: "bg-white/[0.025] border-white/[0.07]",
+									? "bg-slate-50/80 border-slate-200"
+									: "bg-white/[0.025] border-white/[0.08]",
 							)}
 						>
 							<div
-								className="flex h-10 w-10 items-center justify-center rounded-xl font-black text-xs shrink-0 select-none shadow-sm transition-transform hover:scale-105"
+								className="flex h-11 w-11 items-center justify-center rounded-xl font-black text-sm shrink-0 select-none shadow-xs relative overflow-hidden transition-transform hover:scale-105"
 								style={{
 									backgroundColor: activeAccent.hex,
 									color: activeAccent.textHex,
-									boxShadow: `0 3px 12px ${activeAccent.hex}35`,
 								}}
 							>
 								{initials}
+								<div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#0d0f17] shadow-xs" />
 							</div>
+
 							<div className="flex-1 min-w-0">
-								<label
-									htmlFor="settings-username-input"
-									className={cn(
-										"block text-[10.5px] font-semibold mb-1",
-										isLight ? "text-zinc-500" : "text-zinc-400",
-									)}
-								>
-									Display Name
-								</label>
+								<div className="flex items-center justify-between mb-1">
+									<label
+										htmlFor="settings-username-input"
+										className={cn(
+											"text-[11px] font-semibold leading-none",
+											isLight ? "text-slate-600" : "text-slate-300",
+										)}
+									>
+										Display Name
+									</label>
+									<span
+										className={cn(
+											"text-[10px] font-medium px-1.5 py-0.5 rounded",
+											isLight
+												? "bg-slate-200/60 text-slate-500"
+												: "bg-white/5 text-slate-400 border border-white/5",
+										)}
+									>
+										Local Workspace
+									</span>
+								</div>
 								<input
 									id="settings-username-input"
 									type="text"
@@ -191,85 +203,167 @@ export function StudioSettingsDialog({
 									className={cn(
 										"w-full h-8.5 px-3 rounded-xl border text-xs font-semibold outline-none transition-all",
 										isLight
-											? "border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
-											: "border-white/[0.08] bg-black/40 text-zinc-100 placeholder:text-zinc-500 focus:border-white/20 focus:ring-2 focus:ring-white/5",
+											? "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:ring-1 focus:ring-slate-200"
+											: "border-white/10 bg-black/40 text-slate-100 placeholder:text-slate-500 focus:border-white/25 focus:ring-1 focus:ring-white/10",
 									)}
 								/>
 							</div>
 						</div>
 					</div>
 
-					{/* 2. Theme Mode Section */}
+					{/* 2. Appearance Theme Section with Visual Previews */}
 					<div className="space-y-2">
-						<span
-							className={cn(
-								"text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5",
-								isLight ? "text-zinc-500" : "text-zinc-400",
-							)}
-						>
-							<Sun size={12} style={{ color: activeAccent.hex }} />
-							<span>Appearance Theme</span>
-						</span>
+						<div className="flex items-center gap-1.5">
+							<Sun className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+							<span
+								className={cn(
+									"text-[11px] font-bold uppercase tracking-wider",
+									isLight ? "text-slate-500" : "text-slate-400",
+								)}
+							>
+								Appearance Theme
+							</span>
+						</div>
 
-						<div
-							className={cn(
-								"grid grid-cols-2 gap-1.5 p-1.5 rounded-2xl border backdrop-blur-sm",
-								isLight
-									? "bg-zinc-100/80 border-zinc-200/80"
-									: "bg-white/[0.025] border-white/[0.07]",
-							)}
-						>
+						<div className="grid grid-cols-2 gap-2.5">
+							{/* Dark Mode Card */}
 							<button
 								type="button"
 								onClick={() => handleThemeToggle("dark")}
 								className={cn(
-									"flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border",
+									"p-2.5 rounded-2xl border transition-all cursor-pointer relative group text-left shadow-xs flex flex-col gap-2",
 									themeMode === "dark"
-										? isLight
-											? "bg-white border-zinc-200 text-zinc-900 font-extrabold shadow-xs"
-											: "bg-white/12 border-white/10 text-white font-extrabold shadow-sm"
+										? "ring-2 ring-offset-2 ring-offset-[#0d0f17] border-white/20 bg-white/[0.06]"
 										: isLight
-											? "border-transparent text-zinc-500 hover:text-zinc-900"
-											: "border-transparent text-zinc-400 hover:text-white",
+											? "border-slate-200 bg-white/60 hover:bg-white hover:border-slate-300 opacity-80 hover:opacity-100"
+											: "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] opacity-80 hover:opacity-100",
 								)}
+								style={
+									themeMode === "dark"
+										? {
+												borderColor: activeAccent.hex,
+												boxShadow: `0 0 16px ${activeAccent.hex}25`,
+											}
+										: undefined
+								}
 							>
-								<Moon size={14} />
-								<span>Dark Mode</span>
+								{/* Mini Window Preview */}
+								<div className="w-full h-12 rounded-xl bg-[#090a0f] border border-white/10 p-1.5 flex flex-col justify-between overflow-hidden shadow-inner relative">
+									<div className="flex items-center gap-1">
+										<div className="w-1.5 h-1.5 rounded-full bg-red-500/80" />
+										<div className="w-1.5 h-1.5 rounded-full bg-amber-500/80" />
+										<div className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
+									</div>
+									<div className="flex items-center gap-1.5">
+										<div
+											className="w-8 h-1.5 rounded-full"
+											style={{ backgroundColor: activeAccent.hex }}
+										/>
+										<div className="w-4 h-1.5 rounded-full bg-white/20" />
+									</div>
+								</div>
+
+								<div className="flex items-center justify-between px-0.5">
+									<div className="flex items-center gap-1.5">
+										<Moon className="w-3.5 h-3.5 text-indigo-400" />
+										<span className="text-xs font-bold text-white">Dark Mode</span>
+									</div>
+									{themeMode === "dark" && (
+										<div
+											className="w-4 h-4 rounded-full flex items-center justify-center shadow-xs"
+											style={{
+												backgroundColor: activeAccent.hex,
+												color: activeAccent.textHex,
+											}}
+										>
+											<Check className="w-2.5 h-2.5 stroke-[3]" />
+										</div>
+									)}
+								</div>
 							</button>
 
+							{/* Light Mode Card */}
 							<button
 								type="button"
 								onClick={() => handleThemeToggle("light")}
 								className={cn(
-									"flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border",
+									"p-2.5 rounded-2xl border transition-all cursor-pointer relative group text-left shadow-xs flex flex-col gap-2",
 									themeMode === "light"
-										? isLight
-											? "bg-white border-zinc-200 text-zinc-900 font-extrabold shadow-xs"
-											: "bg-white/12 border-white/10 text-white font-extrabold shadow-sm"
+										? "ring-2 ring-offset-2 ring-offset-[#0d0f17] border-white/20 bg-white/[0.06]"
 										: isLight
-											? "border-transparent text-zinc-500 hover:text-zinc-900"
-											: "border-transparent text-zinc-400 hover:text-white",
+											? "border-slate-200 bg-white/60 hover:bg-white hover:border-slate-300 opacity-80 hover:opacity-100"
+											: "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] opacity-80 hover:opacity-100",
 								)}
+								style={
+									themeMode === "light"
+										? {
+												borderColor: activeAccent.hex,
+												boxShadow: `0 0 16px ${activeAccent.hex}25`,
+											}
+										: undefined
+								}
 							>
-								<Sun size={14} />
-								<span>Light Mode</span>
+								{/* Mini Window Preview */}
+								<div className="w-full h-12 rounded-xl bg-slate-100 border border-slate-300 p-1.5 flex flex-col justify-between overflow-hidden shadow-inner relative">
+									<div className="flex items-center gap-1">
+										<div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+										<div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+										<div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+									</div>
+									<div className="flex items-center gap-1.5">
+										<div
+											className="w-8 h-1.5 rounded-full"
+											style={{ backgroundColor: activeAccent.hex }}
+										/>
+										<div className="w-4 h-1.5 rounded-full bg-slate-300" />
+									</div>
+								</div>
+
+								<div className="flex items-center justify-between px-0.5">
+									<div className="flex items-center gap-1.5">
+										<Sun className="w-3.5 h-3.5 text-amber-400" />
+										<span
+											className={cn("text-xs font-bold", isLight ? "text-slate-900" : "text-white")}
+										>
+											Light Mode
+										</span>
+									</div>
+									{themeMode === "light" && (
+										<div
+											className="w-4 h-4 rounded-full flex items-center justify-center shadow-xs"
+											style={{
+												backgroundColor: activeAccent.hex,
+												color: activeAccent.textHex,
+											}}
+										>
+											<Check className="w-2.5 h-2.5 stroke-[3]" />
+										</div>
+									)}
+								</div>
 							</button>
 						</div>
 					</div>
 
-					{/* 3. Accent Color Section */}
+					{/* 3. Accent Color Section with Specular Gems */}
 					<div className="space-y-2">
-						<span
-							className={cn(
-								"text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5",
-								isLight ? "text-zinc-500" : "text-zinc-400",
-							)}
-						>
-							<Palette size={12} style={{ color: activeAccent.hex }} />
-							<span>Accent Color</span>
-						</span>
+						<div className="flex items-center justify-between">
+							<div className="flex items-center gap-1.5">
+								<Palette className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+								<span
+									className={cn(
+										"text-[11px] font-bold uppercase tracking-wider",
+										isLight ? "text-slate-500" : "text-slate-400",
+									)}
+								>
+									Accent Color
+								</span>
+							</div>
+							<span className="text-[11px] font-mono font-bold" style={{ color: activeAccent.hex }}>
+								{activeAccent.hex.toUpperCase()}
+							</span>
+						</div>
 
-						<div className="grid grid-cols-6 gap-2.5 pt-0.5">
+						<div className="grid grid-cols-6 gap-2 pt-0.5">
 							{(Object.keys(ACCENT_COLOR_MAP) as AccentColor[]).map((colKey) => {
 								const colData = ACCENT_COLOR_MAP[colKey];
 								const isSelected = accentColor === colKey;
@@ -280,43 +374,67 @@ export function StudioSettingsDialog({
 										onClick={() => handleAccentSelect(colKey)}
 										title={colData.label}
 										className={cn(
-											"h-10 rounded-xl transition-all flex items-center justify-center cursor-pointer relative shadow-sm",
+											"h-10 rounded-xl transition-all flex items-center justify-center cursor-pointer relative shadow-sm overflow-hidden border border-black/10 dark:border-white/10 group",
 											isSelected
-												? "ring-2 ring-white ring-offset-2 ring-offset-[#0c0d12] scale-105 shadow-md"
-												: "hover:scale-105 opacity-80 hover:opacity-100",
+												? "ring-2 ring-white/90 ring-offset-2 ring-offset-[#0d0f17] scale-105 shadow-md z-10"
+												: "hover:scale-105 opacity-85 hover:opacity-100",
 										)}
 										style={{
 											backgroundColor: colData.hex,
-											boxShadow: isSelected ? `0 4px 16px ${colData.hex}60` : undefined,
 										}}
 									>
 										{isSelected && (
-											<Check size={16} strokeWidth={3} style={{ color: colData.textHex }} />
+											<Check
+												className="w-4 h-4 stroke-[3] drop-shadow-md z-10"
+												style={{ color: colData.textHex }}
+											/>
 										)}
 									</button>
 								);
 							})}
+						</div>
+
+						{/* Selected Color Label Pill */}
+						<div
+							className={cn(
+								"flex items-center justify-between px-3 py-1.5 rounded-xl border text-xs",
+								isLight ? "bg-slate-50 border-slate-200" : "bg-white/[0.025] border-white/[0.06]",
+							)}
+						>
+							<div className="flex items-center gap-2">
+								<div
+									className="w-2.5 h-2.5 rounded-full shadow-xs"
+									style={{ backgroundColor: activeAccent.hex }}
+								/>
+								<span className="text-slate-400 font-medium">Selected Theme:</span>
+								<span className={cn("font-bold", isLight ? "text-slate-900" : "text-white")}>
+									{activeAccent.label}
+								</span>
+							</div>
+							<span className="text-[10.5px] font-semibold text-slate-400">Live Preview</span>
 						</div>
 					</div>
 
 					{/* 4. HUD Control Layout Section */}
 					{onTrayLayoutChange && (
 						<div className="space-y-2">
-							<span
-								className={cn(
-									"text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5",
-									isLight ? "text-zinc-500" : "text-zinc-400",
-								)}
-							>
-								<Layout size={12} style={{ color: activeAccent.hex }} />
-								<span>Recorder HUD Layout</span>
-							</span>
+							<div className="flex items-center gap-1.5">
+								<Layout className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+								<span
+									className={cn(
+										"text-[11px] font-bold uppercase tracking-wider",
+										isLight ? "text-slate-500" : "text-slate-400",
+									)}
+								>
+									Recorder HUD Layout
+								</span>
+							</div>
 
 							<div
 								className={cn(
 									"grid grid-cols-2 gap-1.5 p-1.5 rounded-2xl border backdrop-blur-sm",
 									isLight
-										? "bg-zinc-100/80 border-zinc-200/80"
+										? "bg-slate-100 border-slate-200"
 										: "bg-white/[0.025] border-white/[0.07]",
 								)}
 							>
@@ -327,14 +445,14 @@ export function StudioSettingsDialog({
 										"flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border",
 										trayLayout === "horizontal"
 											? isLight
-												? "bg-white border-zinc-200 text-zinc-900 font-extrabold shadow-xs"
-												: "bg-white/12 border-white/10 text-white font-extrabold shadow-sm"
+												? "bg-white border-slate-200 text-slate-900 shadow-xs"
+												: "bg-white/12 border-white/10 text-white shadow-sm"
 											: isLight
-												? "border-transparent text-zinc-500 hover:text-zinc-900"
-												: "border-transparent text-zinc-400 hover:text-white",
+												? "border-transparent text-slate-500 hover:text-slate-900"
+												: "border-transparent text-slate-400 hover:text-white",
 									)}
 								>
-									<Sliders size={13} />
+									<Sliders className="w-3.5 h-3.5" />
 									<span>Horizontal Bar</span>
 								</button>
 
@@ -345,14 +463,14 @@ export function StudioSettingsDialog({
 										"flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer select-none border",
 										trayLayout === "vertical"
 											? isLight
-												? "bg-white border-zinc-200 text-zinc-900 font-extrabold shadow-xs"
-												: "bg-white/12 border-white/10 text-white font-extrabold shadow-sm"
+												? "bg-white border-slate-200 text-slate-900 shadow-xs"
+												: "bg-white/12 border-white/10 text-white shadow-sm"
 											: isLight
-												? "border-transparent text-zinc-500 hover:text-zinc-900"
-												: "border-transparent text-zinc-400 hover:text-white",
+												? "border-transparent text-slate-500 hover:text-slate-900"
+												: "border-transparent text-slate-400 hover:text-white",
 									)}
 								>
-									<Layout size={13} />
+									<Layout className="w-3.5 h-3.5" />
 									<span>Vertical Tray</span>
 								</button>
 							</div>
@@ -360,13 +478,20 @@ export function StudioSettingsDialog({
 					)}
 				</div>
 
-				{/* Done Action Button */}
+				{/* Footer Bar */}
 				<div
 					className={cn(
-						"px-6 py-4 border-t flex justify-end gap-2 shrink-0 relative z-10",
-						isLight ? "border-zinc-200/80 bg-zinc-50/50" : "border-white/[0.06] bg-white/[0.015]",
+						"px-5 py-3.5 border-t flex items-center justify-between shrink-0 relative z-10",
+						isLight ? "border-slate-200 bg-slate-50/60" : "border-white/[0.06] bg-white/[0.02]",
 					)}
 				>
+					<div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+						<Sparkles className="w-3 h-3 text-slate-500" />
+						<span>Ocal Screen Studio</span>
+						<span className="text-slate-600">•</span>
+						<span>v2.9</span>
+					</div>
+
 					<button
 						type="button"
 						onClick={onClose}
@@ -375,9 +500,9 @@ export function StudioSettingsDialog({
 							color: activeAccent.textHex,
 							boxShadow: `0 4px 16px ${activeAccent.hex}40`,
 						}}
-						className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl font-extrabold text-xs tracking-wide transition-all cursor-pointer hover:opacity-95 hover:scale-[1.02] active:scale-95 border-0"
+						className="flex items-center gap-1.5 px-5 py-2 rounded-xl font-bold text-xs tracking-wide transition-all cursor-pointer hover:opacity-95 hover:scale-[1.02] active:scale-95 border-0 shadow-md"
 					>
-						<CheckCircle2 size={14} />
+						<Check className="w-3.5 h-3.5 stroke-[3]" />
 						<span>Done</span>
 					</button>
 				</div>

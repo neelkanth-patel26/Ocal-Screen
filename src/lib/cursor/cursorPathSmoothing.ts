@@ -55,16 +55,50 @@ function binarySearchAtOrBefore(
 	return result;
 }
 
-function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
-	const t2 = t * t;
-	const t3 = t2 * t;
-	return (
-		0.5 *
-		(2 * p1 +
-			(-p0 + p2) * t +
-			(2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
-			(-p0 + 3 * p1 - 3 * p2 + p3) * t3)
-	);
+function centripetalCatmullRom(
+	p0: { cx: number; cy: number },
+	p1: { cx: number; cy: number },
+	p2: { cx: number; cy: number },
+	p3: { cx: number; cy: number },
+	tFraction: number,
+): SmoothedCursorPosition {
+	// Centripetal parameterization (alpha = 0.5) eliminates cusps and overshooting loops
+	const dist = (a: { cx: number; cy: number }, b: { cx: number; cy: number }) => {
+		const dx = b.cx - a.cx;
+		const dy = b.cy - a.cy;
+		return Math.sqrt(Math.sqrt(dx * dx + dy * dy)) + 1e-4;
+	};
+
+	const t0 = 0;
+	const t1 = t0 + dist(p0, p1);
+	const t2 = t1 + dist(p1, p2);
+	const t3 = t2 + dist(p2, p3);
+
+	const t = t1 + tFraction * (t2 - t1);
+
+	const lerpPoint = (
+		a: { cx: number; cy: number },
+		b: { cx: number; cy: number },
+		ta: number,
+		tb: number,
+	) => {
+		const f = (t - ta) / (tb - ta);
+		return { cx: a.cx + (b.cx - a.cx) * f, cy: a.cy + (b.cy - a.cy) * f };
+	};
+
+	const a1 = lerpPoint(p0, p1, t0, t1);
+	const a2 = lerpPoint(p1, p2, t1, t2);
+	const a3 = lerpPoint(p2, p3, t2, t3);
+
+	const b1 = lerpPoint(a1, a2, t0, t2);
+	const b2 = lerpPoint(a2, a3, t1, t3);
+
+	const c = lerpPoint(b1, b2, t1, t2);
+
+	return {
+		cx: clamp(c.cx, 0, 1),
+		cy: clamp(c.cy, 0, 1),
+	};
 }
 
 /** Catmull-Rom spline interpolation of a sample run's position at an arbitrary time. */
@@ -88,28 +122,38 @@ function interpolateRun(samples: CursorRecordingSample[], timeMs: number): Smoot
 		return { cx: a.cx + (b.cx - a.cx) * t, cy: a.cy + (b.cy - a.cy) * t };
 	}
 
-	// 4 control points for Catmull-Rom spline
+	// 4 control points for Centripetal Catmull-Rom spline
 	const s0 = samples[Math.max(0, i - 1)];
 	const s3 = samples[Math.min(last, i + 2)];
 
-	const cx = clamp(catmullRom(s0.cx, a.cx, b.cx, s3.cx, t), 0, 1);
-	const cy = clamp(catmullRom(s0.cy, a.cy, b.cy, s3.cy, t), 0, 1);
-	return { cx, cy };
+	return centripetalCatmullRom(s0, a, b, s3, t);
 }
 
 /**
- * Drive a bidirectional spring across `targets`, returning zero-phase smoothed series.
- * Runs forward and backward passes to completely cancel phase lag while eliminating jitter.
+ * Drive a bidirectional velocity-adaptive spring across `targets`, returning zero-phase smoothed series.
+ * Runs forward and backward passes to completely cancel phase lag while adapting responsiveness to flick speeds.
  */
 function bidirectionalSpringSmooth(
 	targets: Float32Array,
-	stiffness: number,
-	damping: number,
+	baseStiffness: number,
+	baseDamping: number,
 	mass: number,
 ): Float32Array {
 	const n = targets.length;
 	if (n === 0) return new Float32Array(0);
 	if (n === 1) return new Float32Array(targets);
+
+	// Adaptive spring parameters per sample based on local traversal velocity
+	const getAdaptiveParams = (curr: number, prev: number) => {
+		const speed = Math.abs(curr - prev) / STEP_S;
+		// Speed normalized against typical screen-crossing speed (0.5 screen/sec)
+		const velocityFactor = Math.min(2.5, Math.max(0, speed / 0.5));
+		const stiffness = baseStiffness * (1 + 0.8 * velocityFactor);
+		// Critically damped adjustment for smooth settles without overshoot
+		const criticalDamping = 2 * Math.sqrt(stiffness * mass);
+		const damping = Math.max(baseDamping, criticalDamping * 0.95);
+		return { stiffness, damping };
+	};
 
 	// Forward pass
 	const fwd = new Float32Array(n);
@@ -117,6 +161,7 @@ function bidirectionalSpringSmooth(
 	let vFwd = 0;
 	fwd[0] = xFwd;
 	for (let i = 1; i < n; i++) {
+		const { stiffness, damping } = getAdaptiveParams(targets[i], targets[i - 1]);
 		const accel = (-stiffness * (xFwd - targets[i]) - damping * vFwd) / mass;
 		vFwd += accel * STEP_S;
 		xFwd += vFwd * STEP_S;
@@ -129,6 +174,7 @@ function bidirectionalSpringSmooth(
 	let vBwd = 0;
 	bwd[n - 1] = xBwd;
 	for (let i = n - 2; i >= 0; i--) {
+		const { stiffness, damping } = getAdaptiveParams(targets[i], targets[i + 1]);
 		const accel = (-stiffness * (xBwd - targets[i]) - damping * vBwd) / mass;
 		vBwd += accel * STEP_S;
 		xBwd += vBwd * STEP_S;
@@ -159,6 +205,17 @@ function splitVisibleRuns(samples: CursorRecordingSample[]): CursorRecordingSamp
 	return runs;
 }
 
+function isSampleClick(sample: CursorRecordingSample): boolean {
+	const s = sample as unknown as Record<string, unknown>;
+	const interaction = String(s.interactionType || "").toLowerCase();
+	return (
+		interaction.includes("click") ||
+		interaction === "pressed" ||
+		interaction === "down" ||
+		Boolean(s.isClick || s.isDoubleClick)
+	);
+}
+
 function buildSmoothedRun(
 	samples: CursorRecordingSample[],
 	stiffness: number,
@@ -184,16 +241,18 @@ function buildSmoothedRun(
 	const smoothY = bidirectionalSpringSmooth(rawY, stiffness, damping, mass);
 
 	// Click Anchor Snapping: precisely anchor the path to exact coordinates on click events
-	const clickAnchors = samples.filter((s) => s.interactionType === "click");
-	const ANCHOR_WINDOW_MS = 90;
+	// Uses C2 quintic polynomial smootherstep to ensure zero jerk and 100% click fidelity
+	const clickAnchors = samples.filter(isSampleClick);
+	const ANCHOR_WINDOW_MS = 85;
 
 	if (clickAnchors.length > 0) {
 		for (const anchor of clickAnchors) {
 			for (let i = 0; i < n; i++) {
 				const dt = Math.abs(times[i] - anchor.timeMs);
 				if (dt <= ANCHOR_WINDOW_MS) {
-					// Smooth cosine bell curve weighting
-					const weight = 0.5 + 0.5 * Math.cos((Math.PI * dt) / ANCHOR_WINDOW_MS);
+					const u = dt / ANCHOR_WINDOW_MS;
+					// Quintic polynomial bell weighting: 1 - 10u^3 + 15u^4 - 6u^5
+					const weight = 1 - u * u * u * (10 - 15 * u + 6 * u * u);
 					smoothX[i] = (1 - weight) * smoothX[i] + weight * anchor.cx;
 					smoothY[i] = (1 - weight) * smoothY[i] + weight * anchor.cy;
 				}

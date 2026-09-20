@@ -31,11 +31,19 @@ module.exports = {
 			boxShadow: {
 				"hud-bar": "0 2px 16px rgba(0, 0, 0, 0.25), 0 0 40px rgba(100, 80, 200, 0.08)",
 				"mic-panel": "0 2px 12px rgba(0, 0, 0, 0.2), 0 0 30px rgba(100, 80, 200, 0.06)",
+				"soft-ambient": "0 10px 30px -4px rgba(0, 0, 0, 0.05), 0 2px 8px -2px rgba(0, 0, 0, 0.02)",
+				"soft-elevated":
+					"0 20px 48px -10px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.03)",
+				"soft-float": "0 14px 36px -6px rgba(0, 0, 0, 0.06), 0 2px 10px -2px rgba(0, 0, 0, 0.03)",
 			},
 			borderRadius: {
 				lg: "var(--radius)",
 				md: "calc(var(--radius) - 2px)",
 				sm: "calc(var(--radius) - 4px)",
+				"2xl": "20px",
+				"3xl": "24px",
+				"4xl": "28px",
+				"5xl": "32px",
 			},
 			colors: {
 				background: "hsl(var(--background))",

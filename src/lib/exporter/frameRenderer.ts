@@ -580,9 +580,15 @@ export class FrameRenderer {
 			: activeNativeCursor.sample;
 
 		const projectedPoint = projectNativeCursorToLocal({
+			baseOffset: this.layoutCache.baseOffset,
+			baseScale: this.layoutCache.baseScale,
 			cropRegion: this.config.cropRegion,
 			maskRect: this.layoutCache.maskRect,
 			sample: displaySample,
+			videoDimensions: {
+				width: this.config.videoWidth,
+				height: this.config.videoHeight,
+			},
 		});
 		if (!projectedPoint) {
 			resetNativeCursorMotionBlurState(this.nativeCursorMotionBlurState);
@@ -610,11 +616,13 @@ export class FrameRenderer {
 			);
 		const appliedScale = this.animationState.appliedScale;
 		// Normalize cursor size to the same fraction of video width as the preview;
-		// both paths use maskRect.width / croppedVideoWidth.
+		// both paths prefer baseScale when available, falling back to maskRect.width / croppedVideoWidth.
 		const sizeNorm =
-			this.layoutCache.videoSize.width > 0
-				? this.layoutCache.maskRect.width / this.layoutCache.videoSize.width
-				: 1;
+			this.layoutCache.baseScale > 0
+				? this.layoutCache.baseScale
+				: this.layoutCache.videoSize.width > 0
+					? this.layoutCache.maskRect.width / this.layoutCache.videoSize.width
+					: 1;
 		const canvasX = projectedPoint.x * appliedScale + this.animationState.x;
 		const canvasY = projectedPoint.y * appliedScale + this.animationState.y;
 		const blurPx = getNativeCursorMotionBlurPx({

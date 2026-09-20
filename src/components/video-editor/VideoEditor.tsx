@@ -3,6 +3,7 @@ import {
 	Check,
 	ChevronDown,
 	Columns2,
+	Film,
 	FolderOpen,
 	Languages,
 	LayoutGrid,
@@ -110,7 +111,12 @@ import {
 import { SettingsPanel } from "./SettingsPanel";
 import { StudioSettingsDialog } from "./StudioSettingsDialog";
 import TimelineEditor from "./timeline/TimelineEditor";
-import { buildAutoZoomSuggestions, isClickInteractionType } from "./timeline/zoomSuggestionUtils";
+import {
+	type AutoZoomFraming,
+	type AutoZoomIntensity,
+	buildAutoZoomSuggestions,
+	isClickInteractionType,
+} from "./timeline/zoomSuggestionUtils";
 import {
 	type AnnotationRegion,
 	type BlurData,
@@ -359,6 +365,12 @@ export default function VideoEditor() {
 		format: string;
 	} | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
+	const [autoZoomIntensity, setAutoZoomIntensity] = useState<AutoZoomIntensity>("balanced");
+	const [autoZoomFraming, setAutoZoomFraming] = useState<AutoZoomFraming>("rule-of-thirds");
+	const [cursorTrackingMode, setCursorTrackingMode] = useState<"cinematic" | "adaptive" | "direct">(
+		"adaptive",
+	);
+	const [cursorSnapToClicks, setCursorSnapToClicks] = useState<boolean>(true);
 	const [layoutMode, setLayoutMode] = useState<"auto" | "portrait-pro" | "landscape-stack">("auto");
 	const isPortrait = isPortraitAspectRatio(aspectRatio);
 	const effectiveIsPortraitLayout =
@@ -1170,6 +1182,8 @@ export default function VideoEditor() {
 				totalMs,
 				existingRegions,
 				defaultDurationMs: Math.max(2800, Math.round(totalMs * 0.08)),
+				intensity: autoZoomIntensity,
+				framing: autoZoomFraming,
 			});
 			return suggestions.map((suggestion) => {
 				const scale = suggestion.customScale ?? ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH];
@@ -1186,8 +1200,42 @@ export default function VideoEditor() {
 				};
 			});
 		},
-		[cursorTelemetry, cursorClickTimestamps, duration, autoFocusAll],
+		[
+			cursorTelemetry,
+			cursorClickTimestamps,
+			duration,
+			autoFocusAll,
+			autoZoomIntensity,
+			autoZoomFraming,
+		],
 	);
+
+	// Direct manual trigger to generate AI click-zooms on timeline
+	const handleGenerateAIZooms = useCallback(() => {
+		const newRegions = buildAutoZoomRegions([]);
+		if (newRegions.length > 0) {
+			pushState((prev) => ({
+				autoZoomEnabled: true,
+				zoomRegions: [...prev.zoomRegions.filter((r) => r.source !== "auto"), ...newRegions],
+			}));
+			toast.success("AI Auto-Zoom Generated", {
+				description: `Placed ${newRegions.length} click-zoom region${newRegions.length > 1 ? "s" : ""} on timeline (${autoZoomIntensity} intensity, ${autoZoomFraming === "rule-of-thirds" ? "rule of thirds" : "centered"})`,
+			});
+		} else {
+			toast.info("Auto-Zoom", {
+				description: "No click events or zoom candidates found.",
+			});
+		}
+	}, [buildAutoZoomRegions, pushState, autoZoomIntensity, autoZoomFraming]);
+
+	const handleClearAutoZooms = useCallback(() => {
+		pushState((prev) => ({
+			zoomRegions: prev.zoomRegions.filter((r) => r.source !== "auto"),
+		}));
+		toast.info("Auto-Zooms Cleared", {
+			description: "Removed all automatically generated zoom regions.",
+		});
+	}, [pushState]);
 
 	// Auto-suggest zooms once per fresh recording (no existing zooms, telemetry
 	// Auto-suggest zooms once per fresh recording or imported video.
@@ -1224,24 +1272,6 @@ export default function VideoEditor() {
 		cursorClickTimestamps,
 		pushState,
 	]);
-
-	// Direct manual trigger to generate AI click-zooms on timeline
-	const handleGenerateAIZooms = useCallback(() => {
-		const newRegions = buildAutoZoomRegions([]);
-		if (newRegions.length > 0) {
-			pushState((prev) => ({
-				autoZoomEnabled: true,
-				zoomRegions: [...prev.zoomRegions.filter((r) => r.source !== "auto"), ...newRegions],
-			}));
-			toast.success("AI Auto-Zoom Generated", {
-				description: `Placed ${newRegions.length} click-zoom region${newRegions.length > 1 ? "s" : ""} on timeline`,
-			});
-		} else {
-			toast.info("Auto-Zoom", {
-				description: "No click events or zoom candidates found.",
-			});
-		}
-	}, [buildAutoZoomRegions, pushState]);
 
 	// Wand toggle: ON regenerates suggestions; OFF removes auto zooms.
 	const handleToggleAutoZoom = useCallback(
@@ -2592,7 +2622,7 @@ export default function VideoEditor() {
 	return (
 		<div
 			className={`flex flex-col h-screen overflow-hidden selection:bg-white/20 transition-colors duration-200 ${
-				isLight ? "bg-[#f8f9fa] text-slate-900" : "bg-[#09090b] text-slate-200"
+				isLight ? "bg-[#edf0f2] text-zinc-900" : "bg-[#0b0c10] text-zinc-200"
 			}`}
 		>
 			<Dialog open={showNewRecordingDialog} onOpenChange={setShowNewRecordingDialog}>
@@ -2751,233 +2781,261 @@ export default function VideoEditor() {
 			</Dialog>
 
 			<div
-				className={`h-11 flex-shrink-0 border-b flex items-center justify-between px-3.5 z-50 backdrop-blur-xl transition-colors duration-200 select-none ${
+				className={`h-15 pt-2.5 pb-1.5 flex-shrink-0 border-b flex items-center justify-between px-4.5 z-50 backdrop-blur-2xl transition-colors duration-200 select-none ${
 					isLight
-						? "bg-white/80 border-zinc-200 text-zinc-900"
-						: "bg-[#090a0e]/85 border-white/[0.07] text-zinc-100"
+						? "bg-white/85 border-black/[0.05] text-zinc-900 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]"
+						: "bg-[#0e1017]/85 border-white/[0.06] text-zinc-100 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.5)]"
 				}`}
 				style={{ WebkitAppRegion: "drag" } as CSSProperties}
 			>
 				{/* Brand Lockup (Left) */}
 				<div
-					className={`flex items-center gap-2.5 ${isMac ? "ml-16" : "ml-0.5"}`}
+					className={`flex items-center gap-3 ${isMac ? "ml-16" : "ml-3.5"}`}
 					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
 				>
-					<div className="flex items-center gap-2">
-						<div
-							className="flex h-6 w-6 items-center justify-center rounded-lg shadow-sm"
-							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+					<div className="flex items-center gap-2.5">
+						<span
+							className={`text-[13px] font-bold tracking-tight ${
+								isLight ? "text-zinc-950" : "text-white"
+							}`}
 						>
-							<Video size={13} className="stroke-[2.5]" />
-						</div>
-						<div className="flex items-center gap-1.5">
+							ocal screen
+						</span>
+						<span
+							className={cn(
+								"flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider uppercase border shadow-2xs",
+								isLight
+									? "bg-zinc-100/80 border-black/[0.06] text-zinc-700"
+									: "bg-white/[0.06] border-white/10 text-zinc-300",
+							)}
+						>
 							<span
-								className={`text-xs font-black tracking-tight ${
-									isLight ? "text-zinc-950" : "text-white"
-								}`}
-							>
-								ocal screen
-							</span>
-							<span
-								className={`text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-md border ${
-									isLight
-										? "bg-zinc-100 border-zinc-200 text-zinc-600"
-										: "bg-white/[0.06] border-white/[0.08] text-zinc-400"
-								}`}
-							>
-								STUDIO
-							</span>
-						</div>
+								className="w-1.5 h-1.5 rounded-full animate-pulse shadow-sm"
+								style={{ backgroundColor: activeAccent.hex }}
+							/>
+							<span>Studio</span>
+						</span>
 					</div>
 
-					{/* Active Project Breadcrumb when video is loaded */}
+					{/* Active Project / Video Breadcrumb */}
 					{videoPath && (
-						<div className="flex items-center gap-2 pl-2 border-l border-white/[0.08]">
-							<span
-								className={`text-xs font-semibold truncate max-w-[220px] ${
-									isLight ? "text-zinc-600" : "text-zinc-400"
-								}`}
+						<div className="flex items-center gap-1.5 pl-2.5 ml-1 border-l border-black/[0.06] dark:border-white/[0.08]">
+							<div
+								className={cn(
+									"flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold max-w-[240px] truncate shadow-2xs transition-colors",
+									isLight
+										? "bg-zinc-100/70 border-black/[0.05] text-zinc-700"
+										: "bg-white/[0.04] border-white/[0.07] text-zinc-300",
+								)}
 								title={currentProjectPath || videoSourcePath || ""}
 							>
-								{(currentProjectPath || videoSourcePath || "").split(/[\\/]/).pop()}
-							</span>
+								<Film size={11} className="text-zinc-400 shrink-0" />
+								<span className="truncate">
+									{(currentProjectPath || videoSourcePath || "").split(/[\\/]/).pop()}
+								</span>
+							</div>
 						</div>
 					)}
 				</div>
 
-				{/* Actions & Controls (Right) */}
+				{/* Actions & Controls (Right) - Unified Segmented Glass Docks */}
 				<div
-					className={`flex items-center gap-2 ${isWin ? "mr-36" : ""}`}
+					className={`flex items-center gap-2.5 ${isWin ? "mr-36" : ""}`}
 					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
 				>
-					{/* Quick Project Actions Group */}
-					<div className="flex items-center gap-1.5">
+					{/* Dock 1: Primary Workspace Actions Dock */}
+					<div
+						className={cn(
+							"flex items-center p-0.5 rounded-full border backdrop-blur-xl shadow-2xs transition-colors",
+							isLight
+								? "bg-zinc-100/80 border-black/[0.06]"
+								: "bg-white/[0.04] border-white/[0.08]",
+						)}
+					>
+						{/* Recorder Button */}
 						<button
 							type="button"
 							onClick={() => setShowNewRecordingDialog(true)}
 							title={t("newRecording.title") || "Return to Recorder"}
-							className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
+							className={cn(
+								"flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95",
 								isLight
-									? "border-zinc-200 bg-zinc-100/80 hover:bg-zinc-200 text-zinc-900"
-									: "border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.1] text-zinc-200 hover:text-white"
-							}`}
+									? "text-zinc-700 hover:text-zinc-950 hover:bg-white shadow-2xs"
+									: "text-zinc-300 hover:text-white hover:bg-white/10",
+							)}
 						>
-							<Video size={12} style={{ color: activeAccent.hex }} />
+							<Video size={12.5} style={{ color: activeAccent.hex }} />
 							<span className="hidden sm:inline">Recorder</span>
 						</button>
 
+						{/* Segment Divider */}
+						<span className={cn("w-px h-3 mx-0.5", isLight ? "bg-black/10" : "bg-white/10")} />
+
+						{/* Open Project / Video */}
 						<button
 							type="button"
 							onClick={handleLoadProject}
 							title={ts("project.load") || "Load Project"}
-							className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
+							className={cn(
+								"flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95",
 								isLight
-									? "border-zinc-200 bg-zinc-100/80 hover:bg-zinc-200 text-zinc-900"
-									: "border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.1] text-zinc-200 hover:text-white"
-							}`}
+									? "text-zinc-700 hover:text-zinc-950 hover:bg-white shadow-2xs"
+									: "text-zinc-300 hover:text-white hover:bg-white/10",
+							)}
 						>
-							<FolderOpen size={12} />
+							<FolderOpen size={12.5} />
 							<span className="hidden sm:inline">Open</span>
 						</button>
 
+						{/* Save (Only if video loaded) */}
 						{videoPath && (
-							<button
-								type="button"
-								onClick={handleSaveProject}
-								title={ts("project.save") || "Save Project"}
-								className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
-									isLight
-										? "border-zinc-200 bg-zinc-100/80 hover:bg-zinc-200 text-zinc-900"
-										: "border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.1] text-zinc-200 hover:text-white"
-								}`}
-							>
-								<Save size={12} />
-								<span>Save</span>
-							</button>
+							<>
+								<span className={cn("w-px h-3 mx-0.5", isLight ? "bg-black/10" : "bg-white/10")} />
+								<button
+									type="button"
+									onClick={handleSaveProject}
+									title={ts("project.save") || "Save Project"}
+									className={cn(
+										"flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95",
+										isLight
+											? "text-zinc-700 hover:text-zinc-950 hover:bg-white shadow-2xs"
+											: "text-zinc-300 hover:text-white hover:bg-white/10",
+									)}
+								>
+									<Save size={12.5} />
+									<span>Save</span>
+								</button>
+							</>
+						)}
+
+						{/* Layout Switcher (Only if video loaded) */}
+						{videoPath && (
+							<>
+								<span className={cn("w-px h-3 mx-0.5", isLight ? "bg-black/10" : "bg-white/10")} />
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<button
+											type="button"
+											title={`Layout Mode: ${
+												layoutMode === "auto"
+													? `Auto (${effectiveIsPortraitLayout ? "Portrait Pro" : "Standard"})`
+													: layoutMode === "portrait-pro"
+														? "Portrait Pro (Max View)"
+														: "Standard"
+											}`}
+											className={cn(
+												"flex h-7 items-center gap-1.5 px-2.5 rounded-full transition-all cursor-pointer text-xs font-semibold outline-none active:scale-95",
+												isLight
+													? "text-zinc-700 hover:text-zinc-950 hover:bg-white shadow-2xs"
+													: "text-zinc-300 hover:text-white hover:bg-white/10",
+											)}
+										>
+											{effectiveIsPortraitLayout ? (
+												<Columns2 size={12} style={{ color: activeAccent.hex }} />
+											) : (
+												<Rows3 size={12} style={{ color: activeAccent.hex }} />
+											)}
+											<span className="text-[11px] font-bold">
+												{layoutMode === "auto"
+													? effectiveIsPortraitLayout
+														? "Portrait"
+														: "Standard"
+													: layoutMode === "portrait-pro"
+														? "Portrait"
+														: "Standard"}
+											</span>
+											<ChevronDown size={10} className="opacity-60" />
+										</button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent
+										align="end"
+										className={cn(
+											"min-w-[210px] rounded-2xl p-1.5 border z-50 transition-all",
+											isLight
+												? "bg-white border-zinc-200 text-zinc-900 shadow-lg"
+												: "bg-[#0e0f14] border-white/10 text-zinc-100 shadow-2xl",
+										)}
+									>
+										<DropdownMenuItem
+											onClick={() => setLayoutMode("auto")}
+											className={cn(
+												"flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all my-0.5",
+												layoutMode === "auto" &&
+													(isLight ? "bg-zinc-100 font-bold" : "bg-white/10 font-bold"),
+											)}
+										>
+											<div className="flex items-center gap-2">
+												<LayoutGrid size={13} style={{ color: activeAccent.hex }} />
+												<span>Auto ({isPortrait ? "Portrait Pro" : "Standard"})</span>
+											</div>
+											{layoutMode === "auto" && (
+												<Check size={13} style={{ color: activeAccent.hex }} />
+											)}
+										</DropdownMenuItem>
+										<DropdownMenuItem
+											onClick={() => setLayoutMode("portrait-pro")}
+											className={cn(
+												"flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all my-0.5",
+												layoutMode === "portrait-pro" &&
+													(isLight ? "bg-zinc-100 font-bold" : "bg-white/10 font-bold"),
+											)}
+										>
+											<div className="flex items-center gap-2">
+												<Columns2 size={13} style={{ color: activeAccent.hex }} />
+												<span>Portrait Pro (Max View)</span>
+											</div>
+											{layoutMode === "portrait-pro" && (
+												<Check size={13} style={{ color: activeAccent.hex }} />
+											)}
+										</DropdownMenuItem>
+										<DropdownMenuItem
+											onClick={() => setLayoutMode("landscape-stack")}
+											className={cn(
+												"flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all my-0.5",
+												layoutMode === "landscape-stack" &&
+													(isLight ? "bg-zinc-100 font-bold" : "bg-white/10 font-bold"),
+											)}
+										>
+											<div className="flex items-center gap-2">
+												<Rows3 size={13} style={{ color: activeAccent.hex }} />
+												<span>Standard Stacked</span>
+											</div>
+											{layoutMode === "landscape-stack" && (
+												<Check size={13} style={{ color: activeAccent.hex }} />
+											)}
+										</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
+							</>
 						)}
 					</div>
 
-					{/* Layout Switcher (Visible only when video is loaded) */}
-					{videoPath && (
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<button
-									type="button"
-									title={`Layout Mode: ${
-										layoutMode === "auto"
-											? `Auto (${effectiveIsPortraitLayout ? "Portrait Pro" : "Standard"})`
-											: layoutMode === "portrait-pro"
-												? "Portrait Pro (Max View)"
-												: "Standard"
-									}`}
-									className={cn(
-										"flex h-7 items-center gap-1.5 px-2 rounded-lg border transition-all cursor-pointer text-xs font-semibold outline-none",
-										effectiveIsPortraitLayout
-											? isLight
-												? "border-amber-300 bg-amber-50 text-amber-900"
-												: "border-amber-500/30 bg-amber-500/10 text-amber-300"
-											: isLight
-												? "border-zinc-200 bg-zinc-100/80 text-zinc-900 hover:bg-zinc-200"
-												: "border-white/[0.08] bg-white/[0.04] text-zinc-200 hover:bg-white/[0.08]",
-									)}
-								>
-									{effectiveIsPortraitLayout ? (
-										<Columns2 size={12} style={{ color: activeAccent.hex }} />
-									) : (
-										<Rows3 size={12} style={{ color: activeAccent.hex }} />
-									)}
-									<span className="text-[11px] font-bold">
-										{layoutMode === "auto"
-											? effectiveIsPortraitLayout
-												? "Portrait"
-												: "Standard"
-											: layoutMode === "portrait-pro"
-												? "Portrait"
-												: "Standard"}
-									</span>
-									<ChevronDown size={10} className="opacity-60" />
-								</button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent
-								align="end"
-								className={cn(
-									"min-w-[210px] rounded-2xl p-1.5 border z-50 transition-all",
-									isLight
-										? "bg-white border-zinc-200 text-zinc-900"
-										: "bg-[#0e0f14] border-white/10 text-zinc-100",
-								)}
-							>
-								<DropdownMenuItem
-									onClick={() => setLayoutMode("auto")}
-									className={cn(
-										"flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all my-0.5",
-										layoutMode === "auto" &&
-											(isLight ? "bg-zinc-100 font-bold" : "bg-white/10 font-bold"),
-									)}
-								>
-									<div className="flex items-center gap-2">
-										<LayoutGrid size={13} style={{ color: activeAccent.hex }} />
-										<span>Auto ({isPortrait ? "Portrait Pro" : "Standard"})</span>
-									</div>
-									{layoutMode === "auto" && <Check size={13} style={{ color: activeAccent.hex }} />}
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={() => setLayoutMode("portrait-pro")}
-									className={cn(
-										"flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all my-0.5",
-										layoutMode === "portrait-pro" &&
-											(isLight ? "bg-zinc-100 font-bold" : "bg-white/10 font-bold"),
-									)}
-								>
-									<div className="flex items-center gap-2">
-										<Columns2 size={13} style={{ color: activeAccent.hex }} />
-										<span>Portrait Pro (Max View)</span>
-									</div>
-									{layoutMode === "portrait-pro" && (
-										<Check size={13} style={{ color: activeAccent.hex }} />
-									)}
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={() => setLayoutMode("landscape-stack")}
-									className={cn(
-										"flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all my-0.5",
-										layoutMode === "landscape-stack" &&
-											(isLight ? "bg-zinc-100 font-bold" : "bg-white/10 font-bold"),
-									)}
-								>
-									<div className="flex items-center gap-2">
-										<Rows3 size={13} style={{ color: activeAccent.hex }} />
-										<span>Standard Stacked</span>
-									</div>
-									{layoutMode === "landscape-stack" && (
-										<Check size={13} style={{ color: activeAccent.hex }} />
-									)}
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					)}
-
-					{/* Divider */}
-					<div className={`h-4 w-[1px] ${isLight ? "bg-zinc-200" : "bg-white/10"}`} />
-
-					{/* Unified Utility Controls Group */}
+					{/* Dock 2: Utility, Profile & Preferences Dock */}
 					<div
-						className={`flex items-center gap-0.5 p-0.5 rounded-lg border ${
-							isLight ? "border-zinc-200 bg-zinc-100/80" : "border-white/[0.08] bg-black/30"
-						}`}
+						className={cn(
+							"flex items-center gap-1 p-0.5 rounded-full border backdrop-blur-xl shadow-2xs transition-colors",
+							isLight
+								? "bg-zinc-100/80 border-black/[0.06]"
+								: "bg-white/[0.04] border-white/[0.08]",
+						)}
 					>
 						{/* Theme Mode Toggle (Sun / Moon) */}
 						<button
 							type="button"
 							onClick={toggleThemeMode}
 							title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
-							className={`flex h-6.5 w-6.5 items-center justify-center rounded-md transition-all cursor-pointer ${
+							className={cn(
+								"flex h-7 w-7 items-center justify-center rounded-full transition-all cursor-pointer active:scale-90",
 								isLight
-									? "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200"
-									: "text-zinc-400 hover:text-white hover:bg-white/[0.08]"
-							}`}
+									? "text-zinc-600 hover:text-zinc-950 hover:bg-white shadow-2xs"
+									: "text-zinc-400 hover:text-white hover:bg-white/10",
+							)}
 						>
-							{isLight ? <Moon size={12} /> : <Sun size={12} style={{ color: activeAccent.hex }} />}
+							{isLight ? (
+								<Moon size={12.5} />
+							) : (
+								<Sun size={12.5} style={{ color: activeAccent.hex }} />
+							)}
 						</button>
 
 						{/* Accent Color Picker Popover */}
@@ -2986,46 +3044,60 @@ export default function VideoEditor() {
 								type="button"
 								onClick={() => setShowAccentPicker((prev) => !prev)}
 								title="Select Accent Color"
-								className={`flex h-6.5 items-center gap-1.5 px-2 rounded-md transition-all cursor-pointer ${
+								className={cn(
+									"flex h-7 items-center gap-1.5 px-2 rounded-full transition-all cursor-pointer active:scale-95",
 									isLight
-										? "text-zinc-700 hover:text-zinc-900 hover:bg-zinc-200"
-										: "text-zinc-300 hover:text-white hover:bg-white/[0.08]"
-								}`}
+										? "text-zinc-700 hover:text-zinc-950 hover:bg-white shadow-2xs"
+										: "text-zinc-300 hover:text-white hover:bg-white/10",
+								)}
 							>
 								<div
-									className="h-2 w-2 rounded-full"
+									className="h-2.5 w-2.5 rounded-full shadow-2xs"
 									style={{ backgroundColor: activeAccent.hex }}
 								/>
-								<span className="text-[9.5px] font-bold uppercase tracking-wider">
+								<span className="text-[9.5px] font-extrabold uppercase tracking-wider">
 									{accentColor}
 								</span>
 							</button>
 
 							{showAccentPicker && (
-								<div
-									className={`absolute right-0 top-8 z-50 flex items-center gap-1.5 p-2 rounded-2xl border shadow-xl ${
-										isLight ? "bg-white border-zinc-200" : "bg-[#0e0f14] border-white/10"
-									}`}
-								>
-									{(Object.keys(ACCENT_COLOR_MAP) as AccentColor[]).map((colKey) => {
-										const colData = ACCENT_COLOR_MAP[colKey];
-										const isSelected = accentColor === colKey;
-										return (
-											<button
-												key={colKey}
-												type="button"
-												onClick={() => selectAccentColor(colKey)}
-												title={colData.label}
-												className={`h-5.5 w-5.5 rounded-full transition-transform hover:scale-110 flex items-center justify-center cursor-pointer ${
-													isSelected ? "ring-2 ring-white ring-offset-2 ring-offset-[#0c0c0c]" : ""
-												}`}
-												style={{ backgroundColor: colData.hex }}
-											>
-												{isSelected && <Check size={10} style={{ color: colData.textHex }} />}
-											</button>
-										);
-									})}
-								</div>
+								<>
+									<div className="fixed inset-0 z-40" onClick={() => setShowAccentPicker(false)} />
+									<div
+										className={`absolute right-0 top-9 z-50 w-[208px] p-3 rounded-[24px] border shadow-2xl ${
+											isLight
+												? "bg-white border-black/[0.06] text-zinc-900 shadow-zinc-300/60"
+												: "bg-[#0e0f14] border-white/10 text-white shadow-black/80"
+										}`}
+									>
+										<div className="grid grid-cols-6 gap-2 place-items-center">
+											{(Object.keys(ACCENT_COLOR_MAP) as AccentColor[]).map((colKey) => {
+												const colData = ACCENT_COLOR_MAP[colKey];
+												const isSelected = accentColor === colKey;
+												return (
+													<button
+														key={colKey}
+														type="button"
+														onClick={() => selectAccentColor(colKey)}
+														title={colData.label}
+														className={`h-6 w-6 rounded-full shrink-0 transition-all duration-150 hover:scale-110 flex items-center justify-center cursor-pointer relative ${
+															isSelected
+																? isLight
+																	? "ring-2 ring-zinc-900 ring-offset-2 ring-offset-white scale-105 shadow-sm"
+																	: "ring-2 ring-white ring-offset-2 ring-offset-[#0e0f14] scale-105 shadow-md"
+																: "hover:opacity-90"
+														}`}
+														style={{ backgroundColor: colData.hex }}
+													>
+														{isSelected && (
+															<Check size={11} strokeWidth={3} style={{ color: colData.textHex }} />
+														)}
+													</button>
+												);
+											})}
+										</div>
+									</div>
+								</>
 							)}
 						</div>
 
@@ -3034,84 +3106,90 @@ export default function VideoEditor() {
 							type="button"
 							onClick={() => setShowSettingsDialog(true)}
 							title="Studio Settings"
-							className={`flex h-6.5 w-6.5 items-center justify-center rounded-md transition-all cursor-pointer ${
-								isLight
-									? "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200"
-									: "text-zinc-400 hover:text-white hover:bg-white/[0.08]"
-							}`}
-						>
-							<Settings size={12} />
-						</button>
-					</div>
-
-					{/* User Profile Badge */}
-					<div
-						className={`flex h-7 items-center gap-1.5 px-2 rounded-lg border transition-all ${
-							isLight
-								? "border-zinc-200 bg-zinc-100/80 text-zinc-900"
-								: "border-white/[0.08] bg-white/[0.04] text-zinc-200"
-						}`}
-					>
-						<div
-							className="flex h-4 w-4 items-center justify-center rounded-full font-black text-[8.5px]"
-							style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
-						>
-							{userName[0]?.toUpperCase() || "U"}
-						</div>
-						<span className="text-[11px] font-bold truncate max-w-[70px]">{userName}</span>
-					</div>
-
-					{/* Language Selector Custom Dropdown */}
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<button
-								type="button"
-								className={cn(
-									"flex items-center gap-1 h-7 px-2 rounded-lg border transition-all text-[11px] font-semibold cursor-pointer outline-none active:scale-95",
-									isLight
-										? "border-zinc-200 bg-zinc-100/80 text-zinc-900 hover:bg-zinc-200"
-										: "border-white/[0.08] bg-white/[0.04] text-zinc-200 hover:bg-white/[0.08] hover:text-white",
-								)}
-							>
-								<Languages size={12} className="text-zinc-400" />
-								<span>{getLocaleName(locale)}</span>
-								<ChevronDown size={10} className="opacity-60" />
-							</button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent
-							align="end"
 							className={cn(
-								"min-w-[180px] max-h-[290px] overflow-y-auto custom-scrollbar rounded-2xl p-1.5 border z-50 backdrop-blur-3xl shadow-2xl transition-all",
+								"flex h-7 w-7 items-center justify-center rounded-full transition-all cursor-pointer active:scale-90",
 								isLight
-									? "bg-white/95 border-zinc-200/80 text-zinc-900 shadow-zinc-900/10"
-									: "bg-[#0c0d12]/95 border-white/10 text-zinc-100 shadow-2xl shadow-black/80",
+									? "text-zinc-600 hover:text-zinc-950 hover:bg-white shadow-2xs"
+									: "text-zinc-400 hover:text-white hover:bg-white/10",
 							)}
 						>
-							{availableLocales.map((loc) => {
-								const isSelected = loc === locale;
-								return (
-									<DropdownMenuItem
-										key={loc}
-										onClick={() => setLocale(loc)}
-										className={cn(
-											"flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all my-0.5",
-											isSelected
-												? isLight
-													? "bg-zinc-100 font-bold"
-													: "bg-white/10 font-bold"
-												: isLight
-													? "hover:bg-zinc-50"
-													: "hover:bg-white/5",
-										)}
-										style={{ color: isSelected ? activeAccent.hex : undefined }}
-									>
-										<span>{getLocaleName(loc)}</span>
-										{isSelected && <Check size={12} style={{ color: activeAccent.hex }} />}
-									</DropdownMenuItem>
-								);
-							})}
-						</DropdownMenuContent>
-					</DropdownMenu>
+							<Settings size={12.5} />
+						</button>
+
+						{/* Segment Divider */}
+						<span className={cn("w-px h-3.5 mx-0.5", isLight ? "bg-black/10" : "bg-white/10")} />
+
+						{/* Language Selector Dropdown */}
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button
+									type="button"
+									className={cn(
+										"flex items-center gap-1 h-7 px-2.5 rounded-full transition-all text-[11px] font-semibold cursor-pointer outline-none active:scale-95",
+										isLight
+											? "text-zinc-700 hover:text-zinc-950 hover:bg-white shadow-2xs"
+											: "text-zinc-300 hover:text-white hover:bg-white/10",
+									)}
+								>
+									<Languages size={12} className="text-zinc-400" />
+									<span>{getLocaleName(locale)}</span>
+									<ChevronDown size={9} className="opacity-60" />
+								</button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent
+								align="end"
+								className={cn(
+									"min-w-[180px] max-h-[290px] overflow-y-auto custom-scrollbar rounded-2xl p-1.5 border z-50 backdrop-blur-3xl shadow-2xl transition-all",
+									isLight
+										? "bg-white/95 border-zinc-200/80 text-zinc-900 shadow-zinc-900/10"
+										: "bg-[#0c0d12]/95 border-white/10 text-zinc-100 shadow-2xl shadow-black/80",
+								)}
+							>
+								{availableLocales.map((loc) => {
+									const isSelected = loc === locale;
+									return (
+										<DropdownMenuItem
+											key={loc}
+											onClick={() => setLocale(loc)}
+											className={cn(
+												"flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all my-0.5",
+												isSelected
+													? isLight
+														? "bg-zinc-100 font-bold"
+														: "bg-white/10 font-bold"
+													: isLight
+														? "hover:bg-zinc-50"
+														: "hover:bg-white/5",
+											)}
+											style={{ color: isSelected ? activeAccent.hex : undefined }}
+										>
+											<span>{getLocaleName(loc)}</span>
+											{isSelected && <Check size={12} style={{ color: activeAccent.hex }} />}
+										</DropdownMenuItem>
+									);
+								})}
+							</DropdownMenuContent>
+						</DropdownMenu>
+
+						{/* Segment Divider */}
+						<span className={cn("w-px h-3.5 mx-0.5", isLight ? "bg-black/10" : "bg-white/10")} />
+
+						{/* User Profile Badge */}
+						<div
+							className={cn(
+								"flex h-7 items-center gap-1.5 pl-1 pr-2 rounded-full transition-all cursor-default select-none",
+								isLight ? "text-zinc-800" : "text-zinc-200",
+							)}
+						>
+							<div
+								className="flex h-5 w-5 items-center justify-center rounded-full font-black text-[9.5px] shadow-2xs"
+								style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+							>
+								{userName[0]?.toUpperCase() || "U"}
+							</div>
+							<span className="text-[11px] font-bold truncate max-w-[70px]">{userName}</span>
+						</div>
+					</div>
 				</div>
 			</div>
 
@@ -3145,7 +3223,7 @@ export default function VideoEditor() {
 				<div className="editor-workspace flex-1 min-h-0 relative">
 					{effectiveIsPortraitLayout ? (
 						/* Portrait Pro Mode: Left Full-Height Maximized Video Preview, Right Stacked Inspector & Timeline */
-						<PanelGroup direction="horizontal" className="gap-3 min-h-0">
+						<PanelGroup direction="horizontal" className="gap-2 min-h-0">
 							{/* Left: Full Height 9:16 Portrait Preview Deck (Maximum Viewable Height) */}
 							<Panel defaultSize={42} minSize={26} maxSize={65} className="min-w-[300px]">
 								<div
@@ -3245,9 +3323,9 @@ export default function VideoEditor() {
 										</div>
 									</div>
 
-									{/* Playback controls */}
-									<div className="w-full flex justify-center items-center h-14 flex-shrink-0 px-4 py-2 border-t border-white/[0.06]">
-										<div className="w-full max-w-[600px]">
+									{/* Playback Controls (compact inside vertical card) */}
+									<div className="w-full flex justify-center items-center flex-shrink-0 px-3 pt-1 pb-5">
+										<div className="w-full max-w-[500px]">
 											<PlaybackControls
 												isPlaying={isPlaying}
 												currentTime={currentTime}
@@ -3262,16 +3340,16 @@ export default function VideoEditor() {
 								</div>
 							</Panel>
 
-							<PanelResizeHandle className="group cursor-col-resize px-1 flex items-center justify-center">
+							<PanelResizeHandle className="editor-resize-handle-col group cursor-col-resize px-0.5 flex items-center justify-center">
 								<div
-									className="w-1 h-12 bg-white/20 rounded-full transition-all group-hover:scale-y-125"
+									className="w-1 h-10 bg-white/20 rounded-full transition-all group-hover:h-14 group-hover:bg-white/40"
 									style={{ backgroundColor: isLight ? "rgba(0,0,0,0.15)" : undefined }}
 								/>
 							</PanelResizeHandle>
 
 							{/* Right: Stacked Settings Inspector & Timeline */}
 							<Panel defaultSize={58} minSize={35} className="min-w-[380px]">
-								<PanelGroup direction="vertical" className="gap-3 min-h-0">
+								<PanelGroup direction="vertical" className="gap-2 min-h-0">
 									{/* Top Right: Settings & Inspector Panel */}
 									<Panel defaultSize={52} minSize={28} maxSize={72} className="min-h-[220px]">
 										<div className="editor-inspector-shell min-w-0 h-full overflow-hidden">
@@ -3481,13 +3559,27 @@ export default function VideoEditor() {
 												onAddVideoLayer={handleAddVideoLayer}
 												onUpdateVideoLayer={handleUpdateVideoLayer}
 												onDeleteVideoLayer={handleDeleteVideoLayer}
+												autoZoomEnabled={autoZoomEnabled}
+												onToggleAutoZoom={handleToggleAutoZoom}
+												onGenerateAIZooms={handleGenerateAIZooms}
+												onClearAutoZooms={handleClearAutoZooms}
+												autoZoomIntensity={autoZoomIntensity}
+												onAutoZoomIntensityChange={setAutoZoomIntensity}
+												autoZoomFraming={autoZoomFraming}
+												onAutoZoomFramingChange={setAutoZoomFraming}
+												autoFocusAll={autoFocusAll}
+												onToggleAutoFocusAll={handleToggleAutoFocusAll}
+												cursorTrackingMode={cursorTrackingMode}
+												onCursorTrackingModeChange={setCursorTrackingMode}
+												cursorSnapToClicks={cursorSnapToClicks}
+												onCursorSnapToClicksChange={setCursorSnapToClicks}
 											/>
 										</div>
 									</Panel>
 
-									<PanelResizeHandle className="editor-resize-handle group cursor-row-resize py-1 flex items-center justify-center">
+									<PanelResizeHandle className="editor-resize-handle group cursor-row-resize py-0.5 flex items-center justify-center">
 										<div
-											className="w-12 h-1 bg-white/20 rounded-full transition-all group-hover:scale-x-125"
+											className="w-10 h-1 bg-white/20 rounded-full transition-all group-hover:w-16 group-hover:bg-white/40"
 											style={{ backgroundColor: isLight ? "rgba(0,0,0,0.15)" : undefined }}
 										/>
 									</PanelResizeHandle>
@@ -3569,10 +3661,10 @@ export default function VideoEditor() {
 						</PanelGroup>
 					) : (
 						/* Standard Landscape Mode */
-						<PanelGroup direction="vertical" className="gap-3 min-h-0">
+						<PanelGroup direction="vertical" className="gap-2 min-h-0">
 							{/* Top section: preview and contextual settings with horizontal resizable splitter */}
 							<Panel defaultSize={67} maxSize={78} minSize={44} className="min-h-[280px]">
-								<PanelGroup direction="horizontal" className="gap-2.5 min-h-0 h-full">
+								<PanelGroup direction="horizontal" className="gap-2 min-h-0 h-full">
 									{/* Left: Video Preview Panel */}
 									<Panel defaultSize={71} minSize={45} maxSize={82} className="min-w-[340px]">
 										<div className="editor-preview-zone min-w-0 h-full">
@@ -3673,7 +3765,7 @@ export default function VideoEditor() {
 													</div>
 												</div>
 												{/* Playback controls */}
-												<div className="w-full flex justify-center items-center h-14 flex-shrink-0 px-4 py-2">
+												<div className="w-full flex justify-center items-center flex-shrink-0 px-4 pt-1 pb-5.5 md:pb-6">
 													<div className="w-full max-w-[760px]">
 														<PlaybackControls
 															isPlaying={isPlaying}
@@ -3693,7 +3785,7 @@ export default function VideoEditor() {
 									{/* Draggable Horizontal Splitter Handle */}
 									<PanelResizeHandle className="editor-resize-handle-col group cursor-col-resize px-0.5 flex items-center justify-center">
 										<div
-											className="w-1 h-12 bg-white/20 rounded-full transition-all group-hover:scale-y-125"
+											className="w-1 h-10 bg-white/20 rounded-full transition-all group-hover:h-14 group-hover:bg-white/40"
 											style={{ backgroundColor: isLight ? "rgba(0,0,0,0.15)" : undefined }}
 										/>
 									</PanelResizeHandle>
@@ -3907,15 +3999,29 @@ export default function VideoEditor() {
 												onAddVideoLayer={handleAddVideoLayer}
 												onUpdateVideoLayer={handleUpdateVideoLayer}
 												onDeleteVideoLayer={handleDeleteVideoLayer}
+												autoZoomEnabled={autoZoomEnabled}
+												onToggleAutoZoom={handleToggleAutoZoom}
+												onGenerateAIZooms={handleGenerateAIZooms}
+												onClearAutoZooms={handleClearAutoZooms}
+												autoZoomIntensity={autoZoomIntensity}
+												onAutoZoomIntensityChange={setAutoZoomIntensity}
+												autoZoomFraming={autoZoomFraming}
+												onAutoZoomFramingChange={setAutoZoomFraming}
+												autoFocusAll={autoFocusAll}
+												onToggleAutoFocusAll={handleToggleAutoFocusAll}
+												cursorTrackingMode={cursorTrackingMode}
+												onCursorTrackingModeChange={setCursorTrackingMode}
+												cursorSnapToClicks={cursorSnapToClicks}
+												onCursorSnapToClicksChange={setCursorSnapToClicks}
 											/>
 										</div>
 									</Panel>
 								</PanelGroup>
 							</Panel>
 
-							<PanelResizeHandle className="editor-resize-handle group cursor-row-resize py-1 flex items-center justify-center">
+							<PanelResizeHandle className="editor-resize-handle group cursor-row-resize py-0.5 flex items-center justify-center">
 								<div
-									className="w-12 h-1 bg-white/20 rounded-full transition-all group-hover:scale-x-125"
+									className="w-10 h-1 bg-white/20 rounded-full transition-all group-hover:w-16 group-hover:bg-white/40"
 									style={{ backgroundColor: isLight ? "rgba(0,0,0,0.15)" : undefined }}
 								/>
 							</PanelResizeHandle>
