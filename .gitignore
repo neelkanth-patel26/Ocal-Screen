@@ -68,3 +68,7 @@ result-*
 
 # Auto-caption model + ORT wasm — regenerated at build by scripts/fetch-caption-model.mjs
 /caption-assets/
+
+# Release scripts containing credentials/tokens
+build-and-release.ps1
+build-and-release.ps1.bak
