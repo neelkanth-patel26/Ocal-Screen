@@ -42,7 +42,7 @@ export default function Row({
 				"relative w-full overflow-hidden transition-colors border-b flex items-center min-h-[42px]",
 				isLight
 					? "bg-[#f8f8f9] border-[#e4e4e7] hover:bg-[#f1f1f3]"
-					: "bg-[#0d0e12] border-white/[0.06] hover:bg-[#121318]",
+					: "bg-[#0c0d11] border-[#1a1b22] hover:bg-[#101118]",
 			)}
 		>
 			{background}
@@ -56,8 +56,8 @@ export default function Row({
 					className={cn(
 						"absolute top-0 bottom-0 left-0 z-30 flex items-center justify-between px-3 border-r select-none transition-all cursor-pointer group/badge",
 						isLight
-							? "bg-white/95 border-[#e4e4e7] hover:bg-[#f4f4f5]"
-							: "bg-[#0c0d12]/95 border-white/[0.08] hover:bg-[#151720]",
+							? "bg-white border-[#e4e4e7] hover:bg-[#f4f4f5]"
+							: "bg-[#0c0d12] border-[#1a1b22] hover:bg-[#151720]",
 					)}
 					style={{ width: sidebarWidth }}
 				>
