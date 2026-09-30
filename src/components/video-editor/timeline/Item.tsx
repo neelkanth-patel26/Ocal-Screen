@@ -132,31 +132,31 @@ export default function Item({
 			<div style={{ ...itemContentStyle, minWidth: 28 }} className="relative h-full">
 				<div
 					className={cn(
-						"w-full h-full overflow-hidden flex items-center justify-between cursor-grab active:cursor-grabbing relative backdrop-blur-md rounded-xl transition-all border",
+						"w-full h-full overflow-hidden flex items-center justify-between cursor-grab active:cursor-grabbing relative rounded-xl transition-all border",
 						isZoom
 							? isLight
-								? "bg-white/95 border-slate-200 shadow-xs hover:border-slate-400"
-								: "bg-[#0d0e14]/90 border-white/15 shadow-xl hover:border-white/25"
+								? "bg-white border-slate-200 shadow-xs hover:border-slate-400"
+								: "bg-[#111318] border-white/15 shadow-xl hover:border-white/25"
 							: isTrim
 								? isLight
-									? "bg-red-50/90 border-red-200 text-red-900"
-									: "bg-red-950/40 border-red-500/40 text-red-200 shadow-lg shadow-red-950/20"
+									? "bg-red-50 border-red-300 text-red-900"
+									: "bg-[#1e0c0c] border-red-500 text-red-200 shadow-lg shadow-red-950/30"
 								: isSpeed
 									? isLight
-										? "bg-purple-50/90 border-purple-200 text-purple-900"
-										: "bg-purple-950/40 border-purple-500/40 text-purple-200 shadow-lg shadow-purple-950/20"
+										? "bg-purple-50 border-purple-300 text-purple-900"
+										: "bg-[#170e22] border-purple-500 text-purple-200 shadow-lg shadow-purple-950/30"
 									: isBlur
 										? isLight
-											? "bg-sky-50/90 border-sky-200 text-sky-900"
-											: "bg-sky-950/40 border-sky-500/40 text-sky-200 shadow-lg shadow-sky-950/20"
+											? "bg-sky-50 border-sky-300 text-sky-900"
+											: "bg-[#0c1620] border-sky-500 text-sky-200 shadow-lg shadow-sky-950/30"
 										: isLight
-											? "bg-amber-50/90 border-amber-200 text-amber-900"
-											: "bg-amber-950/40 border-amber-500/40 text-amber-200 shadow-lg shadow-amber-950/20",
+											? "bg-amber-50 border-amber-300 text-amber-900"
+											: "bg-[#1e1808] border-amber-500 text-amber-200 shadow-lg shadow-amber-950/30",
 						isSelected &&
 							(isLight
 								? "ring-2 ring-offset-1 ring-offset-white ring-slate-900"
 								: "ring-2 ring-offset-1 ring-offset-black ring-white/90"),
-						isOverlapping && "border-amber-400/80 shadow-[0_0_12px_rgba(245,158,11,0.2)]",
+						isOverlapping && "border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]",
 					)}
 					style={{
 						height: 36,
@@ -175,10 +175,10 @@ export default function Item({
 					{isOverlapping && (
 						<div
 							className={cn(
-								"absolute top-1 right-2 z-40 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider shadow-sm border backdrop-blur-md cursor-help select-none",
+								"absolute top-1 right-2 z-40 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider shadow-sm border cursor-help select-none",
 								isLight
-									? "bg-amber-400 text-amber-950 border-amber-500/60 shadow-amber-500/20"
-									: "bg-amber-500/90 text-amber-950 border-amber-300 shadow-amber-500/30",
+									? "bg-amber-400 text-amber-950 border-amber-500 shadow-amber-500/20"
+									: "bg-amber-500 text-amber-950 border-amber-300 shadow-amber-500/30",
 							)}
 							title="Overlapping: this item collides with another active region on this track"
 						>
@@ -327,22 +327,22 @@ export default function Item({
 						<div className="flex items-center justify-between px-3 w-full min-w-0">
 							<div className="flex items-center gap-2 min-w-0">
 								{isTrim && (
-									<div className="w-5 h-5 rounded-md bg-red-500/20 flex items-center justify-center shrink-0">
+									<div className="w-5 h-5 rounded-md bg-red-900/80 flex items-center justify-center shrink-0">
 										<Scissors className="w-3 h-3 text-red-400" />
 									</div>
 								)}
 								{isAnnotation && (
-									<div className="w-5 h-5 rounded-md bg-amber-500/20 flex items-center justify-center shrink-0">
+									<div className="w-5 h-5 rounded-md bg-amber-900/80 flex items-center justify-center shrink-0">
 										<MessageSquare className="w-3 h-3 text-amber-300" />
 									</div>
 								)}
 								{isSpeed && (
-									<div className="w-5 h-5 rounded-md bg-purple-500/20 flex items-center justify-center shrink-0">
+									<div className="w-5 h-5 rounded-md bg-purple-900/80 flex items-center justify-center shrink-0">
 										<Gauge className="w-3 h-3 text-purple-300" />
 									</div>
 								)}
 								{isBlur && (
-									<div className="w-5 h-5 rounded-md bg-sky-500/20 flex items-center justify-center shrink-0">
+									<div className="w-5 h-5 rounded-md bg-sky-900/80 flex items-center justify-center shrink-0">
 										<svg
 											className="w-3 h-3 text-sky-300"
 											viewBox="0 0 24 24"
