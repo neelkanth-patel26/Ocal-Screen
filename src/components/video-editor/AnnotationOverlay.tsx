@@ -324,9 +324,28 @@ export function AnnotationOverlay({
 								whiteSpace: "pre-wrap",
 								boxDecorationBreak: "clone",
 								WebkitBoxDecorationBreak: "clone",
-								padding: "0.1em 0.2em",
-								borderRadius: "4px",
+								padding:
+									annotation.annotationSource === "auto-caption" ? "0.3em 0.85em" : "0.1em 0.2em",
+								borderRadius: annotation.annotationSource === "auto-caption" ? "9999px" : "4px",
 								lineHeight: "1.4",
+								WebkitTextStroke:
+									annotation.annotationSource === "auto-caption"
+										? "1.2px rgba(0,0,0,0.9)"
+										: undefined,
+								textShadow:
+									annotation.annotationSource === "auto-caption"
+										? "0 2px 10px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.85)"
+										: undefined,
+								boxShadow:
+									annotation.annotationSource === "auto-caption" &&
+									annotation.style.backgroundColor &&
+									annotation.style.backgroundColor !== "transparent"
+										? "0 6px 20px rgba(0,0,0,0.45)"
+										: undefined,
+								backdropFilter:
+									annotation.annotationSource === "auto-caption" ? "blur(8px)" : undefined,
+								WebkitBackdropFilter:
+									annotation.annotationSource === "auto-caption" ? "blur(8px)" : undefined,
 							}}
 						>
 							{annotation.content}

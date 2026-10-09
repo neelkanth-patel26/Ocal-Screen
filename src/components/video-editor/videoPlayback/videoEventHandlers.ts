@@ -19,6 +19,7 @@ interface VideoEventHandlersParams {
 	isScrubbingRef?: React.MutableRefObject<boolean>;
 	scrubEndTimerRef?: React.MutableRefObject<number | null>;
 	onScrubChange?: (scrubbing: boolean) => void;
+	skipGapsOnPlaybackRef?: React.MutableRefObject<boolean>;
 }
 
 export function createVideoEventHandlers(params: VideoEventHandlersParams) {
@@ -36,6 +37,7 @@ export function createVideoEventHandlers(params: VideoEventHandlersParams) {
 		isScrubbingRef,
 		scrubEndTimerRef,
 		onScrubChange,
+		skipGapsOnPlaybackRef,
 	} = params;
 
 	const clearScrubEndTimer = () => {
@@ -73,8 +75,9 @@ export function createVideoEventHandlers(params: VideoEventHandlersParams) {
 		const currentTimeMs = video.currentTime * 1000;
 		const activeTrimRegion = findActiveTrimRegion(currentTimeMs);
 
-		// In a trim region during playback: skip to its end
-		if (activeTrimRegion && !video.paused && !video.ended) {
+		// In a trim region during playback: skip only if explicitly requested to jump over gaps.
+		// By default (blank screen option), the timeline does not jump, letting the playhead advance.
+		if (skipGapsOnPlaybackRef?.current && activeTrimRegion && !video.paused && !video.ended) {
 			const skipToTime = activeTrimRegion.endMs / 1000;
 
 			// Pause if the skip would run past the end

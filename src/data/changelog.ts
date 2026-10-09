@@ -22,9 +22,124 @@ export interface VersionRelease {
 
 export const CHANGELOG_DATA: VersionRelease[] = [
 	{
+		version: "3.2.0",
+		date: "October 2026",
+		isCurrent: true,
+		title: "v3.2.0 — Complete Video Editor Rework & Recorder Overhaul",
+		tagline:
+			"Full multi-layer composition support, magnetic non-destructive trimming engine, synthesized audio soundtrack studio, and robust stability fixes across the screen recorder.",
+		categories: [
+			{
+				name: "New Features & Editor Rework",
+				icon: "sparkles",
+				badgeColor: "emerald",
+				items: [
+					{
+						type: "feature",
+						title: "Multiple Video & Media Layer Support (PiP & Overlays)",
+						description:
+							"Full multi-layer compositing engine: stack secondary video tracks, picture-in-picture (PiP) webcam overlays, stickers, and graphic assets with independent volume, mask shapes, transform bounds, and layer stacking order.",
+					},
+					{
+						type: "feature",
+						title: "Complete Video Editor Architecture Rework",
+						description:
+							"Re-architected timeline tracks for professional non-linear editing. Dedicated video, audio, title, and effect lanes with independent clip management, drag-and-drop ordering, and isolated track inspector controls.",
+					},
+					{
+						type: "feature",
+						title: "Precision Trimming & Ripple Edit Engine",
+						description:
+							"Enhanced frame-accurate trimming engine with magnetic gap-closing, intelligent space snapping, non-destructive clip boundary adjustments, and split-at-playhead without unintended clip shifting.",
+					},
+					{
+						type: "feature",
+						title: "Real Synthesized Music & Live Audio Engine",
+						description:
+							"Web Audio procedural music presets and sound effects generator integrated directly into timeline playback with live volume gain, dynamic peak normalization, and smooth audio fade in/out.",
+					},
+				],
+			},
+			{
+				name: "Recorder App Bug Fixes & Stability",
+				icon: "bug",
+				badgeColor: "rose",
+				items: [
+					{
+						type: "fix",
+						title: "Screen Recorder Floating HUD Stability",
+						description:
+							"Fixed process disconnection and ghost HUD instances during rapid start/stop cycles; solidified IPC communication between the main process and floating controls bar.",
+					},
+					{
+						type: "fix",
+						title: "Source Switching & Display Capture Recovery",
+						description:
+							"Resolved crash when hot-plugging secondary monitors or switching active window sources during recording preparation.",
+					},
+					{
+						type: "fix",
+						title: "Real Recording Dates & Human-Readable Media Names",
+						description:
+							"Eliminated raw internal epoch timestamp filenames (recording-178...webm) across the media bin and asset manager in favor of formatted dates, times, and clean clip badges.",
+					},
+					{
+						type: "fix",
+						title: "Timeline Clip Collisions & Gap Dropping",
+						description:
+							"Fixed issue where moving a clip into empty spaces between clips inadvertently re-sliced or overlapped adjacent video tracks.",
+					},
+				],
+			},
+			{
+				name: "UI Polish & Aesthetics",
+				icon: "palette",
+				badgeColor: "sky",
+				items: [
+					{
+						type: "ui",
+						title: "Filmora-Style Media Library & Soundtrack Auditioning",
+						description:
+							"Integrated audio audition preview buttons directly in the media bin, allowing real-time listening before adding tracks to the timeline.",
+					},
+					{
+						type: "ui",
+						title: "Multi-Track Timeline Waveforms & Headers",
+						description:
+							"Visual track headers with quick-mute, solo, layer reordering, and real-time waveform visualization across all audio layers.",
+					},
+					{
+						type: "ui",
+						title: "Studio Workspace Pro Radii & Contrast",
+						description:
+							"Polished dock panels with unified 16px radius, active accent glow indicators, and high-contrast dark/light mode readability.",
+					},
+				],
+			},
+			{
+				name: "Performance & Engine",
+				icon: "zap",
+				badgeColor: "amber",
+				items: [
+					{
+						type: "perf",
+						title: "GPU Hardware-Accelerated Multi-Layer Compositing",
+						description:
+							"Pixi.js WebGL/WebGPU pipeline rendering simultaneous multi-layer video sprites, dynamic webcam masks, and cursor motion blur at buttery 60 FPS.",
+					},
+					{
+						type: "perf",
+						title: "Zero-Latency Timeline Playhead Seeking",
+						description:
+							"Optimized synchronized playback across video, webcam, supplemental audio, and background music tracks with zero desync.",
+					},
+				],
+			},
+		],
+	},
+	{
 		version: "3.0.00",
 		date: "September 2026",
-		isCurrent: true,
 		title: "v3.0.00 Stable — Studio Feature Catalog",
 		tagline:
 			"Re-engineered installer, Portrait Pro workspace, Export Studio Hub, unified theme engine, and hardware-accelerated recording.",

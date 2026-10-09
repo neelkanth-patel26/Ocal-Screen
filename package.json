@@ -1,7 +1,7 @@
 {
 	"name": "ocal-screen",
 	"private": true,
-	"version": "3.0.00",
+	"version": "3.2.0",
 	"type": "module",
 	"packageManager": "npm@10.9.4",
 	"engines": {

@@ -111,45 +111,44 @@ export function isClickInteractionType(sampleOrType: unknown): boolean {
 	if (!sampleOrType) return false;
 	if (typeof sampleOrType === "string") {
 		const lower = sampleOrType.toLowerCase();
-		return (
-			lower.includes("click") ||
-			lower === "pointer" ||
-			lower === "closed-hand" ||
-			lower === "pressed" ||
-			lower === "down" ||
-			lower === "text" ||
-			lower === "ibeam" ||
-			lower === "typing" ||
-			lower === "hand"
-		);
+		return lower.includes("click") || lower.includes("down") || lower === "pressed";
 	}
 	if (typeof sampleOrType === "object" && sampleOrType !== null) {
 		const obj = sampleOrType as Record<string, unknown>;
 		const type = String(obj.interactionType || obj.type || "").toLowerCase();
-		const cursor = String(obj.cursorType || "").toLowerCase();
-		const isClickOrKey = Boolean(
+		const isClickOrPress = Boolean(
 			obj.isClick ||
 				obj.isDoubleClick ||
 				obj.isTripleClick ||
-				obj.isKeyboardAction ||
-				obj.isInputFocus,
+				obj.leftButtonPressed ||
+				obj.leftButtonDown ||
+				obj.leftPressed ||
+				obj.leftDown ||
+				obj.isMouseDown ||
+				obj.isMouseClick,
 		);
-		return (
-			isClickOrKey ||
-			type.includes("click") ||
-			type === "pressed" ||
-			type === "down" ||
-			type === "text" ||
-			type === "ibeam" ||
-			type === "typing" ||
-			cursor === "pointer" ||
-			cursor === "closed-hand" ||
-			cursor === "text" ||
-			cursor === "ibeam" ||
-			cursor === "hand"
-		);
+		return isClickOrPress || type.includes("click") || type.includes("down") || type === "pressed";
 	}
 	return false;
+}
+
+export function isInteractiveHoverType(sample: CursorTelemetryPoint): boolean {
+	const cType = String(sample.cursorType || "").toLowerCase();
+	const iType = String(sample.interactionType || "").toLowerCase();
+	return (
+		cType === "pointer" ||
+		cType === "open-hand" ||
+		cType === "closed-hand" ||
+		cType === "crosshair" ||
+		iType === "pointer" ||
+		iType === "hover"
+	);
+}
+
+export function isTypingInteractionType(sample: CursorTelemetryPoint): boolean {
+	const cType = String(sample.cursorType || "").toLowerCase();
+	const iType = String(sample.interactionType || "").toLowerCase();
+	return cType === "text" || cType === "ibeam" || iType === "typing" || iType === "text";
 }
 
 export interface AutoZoomSuggestion {
@@ -160,18 +159,19 @@ export interface AutoZoomSuggestion {
 }
 
 export type AutoZoomIntensity = "subtle" | "balanced" | "cinematic";
-export type AutoZoomFraming = "rule-of-thirds" | "centered";
+export type AutoZoomFraming = "rule-of-thirds" | "centered" | "predictive";
 
 /**
- * Calculates balanced framing using the Rule of Thirds and Margin Guardian,
- * ensuring the zoomed camera viewport stays comfortably within video bounds
- * while keeping essential context (menus, fields) in frame.
+ * Calculates balanced framing using the Rule of Thirds, Margin Guardian,
+ * and AI Predictive Lead, ensuring the zoomed camera viewport stays comfortably
+ * within video bounds while keeping essential context (menus, fields) in frame.
  */
 export function calculateFramingFocus(
 	cx: number,
 	cy: number,
 	scale: number,
 	framing: AutoZoomFraming = "rule-of-thirds",
+	intent?: "text-input" | "click" | "dwell" | "flow",
 ): ZoomFocus {
 	const halfWidth = 0.5 / scale;
 	const halfHeight = 0.5 / scale;
@@ -184,18 +184,39 @@ export function calculateFramingFocus(
 	let framedX = cx;
 	let framedY = cy;
 
-	// Rule of Thirds contextual bias: leave breathing room for dropdowns/menus below top targets
-	if (framing === "rule-of-thirds") {
-		if (cy < 0.4) {
-			framedY = Math.min(maxY, cy + 0.045);
-		} else if (cy > 0.6) {
-			framedY = Math.max(minY, cy - 0.045);
+	// Enhanced Context-Aware Adaptive Framing
+	if (framing === "predictive") {
+		if (intent === "text-input") {
+			// Center text field slightly above viewport center for reading comfort
+			framedY = Math.max(minY, Math.min(maxY, cy - 0.03));
+		} else {
+			// Dynamic breathing room for drop-downs / context menus
+			if (cy < 0.38) {
+				framedY = Math.min(maxY, cy + 0.055);
+			} else if (cy > 0.62) {
+				framedY = Math.max(minY, cy - 0.055);
+			}
+			if (cx < 0.38) {
+				framedX = Math.min(maxX, cx + 0.055);
+			} else if (cx > 0.62) {
+				framedX = Math.max(minX, cx - 0.055);
+			}
 		}
+	} else if (framing === "rule-of-thirds") {
+		if (intent === "text-input") {
+			framedY = Math.max(minY, Math.min(maxY, cy - 0.035));
+		} else {
+			if (cy < 0.4) {
+				framedY = Math.min(maxY, cy + 0.045);
+			} else if (cy > 0.6) {
+				framedY = Math.max(minY, cy - 0.045);
+			}
 
-		if (cx < 0.4) {
-			framedX = Math.min(maxX, cx + 0.045);
-		} else if (cx > 0.6) {
-			framedX = Math.max(minX, cx - 0.045);
+			if (cx < 0.4) {
+				framedX = Math.min(maxX, cx + 0.045);
+			} else if (cx > 0.6) {
+				framedX = Math.max(minX, cx - 0.045);
+			}
 		}
 	}
 
@@ -241,192 +262,330 @@ export function buildAutoZoomSuggestions(options: {
 		cinematic: { click: 1.75, text: 2.15, flow: 1.5, dwell: 1.6 },
 	}[intensity] ?? { click: 1.55, text: 1.85, flow: 1.38, dwell: 1.45 };
 
-	// 1. Detect all active interaction points with intent tagging
-	interface DetectedPoint {
+	// 1. Gather distinct click events
+	interface ClickPoint {
 		timeMs: number;
 		cx: number;
 		cy: number;
-		weight: number;
-		intent: "text-input" | "click" | "action";
 	}
 
-	const eventPoints: DetectedPoint[] = [];
+	const rawClicks: ClickPoint[] = [];
+	const seenClickTimes = new Set<number>();
 
 	for (const clickMs of cursorClickTimestamps) {
 		if (clickMs > 0 && clickMs < totalMs) {
-			const focus = interpolateCursorAt(normalizedSamples, clickMs) ?? { cx: 0.5, cy: 0.5 };
-			eventPoints.push({
-				timeMs: clickMs,
-				cx: clampFocus(focus.cx),
-				cy: clampFocus(focus.cy),
-				weight: 3.0, // Primary click weight
-				intent: "click",
-			});
+			const rounded = Math.round(clickMs / 50) * 50;
+			if (!seenClickTimes.has(rounded)) {
+				seenClickTimes.add(rounded);
+				const focus = interpolateCursorAt(normalizedSamples, clickMs) ?? { cx: 0.5, cy: 0.5 };
+				rawClicks.push({
+					timeMs: clickMs,
+					cx: clampFocus(focus.cx),
+					cy: clampFocus(focus.cy),
+				});
+			}
 		}
 	}
 
 	for (const s of normalizedSamples) {
-		const cursorTypeStr = String(s.cursorType || "").toLowerCase();
-		const isText =
-			cursorTypeStr === "text" ||
-			cursorTypeStr === "ibeam" ||
-			s.interactionType === "typing" ||
-			s.interactionType === "text";
-		const isClick = isClickInteractionType(s) || s.interactionType === "click";
-
-		if (isText) {
-			eventPoints.push({
-				timeMs: s.timeMs,
-				cx: clampFocus(s.cx),
-				cy: clampFocus(s.cy),
-				weight: 2.5,
-				intent: "text-input",
-			});
-		} else if (isClick) {
-			eventPoints.push({
-				timeMs: s.timeMs,
-				cx: clampFocus(s.cx),
-				cy: clampFocus(s.cy),
-				weight: 3.0,
-				intent: "click",
-			});
+		if (isClickInteractionType(s)) {
+			const rounded = Math.round(s.timeMs / 50) * 50;
+			if (!seenClickTimes.has(rounded)) {
+				seenClickTimes.add(rounded);
+				rawClicks.push({
+					timeMs: s.timeMs,
+					cx: clampFocus(s.cx),
+					cy: clampFocus(s.cy),
+				});
+			}
 		}
 	}
 
-	const candidates: Array<{
+	rawClicks.sort((a, b) => a.timeMs - b.timeMs);
+
+	interface ZoomCandidate {
+		peakTimeMs: number;
 		startMs: number;
 		endMs: number;
 		focus: ZoomFocus;
 		strength: number;
 		customScale: number;
 		intent: "text-input" | "click" | "dwell" | "flow";
-	}> = [];
+	}
 
-	const computeClusterCenter = (cluster: DetectedPoint[]) => {
-		let totalWeight = 0;
-		let sumX = 0;
-		let sumY = 0;
-		for (let idx = 0; idx < cluster.length; idx++) {
-			const p = cluster[idx];
-			// Progressive temporal weighting: recent points in sequence carry extra weight
-			const recency = 1 + 0.3 * (idx / Math.max(1, cluster.length - 1));
-			const w = p.weight * recency;
-			totalWeight += w;
-			sumX += p.cx * w;
-			sumY += p.cy * w;
-		}
-		return {
-			cx: totalWeight > 0 ? sumX / totalWeight : 0.5,
-			cy: totalWeight > 0 ? sumY / totalWeight : 0.5,
+	const candidates: ZoomCandidate[] = [];
+
+	// 1. Clicks (High priority action events)
+	if (rawClicks.length > 0) {
+		let currentClickGroup: ClickPoint[] = [rawClicks[0]];
+
+		const emitClickCandidate = (group: ClickPoint[]) => {
+			if (group.length === 0) return;
+			const firstTime = group[0].timeMs;
+			const lastTime = group[group.length - 1].timeMs;
+			const peak = Math.round((firstTime + lastTime) / 2);
+
+			const avgCx = group.reduce((sum, c) => sum + c.cx, 0) / group.length;
+			const avgCy = group.reduce((sum, c) => sum + c.cy, 0) / group.length;
+
+			const preRoll = 280;
+			const postHold = group.length > 1 ? 1350 : 1150;
+			const start = Math.max(0, Math.round(firstTime - preRoll));
+			const end = Math.min(totalMs, Math.round(lastTime + postHold));
+
+			const targetScale = intensityMultipliers.click;
+			const framedFocus = calculateFramingFocus(avgCx, avgCy, targetScale, framing, "click");
+
+			candidates.push({
+				peakTimeMs: peak,
+				startMs: start,
+				endMs: end,
+				focus: framedFocus,
+				strength: 300000 + (totalMs - firstTime),
+				customScale: targetScale,
+				intent: "click",
+			});
 		};
-	};
 
-	const emitClusterCandidate = (cluster: DetectedPoint[]) => {
-		if (cluster.length === 0) return;
-
-		const hasTextInput = cluster.some((p) => p.intent === "text-input");
-		const isMultiActionFlow = cluster.length >= 3;
-
-		let intent: "text-input" | "click" | "flow" = "click";
-		let targetScale = intensityMultipliers.click;
-		let preRoll = 420;
-		let postHold = 2000;
-
-		if (hasTextInput) {
-			intent = "text-input";
-			targetScale = intensityMultipliers.text;
-			preRoll = 500;
-			postHold = 2600;
-		} else if (isMultiActionFlow) {
-			intent = "flow";
-			targetScale = intensityMultipliers.flow;
-			preRoll = 450;
-			postHold = 2200;
-		}
-
-		const start = Math.max(0, Math.round(cluster[0].timeMs - preRoll));
-		const lastTime = cluster[cluster.length - 1].timeMs;
-		const end = Math.min(totalMs, Math.round(lastTime + postHold));
-
-		const center = computeClusterCenter(cluster);
-		const framedFocus = calculateFramingFocus(center.cx, center.cy, targetScale, framing);
-
-		candidates.push({
-			startMs: start,
-			endMs: Math.max(end, start + Math.max(defaultDuration, 2400)),
-			focus: framedFocus,
-			strength: 100000 + cluster.length * 100 + (hasTextInput ? 500 : 0),
-			customScale: targetScale,
-			intent,
-		});
-	};
-
-	if (eventPoints.length > 0) {
-		eventPoints.sort((a, b) => a.timeMs - b.timeMs);
-
-		// Cluster fusion: combine nearby temporal events into coherent interaction shots
-		let currentCluster: DetectedPoint[] = [eventPoints[0]];
-
-		for (let i = 1; i < eventPoints.length; i++) {
-			const prev = currentCluster[currentCluster.length - 1];
-			const curr = eventPoints[i];
+		for (let i = 1; i < rawClicks.length; i++) {
+			const prev = currentClickGroup[currentClickGroup.length - 1];
+			const curr = rawClicks[i];
 			const dt = curr.timeMs - prev.timeMs;
-			const dx = curr.cx - prev.cx;
-			const dy = curr.cy - prev.cy;
-			const dist = Math.sqrt(dx * dx + dy * dy);
+			const dist = Math.hypot(curr.cx - prev.cx, curr.cy - prev.cy);
 
-			// Fuse if close in time (<= 3800ms) and within related screen area (<= 0.42), or very rapid (<= 1500ms)
-			const shouldFuse = dt <= 1500 || (dt <= 3800 && dist <= 0.42);
-
-			if (shouldFuse) {
-				currentCluster.push(curr);
+			if (dt <= 650 && dist <= 0.08) {
+				currentClickGroup.push(curr);
 			} else {
-				emitClusterCandidate(currentCluster);
-				currentCluster = [curr];
+				emitClickCandidate(currentClickGroup);
+				currentClickGroup = [curr];
 			}
 		}
 
-		if (currentCluster.length > 0) {
-			emitClusterCandidate(currentCluster);
+		if (currentClickGroup.length > 0) {
+			emitClickCandidate(currentClickGroup);
 		}
 	}
 
-	// 2. Add dwell candidates (focused reading / observation areas)
+	// 2. Interactive Cursor Hovers (Buttons, Links, Tools, Menus)
+	const hoverSamples = normalizedSamples.filter((s) => isInteractiveHoverType(s));
+	if (hoverSamples.length >= 2) {
+		let currentHoverRun: CursorTelemetryPoint[] = [hoverSamples[0]];
+
+		const emitHoverCandidate = (run: CursorTelemetryPoint[]) => {
+			if (run.length < 2) return;
+			const firstTime = run[0].timeMs;
+			const lastTime = run[run.length - 1].timeMs;
+			const duration = lastTime - firstTime;
+			if (duration < 280) return;
+
+			const peak = Math.round((firstTime + lastTime) / 2);
+			const avgCx = run.reduce((sum, c) => sum + c.cx, 0) / run.length;
+			const avgCy = run.reduce((sum, c) => sum + c.cy, 0) / run.length;
+
+			const preRoll = 240;
+			const postHold = 950;
+			const start = Math.max(0, Math.round(firstTime - preRoll));
+			const end = Math.min(totalMs, Math.round(lastTime + postHold));
+
+			const targetScale = intensityMultipliers.click;
+			const framedFocus = calculateFramingFocus(avgCx, avgCy, targetScale, framing, "click");
+
+			candidates.push({
+				peakTimeMs: peak,
+				startMs: start,
+				endMs: end,
+				focus: framedFocus,
+				strength: 160000 + duration,
+				customScale: targetScale,
+				intent: "flow",
+			});
+		};
+
+		for (let i = 1; i < hoverSamples.length; i++) {
+			const prev = currentHoverRun[currentHoverRun.length - 1];
+			const curr = hoverSamples[i];
+			const dt = curr.timeMs - prev.timeMs;
+			const dist = Math.hypot(curr.cx - prev.cx, curr.cy - prev.cy);
+
+			if (dt <= 450 && dist <= 0.12) {
+				currentHoverRun.push(curr);
+			} else {
+				emitHoverCandidate(currentHoverRun);
+				currentHoverRun = [curr];
+			}
+		}
+
+		if (currentHoverRun.length > 0) {
+			emitHoverCandidate(currentHoverRun);
+		}
+	}
+
+	// 3. Typing & Text Input
+	const typingSamples = normalizedSamples.filter((s) => isTypingInteractionType(s));
+	if (typingSamples.length >= 2) {
+		let currentTypingRun: CursorTelemetryPoint[] = [typingSamples[0]];
+
+		const emitTypingCandidate = (run: CursorTelemetryPoint[]) => {
+			if (run.length < 2) return;
+			const firstTime = run[0].timeMs;
+			const lastTime = run[run.length - 1].timeMs;
+			const duration = lastTime - firstTime;
+			if (duration < 300) return;
+
+			const peak = Math.round((firstTime + lastTime) / 2);
+			const avgCx = run.reduce((sum, c) => sum + c.cx, 0) / run.length;
+			const avgCy = run.reduce((sum, c) => sum + c.cy, 0) / run.length;
+
+			const preRoll = 280;
+			const postHold = 1100;
+			const start = Math.max(0, Math.round(firstTime - preRoll));
+			const end = Math.min(totalMs, Math.round(Math.min(firstTime + 4500, lastTime + postHold)));
+
+			const targetScale = intensityMultipliers.text;
+			const framedFocus = calculateFramingFocus(avgCx, avgCy, targetScale, framing, "text-input");
+
+			candidates.push({
+				peakTimeMs: peak,
+				startMs: start,
+				endMs: end,
+				focus: framedFocus,
+				strength: 220000 + duration,
+				customScale: targetScale,
+				intent: "text-input",
+			});
+		};
+
+		for (let i = 1; i < typingSamples.length; i++) {
+			const prev = currentTypingRun[currentTypingRun.length - 1];
+			const curr = typingSamples[i];
+			const dt = curr.timeMs - prev.timeMs;
+			const dist = Math.hypot(curr.cx - prev.cx, curr.cy - prev.cy);
+
+			if (dt <= 1200 && dist <= 0.25) {
+				currentTypingRun.push(curr);
+			} else {
+				emitTypingCandidate(currentTypingRun);
+				currentTypingRun = [curr];
+			}
+		}
+
+		if (currentTypingRun.length > 0) {
+			emitTypingCandidate(currentTypingRun);
+		}
+	}
+
+	// 4. Focal Dwells & Areas of Interest (Evaluated across the entire recording)
 	if (normalizedSamples.length >= 2) {
 		const dwells = detectZoomDwellCandidates(normalizedSamples);
 		for (const dwell of dwells) {
-			const start = Math.max(0, Math.round(dwell.centerTimeMs - defaultDuration / 2));
-			const end = Math.min(totalMs, Math.round(dwell.centerTimeMs + defaultDuration / 2));
-			const coveredByCluster = candidates.some((c) => start < c.endMs && end > c.startMs);
-			if (!coveredByCluster) {
-				const dwellScale = intensityMultipliers.dwell;
-				const framed = calculateFramingFocus(dwell.focus.cx, dwell.focus.cy, dwellScale, framing);
-				candidates.push({
-					startMs: start,
-					endMs: end,
-					focus: framed,
-					strength: dwell.strength,
-					customScale: dwellScale,
-					intent: "dwell",
-				});
-			}
+			const dwellDuration = Math.min(2000, Math.max(1100, Math.round(defaultDuration * 0.65)));
+			const start = Math.max(0, Math.round(dwell.centerTimeMs - dwellDuration / 2));
+			const end = Math.min(totalMs, Math.round(dwell.centerTimeMs + dwellDuration / 2));
+			const dwellScale = intensityMultipliers.dwell;
+			const framed = calculateFramingFocus(
+				dwell.focus.cx,
+				dwell.focus.cy,
+				dwellScale,
+				framing,
+				"dwell",
+			);
+			candidates.push({
+				peakTimeMs: dwell.centerTimeMs,
+				startMs: start,
+				endMs: end,
+				focus: framed,
+				strength: 90000 + dwell.strength,
+				customScale: dwellScale,
+				intent: "dwell",
+			});
 		}
 	}
 
+	if (candidates.length === 0) {
+		return [];
+	}
+
+	// Sort candidates chronologically by action peak
+	candidates.sort((a, b) => a.peakTimeMs - b.peakTimeMs);
+
+	// 5. Intelligent Multi-Event Fusion & Spatial Area Clustering
+	// If sequential actions occur in the SAME screen area (within zoomed viewport reach),
+	// keep it as ONE sustained, stable zoom region rather than rapidly chopping into tiny clips.
+	// Only split into separate zoom clips when:
+	//   a) The user jumps to a DIFFERENT area of the screen (dist >= SAME_AREA_MAX_DIST)
+	//   b) There is a long gap of inactivity (idleGap >= MAX_IDLE_GAP_SAME_AREA_MS)
+	const SAME_AREA_MAX_DIST = 0.22; // Within 1.5x zoomed viewport bounds
+	const MAX_IDLE_GAP_SAME_AREA_MS = 2800; // Inactivity gap to return to full view
+	const MIN_ZOOM_GAP_MS = 300; // Clean breath / return-to-full-view interval
+	const MIN_EVENT_DURATION_MS = 600;
+
+	const resolvedCandidates: ZoomCandidate[] = [];
+
+	for (const cand of candidates) {
+		if (resolvedCandidates.length === 0) {
+			resolvedCandidates.push({ ...cand });
+			continue;
+		}
+
+		const prev = resolvedCandidates[resolvedCandidates.length - 1];
+		const dist = Math.hypot(cand.focus.cx - prev.focus.cx, cand.focus.cy - prev.focus.cy);
+		const idleGap = cand.startMs - prev.endMs;
+		const dt = cand.peakTimeMs - prev.peakTimeMs;
+
+		// Case 1: Same Area Actions -> Keep as ONE sustained, smooth zoom clip!
+		if (dist <= SAME_AREA_MAX_DIST && idleGap <= MAX_IDLE_GAP_SAME_AREA_MS) {
+			prev.endMs = Math.max(prev.endMs, cand.endMs);
+			if (cand.intent === "click" || cand.intent === "text-input") {
+				// Weight the focal target towards the active action while allowing fluid flow
+				prev.focus = {
+					cx: prev.focus.cx * 0.4 + cand.focus.cx * 0.6,
+					cy: prev.focus.cy * 0.4 + cand.focus.cy * 0.6,
+				};
+				prev.intent = "flow";
+			}
+			prev.customScale = Math.max(prev.customScale, cand.customScale);
+			prev.strength = Math.max(prev.strength, cand.strength);
+			continue;
+		}
+
+		// Case 2: Different Area Actions OR Long Pause -> Split into Separate Zoom Clips
+		if (prev.endMs + MIN_ZOOM_GAP_MS > cand.startMs) {
+			// Rapid spatial jump across screen: bridge into a continuous tracking pan
+			if (dt < 1100 && dist > SAME_AREA_MAX_DIST) {
+				prev.endMs = Math.max(prev.endMs, cand.endMs);
+				prev.intent = "flow";
+				continue;
+			}
+
+			// Spaced enough: trim boundaries around midpoint so both clips survive cleanly
+			const mid = Math.round((prev.peakTimeMs + cand.peakTimeMs) / 2);
+			const newPrevEnd = Math.max(prev.peakTimeMs + 300, mid - Math.round(MIN_ZOOM_GAP_MS / 2));
+			const newCandStart = Math.min(cand.peakTimeMs - 300, mid + Math.round(MIN_ZOOM_GAP_MS / 2));
+
+			if (
+				newPrevEnd - prev.startMs >= MIN_EVENT_DURATION_MS &&
+				cand.endMs - newCandStart >= MIN_EVENT_DURATION_MS
+			) {
+				prev.endMs = newPrevEnd;
+				cand.startMs = newCandStart;
+			}
+		}
+
+		resolvedCandidates.push({ ...cand });
+	}
+
+	// 6. Respect existing user-placed regions
 	const reservedSpans = existingRegions
 		.map((region) => ({ start: region.startMs, end: region.endMs }))
 		.sort((a, b) => a.start - b.start);
 
-	const sortedCandidates = [...candidates].sort((a, b) => b.strength - a.strength);
 	const suggestions: AutoZoomSuggestion[] = [];
 
-	for (const candidate of sortedCandidates) {
-		const candidateStart = Math.max(0, Math.min(candidate.startMs, totalMs - 500));
+	for (const candidate of resolvedCandidates) {
+		const candidateStart = Math.max(0, Math.min(candidate.startMs, totalMs - 350));
 		const candidateEnd = Math.min(totalMs, candidate.endMs);
-		if (candidateEnd <= candidateStart) continue;
+		if (candidateEnd <= candidateStart + 350) continue;
 
-		// Anti-ping-pong: ensure at least 600ms spacing between distinct zooms
-		const MIN_ZOOM_GAP_MS = 600;
 		const hasOverlap = reservedSpans.some(
 			(span) =>
 				candidateEnd + MIN_ZOOM_GAP_MS > span.start && candidateStart - MIN_ZOOM_GAP_MS < span.end,

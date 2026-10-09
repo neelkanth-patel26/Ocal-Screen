@@ -1,3 +1,4 @@
+import { AlertTriangle, Scissors } from "lucide-react";
 import {
 	Application,
 	BlurFilter,
@@ -69,7 +70,7 @@ import {
 	type ZoomFocus,
 	type ZoomRegion,
 } from "./types";
-import { AUTO_FOLLOW_PARAMS, DEFAULT_FOCUS } from "./videoPlayback/constants";
+import { type CursorTrackingMode, DEFAULT_FOCUS, getFollowParams } from "./videoPlayback/constants";
 import { advanceFollowFocus } from "./videoPlayback/cursorFollowUtils";
 import {
 	DEFAULT_CURSOR_CONFIG,
@@ -154,10 +155,17 @@ interface VideoPlaybackProps {
 	vignette?: number;
 	cursorSpotlight?: boolean;
 	cursorSpotlightRadius?: number;
+	cursorTrackingMode?: CursorTrackingMode;
 	clickRipple?: boolean;
 	// Render the selected zoom at the playhead even while paused, so the editor can
 	// preview the effect without leaving the focus-edit view.
 	isPreviewingZoom?: boolean;
+	audioSettings?: import("./FilmoraAudioInspector").AudioSettingsState;
+	backgroundAudioUrl?: string | null;
+	trackMuted?: Record<string, boolean>;
+	onTrimDelete?: (id: string) => void;
+	onKeepBlankScreen?: (id: string) => void;
+	skipGapsOnPlayback?: boolean;
 }
 
 export interface VideoPlaybackRef {
@@ -192,14 +200,13 @@ function getEndedVideoDuration(video: HTMLVideoElement): number | null {
 		return null;
 	}
 
-	if (video.ended) {
-		return currentTime;
+	const resolvedDuration = getResolvedVideoDuration(video);
+	if (resolvedDuration) {
+		return resolvedDuration;
 	}
 
-	const resolvedDuration = getResolvedVideoDuration(video);
-	const durationEpsilonSeconds = 0.05;
-	if (resolvedDuration && currentTime >= resolvedDuration - durationEpsilonSeconds) {
-		return resolvedDuration;
+	if (video.ended) {
+		return currentTime;
 	}
 
 	return null;
@@ -223,6 +230,73 @@ function enableAllPreviewAudioTracks(video: HTMLVideoElement) {
 	for (let index = 0; index < audioTracks.length; index += 1) {
 		audioTracks[index].enabled = true;
 	}
+}
+
+function LayerVideoPlayer({
+	src,
+	isPlaying,
+	currentTime,
+	muted = true,
+	volume = 1.0,
+	startMs = 0,
+	endMs,
+}: {
+	src: string;
+	isPlaying: boolean;
+	currentTime: number;
+	muted?: boolean;
+	volume?: number;
+	startMs?: number;
+	endMs?: number;
+}) {
+	const videoRef = useRef<HTMLVideoElement | null>(null);
+
+	// Sync play/pause
+	useEffect(() => {
+		const video = videoRef.current;
+		if (!video) return;
+
+		const timeMs = Math.round(currentTime * 1000);
+		const inBounds = timeMs >= startMs && (endMs == null || timeMs <= endMs);
+
+		if (isPlaying && inBounds) {
+			video.play().catch(() => {
+				/* ignore playback abort error */
+			});
+		} else {
+			video.pause();
+		}
+	}, [isPlaying, currentTime, startMs, endMs]);
+
+	// Sync seek
+	useEffect(() => {
+		const video = videoRef.current;
+		if (!video) return;
+
+		const targetOffsetSec = Math.max(0, currentTime - startMs / 1000);
+		if (Math.abs(video.currentTime - targetOffsetSec) > 0.35) {
+			video.currentTime = targetOffsetSec;
+		}
+	}, [currentTime, startMs]);
+
+	// Sync volume/mute
+	useEffect(() => {
+		const video = videoRef.current;
+		if (!video) return;
+		video.muted = muted;
+		video.volume = Math.max(0, Math.min(1, volume));
+	}, [muted, volume]);
+
+	return (
+		<video
+			ref={videoRef}
+			src={src}
+			className="w-full h-full object-cover"
+			loop
+			muted={muted}
+			playsInline
+		/>
+	);
 }
 
 const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
@@ -290,13 +364,21 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			vignette = 0,
 			cursorSpotlight = false,
 			cursorSpotlightRadius = 140,
+			cursorTrackingMode = "adaptive",
 			clickRipple = false,
 			isPreviewingZoom = false,
+			audioSettings,
+			backgroundAudioUrl = null,
+			trackMuted = {},
+			onTrimDelete,
+			onKeepBlankScreen,
+			skipGapsOnPlayback = false,
 		},
 		ref,
 	) => {
 		const videoRef = useRef<HTMLVideoElement | null>(null);
 		const supplementalAudioRef = useRef<HTMLAudioElement | null>(null);
+		const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
 		const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
 		const webcamWrapperRef = useRef<HTMLDivElement | null>(null);
 		const webcamReactiveZoomRef = useRef(webcamReactiveZoom);
@@ -308,6 +390,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorSpotlightRef = useRef(cursorSpotlight);
 		const cursorSpotlightRadiusRef = useRef(cursorSpotlightRadius);
 		const clickRippleEnabledRef = useRef(clickRipple);
+		const skipGapsOnPlaybackRef = useRef(Boolean(skipGapsOnPlayback));
+		useEffect(() => {
+			skipGapsOnPlaybackRef.current = Boolean(skipGapsOnPlayback);
+		}, [skipGapsOnPlayback]);
+
+		const activeTrim = useMemo(() => {
+			const curMs = currentTime * 1000;
+			return trimRegions.find((r) => curMs >= r.startMs && curMs < r.endMs) || null;
+		}, [currentTime, trimRegions]);
+
+		const [dismissedGapIds, setDismissedGapIds] = useState<Set<string>>(new Set());
 		const appRef = useRef<Application | null>(null);
 		const videoSpriteRef = useRef<Sprite | null>(null);
 		const videoContainerRef = useRef<Container | null>(null);
@@ -455,8 +548,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 					const endedDuration = getEndedVideoDuration(video);
 					if (endedDuration) {
-						lastResolvedDurationRef.current = null;
-						onDurationChange(Math.round(endedDuration * 1000) / 1000);
+						const normalized = Math.round(endedDuration * 1000) / 1000;
+						lastResolvedDurationRef.current = normalized;
+						onDurationChange(normalized);
 						return true;
 					}
 
@@ -481,7 +575,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				video.addEventListener("durationchange", handleProgress);
 				video.addEventListener("timeupdate", handleProgress);
 				video.addEventListener("loadeddata", handleProgress);
-				video.addEventListener("ended", handleProgress);
 				durationResolutionTimeoutRef.current = window.setTimeout(() => {
 					handleProgress();
 					finalize();
@@ -647,6 +740,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const vid = videoRef.current;
 				if (!vid) return;
 				try {
+					if (vid.ended || (vid.duration > 0 && vid.currentTime >= vid.duration - 0.05)) {
+						vid.currentTime = 0;
+						currentTimeRef.current = 0;
+						onTimeUpdate(0);
+					}
 					allowPlaybackRef.current = true;
 					enableAllPreviewAudioTracks(vid);
 					await vid.play().catch((err) => {
@@ -659,6 +757,26 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						supplementalAudio.playbackRate = vid.playbackRate;
 						await supplementalAudio.play().catch(() => {
 							// The main video remains the source of truth for playback state.
+						});
+					}
+					const bgAudio = backgroundAudioRef.current;
+					if (bgAudio) {
+						const dur = bgAudio.duration;
+						const targetTime = Number.isFinite(dur) && dur > 0 ? currentTime % dur : currentTime;
+						if (Number.isFinite(targetTime) && Math.abs(bgAudio.currentTime - targetTime) > 0.15) {
+							try {
+								bgAudio.currentTime = targetTime;
+							} catch {}
+						}
+						const activeSpeedRegion =
+							speedRegions.find(
+								(region) =>
+									currentTime * 1000 >= region.startMs && currentTime * 1000 < region.endMs,
+							) ?? null;
+						bgAudio.playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
+						bgAudio.muted = Boolean(trackMuted?.["row-main-audio"]);
+						await bgAudio.play().catch((err) => {
+							console.warn("[VideoPlayback] bgAudio imperative play error:", err);
 						});
 					}
 				} catch (error) {
@@ -674,6 +792,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				}
 				video.pause();
 				supplementalAudioRef.current?.pause();
+				backgroundAudioRef.current?.pause();
 			},
 		}));
 
@@ -1168,24 +1287,175 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				speedRegions.find(
 					(region) => currentTime * 1000 >= region.startMs && currentTime * 1000 < region.endMs,
 				) ?? null;
-			supplementalAudio.playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
+			const targetRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
+			if (Math.abs(supplementalAudio.playbackRate - targetRate) > 0.005) {
+				supplementalAudio.playbackRate = targetRate;
+			}
 
 			if (!isPlaying) {
-				supplementalAudio.pause();
+				if (!supplementalAudio.paused) {
+					supplementalAudio.pause();
+				}
 				if (Math.abs(supplementalAudio.currentTime - currentTime) > 0.05) {
-					supplementalAudio.currentTime = currentTime;
+					try {
+						supplementalAudio.currentTime = currentTime;
+					} catch {}
 				}
 				return;
 			}
 
-			if (Math.abs(supplementalAudio.currentTime - video.currentTime) > 0.15) {
-				supplementalAudio.currentTime = video.currentTime;
+			if (supplementalAudio.paused) {
+				try {
+					supplementalAudio.currentTime = video.currentTime;
+				} catch {}
+				supplementalAudio.play().catch(() => {});
+			} else if (Math.abs(supplementalAudio.currentTime - video.currentTime) > 1.2) {
+				try {
+					supplementalAudio.currentTime = video.currentTime;
+				} catch {}
+			}
+		}, [currentTime, isPlaying, speedRegions, supplementalAudioPath]);
+
+		// Synchronize audio elements with video seeking (e.g. user jumped timeline or gap skipped)
+		useEffect(() => {
+			const video = videoRef.current;
+			if (!video) return;
+
+			const handleSeeked = () => {
+				const seekTime = video.currentTime;
+				const suppAudio = supplementalAudioRef.current;
+				if (suppAudio) {
+					try {
+						suppAudio.currentTime = seekTime;
+					} catch {}
+				}
+
+				const bgAudio = backgroundAudioRef.current;
+				if (bgAudio) {
+					const dur = bgAudio.duration;
+					const target = Number.isFinite(dur) && dur > 0 ? seekTime % dur : seekTime;
+					if (Number.isFinite(target)) {
+						try {
+							bgAudio.currentTime = target;
+						} catch {}
+					}
+				}
+			};
+
+			video.addEventListener("seeked", handleSeeked);
+			return () => {
+				video.removeEventListener("seeked", handleSeeked);
+			};
+		}, [videoPath, backgroundAudioUrl, supplementalAudioPath]);
+
+		// Real-time audio settings synchronization (volume gain, auto normalization, fade in/out, track muting)
+		useEffect(() => {
+			const video = videoRef.current;
+			const suppAudio = supplementalAudioRef.current;
+			const bgAudio = backgroundAudioRef.current;
+			if (!video && !suppAudio && !bgAudio) return;
+
+			const baseDb = audioSettings?.volumeDb ?? 0;
+			// 0 dB = 1.0; -24 dB = ~0.06; +12 dB = 3.98
+			let gain = Math.pow(10, baseDb / 20);
+
+			if (audioSettings?.autoNormalization) {
+				gain = Math.min(gain, 1.0);
 			}
 
-			supplementalAudio.play().catch(() => {
-				// Keep video playback running even if supplemental preview audio is unavailable.
-			});
-		}, [currentTime, isPlaying, speedRegions, supplementalAudioPath]);
+			// Fade In calculation
+			const fadeInSec = audioSettings?.fadeInSec ?? 0;
+			if (fadeInSec > 0 && currentTime < fadeInSec) {
+				gain *= Math.max(0, currentTime / fadeInSec);
+			}
+
+			// Fade Out calculation
+			const fadeOutSec = audioSettings?.fadeOutSec ?? 0;
+			const duration = lastResolvedDurationRef.current ?? 0;
+			if (fadeOutSec > 0 && duration > 0 && currentTime > duration - fadeOutSec) {
+				gain *= Math.max(0, (duration - currentTime) / fadeOutSec);
+			}
+
+			const clampedVol = Math.max(0, Math.min(1, gain));
+			const isVideoMuted = Boolean(trackMuted?.["row-main-video"]);
+			const isBgMuted = Boolean(trackMuted?.["row-main-audio"]);
+
+			if (video) {
+				if (Math.abs(video.volume - clampedVol) > 0.01) {
+					video.volume = clampedVol;
+				}
+				if (video.muted !== isVideoMuted) {
+					video.muted = isVideoMuted;
+				}
+			}
+			if (suppAudio) {
+				if (Math.abs(suppAudio.volume - clampedVol) > 0.01) {
+					suppAudio.volume = clampedVol;
+				}
+				if (suppAudio.muted !== isVideoMuted) {
+					suppAudio.muted = isVideoMuted;
+				}
+			}
+			if (bgAudio) {
+				if (Math.abs(bgAudio.volume - clampedVol) > 0.01) {
+					bgAudio.volume = clampedVol;
+				}
+				if (bgAudio.muted !== isBgMuted) {
+					bgAudio.muted = isBgMuted;
+				}
+			}
+		}, [audioSettings, currentTime, backgroundAudioUrl, trackMuted]);
+
+		// Synchronize background audio playback state, speed, muting & seeking with timeline
+		useEffect(() => {
+			const bgAudio = backgroundAudioRef.current;
+			if (!bgAudio || !backgroundAudioUrl) return;
+
+			const activeSpeedRegion =
+				speedRegions.find(
+					(region) => currentTime * 1000 >= region.startMs && currentTime * 1000 < region.endMs,
+				) ?? null;
+			const targetRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
+			if (Math.abs(bgAudio.playbackRate - targetRate) > 0.005) {
+				bgAudio.playbackRate = targetRate;
+			}
+
+			const isBgMuted = Boolean(trackMuted?.["row-main-audio"]);
+			if (bgAudio.muted !== isBgMuted) {
+				bgAudio.muted = isBgMuted;
+			}
+
+			const dur = bgAudio.duration;
+			const targetTime = Number.isFinite(dur) && dur > 0 ? currentTime % dur : currentTime;
+
+			if (!isPlaying) {
+				if (!bgAudio.paused) {
+					bgAudio.pause();
+				}
+				if (Number.isFinite(targetTime) && Math.abs(bgAudio.currentTime - targetTime) > 0.05) {
+					try {
+						bgAudio.currentTime = targetTime;
+					} catch {}
+				}
+				return;
+			}
+
+			// While playing: only play if paused, and only re-seek if drift is massive (>1.2s)
+			if (bgAudio.paused) {
+				if (Number.isFinite(targetTime)) {
+					try {
+						bgAudio.currentTime = targetTime;
+					} catch {}
+				}
+				bgAudio.play().catch((err) => {
+					console.warn("[VideoPlayback] bgAudio sync play error:", err);
+				});
+			} else if (Number.isFinite(targetTime) && Math.abs(bgAudio.currentTime - targetTime) > 1.2) {
+				try {
+					bgAudio.currentTime = targetTime;
+				} catch {}
+			}
+		}, [currentTime, isPlaying, speedRegions, backgroundAudioUrl, trackMuted]);
 
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
@@ -1266,6 +1536,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				isScrubbingRef,
 				scrubEndTimerRef,
 				onScrubChange: (scrubbing) => setIsScrubbing(scrubbing),
+				skipGapsOnPlaybackRef,
 			});
 
 			video.addEventListener("play", handlePlay);
@@ -1387,6 +1658,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			let lastTransformIsIdentity = true;
 			let lastPerspectiveValue = 0;
 			const ticker = () => {
+				const isCurrentInGap = trimRegionsRef.current.some(
+					(region) =>
+						currentTimeRef.current >= region.startMs && currentTimeRef.current < region.endMs,
+				);
+				if (videoSpriteRef.current) {
+					videoSpriteRef.current.visible = !isCurrentInGap;
+				}
+
 				const { region, strength, blendedScale, rotation3D, transition } = findDominantRegion(
 					zoomRegionsRef.current,
 					currentTimeRef.current,
@@ -1432,11 +1711,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							prevZoomTimeMsRef.current === null
 								? 0
 								: currentTimeRef.current - prevZoomTimeMsRef.current;
+						const followParams = getFollowParams(cursorTrackingMode);
 						if (targetProgress >= 0.999) {
 							// Full zoom: adaptive smoothing, faster when far, decelerating when close.
 							const prev = smoothedAutoFocusRef.current ?? raw;
 							const smoothed = focusAnimating
-								? advanceFollowFocus(prev, raw, focusDtMs, AUTO_FOLLOW_PARAMS)
+								? advanceFollowFocus(prev, raw, focusDtMs, followParams)
 								: raw;
 							smoothedAutoFocusRef.current = smoothed;
 							targetFocus = smoothed;
@@ -1448,7 +1728,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							// Zoom-out: keep smoothing for continuity to avoid a snap at zoom-out start.
 							const prev = smoothedAutoFocusRef.current ?? raw;
 							const smoothed = focusAnimating
-								? advanceFollowFocus(prev, raw, focusDtMs, AUTO_FOLLOW_PARAMS)
+								? advanceFollowFocus(prev, raw, focusDtMs, followParams)
 								: raw;
 							smoothedAutoFocusRef.current = smoothed;
 							targetFocus = smoothed;
@@ -1610,7 +1890,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					resetNativeCursorMotionBlurState(nativeCursorMotionBlurStateRef.current);
 				};
 				if (nativeCursorImage) {
-					if (hasNativeCursorRecordingRef.current && showCursorRef.current) {
+					if (
+						hasNativeCursorRecordingRef.current &&
+						(showCursorRef.current || cursorSpotlightRef.current || clickRippleEnabledRef.current)
+					) {
 						const timeMs = currentTimeRef.current; // already in ms
 						const frame = resolveInterpolatedNativeCursorFrame(
 							cursorRecordingDataRef.current,
@@ -1706,7 +1989,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									nativeCursorImage.src = renderAsset.imageDataUrl;
 									nativeCursorImageIdRef.current = renderAsset.id;
 								}
-								nativeCursorImage.style.display = "block";
+								nativeCursorImage.style.display = showCursorRef.current ? "block" : "none";
 								// Clip to the camera-aware video boundary. Works here because nativeCursorClipRef
 								// sits outside preserve-3d. When cursorClipToBounds is off, let the cursor overflow.
 								if (nativeCursorClipRef.current) {
@@ -2114,7 +2397,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						})()}
 					{/* Additional Multi-Video & Camera Track Overlays */}
 					{videoLayers.map((layer) => {
-						if (!layer.enabled) return null;
+						if (!layer.enabled || !layer.src) return null;
+						const currentTimeMs = currentTime * 1000;
+						if (layer.startMs !== undefined && currentTimeMs < layer.startMs) return null;
+						if (layer.endMs !== undefined && currentTimeMs > layer.endMs) return null;
 						const shapeClip = getCssClipPath(layer.maskShape || "circle");
 						return (
 							<div
@@ -2139,24 +2425,18 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									boxShadow: layer.shadowGlow
 										? `0 0 20px ${layer.borderColor || "#3b82f6"}99`
 										: "none",
-									backgroundColor: "#111",
+									backgroundColor: "transparent",
 								}}
 							>
-								{layer.src ? (
-									<video
-										src={layer.src}
-										className="w-full h-full object-cover"
-										autoPlay
-										loop
-										muted={layer.muted ?? true}
-										playsInline
-									/>
-								) : (
-									<div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-600/30 to-purple-600/30 backdrop-blur-md text-white p-2 text-center border border-white/20">
-										<span className="font-bold text-[11px] truncate max-w-full">{layer.name}</span>
-										<span className="text-[9px] opacity-75">Live Cam / Video Layer</span>
-									</div>
-								)}
+								<LayerVideoPlayer
+									src={layer.src}
+									isPlaying={isPlaying}
+									currentTime={currentTime}
+									muted={layer.muted ?? true}
+									volume={layer.volume ?? 1.0}
+									startMs={layer.startMs}
+									endMs={layer.endMs}
+								/>
 							</div>
 						);
 					})}
@@ -2304,6 +2584,50 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						</div>
 					)}
 				</div>
+
+				{/* Blank Screen Overlay during timeline gap / editing mistake */}
+				{activeTrim && (
+					<div className="absolute inset-0 bg-black z-30 flex flex-col items-center justify-center pointer-events-auto select-none">
+						{!activeTrim.keepBlankScreen && !dismissedGapIds.has(activeTrim.id) && (
+							<div className="max-w-md w-full mx-4 bg-zinc-900/95 border border-amber-500/50 rounded-2xl p-6 shadow-2xl backdrop-blur-md flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-150">
+								<div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mb-1">
+									<AlertTriangle className="w-6 h-6" />
+								</div>
+								<h3 className="text-base font-bold text-zinc-100 tracking-tight">
+									Blank Screen — Editing Mistake?
+								</h3>
+								<p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+									There is a {((activeTrim.endMs - activeTrim.startMs) / 1000).toFixed(1)}s gap on
+									your main video track. No video will play during this section.
+								</p>
+								<div className="flex items-center gap-3 w-full mt-5">
+									<button
+										type="button"
+										onClick={() => onTrimDelete?.(activeTrim.id)}
+										className="flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-zinc-950 font-semibold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+									>
+										<Scissors className="w-3.5 h-3.5" />
+										Close Gap (Fix Mistake)
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											onKeepBlankScreen?.(activeTrim.id);
+											setDismissedGapIds((prev) => new Set([...prev, activeTrim.id]));
+										}}
+										className="flex-1 py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-200 font-medium text-xs rounded-xl border border-zinc-700 transition-all cursor-pointer"
+									>
+										Keep Blank Screen
+									</button>
+								</div>
+								<div className="mt-4 pt-3 border-t border-zinc-800 w-full text-[11px] text-zinc-400 italic select-none">
+									Ocal Screen is not responsible for editing gaps or timeline mistakes.
+								</div>
+							</div>
+						)}
+					</div>
+				)}
+
 				{/* Native cursor clip. Lives outside composite3DRef (preserve-3d) so clip-path
 				    keeps working during 3D zoom rotations; bounds are set dynamically. */}
 				<div
@@ -2345,19 +2669,19 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					onLoadedMetadata={handleLoadedMetadata}
 					onDurationChange={(e) => {
 						enableAllPreviewAudioTracks(e.currentTarget);
-						if (!syncResolvedDuration(e.currentTarget)) {
+						if (!syncResolvedDuration(e.currentTarget) && !lastResolvedDurationRef.current) {
 							forceResolveDuration(e.currentTarget);
 						}
 					}}
 					onLoadedData={(e) => {
 						enableAllPreviewAudioTracks(e.currentTarget);
-						if (!syncResolvedDuration(e.currentTarget)) {
+						if (!syncResolvedDuration(e.currentTarget) && !lastResolvedDurationRef.current) {
 							forceResolveDuration(e.currentTarget);
 						}
 					}}
 					onCanPlay={(e) => {
 						enableAllPreviewAudioTracks(e.currentTarget);
-						if (!syncResolvedDuration(e.currentTarget)) {
+						if (!syncResolvedDuration(e.currentTarget) && !lastResolvedDurationRef.current) {
 							forceResolveDuration(e.currentTarget);
 						}
 					}}
@@ -2365,6 +2689,45 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				/>
 				{supplementalAudioPath && (
 					<audio ref={supplementalAudioRef} src={supplementalAudioPath} preload="auto" />
+				)}
+				{backgroundAudioUrl && (
+					<audio
+						ref={backgroundAudioRef}
+						src={backgroundAudioUrl}
+						preload="auto"
+						loop
+						onPlay={() => console.log("[VideoPlayback] Audio playing:", backgroundAudioUrl)}
+						onError={(e) => {
+							const mediaErr = (e.currentTarget as HTMLAudioElement).error;
+							console.error(
+								"[VideoPlayback] Background audio failed to load:",
+								backgroundAudioUrl,
+								mediaErr?.code,
+								mediaErr?.message,
+							);
+						}}
+						onCanPlay={() => {
+							const bgAudio = backgroundAudioRef.current;
+							if (!bgAudio) return;
+							const dur = bgAudio.duration;
+							const targetTime = Number.isFinite(dur) && dur > 0 ? currentTime % dur : currentTime;
+							if (
+								bgAudio.paused &&
+								Number.isFinite(targetTime) &&
+								Math.abs(bgAudio.currentTime - targetTime) > 0.05
+							) {
+								try {
+									bgAudio.currentTime = targetTime;
+								} catch {}
+							}
+							bgAudio.muted = Boolean(trackMuted?.["row-main-audio"]);
+							if (isPlaying && bgAudio.paused) {
+								bgAudio.play().catch((err) => {
+									console.warn("[VideoPlayback] bgAudio onCanPlay play error:", err);
+								});
+							}
+						}}
+					/>
 				)}
 			</div>
 		);

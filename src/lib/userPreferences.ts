@@ -71,6 +71,8 @@ export interface UserPreferences {
 	accentColor: AccentColor;
 	/** Display User Name */
 	userName: string;
+	/** The last version of the interactive feature tutorial seen by the user */
+	lastSeenTutorialVersion: string | null;
 }
 
 export const DEFAULT_PREFS: UserPreferences = {
@@ -84,6 +86,7 @@ export const DEFAULT_PREFS: UserPreferences = {
 	theme: "dark",
 	accentColor: "lime",
 	userName: "Ocal User",
+	lastSeenTutorialVersion: null,
 };
 
 /** Parses stored preferences without throwing on malformed JSON. */
@@ -149,7 +152,27 @@ export function loadUserPreferences(): UserPreferences {
 			typeof raw.userName === "string" && raw.userName.trim().length > 0
 				? raw.userName.trim()
 				: DEFAULT_PREFS.userName,
+		lastSeenTutorialVersion:
+			typeof raw.lastSeenTutorialVersion === "string" &&
+			raw.lastSeenTutorialVersion.trim().length > 0
+				? raw.lastSeenTutorialVersion.trim()
+				: DEFAULT_PREFS.lastSeenTutorialVersion,
 	};
+}
+
+/** Check if the user has completed or dismissed the feature tutorial for a given version */
+export function hasSeenTutorialVersion(version: string = "3.2.0"): boolean {
+	return loadUserPreferences().lastSeenTutorialVersion === version;
+}
+
+/** Mark the feature tutorial as seen for a given version */
+export function markTutorialVersionSeen(version: string = "3.2.0"): void {
+	saveUserPreferences({ lastSeenTutorialVersion: version });
+}
+
+/** Reset the feature tutorial seen status (for testing or re-triggering) */
+export function resetTutorialVersionSeen(): void {
+	saveUserPreferences({ lastSeenTutorialVersion: null });
 }
 
 /**

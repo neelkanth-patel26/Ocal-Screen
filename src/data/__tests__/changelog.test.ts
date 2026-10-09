@@ -27,12 +27,18 @@ describe("Changelog Data Integrity", () => {
 		}
 	});
 
-	it("contains current version 3.0.00 with new features and performance", () => {
-		const current = CHANGELOG_DATA.find((r) => r.version.replace(/^v/i, "") === "3.0.00");
-		expect(current).toBeDefined();
+	it("contains current latest version 3.2.0 with new features and stability fixes", () => {
+		const latest = CHANGELOG_DATA[0];
+		expect(latest.version.replace(/^v/i, "")).toBe("3.2.0");
+		expect(latest.isCurrent).toBe(true);
 
-		const categoryNames = current!.categories.map((c) => c.name.toLowerCase());
-		expect(categoryNames.some((n) => n.includes("feature"))).toBe(true);
-		expect(categoryNames.some((n) => n.includes("performance") || n.includes("engine"))).toBe(true);
+		const categoryNames = latest.categories.map((c) => c.name.toLowerCase());
+		expect(categoryNames.some((n) => n.includes("feature") || n.includes("editor"))).toBe(true);
+		expect(categoryNames.some((n) => n.includes("fix") || n.includes("stability"))).toBe(true);
+	});
+
+	it("contains historical version 3.0.00", () => {
+		const v3000 = CHANGELOG_DATA.find((r) => r.version.replace(/^v/i, "") === "3.0.00");
+		expect(v3000).toBeDefined();
 	});
 });

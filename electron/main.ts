@@ -46,6 +46,13 @@ if (process.platform === "linux") {
 	}
 }
 
+// Enable hardware-accelerated video decoding, encoding, and GPU rasterization for fast rendering & export.
+app.commandLine.appendSwitch("enable-accelerated-video-decode");
+app.commandLine.appendSwitch("enable-accelerated-video-encode");
+app.commandLine.appendSwitch("enable-gpu-rasterization");
+app.commandLine.appendSwitch("enable-zero-copy");
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+
 export const RECORDINGS_DIR = path.join(app.getPath("userData"), "recordings");
 
 async function ensureRecordingsDir() {

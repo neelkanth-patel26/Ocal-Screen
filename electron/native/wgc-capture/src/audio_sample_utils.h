@@ -80,7 +80,7 @@ private:
     std::vector<BYTE> microphoneQueue_;
     std::vector<BYTE> gainBuffer_;
     std::thread thread_;
-    std::atomic<bool> stopRequested_ = false;
+    std::atomic<bool> stopRequested_{false};
     bool timelineStarted_ = false;
     bool paused_ = false;
     uint64_t emittedFrames_ = 0;

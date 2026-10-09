@@ -3,6 +3,7 @@ import {
 	Check,
 	ChevronDown,
 	Columns2,
+	Crop,
 	Film,
 	FolderOpen,
 	Languages,
@@ -11,7 +12,9 @@ import {
 	Rows3,
 	Save,
 	Settings,
+	Sparkles,
 	Sun,
+	Upload,
 	Video,
 } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -44,6 +47,7 @@ import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { INITIAL_EDITOR_STATE, useEditorHistory } from "@/hooks/useEditorHistory";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
+import { getPresetAudioUrl } from "@/lib/audio/presetMusicGenerator";
 import {
 	captionSegmentsToAnnotationRegions,
 	extractMono16kFromVideoUrl,
@@ -53,6 +57,10 @@ import {
 	transcribeMono16kToSegments,
 	trimLeadingSilenceMono16k,
 } from "@/lib/captioning";
+import type {
+	CaptionPositionPreset,
+	CaptionStylePreset,
+} from "@/lib/captioning/annotationsFromCaptions";
 import { hasNativeCursorRecordingData } from "@/lib/cursor/nativeCursor";
 import {
 	calculateEffectiveSourceDimensions,
@@ -76,6 +84,7 @@ import {
 	type AccentColor,
 	getExportFolder,
 	getProjectFolder,
+	hasSeenTutorialVersion,
 	loadUserPreferences,
 	parentDirectoryOf,
 	saveUserPreferences,
@@ -88,6 +97,8 @@ import {
 	getNativeAspectRatioValue,
 	isPortraitAspectRatio,
 } from "@/utils/aspectRatioUtils";
+import { AssetManagerDialog } from "./AssetManagerDialog";
+import { CropControl } from "./CropControl";
 import { EditorEmptyState } from "./EditorEmptyState";
 import { ExportDialog } from "./ExportDialog";
 import {
@@ -96,7 +107,11 @@ import {
 	DEFAULT_GIF_SETTINGS,
 	DEFAULT_SOURCE_DIMENSIONS,
 } from "./editorDefaults";
+import { type AudioSettingsState, DEFAULT_AUDIO_SETTINGS } from "./FilmoraAudioInspector";
+import type { AudioPreset, EffectPreset, TitlePreset } from "./FilmoraMediaLibrary";
+import { buildProjectMediaAssets, type MediaAsset, saveMediaAsset } from "./mediaAssetStore";
 import PlaybackControls from "./PlaybackControls";
+import { ProjectInSituTour } from "./ProjectInSituTour";
 import {
 	createProjectData,
 	createProjectSnapshot,
@@ -242,6 +257,8 @@ export default function VideoEditor() {
 		commitState,
 		undo,
 		redo,
+		canUndo,
+		canRedo,
 		resetState,
 	} = useEditorHistory(INITIAL_EDITOR_STATE);
 
@@ -276,32 +293,62 @@ export default function VideoEditor() {
 		cursorSpotlight,
 		cursorSpotlightRadius,
 		clickRipple,
+		mainVideoSplitPoints = [],
+		mainAudioSplitPoints = [],
+		trackVisibility = {},
+		trackMuted = {},
+		trackLocked = {},
+		clipColorMarks = {},
 	} = editorState;
 
-	const handleAddVideoLayer = useCallback(() => {
-		const newLayerId = `layer-video-${Date.now()}`;
-		const newLayer: import("./types").VideoLayerTrack = {
-			id: newLayerId,
-			name: `Camera / Video Layer ${videoLayers.length + 1}`,
-			type: "live-cam",
-			enabled: true,
-			opacity: 1.0,
-			x: 10 + ((videoLayers.length * 15) % 60),
-			y: 10 + ((videoLayers.length * 15) % 60),
-			width: 25,
-			height: 25,
-			zIndex: videoLayers.length + 5,
-			maskShape: "rounded",
-			borderWidth: 3,
-			borderColor: "#3b82f6",
-			shadowGlow: true,
-			volume: 1.0,
-			muted: false,
-			startMs: 0,
-		};
-		updateState({ videoLayers: [...videoLayers, newLayer] });
-		toast.success(`Added ${newLayer.name}`);
-	}, [videoLayers, updateState]);
+	const handleAddVideoLayer = useCallback(
+		(customLayer?: Partial<import("./types").VideoLayerTrack>) => {
+			const newLayerId = `layer-video-${Date.now()}`;
+			const curMs = Math.round((currentTimeRef.current || 0) * 1000);
+			const durMs = Math.round((durationRef.current || 0) * 1000);
+			const clipDur =
+				customLayer?.endMs !== undefined && customLayer?.startMs !== undefined
+					? customLayer.endMs - customLayer.startMs
+					: 5000;
+			const startMs =
+				customLayer?.startMs !== undefined
+					? customLayer.startMs
+					: durMs > 0
+						? Math.min(curMs, Math.max(0, durMs - 1000))
+						: curMs;
+			const endMs =
+				customLayer?.endMs !== undefined
+					? customLayer.endMs
+					: durMs > 0
+						? Math.min(durMs, startMs + clipDur)
+						: startMs + clipDur;
+
+			const newLayer: import("./types").VideoLayerTrack = {
+				id: newLayerId,
+				name: customLayer?.name || `Video Track ${videoLayers.length + 2}`,
+				type: customLayer?.type || "overlay-video",
+				enabled: true,
+				opacity: customLayer?.opacity ?? 1.0,
+				x: customLayer?.x ?? 0,
+				y: customLayer?.y ?? 0,
+				width: customLayer?.width ?? 100,
+				height: customLayer?.height ?? 100,
+				zIndex: videoLayers.length + 5,
+				maskShape: customLayer?.maskShape || "rectangle",
+				borderWidth: 0,
+				borderColor: "#06b6d4",
+				shadowGlow: false,
+				volume: 1.0,
+				muted: false,
+				startMs,
+				endMs,
+				src: customLayer?.src,
+			};
+			updateState({ videoLayers: [...videoLayers, newLayer] });
+			toast.success(`Added ${newLayer.name}`);
+		},
+		[videoLayers, updateState],
+	);
 
 	const handleUpdateVideoLayer = useCallback(
 		(id: string, updates: Partial<import("./types").VideoLayerTrack>) => {
@@ -320,6 +367,50 @@ export default function VideoEditor() {
 			toast.info("Video layer removed");
 		},
 		[videoLayers, updateState],
+	);
+
+	const handleClipColorChange = useCallback(
+		(clipId: string, color: string | null) => {
+			const nextColorMarks = { ...(clipColorMarks || {}) };
+			if (color) {
+				nextColorMarks[clipId] = color;
+			} else {
+				delete nextColorMarks[clipId];
+			}
+			updateState({ clipColorMarks: nextColorMarks });
+			toast.success(color ? "Color mark updated" : "Color mark reset");
+		},
+		[clipColorMarks, updateState],
+	);
+
+	const handleSetClipSpeed = useCallback(
+		(span: Span, speed: PlaybackSpeed) => {
+			const existingIndex = (speedRegions || []).findIndex(
+				(r) => !(r.endMs <= span.start || r.startMs >= span.end),
+			);
+			if (speed === 1) {
+				if (existingIndex >= 0) {
+					const updated = speedRegions.filter((_, idx) => idx !== existingIndex);
+					updateState({ speedRegions: updated });
+				}
+				toast.success("Playback speed reset to 1x");
+				return;
+			}
+			if (existingIndex >= 0) {
+				const updated = speedRegions.map((r, idx) => (idx === existingIndex ? { ...r, speed } : r));
+				updateState({ speedRegions: updated });
+			} else {
+				const newSpeedRegion: SpeedRegion = {
+					id: `speed-${Date.now()}`,
+					startMs: Math.round(span.start),
+					endMs: Math.round(span.end),
+					speed,
+				};
+				updateState({ speedRegions: [...(speedRegions || []), newSpeedRegion] });
+			}
+			toast.success(`Clip playback speed set to ${speed}x`);
+		},
+		[speedRegions, updateState],
 	);
 
 	// Non-undoable state
@@ -343,6 +434,14 @@ export default function VideoEditor() {
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
 	const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 	const [selectedBlurId, setSelectedBlurId] = useState<string | null>(null);
+	const [selectedVideoLayerId, setSelectedVideoLayerId] = useState<string | null>(null);
+	const [selectedAudioId, setSelectedAudioId] = useState<string | null>(null);
+	const [audioTrackName, setAudioTrackName] = useState<string | null>(null);
+	const [backgroundAudioUrl, setBackgroundAudioUrl] = useState<string | null>(null);
+	const [audioSettings, setAudioSettings] = useState<AudioSettingsState>(DEFAULT_AUDIO_SETTINGS);
+	const [inspectorPanelMode, setInspectorPanelMode] = useState<
+		import("./SettingsPanel").SettingsPanelMode | undefined
+	>(undefined);
 	const [isExporting, setIsExporting] = useState(false);
 	const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
 	const [exportError, setExportError] = useState<string | null>(null);
@@ -376,11 +475,126 @@ export default function VideoEditor() {
 	const effectiveIsPortraitLayout =
 		layoutMode === "portrait-pro" ? true : layoutMode === "landscape-stack" ? false : isPortrait;
 	const [showCloseConfirmDialog, setShowCloseConfirmDialog] = useState(false);
+	const [showAssetManager, setShowAssetManager] = useState(false);
+	const [projectCustomAssets, setProjectCustomAssets] = useState<MediaAsset[]>([]);
+
+	const handleImportProjectAsset = useCallback((asset: MediaAsset) => {
+		setProjectCustomAssets((prev) => [
+			asset,
+			...prev.filter((a) => a.id !== asset.id && a.path !== asset.path),
+		]);
+	}, []);
+
+	const handleDeleteProjectAsset = useCallback((assetId: string) => {
+		setProjectCustomAssets((prev) => prev.filter((a) => a.id !== assetId));
+	}, []);
+
+	const activeProjectAssets = useMemo(() => {
+		return buildProjectMediaAssets({
+			videoSourcePath,
+			videoPath,
+			videoDuration: duration,
+			webcamVideoSourcePath,
+			webcamVideoPath,
+			backgroundAudioUrl,
+			audioTrackName,
+			projectCustomAssets,
+			videoLayers,
+		});
+	}, [
+		videoSourcePath,
+		videoPath,
+		duration,
+		webcamVideoSourcePath,
+		webcamVideoPath,
+		backgroundAudioUrl,
+		audioTrackName,
+		projectCustomAssets,
+		videoLayers,
+	]);
+	const [showCropModal, setShowCropModal] = useState(false);
+	const [captionStylePreset, setCaptionStylePreset] = useState<CaptionStylePreset>("filmora-neon");
+	const [captionPositionPreset, setCaptionPositionPreset] =
+		useState<CaptionPositionPreset>("bottom");
 	// Unsaved-changes confirmation for New Project / Load Project.
 	// The window-close flow uses showCloseConfirmDialog above.
 	const [confirmDialogVariant, setConfirmDialogVariant] = useState<
 		"newProject" | "loadProject" | null
 	>(null);
+	const [showFeatureTutorial, setShowFeatureTutorial] = useState(false);
+	const hasCheckedTutorialForVideoRef = useRef<string | null>(null);
+
+	// Automatically open feature tutorial when a project is loaded if on v3.2.0 and not yet seen
+	useEffect(() => {
+		if (videoPath && duration > 0 && hasCheckedTutorialForVideoRef.current !== videoPath) {
+			hasCheckedTutorialForVideoRef.current = videoPath;
+			if (!hasSeenTutorialVersion("3.2.0")) {
+				setShowFeatureTutorial(true);
+			}
+		}
+	}, [videoPath, duration]);
+
+	const tutorialProjectStats = useMemo(
+		() => ({
+			projectName: videoSourcePath || videoPath,
+			duration,
+			audioTrackName,
+			hasBackgroundMusic: Boolean(backgroundAudioUrl),
+			trimCount: trimRegions.length,
+			speedCount: speedRegions.length,
+			zoomCount: zoomRegions.length,
+			annotationCount: annotationRegions.length,
+			splitCount: mainVideoSplitPoints.length,
+		}),
+		[
+			videoSourcePath,
+			videoPath,
+			duration,
+			audioTrackName,
+			backgroundAudioUrl,
+			trimRegions.length,
+			speedRegions.length,
+			zoomRegions.length,
+			annotationRegions.length,
+			mainVideoSplitPoints.length,
+		],
+	);
+
+	const handleAddVideoLayerWithAsset = useCallback(
+		(asset: { name: string; url: string; path?: string; duration?: number }) => {
+			const newLayerId = `layer-video-${Date.now()}`;
+			const curMs = Math.round((currentTimeRef.current || 0) * 1000);
+			const durMs = Math.round((durationRef.current || 0) * 1000);
+			const clipDur = asset.duration ? Math.round(asset.duration * 1000) : 5000;
+			const startMs = durMs > 0 ? Math.min(curMs, Math.max(0, durMs - 1000)) : curMs;
+			const endMs = durMs > 0 ? Math.min(durMs, startMs + clipDur) : startMs + clipDur;
+
+			const newLayer: import("./types").VideoLayerTrack = {
+				id: newLayerId,
+				name: asset.name,
+				type: "pip",
+				enabled: true,
+				src: asset.url || asset.path,
+				opacity: 1.0,
+				x: 10 + ((videoLayers.length * 15) % 60),
+				y: 10 + ((videoLayers.length * 15) % 60),
+				width: 30,
+				height: 30,
+				zIndex: videoLayers.length + 5,
+				maskShape: "rounded",
+				borderWidth: 2,
+				borderColor: "#d4f933",
+				shadowGlow: true,
+				volume: 1.0,
+				muted: false,
+				startMs,
+				endMs,
+			};
+			updateState({ videoLayers: [...videoLayers, newLayer] });
+			toast.success(`Added layer: ${asset.name}`);
+		},
+		[videoLayers, updateState],
+	);
 	const playerContainerRef = useRef<HTMLDivElement | null>(null);
 	const cursorTelemetrySourcePath = videoSourcePath ?? (videoPath ? fromFileUrl(videoPath) : null);
 	const { samples: cursorTelemetry, error: cursorTelemetryError } =
@@ -424,10 +638,12 @@ export default function VideoEditor() {
 	// Windows recordings include captured cursor assets. macOS hides the system
 	// cursor in ScreenCaptureKit and renders telemetry samples with OpenScreen's
 	// default arrow asset for the editable overlay.
+	const isSystemCursorEmbedded = recordingCursorCaptureMode === "system";
 	const hasEditableCursorRecording =
-		hasNativeCursorRecordingData(cursorRecordingData) && recordingCursorCaptureMode !== "system";
-	const effectiveShowCursor = showCursor && hasEditableCursorRecording;
-	const showCursorSettings = hasEditableCursorRecording;
+		hasNativeCursorRecordingData(cursorRecordingData) &&
+		(isMac || Boolean(cursorRecordingData?.assets && cursorRecordingData.assets.length > 0));
+	const effectiveShowCursor = showCursor;
+	const showCursorSettings = hasEditableCursorRecording && !isSystemCursorEmbedded;
 	const { locale, setLocale, t: rawT } = useI18n();
 	const t = useScopedT("editor");
 	const ts = useScopedT("settings");
@@ -511,6 +727,7 @@ export default function VideoEditor() {
 			setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
 			setRecordingCursorCaptureMode(projectCursorCaptureMode);
 			setCurrentProjectPath(path ?? null);
+			setProjectCustomAssets(normalizedEditor.mediaAssets || []);
 
 			// A loaded project keeps its zooms exactly as saved, so never auto-suggest
 			// over it (even if it has zero zooms because the user deleted them all).
@@ -538,7 +755,20 @@ export default function VideoEditor() {
 				webcamReactiveZoom: normalizedEditor.webcamReactiveZoom,
 				webcamSizePreset: normalizedEditor.webcamSizePreset,
 				webcamPosition: normalizedEditor.webcamPosition,
+				videoLayers: normalizedEditor.videoLayers || [],
+				backgroundAudioUrl: normalizedEditor.backgroundAudioUrl ?? null,
+				audioTrackName:
+					normalizedEditor.audioTrackName ??
+					(normalizedEditor.backgroundAudioUrl ? "Audio 1" : null),
+				audioSettings: normalizedEditor.audioSettings,
 			});
+			setBackgroundAudioUrl(normalizedEditor.backgroundAudioUrl ?? null);
+			setAudioTrackName(
+				normalizedEditor.audioTrackName ?? (normalizedEditor.backgroundAudioUrl ? "Audio 1" : null),
+			);
+			if (normalizedEditor.audioSettings) {
+				setAudioSettings(normalizedEditor.audioSettings);
+			}
 			setExportQuality(normalizedEditor.exportQuality);
 			setExportFormat(normalizedEditor.exportFormat);
 			setGifFrameRate(normalizedEditor.gifFrameRate);
@@ -629,6 +859,11 @@ export default function VideoEditor() {
 			cursorSpotlight,
 			cursorSpotlightRadius,
 			clickRipple,
+			backgroundAudioUrl,
+			audioTrackName,
+			audioSettings,
+			mediaAssets: projectCustomAssets,
+			videoLayers,
 		});
 	}, [
 		currentProjectMedia,
@@ -667,6 +902,11 @@ export default function VideoEditor() {
 		cursorSpotlight,
 		cursorSpotlightRadius,
 		clickRipple,
+		backgroundAudioUrl,
+		audioTrackName,
+		audioSettings,
+		projectCustomAssets,
+		videoLayers,
 	]);
 
 	const hasUnsavedChanges = hasProjectUnsavedChanges(currentProjectSnapshot, lastSavedSnapshot);
@@ -695,9 +935,12 @@ export default function VideoEditor() {
 					setVideoSourcePath(sourcePath);
 					setVideoPath(toFileUrl(sourcePath));
 					setWebcamVideoSourcePath(webcamSourcePath);
-					setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
 					setRecordingCursorCaptureMode(session.cursorCaptureMode ?? null);
+					if (session.cursorCaptureMode === "system") {
+						setShowCursor(false);
+					}
 					setCurrentProjectPath(null);
+					setProjectCustomAssets([]);
 					setLastSavedSnapshot(
 						createProjectSnapshot(
 							{
@@ -719,6 +962,7 @@ export default function VideoEditor() {
 					setVideoPath(toFileUrl(result.path));
 					setRecordingCursorCaptureMode(null);
 					setCurrentProjectPath(null);
+					setProjectCustomAssets([]);
 					setLastSavedSnapshot(
 						createProjectSnapshot({ screenVideoPath: result.path }, INITIAL_EDITOR_STATE),
 					);
@@ -804,6 +1048,11 @@ export default function VideoEditor() {
 				cursorSpotlight,
 				cursorSpotlightRadius,
 				clickRipple,
+				backgroundAudioUrl,
+				audioTrackName,
+				audioSettings,
+				mediaAssets: projectCustomAssets,
+				videoLayers,
 			};
 			const projectData = createProjectData(currentProjectMedia, editorState);
 
@@ -877,6 +1126,11 @@ export default function VideoEditor() {
 			cursorSpotlight,
 			cursorSpotlightRadius,
 			clickRipple,
+			backgroundAudioUrl,
+			audioTrackName,
+			audioSettings,
+			projectCustomAssets,
+			videoLayers,
 			videoPath,
 			t,
 		],
@@ -992,6 +1246,7 @@ export default function VideoEditor() {
 		setWebcamVideoSourcePath(null);
 		setCurrentProjectPath(null);
 		setLastSavedSnapshot(null);
+		setProjectCustomAssets([]);
 		// Reset undoable editor state + undo/redo history to a clean slate.
 		resetState();
 		// Reset non-undoable selection state.
@@ -1017,7 +1272,16 @@ export default function VideoEditor() {
 		nextSpeedIdRef.current = 1;
 		nextAnnotationIdRef.current = 1;
 		nextAnnotationZIndexRef.current = 1;
+		// Reset audio track.
+		setAudioTrackName(null);
+		setSelectedAudioId(null);
 	}, [resetState]);
+
+	const handleDeleteAudio = useCallback(() => {
+		setAudioTrackName(null);
+		setSelectedAudioId(null);
+		toast.info("Audio track removed");
+	}, []);
 
 	const handleNewProject = useCallback(async () => {
 		if (hasUnsavedChanges) {
@@ -1107,6 +1371,7 @@ export default function VideoEditor() {
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
+			setSelectedAudioId(null);
 		}
 	}, []);
 
@@ -1117,6 +1382,7 @@ export default function VideoEditor() {
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
+			setSelectedAudioId(null);
 		}
 	}, []);
 
@@ -1127,6 +1393,7 @@ export default function VideoEditor() {
 			setSelectedTrimId(null);
 			setSelectedSpeedId(null);
 			setSelectedBlurId(null);
+			setSelectedAudioId(null);
 		}
 	}, []);
 
@@ -1137,8 +1404,94 @@ export default function VideoEditor() {
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
 			setSelectedSpeedId(null);
+			setSelectedAudioId(null);
 		}
 	}, []);
+
+	const handleSelectAudio = useCallback((id: string | null) => {
+		setSelectedAudioId(id);
+		if (id) {
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
+			setSelectedSpeedId(null);
+		}
+	}, []);
+
+	const handleSelectAudioPreset = useCallback(
+		async (preset: AudioPreset) => {
+			const displayName =
+				preset.title || (preset as unknown as { name?: string }).name || "Audio Track";
+			setAudioTrackName(displayName);
+			setInspectorPanelMode("audio");
+			let url =
+				preset.url ||
+				(preset as unknown as { path?: string }).path ||
+				(await getPresetAudioUrl(preset.id));
+			if (
+				url &&
+				!url.startsWith("blob:") &&
+				!url.startsWith("data:") &&
+				!url.startsWith("http:") &&
+				!url.startsWith("https:") &&
+				!url.startsWith("file:")
+			) {
+				url = toFileUrl(url);
+			}
+			setBackgroundAudioUrl(url);
+			setAudioTrackName(displayName);
+			setAudioSettings((prev) => ({
+				...prev,
+				trackName: displayName,
+			}));
+			pushState({
+				backgroundAudioUrl: url,
+				audioTrackName: displayName,
+				audioSettings: {
+					...audioSettings,
+					trackName: displayName,
+				},
+			});
+			handleSelectAudio("main-audio-clip-1");
+			toast.success(`Assigned ${displayName} to Audio 1`);
+		},
+		[handleSelectAudio, pushState, audioSettings],
+	);
+
+	const handleAddAnnotationWithText = useCallback(
+		(text: string, preset?: Partial<TitlePreset>) => {
+			const curMs = Math.round(currentTime * 1000);
+			const spanEnd = Math.min(Math.round(duration * 1000), curMs + 3000);
+			const id = `annotation-${nextAnnotationIdRef.current++}`;
+			const zIndex = nextAnnotationZIndexRef.current++;
+			const newRegion: AnnotationRegion = {
+				id,
+				startMs: curMs,
+				endMs: spanEnd > curMs ? spanEnd : curMs + 3000,
+				type: "text",
+				content: text,
+				position: { ...DEFAULT_ANNOTATION_POSITION },
+				size: { ...DEFAULT_ANNOTATION_SIZE },
+				style: {
+					...DEFAULT_ANNOTATION_STYLE,
+					...(preset?.color ? { color: preset.color } : {}),
+					...(preset?.bg ? { backgroundColor: preset.bg } : {}),
+					...(preset?.fontSize ? { fontSize: preset.fontSize } : {}),
+					...(preset?.fontWeight ? { fontWeight: preset.fontWeight } : {}),
+					...(preset?.textAnimation ? { textAnimation: preset.textAnimation } : {}),
+				},
+				zIndex,
+			};
+			pushState((prev) => ({
+				annotationRegions: [...prev.annotationRegions, newRegion],
+			}));
+			setSelectedAnnotationId(id);
+			setSelectedAudioId(null);
+			toast.success(`Added title: "${text}"`);
+		},
+		[currentTime, duration, pushState],
+	);
 
 	const handleZoomAdded = useCallback(
 		(span: Span) => {
@@ -1195,7 +1548,9 @@ export default function VideoEditor() {
 					depth,
 					customScale: scale,
 					focus: clampFocusToDepth(suggestion.focus, depth),
-					focusMode: autoFocusAll ? ("auto" as const) : undefined,
+					focusMode: autoFocusAll || suggestion.intent === "flow" ? ("auto" as const) : undefined,
+					easeInMs: 650,
+					easeOutMs: 750,
 					source: "auto" as const,
 				};
 			});
@@ -1219,7 +1574,7 @@ export default function VideoEditor() {
 				zoomRegions: [...prev.zoomRegions.filter((r) => r.source !== "auto"), ...newRegions],
 			}));
 			toast.success("AI Auto-Zoom Generated", {
-				description: `Placed ${newRegions.length} click-zoom region${newRegions.length > 1 ? "s" : ""} on timeline (${autoZoomIntensity} intensity, ${autoZoomFraming === "rule-of-thirds" ? "rule of thirds" : "centered"})`,
+				description: `Placed ${newRegions.length} click-zoom region${newRegions.length > 1 ? "s" : ""} on timeline (${autoZoomIntensity} intensity, ${autoZoomFraming === "predictive" ? "predictive lead" : autoZoomFraming === "rule-of-thirds" ? "rule of thirds" : "centered"})`,
 			});
 		} else {
 			toast.info("Auto-Zoom", {
@@ -1322,15 +1677,18 @@ export default function VideoEditor() {
 	);
 
 	const handleTrimAdded = useCallback(
-		(span: Span) => {
+		(span: Span & { source?: "manual" | "clip-cut" }) => {
 			const id = `trim-${nextTrimIdRef.current++}`;
 			const newRegion: TrimRegion = {
 				id,
 				startMs: Math.round(span.start),
 				endMs: Math.round(span.end),
+				source: span.source ?? "manual",
 			};
 			pushState((prev) => ({ trimRegions: [...prev.trimRegions, newRegion] }));
-			setSelectedTrimId(id);
+			if (span.source !== "clip-cut") {
+				setSelectedTrimId(id);
+			}
 			setSelectedZoomId(null);
 			setSelectedSpeedId(null);
 			setSelectedAnnotationId(null);
@@ -1484,6 +1842,17 @@ export default function VideoEditor() {
 		[selectedTrimId, pushState],
 	);
 
+	const handleKeepBlankScreen = useCallback(
+		(id: string) => {
+			pushState((prev) => ({
+				trimRegions: prev.trimRegions.map((r) =>
+					r.id === id ? { ...r, keepBlankScreen: true } : r,
+				),
+			}));
+		},
+		[pushState],
+	);
+
 	const handleSelectSpeed = useCallback((id: string | null) => {
 		setSelectedSpeedId(id);
 		if (id) {
@@ -1491,8 +1860,194 @@ export default function VideoEditor() {
 			setSelectedTrimId(null);
 			setSelectedAnnotationId(null);
 			setSelectedBlurId(null);
+			setSelectedVideoLayerId(null);
 		}
 	}, []);
+
+	const handleSelectVideoLayer = useCallback((id: string | null) => {
+		setSelectedVideoLayerId(id);
+		if (id) {
+			setSelectedZoomId(null);
+			setSelectedTrimId(null);
+			setSelectedSpeedId(null);
+			setSelectedAnnotationId(null);
+			setSelectedBlurId(null);
+		}
+	}, []);
+
+	const handleSplitAllAtPlayhead = useCallback(() => {
+		const playheadMs = Math.round(currentTime * 1000);
+		if (duration <= 0) return;
+		const totalMs = Math.round(duration * 1000);
+		if (playheadMs <= 100 || playheadMs >= totalMs - 100) return;
+
+		const insideTrim = trimRegions.some((t) => playheadMs >= t.startMs && playheadMs <= t.endMs);
+		if (insideTrim) {
+			toast.error("Cannot split inside a trimmed gap");
+			return;
+		}
+
+		// 1. Split main video
+		const existingVideo = mainVideoSplitPoints || [];
+		const nextVideoSplits = existingVideo.some((p) => Math.abs(p - playheadMs) < 100)
+			? existingVideo
+			: [...existingVideo, playheadMs].sort((a, b) => a - b);
+
+		// 2. Split audio
+		const existingAudio = mainAudioSplitPoints || [];
+		const nextAudioSplits = existingAudio.some((p) => Math.abs(p - playheadMs) < 100)
+			? existingAudio
+			: [...existingAudio, playheadMs].sort((a, b) => a - b);
+
+		// 3. Split any active video layers at playhead
+		let updatedLayers = [...videoLayers];
+		for (const layer of videoLayers) {
+			const start = layer.startMs || 0;
+			const end = layer.endMs ?? totalMs;
+			if (playheadMs > start + 100 && playheadMs < end - 100) {
+				const layer1 = { ...layer, endMs: playheadMs };
+				const layer2: import("./types").VideoLayerTrack = {
+					...layer,
+					id: `layer-video-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+					name: `${layer.name || "Video Track"} (Part 2)`,
+					startMs: playheadMs,
+					endMs: end,
+				};
+				updatedLayers = updatedLayers.map((l) => (l.id === layer.id ? layer1 : l)).concat(layer2);
+			}
+		}
+
+		pushState({
+			mainVideoSplitPoints: nextVideoSplits,
+			mainAudioSplitPoints: nextAudioSplits,
+			videoLayers: updatedLayers,
+		});
+		toast.success("Split all tracks at playhead");
+	}, [
+		currentTime,
+		duration,
+		trimRegions,
+		mainVideoSplitPoints,
+		mainAudioSplitPoints,
+		videoLayers,
+		pushState,
+	]);
+
+	const handleSplitAtPlayhead = useCallback(() => {
+		const playheadMs = Math.round(currentTime * 1000);
+		if (duration <= 0) return;
+		const totalMs = Math.round(duration * 1000);
+
+		if (selectedVideoLayerId) {
+			const layer = videoLayers.find((l) => l.id === selectedVideoLayerId);
+			if (layer) {
+				const start = layer.startMs || 0;
+				const end = layer.endMs ?? (duration > 0 ? Math.round(duration * 1000) : 10000);
+				if (playheadMs > start + 100 && playheadMs < end - 100) {
+					const layer1 = { ...layer, endMs: playheadMs };
+					const layer2: import("./types").VideoLayerTrack = {
+						...layer,
+						id: `layer-video-${Date.now()}`,
+						name: `${layer.name || "Video Track"} (Part 2)`,
+						startMs: playheadMs,
+						endMs: end,
+					};
+					pushState({
+						videoLayers: videoLayers.map((l) => (l.id === layer.id ? layer1 : l)).concat(layer2),
+					});
+					toast.success("Split video layer at playhead");
+					return;
+				}
+			}
+		}
+
+		if (selectedAudioId) {
+			if (playheadMs > 100 && playheadMs < totalMs - 100) {
+				const existing = mainAudioSplitPoints || [];
+				if (existing.some((p) => Math.abs(p - playheadMs) < 100)) return;
+				const nextSplitPoints = [...existing, playheadMs].sort((a, b) => a - b);
+				pushState({ mainAudioSplitPoints: nextSplitPoints });
+				toast.success("Split audio clip at playhead");
+				return;
+			}
+		}
+
+		// Split main video seamlessly at playhead (Filmora Razor tool)
+		if (playheadMs > 100 && playheadMs < totalMs - 100) {
+			const insideTrim = trimRegions.some((t) => playheadMs >= t.startMs && playheadMs <= t.endMs);
+			if (insideTrim) {
+				toast.error("Cannot split inside a trimmed gap");
+				return;
+			}
+			const existing = mainVideoSplitPoints || [];
+			if (existing.some((p) => Math.abs(p - playheadMs) < 100)) {
+				return;
+			}
+			const nextSplitPoints = [...existing, playheadMs].sort((a, b) => a - b);
+			pushState({ mainVideoSplitPoints: nextSplitPoints });
+			toast.success("Split video at playhead");
+		}
+	}, [
+		currentTime,
+		selectedVideoLayerId,
+		selectedAudioId,
+		videoLayers,
+		duration,
+		trimRegions,
+		mainVideoSplitPoints,
+		mainAudioSplitPoints,
+		pushState,
+	]);
+
+	const handleUpdateMainVideoSplitPoints = useCallback(
+		(points: number[]) => {
+			pushState({ mainVideoSplitPoints: points });
+		},
+		[pushState],
+	);
+
+	const handleUpdateMainAudioSplitPoints = useCallback(
+		(points: number[]) => {
+			pushState({ mainAudioSplitPoints: points });
+		},
+		[pushState],
+	);
+
+	const handleToggleTrackVisibility = useCallback(
+		(trackId: string) => {
+			pushState((prev) => ({
+				trackVisibility: {
+					...(prev.trackVisibility || {}),
+					[trackId]: prev.trackVisibility?.[trackId] === false ? true : false,
+				},
+			}));
+		},
+		[pushState],
+	);
+
+	const handleToggleTrackLock = useCallback(
+		(trackId: string) => {
+			pushState((prev) => ({
+				trackLocked: {
+					...(prev.trackLocked || {}),
+					[trackId]: !prev.trackLocked?.[trackId],
+				},
+			}));
+		},
+		[pushState],
+	);
+
+	const handleToggleTrackMute = useCallback(
+		(trackId: string) => {
+			pushState((prev) => ({
+				trackMuted: {
+					...(prev.trackMuted || {}),
+					[trackId]: !prev.trackMuted?.[trackId],
+				},
+			}));
+		},
+		[pushState],
+	);
 
 	const handleSpeedAdded = useCallback(
 		(span: Span) => {
@@ -2209,6 +2764,8 @@ export default function VideoEditor() {
 					const exporter = new VideoExporter({
 						videoUrl: videoPath,
 						webcamVideoUrl: webcamVideoPath || undefined,
+						backgroundAudioUrl: backgroundAudioUrl || undefined,
+						audioSettings,
 						width: exportWidth,
 						height: exportHeight,
 						frameRate: 60,
@@ -2259,8 +2816,8 @@ export default function VideoEditor() {
 					exporterRef.current = exporter;
 					const result = await exporter.export();
 
-					if (result.success && result.blob) {
-						const arrayBuffer = await result.blob.arrayBuffer();
+					if (result.success && (result.arrayBuffer || result.blob)) {
+						const arrayBuffer = result.arrayBuffer ?? (await result.blob!.arrayBuffer());
 
 						if (result.warnings) {
 							for (const warning of result.warnings) {
@@ -2534,6 +3091,8 @@ export default function VideoEditor() {
 						minWordsPerCaption: minW,
 						maxWordsPerCaption: maxW,
 						timestampGranularity: granularity,
+						stylePreset: captionStylePreset,
+						positionPreset: captionPositionPreset,
 					},
 				);
 
@@ -2546,6 +3105,8 @@ export default function VideoEditor() {
 							minWordsPerCaption: 1,
 							maxWordsPerCaption: Number.MAX_SAFE_INTEGER,
 							timestampGranularity: granularity,
+							stylePreset: captionStylePreset,
+							positionPreset: captionPositionPreset,
 						},
 					));
 				}
@@ -2579,7 +3140,7 @@ export default function VideoEditor() {
 				setIsAutoCaptioning(false);
 			}
 		},
-		[videoPath, trimRegions, pushState, t],
+		[videoPath, trimRegions, captionStylePreset, captionPositionPreset, pushState, t],
 	);
 
 	const handleSaveDiagnostic = useCallback(async () => {
@@ -2597,8 +3158,14 @@ export default function VideoEditor() {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-screen bg-background">
-				<div className="text-foreground">{t("loadingVideo")}</div>
+			<div className="flex flex-col items-center justify-center h-screen bg-[#0b0c10] gap-4">
+				{/* Animated spinner */}
+				<div className="relative w-12 h-12">
+					<div className="absolute inset-0 rounded-full border-2 border-white/10" />
+					<div className="absolute inset-0 rounded-full border-2 border-t-[#e8ff47] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+				</div>
+				<p className="text-sm font-medium text-slate-300">{t("loadingVideo")}</p>
+				<p className="text-xs text-slate-500">Setting up your workspace…</p>
 			</div>
 		);
 	}
@@ -2754,6 +3321,61 @@ export default function VideoEditor() {
 								</SelectContent>
 							</Select>
 						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="caption-style-preset" className="text-xs font-semibold">
+								Subtitle Style Preset
+							</Label>
+							<Select
+								value={captionStylePreset}
+								onValueChange={(v) => setCaptionStylePreset(v as CaptionStylePreset)}
+							>
+								<SelectTrigger
+									id="caption-style-preset"
+									className={`h-9 text-xs rounded-xl ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7] text-[#18181b]" : "bg-[#141414] border-[#252525] text-[#e8e8e8]"}`}
+								>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent
+									className={
+										isLight
+											? "bg-white border-[#e4e4e7] text-[#18181b]"
+											: "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"
+									}
+								>
+									<SelectItem value="filmora-neon">Filmora Studio Neon (#d4f933)</SelectItem>
+									<SelectItem value="glass-pill">Frosted Glass Pill (High Contrast)</SelectItem>
+									<SelectItem value="cinematic-outline">Cinematic Thick Outline</SelectItem>
+									<SelectItem value="karaoke-pop">Karaoke Pop Highlighting</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="caption-position-preset" className="text-xs font-semibold">
+								Subtitle Position
+							</Label>
+							<Select
+								value={captionPositionPreset}
+								onValueChange={(v) => setCaptionPositionPreset(v as CaptionPositionPreset)}
+							>
+								<SelectTrigger
+									id="caption-position-preset"
+									className={`h-9 text-xs rounded-xl ${isLight ? "bg-[#f4f4f5] border-[#e4e4e7] text-[#18181b]" : "bg-[#141414] border-[#252525] text-[#e8e8e8]"}`}
+								>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent
+									className={
+										isLight
+											? "bg-white border-[#e4e4e7] text-[#18181b]"
+											: "bg-[#0c0c0c] border-[#252525] text-[#e8e8e8]"
+									}
+								>
+									<SelectItem value="bottom">Bottom (Standard Video)</SelectItem>
+									<SelectItem value="center">Center (Shorts & Reels)</SelectItem>
+									<SelectItem value="top">Top (Header Banner)</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
 					</div>
 					<DialogFooter className="gap-2 sm:gap-0 mt-4">
 						<Button
@@ -2904,6 +3526,27 @@ export default function VideoEditor() {
 								>
 									<Save size={12.5} />
 									<span>Save</span>
+								</button>
+
+								{/* Crop Tool */}
+								<span className={cn("w-px h-3 mx-0.5", isLight ? "bg-black/10" : "bg-white/10")} />
+								<button
+									type="button"
+									onClick={() => setShowCropModal(true)}
+									title="Crop Video"
+									className={cn(
+										"flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95",
+										cropRegion
+											? isLight
+												? "bg-zinc-200 text-zinc-950 font-bold border border-zinc-300 shadow-2xs"
+												: "bg-white/15 text-white font-bold border border-white/20"
+											: isLight
+												? "text-zinc-700 hover:text-zinc-950 hover:bg-white shadow-2xs"
+												: "text-zinc-300 hover:text-white hover:bg-white/10",
+									)}
+								>
+									<Crop size={12.5} />
+									<span>Crop</span>
 								</button>
 							</>
 						)}
@@ -3171,6 +3814,28 @@ export default function VideoEditor() {
 							</DropdownMenuContent>
 						</DropdownMenu>
 
+						{/* 3.2.0 Interactive Feature Guide Button */}
+						<button
+							type="button"
+							onClick={() => setShowFeatureTutorial(true)}
+							title="Ocal Screen 3.2.0 Interactive Feature Guide"
+							className={cn(
+								"flex items-center gap-1.5 h-7 px-2.5 rounded-full font-semibold text-xs cursor-pointer border select-none transition-all shadow-xs",
+								isLight
+									? "bg-white hover:bg-zinc-100 text-zinc-900 border-zinc-300"
+									: "bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-zinc-700",
+							)}
+						>
+							<Sparkles size={12} className="text-amber-400" />
+							<span>Tour</span>
+							<span
+								className="text-[9px] font-black px-1.5 py-0.5 rounded-full leading-none shadow-xs"
+								style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+							>
+								3.2
+							</span>
+						</button>
+
 						{/* Segment Divider */}
 						<span className={cn("w-px h-3.5 mx-0.5", isLight ? "bg-black/10" : "bg-white/10")} />
 
@@ -3189,6 +3854,20 @@ export default function VideoEditor() {
 							</div>
 							<span className="text-[11px] font-bold truncate max-w-[70px]">{userName}</span>
 						</div>
+
+						{/* Filmora Primary Export Button */}
+						{videoPath && (
+							<button
+								id="tour-export-button"
+								type="button"
+								onClick={handleOpenExportDialog}
+								title="Export Video"
+								className="flex items-center gap-1.5 h-7 px-3.5 rounded-full font-bold text-xs bg-[#00e59b] hover:bg-[#00c988] text-black shadow-[0_0_12px_rgba(0,229,155,0.4)] transition-all cursor-pointer active:scale-95 ml-1"
+							>
+								<Upload size={12.5} className="stroke-[2.5]" />
+								<span>Export</span>
+							</button>
+						)}
 					</div>
 				</div>
 			</div>
@@ -3201,10 +3880,17 @@ export default function VideoEditor() {
 						accentColor={accentColor}
 						userName={userName}
 						onVideoImported={(path) => {
-							setVideoPath(toFileUrl(path));
+							const url = toFileUrl(path);
+							setVideoPath(url);
 							setVideoSourcePath(path);
 							setWebcamVideoPath(null);
 							setWebcamVideoSourcePath(null);
+							saveMediaAsset({
+								name: getFileNameForDiagnostics(path),
+								path,
+								url,
+								type: "video",
+							});
 						}}
 						onProjectOpened={async (project, path) => {
 							const restored = await applyLoadedProject(project, path);
@@ -3227,6 +3913,7 @@ export default function VideoEditor() {
 							{/* Left: Full Height 9:16 Portrait Preview Deck (Maximum Viewable Height) */}
 							<Panel defaultSize={42} minSize={26} maxSize={65} className="min-w-[300px]">
 								<div
+									id="tour-preview-deck"
 									ref={playerContainerRef}
 									className={
 										isFullscreen
@@ -3259,6 +3946,7 @@ export default function VideoEditor() {
 												ref={videoPlaybackRef}
 												videoPath={videoPath || ""}
 												webcamVideoPath={webcamVideoPath || undefined}
+												videoLayers={videoLayers}
 												webcamLayoutPreset={webcamLayoutPreset}
 												webcamMaskShape={webcamMaskShape}
 												webcamMirrored={webcamMirrored}
@@ -3270,6 +3958,9 @@ export default function VideoEditor() {
 												onDurationChange={setDuration}
 												onTimeUpdate={setCurrentTime}
 												currentTime={currentTime}
+												audioSettings={audioSettings}
+												backgroundAudioUrl={backgroundAudioUrl}
+												trackMuted={trackMuted}
 												onPlayStateChange={setIsPlaying}
 												onError={setError}
 												wallpaper={wallpaper}
@@ -3288,6 +3979,8 @@ export default function VideoEditor() {
 												cropRegion={cropRegion}
 												cursorRecordingData={cursorRecordingData}
 												trimRegions={trimRegions}
+												onTrimDelete={handleTrimDelete}
+												onKeepBlankScreen={handleKeepBlankScreen}
 												speedRegions={speedRegions}
 												annotationRegions={annotationOnlyRegions}
 												selectedAnnotationId={selectedAnnotationId}
@@ -3317,6 +4010,7 @@ export default function VideoEditor() {
 												vignette={vignette}
 												cursorSpotlight={cursorSpotlight}
 												cursorSpotlightRadius={cursorSpotlightRadius}
+												cursorTrackingMode={cursorTrackingMode}
 												clickRipple={clickRipple}
 												isPreviewingZoom={isPreviewingZoom}
 											/>
@@ -3352,10 +4046,48 @@ export default function VideoEditor() {
 								<PanelGroup direction="vertical" className="gap-2 min-h-0">
 									{/* Top Right: Settings & Inspector Panel */}
 									<Panel defaultSize={52} minSize={28} maxSize={72} className="min-h-[220px]">
-										<div className="editor-inspector-shell min-w-0 h-full overflow-hidden">
+										<div
+											id="tour-inspector-deck"
+											className="editor-inspector-shell min-w-0 h-full overflow-hidden"
+										>
 											<SettingsPanel
 												selected={wallpaper}
 												onWallpaperChange={(w) => pushState({ wallpaper: w })}
+												videoPath={videoPath}
+												videoDuration={duration}
+												currentTime={currentTime}
+												onImportMedia={() => setShowAssetManager(true)}
+												projectAssets={activeProjectAssets}
+												onImportAsset={handleImportProjectAsset}
+												onDeleteAsset={handleDeleteProjectAsset}
+												onSelectAudioPreset={handleSelectAudioPreset}
+												onSelectTitlePreset={(titlePreset: TitlePreset) => {
+													handleAddAnnotationWithText(titlePreset.title, titlePreset);
+												}}
+												onSelectEffectPreset={(effectPreset: EffectPreset) => {
+													if (effectPreset.id === "blur") {
+														pushState({ showBlur: !showBlur });
+														toast.info("Toggled Studio Blur effect");
+													} else if (effectPreset.id === "spotlight") {
+														pushState({ cursorSpotlight: !cursorSpotlight });
+														toast.info("Toggled Spotlight Glow");
+													} else if (effectPreset.id === "zoom") {
+														const curMs = Math.round(currentTime * 1000);
+														handleZoomAdded({
+															start: curMs,
+															end: Math.min(Math.round(duration * 1000), curMs + 2000),
+														});
+													}
+												}}
+												audioTrackName={audioTrackName}
+												audioSettings={audioSettings}
+												onAudioSettingsChange={setAudioSettings}
+												onResetAudioSettings={() => {
+													setAudioSettings(DEFAULT_AUDIO_SETTINGS);
+													toast.info("Audio settings reset to default");
+												}}
+												selectedAudioId={selectedAudioId}
+												initialPanelMode={inspectorPanelMode}
 												selectedZoomDepth={
 													selectedZoomId
 														? zoomRegions.find((z) => z.id === selectedZoomId)?.depth
@@ -3586,7 +4318,10 @@ export default function VideoEditor() {
 
 									{/* Bottom Right: Timeline Editor & Tracks */}
 									<Panel defaultSize={48} minSize={28} className="min-h-[220px]">
-										<div className="editor-timeline-panel h-full overflow-hidden flex flex-col">
+										<div
+											id="tour-timeline-deck"
+											className="editor-timeline-panel h-full overflow-hidden flex flex-col"
+										>
 											<TimelineEditor
 												videoDuration={duration}
 												currentTime={currentTime}
@@ -3606,6 +4341,7 @@ export default function VideoEditor() {
 												onTrimAdded={handleTrimAdded}
 												onTrimSpanChange={handleTrimSpanChange}
 												onTrimDelete={handleTrimDelete}
+												onKeepBlankScreen={handleKeepBlankScreen}
 												selectedTrimId={selectedTrimId}
 												onSelectTrim={handleSelectTrim}
 												speedRegions={speedRegions}
@@ -3653,6 +4389,38 @@ export default function VideoEditor() {
 													}
 													setShowAutoCaptionsDialog(true);
 												}}
+												videoLayers={videoLayers}
+												onAddVideoLayer={handleAddVideoLayer}
+												onUpdateVideoLayer={handleUpdateVideoLayer}
+												selectedVideoLayerId={selectedVideoLayerId}
+												onSelectVideoLayer={handleSelectVideoLayer}
+												onSplitAtPlayhead={handleSplitAtPlayhead}
+												onSplitAllAtPlayhead={handleSplitAllAtPlayhead}
+												onUndo={undo}
+												onRedo={redo}
+												canUndo={canUndo}
+												canRedo={canRedo}
+												mainVideoSplitPoints={mainVideoSplitPoints}
+												onUpdateMainVideoSplitPoints={handleUpdateMainVideoSplitPoints}
+												mainAudioSplitPoints={mainAudioSplitPoints}
+												onUpdateMainAudioSplitPoints={handleUpdateMainAudioSplitPoints}
+												trackVisibility={trackVisibility}
+												onToggleTrackVisibility={handleToggleTrackVisibility}
+												trackLocked={trackLocked}
+												onToggleTrackLock={handleToggleTrackLock}
+												trackMuted={trackMuted}
+												onToggleTrackMute={handleToggleTrackMute}
+												selectedAudioId={selectedAudioId}
+												onSelectAudio={handleSelectAudio}
+												audioTrackName={audioTrackName}
+												onDeleteAudio={handleDeleteAudio}
+												onCropAndZoom={() => setShowCropModal(true)}
+												onAdjustAudio={() => handleSelectAudio("main-audio-clip-1")}
+												onSelectAudioPreset={handleSelectAudioPreset}
+												clipColorMarks={clipColorMarks}
+												onClipColorChange={handleClipColorChange}
+												onSetClipSpeed={handleSetClipSpeed}
+												onDeleteVideoLayer={handleDeleteVideoLayer}
 											/>
 										</div>
 									</Panel>
@@ -3662,13 +4430,14 @@ export default function VideoEditor() {
 					) : (
 						/* Standard Landscape Mode */
 						<PanelGroup direction="vertical" className="gap-2 min-h-0">
-							{/* Top section: preview and contextual settings with horizontal resizable splitter */}
+							{/* Top section: 3-column Filmora NLE workspace (Media Library | Video Player | Inspector) */}
 							<Panel defaultSize={67} maxSize={78} minSize={44} className="min-h-[280px]">
 								<PanelGroup direction="horizontal" className="gap-2 min-h-0 h-full">
-									{/* Left: Video Preview Panel */}
-									<Panel defaultSize={71} minSize={45} maxSize={82} className="min-w-[340px]">
+									{/* Main Left/Center Column: Video Player / Monitor */}
+									<Panel defaultSize={68} minSize={45} className="min-w-[360px]">
 										<div className="editor-preview-zone min-w-0 h-full">
 											<div
+												id="tour-preview-deck"
 												ref={playerContainerRef}
 												className={
 													isFullscreen
@@ -3701,6 +4470,7 @@ export default function VideoEditor() {
 															ref={videoPlaybackRef}
 															videoPath={videoPath || ""}
 															webcamVideoPath={webcamVideoPath || undefined}
+															videoLayers={videoLayers}
 															webcamLayoutPreset={webcamLayoutPreset}
 															webcamMaskShape={webcamMaskShape}
 															webcamMirrored={webcamMirrored}
@@ -3712,6 +4482,9 @@ export default function VideoEditor() {
 															onDurationChange={setDuration}
 															onTimeUpdate={setCurrentTime}
 															currentTime={currentTime}
+															audioSettings={audioSettings}
+															backgroundAudioUrl={backgroundAudioUrl}
+															trackMuted={trackMuted}
 															onPlayStateChange={setIsPlaying}
 															onError={setError}
 															wallpaper={wallpaper}
@@ -3730,6 +4503,8 @@ export default function VideoEditor() {
 															cropRegion={cropRegion}
 															cursorRecordingData={cursorRecordingData}
 															trimRegions={trimRegions}
+															onTrimDelete={handleTrimDelete}
+															onKeepBlankScreen={handleKeepBlankScreen}
 															speedRegions={speedRegions}
 															annotationRegions={annotationOnlyRegions}
 															selectedAnnotationId={selectedAnnotationId}
@@ -3759,6 +4534,7 @@ export default function VideoEditor() {
 															vignette={vignette}
 															cursorSpotlight={cursorSpotlight}
 															cursorSpotlightRadius={cursorSpotlightRadius}
+															cursorTrackingMode={cursorTrackingMode}
 															clickRipple={clickRipple}
 															isPreviewingZoom={isPreviewingZoom}
 														/>
@@ -3791,11 +4567,46 @@ export default function VideoEditor() {
 									</PanelResizeHandle>
 
 									{/* Right: Resizable Settings / Inspector Panel */}
-									<Panel defaultSize={29} minSize={20} maxSize={55} className="min-w-[300px]">
-										<div className="editor-settings-rail min-w-0 h-full">
+									<Panel defaultSize={32} minSize={24} maxSize={45} className="min-w-[300px]">
+										<div id="tour-inspector-deck" className="editor-settings-rail min-w-0 h-full">
 											<SettingsPanel
 												selected={wallpaper}
 												onWallpaperChange={(w) => pushState({ wallpaper: w })}
+												videoPath={videoPath}
+												videoDuration={duration}
+												currentTime={currentTime}
+												onImportMedia={() => setShowAssetManager(true)}
+												projectAssets={activeProjectAssets}
+												onImportAsset={handleImportProjectAsset}
+												onDeleteAsset={handleDeleteProjectAsset}
+												onSelectAudioPreset={handleSelectAudioPreset}
+												onSelectTitlePreset={(titlePreset: TitlePreset) => {
+													handleAddAnnotationWithText(titlePreset.title, titlePreset);
+												}}
+												onSelectEffectPreset={(effectPreset: EffectPreset) => {
+													if (effectPreset.id === "blur") {
+														pushState({ showBlur: !showBlur });
+														toast.info("Toggled Studio Blur effect");
+													} else if (effectPreset.id === "spotlight") {
+														pushState({ cursorSpotlight: !cursorSpotlight });
+														toast.info("Toggled Spotlight Glow");
+													} else if (effectPreset.id === "zoom") {
+														const curMs = Math.round(currentTime * 1000);
+														handleZoomAdded({
+															start: curMs,
+															end: Math.min(Math.round(duration * 1000), curMs + 2000),
+														});
+													}
+												}}
+												audioTrackName={audioTrackName}
+												audioSettings={audioSettings}
+												onAudioSettingsChange={setAudioSettings}
+												onResetAudioSettings={() => {
+													setAudioSettings(DEFAULT_AUDIO_SETTINGS);
+													toast.info("Audio settings reset to default");
+												}}
+												selectedAudioId={selectedAudioId}
+												initialPanelMode={inspectorPanelMode}
 												selectedZoomDepth={
 													selectedZoomId
 														? zoomRegions.find((z) => z.id === selectedZoomId)?.depth
@@ -4028,7 +4839,10 @@ export default function VideoEditor() {
 
 							{/* Full-width timeline */}
 							<Panel defaultSize={33} maxSize={54} minSize={24} className="min-h-[210px]">
-								<div className="editor-timeline-panel h-full overflow-hidden flex flex-col">
+								<div
+									id="tour-timeline-deck"
+									className="editor-timeline-panel h-full overflow-hidden flex flex-col"
+								>
 									<TimelineEditor
 										videoDuration={duration}
 										currentTime={currentTime}
@@ -4048,6 +4862,7 @@ export default function VideoEditor() {
 										onTrimAdded={handleTrimAdded}
 										onTrimSpanChange={handleTrimSpanChange}
 										onTrimDelete={handleTrimDelete}
+										onKeepBlankScreen={handleKeepBlankScreen}
 										selectedTrimId={selectedTrimId}
 										onSelectTrim={handleSelectTrim}
 										speedRegions={speedRegions}
@@ -4094,6 +4909,38 @@ export default function VideoEditor() {
 											}
 											setShowAutoCaptionsDialog(true);
 										}}
+										videoLayers={videoLayers}
+										onAddVideoLayer={handleAddVideoLayer}
+										onUpdateVideoLayer={handleUpdateVideoLayer}
+										selectedVideoLayerId={selectedVideoLayerId}
+										onSelectVideoLayer={handleSelectVideoLayer}
+										onSplitAtPlayhead={handleSplitAtPlayhead}
+										onSplitAllAtPlayhead={handleSplitAllAtPlayhead}
+										onUndo={undo}
+										onRedo={redo}
+										canUndo={canUndo}
+										canRedo={canRedo}
+										mainVideoSplitPoints={mainVideoSplitPoints}
+										onUpdateMainVideoSplitPoints={handleUpdateMainVideoSplitPoints}
+										mainAudioSplitPoints={mainAudioSplitPoints}
+										onUpdateMainAudioSplitPoints={handleUpdateMainAudioSplitPoints}
+										trackVisibility={trackVisibility}
+										onToggleTrackVisibility={handleToggleTrackVisibility}
+										trackLocked={trackLocked}
+										onToggleTrackLock={handleToggleTrackLock}
+										trackMuted={trackMuted}
+										onToggleTrackMute={handleToggleTrackMute}
+										selectedAudioId={selectedAudioId}
+										onSelectAudio={handleSelectAudio}
+										audioTrackName={audioTrackName}
+										onDeleteAudio={handleDeleteAudio}
+										onCropAndZoom={() => setShowCropModal(true)}
+										onAdjustAudio={() => handleSelectAudio("main-audio-clip-1")}
+										onSelectAudioPreset={handleSelectAudioPreset}
+										clipColorMarks={clipColorMarks}
+										onClipColorChange={handleClipColorChange}
+										onSetClipSpeed={handleSetClipSpeed}
+										onDeleteVideoLayer={handleDeleteVideoLayer}
 									/>
 								</div>
 							</Panel>
@@ -4116,6 +4963,35 @@ export default function VideoEditor() {
 				}
 				accentColor={accentColor}
 				themeMode={themeMode}
+			/>
+
+			<ProjectInSituTour
+				isOpen={showFeatureTutorial}
+				onClose={() => setShowFeatureTutorial(false)}
+				projectStats={tutorialProjectStats}
+				currentTime={currentTime}
+				isPlaying={isPlaying}
+				onTogglePlay={() => setIsPlaying((p) => !p)}
+				onSplitAtPlayhead={handleSplitAtPlayhead}
+				onOpenAudioInspector={() => handleSelectAudio("main-audio-clip-1")}
+				onAddSampleTrim={() => {
+					const curMs = Math.round((currentTime || 0) * 1000);
+					handleTrimAdded({
+						start: Math.max(0, curMs),
+						end: Math.min(Math.round((duration || 10) * 1000), curMs + 2000),
+						source: "manual",
+					});
+				}}
+				onAddSampleZoom={() => {
+					const curMs = Math.round((currentTime || 0) * 1000);
+					handleZoomAdded({
+						start: Math.max(0, curMs),
+						end: Math.min(Math.round((duration || 10) * 1000), curMs + 2000),
+					});
+				}}
+				onOpenExportDialog={handleOpenExportDialog}
+				themeMode={themeMode}
+				accentColor={accentColor}
 			/>
 
 			<UnsavedChangesDialog
@@ -4155,6 +5031,89 @@ export default function VideoEditor() {
 				userName={userName}
 				onUserNameChange={setUserName}
 			/>
+
+			<AssetManagerDialog
+				isOpen={showAssetManager}
+				onClose={() => setShowAssetManager(false)}
+				projectAssets={activeProjectAssets}
+				onImportAsset={handleImportProjectAsset}
+				onDeleteAsset={handleDeleteProjectAsset}
+				currentVideoPath={videoSourcePath || videoPath}
+				onSelectMainVideo={(asset: MediaAsset) => {
+					setVideoSourcePath(asset.path || asset.url);
+					setVideoPath(asset.url);
+					setCurrentTime(0);
+					if (asset.duration) setDuration(asset.duration);
+					setShowAssetManager(false);
+					toast.success(`Loaded "${asset.name}" as main video`);
+				}}
+				onAddVideoLayer={(asset: MediaAsset) => {
+					handleAddVideoLayerWithAsset(asset);
+					setShowAssetManager(false);
+				}}
+				onSelectAudioPreset={(preset) => {
+					handleSelectAudioPreset(preset);
+					setShowAssetManager(false);
+				}}
+				themeMode={themeMode}
+				accentColor={accentColor}
+			/>
+
+			{showCropModal && (
+				<>
+					<div
+						className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+						onClick={() => setShowCropModal(false)}
+					/>
+					<div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] bg-[#0c0d12] rounded-3xl shadow-2xl border border-white/10 p-6 md:p-8 w-[92vw] max-w-5xl max-h-[92vh] overflow-auto animate-in zoom-in-95 duration-200 text-white">
+						<div className="flex items-center justify-between mb-4">
+							<div className="flex items-center gap-2.5">
+								<div className="w-8 h-8 rounded-xl bg-[#d4f933]/15 flex items-center justify-center border border-[#d4f933]/30">
+									<Crop className="w-4 h-4 text-[#d4f933]" />
+								</div>
+								<div>
+									<h3 className="text-base font-extrabold text-white flex items-center gap-2">
+										<span>Crop & Reframe Video</span>
+										<span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#d4f933] text-[#0b0c10]">
+											Studio Pro
+										</span>
+									</h3>
+									<p className="text-xs text-zinc-400 mt-0.5">
+										Drag the neon handles or rule-of-thirds grid to crop your clip.
+									</p>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								{cropRegion && (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => pushState({ cropRegion: undefined })}
+										className="h-8 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl"
+									>
+										Reset Crop
+									</Button>
+								)}
+								<Button
+									size="sm"
+									onClick={() => setShowCropModal(false)}
+									style={{ backgroundColor: activeAccent.hex, color: activeAccent.textHex }}
+									className="h-8 px-4 text-xs font-black rounded-full cursor-pointer shadow-md"
+								>
+									Apply & Done
+								</Button>
+							</div>
+						</div>
+
+						<CropControl
+							videoElement={videoPlaybackRef.current?.video || null}
+							cropRegion={cropRegion}
+							onCropChange={(r) => pushState({ cropRegion: r })}
+							aspectRatio={aspectRatio}
+						/>
+					</div>
+				</>
+			)}
 		</div>
 	);
 }

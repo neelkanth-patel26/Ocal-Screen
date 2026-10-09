@@ -18,7 +18,6 @@ import type {
 } from "@/components/video-editor/types";
 import {
 	DEFAULT_CROP_REGION,
-	DEFAULT_LIVE_CAM_LAYER,
 	DEFAULT_WEBCAM_MIRRORED,
 	DEFAULT_WEBCAM_REACTIVE_ZOOM,
 	type VideoLayerTrack,
@@ -61,6 +60,15 @@ export interface EditorState {
 	cursorSpotlight: boolean;
 	cursorSpotlightRadius: number;
 	clickRipple: boolean;
+	mainVideoSplitPoints: number[];
+	mainAudioSplitPoints?: number[];
+	trackVisibility?: Record<string, boolean>;
+	trackMuted?: Record<string, boolean>;
+	trackLocked?: Record<string, boolean>;
+	clipColorMarks?: Record<string, string>;
+	backgroundAudioUrl?: string | null;
+	audioTrackName?: string | null;
+	audioSettings?: import("@/components/video-editor/FilmoraAudioInspector").AudioSettingsState;
 }
 
 export const INITIAL_EDITOR_STATE: EditorState = {
@@ -70,7 +78,7 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	trimRegions: [],
 	speedRegions: [],
 	annotationRegions: [],
-	videoLayers: [DEFAULT_LIVE_CAM_LAYER],
+	videoLayers: [],
 	cropRegion: DEFAULT_CROP_REGION,
 	wallpaper: DEFAULT_EDITOR_LAYOUT_SETTINGS.wallpaper,
 	shadowIntensity: DEFAULT_EDITOR_APPEARANCE_SETTINGS.shadowIntensity,
@@ -94,6 +102,14 @@ export const INITIAL_EDITOR_STATE: EditorState = {
 	cursorSpotlight: DEFAULT_EDITOR_APPEARANCE_SETTINGS.cursorSpotlight,
 	cursorSpotlightRadius: DEFAULT_EDITOR_APPEARANCE_SETTINGS.cursorSpotlightRadius,
 	clickRipple: DEFAULT_EDITOR_APPEARANCE_SETTINGS.clickRipple,
+	mainVideoSplitPoints: [],
+	mainAudioSplitPoints: [],
+	trackVisibility: {},
+	trackMuted: {},
+	trackLocked: {},
+	clipColorMarks: {},
+	backgroundAudioUrl: null,
+	audioTrackName: null,
 };
 
 type StateUpdate = Partial<EditorState> | ((prev: EditorState) => Partial<EditorState>);

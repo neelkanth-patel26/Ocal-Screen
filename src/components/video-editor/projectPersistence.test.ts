@@ -6,6 +6,7 @@ import {
 	normalizeProjectEditor,
 	PROJECT_VERSION,
 	resolveProjectMedia,
+	toFileUrl,
 	validateProjectData,
 } from "./projectPersistence";
 
@@ -262,5 +263,141 @@ describe("wallpaper legacy normalization", () => {
 			wallpaper: "file:///opt/Openscreen/resources/wallpapers/wallpaper99.jpg",
 		});
 		expect(normalized.wallpaper).toBe("/wallpapers/wallpaper1.jpg");
+	});
+
+	it("preserves backgroundAudioUrl, audioTrackName, and audioSettings across project serialization and normalization", () => {
+		const audioSettings = {
+			volumeDb: -3,
+			fadeInDurationSec: 1.5,
+			fadeOutDurationSec: 2.0,
+			duckingEnabled: true,
+			duckingAmountDb: -12,
+			autoNormalization: true,
+			trackName: "Chill Beats",
+		};
+		const project = createProjectData(
+			{ screenVideoPath: "C:\\Videos\\recording.mp4" },
+			{
+				wallpaper: "/wallpapers/wallpaper1.jpg",
+				shadowIntensity: 0,
+				showBlur: false,
+				motionBlurAmount: 0,
+				borderRadius: 0,
+				padding: 50,
+				cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+				zoomRegions: [],
+				trimRegions: [],
+				speedRegions: [],
+				annotationRegions: [],
+				aspectRatio: "16:9",
+				webcamLayoutPreset: "picture-in-picture",
+				webcamMaskShape: "circle",
+				webcamMirrored: true,
+				webcamSizePreset: 25,
+				webcamPosition: null,
+				exportQuality: "good",
+				exportFormat: "mp4",
+				gifFrameRate: 15,
+				gifLoop: true,
+				gifSizePreset: "medium",
+				backgroundAudioUrl: "file:///C:/Audio/soundtrack.mp3",
+				audioTrackName: "Chill Beats",
+				audioSettings,
+			},
+		);
+
+		expect(project.editor.backgroundAudioUrl).toBe("file:///C:/Audio/soundtrack.mp3");
+		expect(project.editor.audioTrackName).toBe("Chill Beats");
+		expect(project.editor.audioSettings).toEqual(audioSettings);
+
+		const normalized = normalizeProjectEditor(project.editor);
+		expect(normalized.backgroundAudioUrl).toBe("file:///C:/Audio/soundtrack.mp3");
+		expect(normalized.audioTrackName).toBe("Chill Beats");
+		expect(normalized.audioSettings).toEqual(audioSettings);
+	});
+
+	it("toFileUrl converts Windows and POSIX paths and is strictly idempotent", () => {
+		expect(toFileUrl("C:\\Audio\\track.mp3")).toBe("file:///C:/Audio/track.mp3");
+		expect(toFileUrl("C:/Audio/track.mp3")).toBe("file:///C:/Audio/track.mp3");
+		expect(toFileUrl("file:///C:/Audio/track.mp3")).toBe("file:///C:/Audio/track.mp3");
+		expect(toFileUrl("file://C:/Audio/track.mp3")).toBe("file:///C:/Audio/track.mp3");
+		expect(toFileUrl("/opt/media/track.wav")).toBe("file:///opt/media/track.wav");
+		expect(toFileUrl("file:///opt/media/track.wav")).toBe("file:///opt/media/track.wav");
+	});
+
+	it("serializes and normalizes mediaAssets and videoLayers", () => {
+		const sampleAsset = {
+			id: "asset-1",
+			name: "intro-broll.mp4",
+			path: "C:\\Videos\\intro.mp4",
+			url: "file:///C:/Videos/intro.mp4",
+			type: "video" as const,
+			addedAt: 123456789,
+		};
+		const sampleLayer = {
+			id: "layer-1",
+			name: "B-Roll PiP",
+			type: "pip" as const,
+			src: "file:///C:/Videos/intro.mp4",
+			enabled: true,
+			opacity: 0.9,
+			x: 10,
+			y: 10,
+			width: 40,
+			height: 40,
+			zIndex: 5,
+		};
+
+		const project = createProjectData(
+			{ screenVideoPath: "C:\\Videos\\main.webm" },
+			{
+				wallpaper: "/wallpapers/wallpaper1.jpg",
+				shadowIntensity: 0,
+				showBlur: false,
+				showTrimWaveform: false,
+				motionBlurAmount: 0,
+				borderRadius: 0,
+				padding: 50,
+				cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+				zoomRegions: [],
+				autoZoomEnabled: true,
+				autoFocusAll: false,
+				trimRegions: [],
+				speedRegions: [],
+				annotationRegions: [],
+				aspectRatio: "16:9",
+				webcamLayoutPreset: "picture-in-picture",
+				webcamMaskShape: "circle",
+				webcamMirrored: true,
+				webcamReactiveZoom: false,
+				webcamSizePreset: 25,
+				webcamPosition: null,
+				exportQuality: "good",
+				exportFormat: "mp4",
+				gifFrameRate: 15,
+				gifLoop: true,
+				gifSizePreset: "medium",
+				cursorTheme: "default",
+				colorFilterPreset: "none",
+				brightness: 0,
+				contrast: 0,
+				saturation: 1,
+				vignette: 0,
+				cursorSpotlight: false,
+				cursorSpotlightRadius: 100,
+				clickRipple: false,
+				mediaAssets: [sampleAsset],
+				videoLayers: [sampleLayer],
+			},
+		);
+
+		expect(project.editor.mediaAssets).toHaveLength(1);
+		expect(project.editor.videoLayers).toHaveLength(1);
+
+		const normalized = normalizeProjectEditor(project.editor);
+		expect(normalized.mediaAssets).toHaveLength(1);
+		expect(normalized.mediaAssets[0].name).toBe("intro-broll.mp4");
+		expect(normalized.videoLayers).toHaveLength(1);
+		expect(normalized.videoLayers[0].name).toBe("B-Roll PiP");
 	});
 });

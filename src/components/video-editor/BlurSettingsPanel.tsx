@@ -21,6 +21,8 @@ interface BlurSettingsPanelProps {
 	onBlurDataChange: (blurData: BlurData) => void;
 	onBlurDataCommit?: () => void;
 	onDelete: () => void;
+	isLight?: boolean;
+	activeAccent?: { hex: string; textHex: string };
 }
 
 export function BlurSettingsPanel({
@@ -28,10 +30,14 @@ export function BlurSettingsPanel({
 	onBlurDataChange,
 	onBlurDataCommit,
 	onDelete,
+	isLight: isLightProp,
+	activeAccent: activeAccentProp,
 }: BlurSettingsPanelProps) {
 	const t = useScopedT("settings");
 	const prefs = loadUserPreferences();
-	const activeAccent = ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
+	const activeAccent =
+		activeAccentProp || ACCENT_COLOR_MAP[prefs.accentColor] || ACCENT_COLOR_MAP.lime;
+	const isLight = isLightProp !== undefined ? isLightProp : prefs.theme === "light";
 
 	const blurShapeOptions: Array<{ value: BlurShape; labelKey: string }> = [
 		{ value: "rectangle", labelKey: "blurShapeRectangle" },
@@ -43,10 +49,21 @@ export function BlurSettingsPanel({
 	];
 
 	return (
-		<div className="min-w-0 p-4 flex flex-col h-full overflow-y-auto custom-scrollbar">
+		<div
+			className={cn(
+				"min-w-0 p-4 flex flex-col h-full overflow-y-auto custom-scrollbar transition-colors",
+				isLight ? "bg-white text-slate-800" : "bg-[#09090c] text-slate-200",
+			)}
+		>
 			<div className="mb-3">
+				{/* Shape */}
 				<div className="mb-4">
-					<label className="text-xs font-bold text-slate-300 mb-2 block">
+					<label
+						className={cn(
+							"text-xs font-bold mb-2 block",
+							isLight ? "text-slate-700" : "text-slate-200",
+						)}
+					>
 						{t("annotation.blurShape")}
 					</label>
 					<div className="grid grid-cols-2 gap-2">
@@ -81,14 +98,20 @@ export function BlurSettingsPanel({
 										"h-12 rounded-xl border flex items-center justify-center transition-all p-2 gap-2 cursor-pointer font-bold",
 										isActive
 											? "shadow-md scale-[1.02]"
-											: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300",
+											: isLight
+												? "bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 shadow-2xs"
+												: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300",
 									)}
 								>
 									{shape.value === "rectangle" && (
 										<div
 											className={cn(
 												"w-8 h-5 border-2 rounded-md",
-												isActive ? "border-white" : "border-slate-400",
+												isActive
+													? "border-white"
+													: isLight
+														? "border-slate-400"
+														: "border-slate-500",
 											)}
 										/>
 									)}
@@ -96,7 +119,11 @@ export function BlurSettingsPanel({
 										<div
 											className={cn(
 												"w-8 h-5 border-2 rounded-full",
-												isActive ? "border-white" : "border-slate-400",
+												isActive
+													? "border-white"
+													: isLight
+														? "border-slate-400"
+														: "border-slate-500",
 											)}
 										/>
 									)}
@@ -109,8 +136,14 @@ export function BlurSettingsPanel({
 					</div>
 				</div>
 
+				{/* Color */}
 				<div className="mt-4">
-					<label className="text-xs font-bold text-slate-300 mb-2 block">
+					<label
+						className={cn(
+							"text-xs font-bold mb-2 block",
+							isLight ? "text-slate-700" : "text-slate-200",
+						)}
+					>
 						{t("annotation.blurColor")}
 					</label>
 					<div className="grid grid-cols-2 gap-2">
@@ -145,11 +178,13 @@ export function BlurSettingsPanel({
 										"h-10 rounded-xl border flex items-center gap-2 px-3 transition-all cursor-pointer font-bold",
 										isActive
 											? "shadow-md scale-[1.02]"
-											: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300",
+											: isLight
+												? "bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 shadow-2xs"
+												: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-300",
 									)}
 								>
 									<div
-										className="w-4 h-4 rounded-full border border-white/20 shadow-xs"
+										className="w-4 h-4 rounded-full border border-black/15 shadow-xs"
 										style={{
 											backgroundColor: getBlurOverlayColor({
 												...DEFAULT_BLUR_DATA,
@@ -165,12 +200,20 @@ export function BlurSettingsPanel({
 					</div>
 				</div>
 
-				<div className="mt-4 p-3 rounded-xl editor-control-surface">
+				{/* Block Size */}
+				<div
+					className={cn(
+						"mt-4 p-3 rounded-2xl border",
+						isLight ? "bg-slate-50 border-slate-200" : "bg-white/[0.04] border-white/10",
+					)}
+				>
 					<div className="flex items-center justify-between mb-2">
-						<span className="text-xs font-bold text-slate-300">
+						<span
+							className={cn("text-xs font-bold", isLight ? "text-slate-700" : "text-slate-200")}
+						>
 							{t("annotation.mosaicBlockSize")}
 						</span>
-						<span className="text-[10px] text-slate-400 font-mono font-bold">
+						<span className="text-[10px] text-indigo-400 font-mono font-bold">
 							{Math.round(blurRegion.blurData?.blockSize ?? DEFAULT_BLUR_BLOCK_SIZE)}
 							px
 						</span>
@@ -197,7 +240,7 @@ export function BlurSettingsPanel({
 					onClick={onDelete}
 					variant="destructive"
 					size="sm"
-					className="w-full gap-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all mt-4"
+					className="w-full gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all mt-4 font-bold text-xs h-9 cursor-pointer"
 				>
 					<Trash2 className="w-4 h-4" />
 					{t("annotation.deleteAnnotation")}

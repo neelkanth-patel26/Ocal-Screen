@@ -24,8 +24,9 @@ import {
 	lerpRotation3D,
 } from "@/components/video-editor/types";
 import {
-	AUTO_FOLLOW_PARAMS,
+	type CursorTrackingMode,
 	DEFAULT_FOCUS,
+	getFollowParams,
 } from "@/components/video-editor/videoPlayback/constants";
 import { advanceFollowFocus } from "@/components/video-editor/videoPlayback/cursorFollowUtils";
 import { clampFocusToScale } from "@/components/video-editor/videoPlayback/focusUtils";
@@ -114,6 +115,7 @@ interface FrameRenderConfig {
 	vignette?: number;
 	cursorSpotlight?: boolean;
 	cursorSpotlightRadius?: number;
+	cursorTrackingMode?: CursorTrackingMode;
 	clickRipple?: boolean;
 	platform: string;
 }
@@ -870,10 +872,11 @@ export class FrameRenderer {
 				const raw = targetFocus;
 				const dtMs = this.prevAnimationTimeMs != null ? timeMs - this.prevAnimationTimeMs : 0;
 				const isZoomingIn = targetProgress < 0.999 && targetProgress >= this.prevTargetProgress;
+				const followParams = getFollowParams(this.config.cursorTrackingMode);
 				if (targetProgress >= 0.999) {
 					// Full zoom: move faster when far, decelerate when close
 					const prev = this.smoothedAutoFocus ?? raw;
-					const smoothed = advanceFollowFocus(prev, raw, dtMs, AUTO_FOLLOW_PARAMS);
+					const smoothed = advanceFollowFocus(prev, raw, dtMs, followParams);
 					this.smoothedAutoFocus = smoothed;
 					targetFocus = smoothed;
 				} else if (isZoomingIn) {
@@ -883,7 +886,7 @@ export class FrameRenderer {
 				} else {
 					// Zoom-out: keep smoothing to avoid a snap at the start
 					const prev = this.smoothedAutoFocus ?? raw;
-					const smoothed = advanceFollowFocus(prev, raw, dtMs, AUTO_FOLLOW_PARAMS);
+					const smoothed = advanceFollowFocus(prev, raw, dtMs, followParams);
 					this.smoothedAutoFocus = smoothed;
 					targetFocus = smoothed;
 				}

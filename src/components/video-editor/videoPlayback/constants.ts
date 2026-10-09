@@ -15,10 +15,47 @@ export const AUTO_FOLLOW_RAMP_DISTANCE = 0.15;
 // smoothing identically regardless of render fps. Lower fps = floatier follow
 // (tuned to the live-preview feel).
 export const AUTO_FOLLOW_REFERENCE_MS = 1000 / 40;
+export type CursorTrackingMode = "cinematic" | "adaptive" | "direct";
+
 // Shared by preview and export so the camera follows the cursor identically.
 export const AUTO_FOLLOW_PARAMS = {
 	minFactor: AUTO_FOLLOW_SMOOTHING_FACTOR,
 	maxFactor: AUTO_FOLLOW_SMOOTHING_FACTOR_MAX,
 	rampDistance: AUTO_FOLLOW_RAMP_DISTANCE,
 	referenceMs: AUTO_FOLLOW_REFERENCE_MS,
+	deadzoneRadius: 0.012,
+	leadFactor: 0.35,
 } as const;
+
+export function getFollowParams(mode: CursorTrackingMode = "adaptive") {
+	switch (mode) {
+		case "cinematic":
+			return {
+				minFactor: 0.08,
+				maxFactor: 0.22,
+				rampDistance: 0.2,
+				referenceMs: 1000 / 30, // floatier cinematic steady-cam
+				deadzoneRadius: 0.016,
+				leadFactor: 0.48,
+			};
+		case "direct":
+			return {
+				minFactor: 0.2,
+				maxFactor: 0.45,
+				rampDistance: 0.08,
+				referenceMs: 1000 / 60, // snappy, tight lock
+				deadzoneRadius: 0.005,
+				leadFactor: 0.12,
+			};
+		case "adaptive":
+		default:
+			return {
+				minFactor: 0.12,
+				maxFactor: 0.28,
+				rampDistance: 0.14,
+				referenceMs: 1000 / 40, // balanced intelligent follow
+				deadzoneRadius: 0.012,
+				leadFactor: 0.35,
+			};
+	}
+}

@@ -371,6 +371,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					}
 					webcamIncludedInSave = webcamVideoData !== undefined;
 
+					const effectiveCursorCaptureMode = cursorCaptureMode;
 					const result = await window.electronAPI.storeRecordedSession({
 						screen: {
 							videoData: screenVideoData,
@@ -381,7 +382,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 								? { videoData: webcamVideoData, fileName: webcamFileName }
 								: undefined,
 						createdAt: activeRecordingId,
-						cursorCaptureMode,
+						cursorCaptureMode: effectiveCursorCaptureMode,
 						durationMs: duration,
 					});
 
@@ -1388,7 +1389,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			allowAutoFinalize.current = true;
 			setRecording(true);
 			setPaused(false);
-			setElapsedSeconds(0);
 			window.electronAPI?.setRecordingState(true, recordingId.current, cursorCaptureMode);
 
 			const activeScreenRecorder = screenRecorder.current;

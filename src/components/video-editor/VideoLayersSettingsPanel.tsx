@@ -38,9 +38,7 @@ export function VideoLayersSettingsPanel({
 	onUpdateLayer,
 	onDeleteLayer,
 }: VideoLayersSettingsPanelProps) {
-	const [selectedLayerId, setSelectedLayerId] = useState<string>(
-		videoLayers[0]?.id || "layer-live-cam-default",
-	);
+	const [selectedLayerId, setSelectedLayerId] = useState<string>(videoLayers[0]?.id || "");
 
 	const selectedLayer = videoLayers.find((l) => l.id === selectedLayerId) || videoLayers[0];
 
@@ -95,80 +93,99 @@ export function VideoLayersSettingsPanel({
 					</span>
 				</div>
 				<div className="space-y-1.5">
-					{videoLayers.map((layer) => {
-						const isSelected = layer.id === selectedLayerId;
-						return (
-							<div
-								key={layer.id}
-								onClick={() => setSelectedLayerId(layer.id)}
-								style={{
-									borderColor: isSelected ? activeAccent.hex : undefined,
-									backgroundColor: isSelected
-										? isLight
-											? `${activeAccent.hex}10`
-											: `${activeAccent.hex}16`
-										: undefined,
-								}}
-								className={cn(
-									"flex items-center justify-between p-2.5 rounded-2xl border cursor-pointer transition-all duration-200",
-									isSelected
-										? "shadow-sm scale-[1.01]"
-										: isLight
-											? "bg-white/90 border-slate-200 hover:border-slate-300"
-											: "bg-white/[0.04] border-white/[0.08] hover:border-white/[0.14]",
-								)}
+					{videoLayers.length === 0 ? (
+						<div
+							className={cn(
+								"p-4 rounded-2xl border text-center space-y-2.5",
+								isLight ? "bg-slate-50 border-slate-200" : "bg-white/[0.02] border-white/[0.06]",
+							)}
+						>
+							<p className="text-slate-400 text-xs font-medium">No video or camera layers added</p>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onClick={onAddLayer}
+								className="rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
 							>
-								<div className="flex items-center gap-2.5 overflow-hidden">
-									<div
-										className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border"
-										style={{
-											backgroundColor: layer.enabled
-												? `${activeAccent.hex}20`
-												: isLight
-													? "#f4f4f5"
-													: "rgba(255,255,255,0.06)",
-											borderColor: layer.enabled ? `${activeAccent.hex}35` : "transparent",
-										}}
-									>
-										<Camera
-											className="w-3.5 h-3.5"
-											style={{ color: layer.enabled ? activeAccent.hex : "#71717a" }}
-										/>
+								<Plus className="w-3.5 h-3.5" />
+								Add Camera / Layer
+							</Button>
+						</div>
+					) : (
+						videoLayers.map((layer) => {
+							const isSelected = layer.id === selectedLayerId;
+							return (
+								<div
+									key={layer.id}
+									onClick={() => setSelectedLayerId(layer.id)}
+									style={{
+										borderColor: isSelected ? activeAccent.hex : undefined,
+										backgroundColor: isSelected
+											? isLight
+												? `${activeAccent.hex}10`
+												: `${activeAccent.hex}16`
+											: undefined,
+									}}
+									className={cn(
+										"flex items-center justify-between p-2.5 rounded-2xl border cursor-pointer transition-all duration-200",
+										isSelected
+											? "shadow-sm scale-[1.01]"
+											: isLight
+												? "bg-white/90 border-slate-200 hover:border-slate-300"
+												: "bg-white/[0.04] border-white/[0.08] hover:border-white/[0.14]",
+									)}
+								>
+									<div className="flex items-center gap-2.5 overflow-hidden">
+										<div
+											className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border"
+											style={{
+												backgroundColor: layer.enabled
+													? `${activeAccent.hex}20`
+													: isLight
+														? "#f4f4f5"
+														: "rgba(255,255,255,0.06)",
+												borderColor: layer.enabled ? `${activeAccent.hex}35` : "transparent",
+											}}
+										>
+											<Camera
+												className="w-3.5 h-3.5"
+												style={{ color: layer.enabled ? activeAccent.hex : "#71717a" }}
+											/>
+										</div>
+										<span
+											className={cn(
+												"font-bold truncate text-xs",
+												isLight ? "text-slate-800" : "text-slate-200",
+											)}
+										>
+											{layer.name}
+										</span>
 									</div>
-									<span
-										className={cn(
-											"font-bold truncate text-xs",
-											isLight ? "text-slate-800" : "text-slate-200",
-										)}
-									>
-										{layer.name}
-									</span>
-								</div>
 
-								<div className="flex items-center gap-1">
-									<button
-										type="button"
-										onClick={(e) => {
-											e.stopPropagation();
-											onUpdateLayer(layer.id, { enabled: !layer.enabled });
-										}}
-										title={layer.enabled ? "Hide Layer" : "Show Layer"}
-										className={cn(
-											"p-1.5 rounded-lg transition-colors cursor-pointer",
-											layer.enabled
-												? isLight
-													? "bg-slate-100 hover:bg-slate-200 text-slate-800"
-													: "bg-white/10 hover:bg-white/20 text-white"
-												: "text-zinc-500 hover:text-zinc-300",
-										)}
-									>
-										{layer.enabled ? (
-											<Eye className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
-										) : (
-											<EyeOff className="w-3.5 h-3.5" />
-										)}
-									</button>
-									{videoLayers.length > 1 && (
+									<div className="flex items-center gap-1">
+										<button
+											type="button"
+											onClick={(e) => {
+												e.stopPropagation();
+												onUpdateLayer(layer.id, { enabled: !layer.enabled });
+											}}
+											title={layer.enabled ? "Hide Layer" : "Show Layer"}
+											className={cn(
+												"p-1.5 rounded-lg transition-colors cursor-pointer",
+												layer.enabled
+													? isLight
+														? "bg-slate-100 hover:bg-slate-200 text-slate-800"
+														: "bg-white/10 hover:bg-white/20 text-white"
+													: "text-zinc-500 hover:text-zinc-300",
+											)}
+										>
+											{layer.enabled ? (
+												<Eye className="w-3.5 h-3.5" style={{ color: activeAccent.hex }} />
+											) : (
+												<EyeOff className="w-3.5 h-3.5" />
+											)}
+										</button>
 										<button
 											type="button"
 											onClick={(e) => {
@@ -180,11 +197,11 @@ export function VideoLayersSettingsPanel({
 										>
 											<Trash2 className="w-3.5 h-3.5" />
 										</button>
-									)}
+									</div>
 								</div>
-							</div>
-						);
-					})}
+							);
+						})
+					)}
 				</div>
 			</div>
 

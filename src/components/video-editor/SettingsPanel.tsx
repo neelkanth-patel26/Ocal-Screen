@@ -11,6 +11,7 @@ import {
 	Eye,
 	FileDown,
 	Film,
+	FolderOpen,
 	HelpCircle,
 	Image,
 	Info,
@@ -18,6 +19,7 @@ import {
 	Lock,
 	Maximize2,
 	MousePointerClick,
+	Music,
 	Palette,
 	Pipette,
 	RotateCcw,
@@ -28,13 +30,14 @@ import {
 	Sun,
 	SunMedium,
 	Trash2,
+	Type,
 	Unlock,
 	Upload,
 	WandSparkles,
 	Wind,
 	X,
 } from "lucide-react";
-import { type ComponentType, useCallback, useMemo, useRef, useState } from "react";
+import { type ComponentType, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import defaultCursorPreviewUrl from "@/assets/cursors/Cursor=Default.svg";
 import {
@@ -91,9 +94,14 @@ import {
 	DEFAULT_SOURCE_DIMENSIONS,
 	DEFAULT_WEBCAM_SETTINGS,
 } from "./editorDefaults";
+import type { AudioSettingsState } from "./FilmoraAudioInspector";
+import type { AudioPreset, EffectPreset, TitlePreset } from "./FilmoraMediaLibrary";
 import { BLUR_REGIONS_ENABLED } from "./featureFlags";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
+import { MediaCenterTab } from "./MediaCenterTab";
+import { MusicCenterTab } from "./MusicCenterTab";
 import { ReportBugDialog } from "./ReportBugDialog";
+import { TextCenterTab } from "./TextCenterTab";
 import type { AutoZoomFraming, AutoZoomIntensity } from "./timeline/zoomSuggestionUtils";
 import type {
 	AnnotationRegion,
@@ -541,7 +549,7 @@ interface SettingsPanelProps {
 	hasCursorData?: boolean;
 	showCursorSettings?: boolean;
 	videoLayers?: import("./types").VideoLayerTrack[];
-	onAddVideoLayer?: () => void;
+	onAddVideoLayer?: (customLayer?: Partial<import("./types").VideoLayerTrack>) => void;
 	onUpdateVideoLayer?: (id: string, updates: Partial<import("./types").VideoLayerTrack>) => void;
 	onDeleteVideoLayer?: (id: string) => void;
 	// AI Auto-Zoom Studio props
@@ -559,6 +567,23 @@ interface SettingsPanelProps {
 	onCursorTrackingModeChange?: (mode: "cinematic" | "adaptive" | "direct") => void;
 	cursorSnapToClicks?: boolean;
 	onCursorSnapToClicksChange?: (enabled: boolean) => void;
+	// Media Center & Audio Inspector Props
+	videoPath?: string | null;
+	videoDuration?: number;
+	currentTime?: number;
+	onImportMedia?: () => void;
+	onSelectAudioPreset?: (preset: AudioPreset) => void;
+	onSelectTitlePreset?: (preset: TitlePreset) => void;
+	onSelectEffectPreset?: (preset: EffectPreset) => void;
+	audioTrackName?: string | null;
+	audioSettings?: AudioSettingsState;
+	onAudioSettingsChange?: (settings: AudioSettingsState) => void;
+	onResetAudioSettings?: () => void;
+	selectedAudioId?: string | null;
+	projectAssets?: import("./mediaAssetStore").MediaAsset[];
+	onImportAsset?: (asset: import("./mediaAssetStore").MediaAsset) => void;
+	onDeleteAsset?: (id: string) => void;
+	initialPanelMode?: SettingsPanelMode;
 }
 
 export default SettingsPanel;
@@ -572,8 +597,12 @@ const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 	{ depth: 6, label: "5×" },
 ];
 
-type SettingsPanelMode =
+export type SettingsPanelMode =
+	| "media"
+	| "music"
+	| "text"
 	| "background"
+	| "audio"
 	| "effects"
 	| "layout"
 	| "video-layers"
@@ -798,9 +827,43 @@ export function SettingsPanel({
 	onCursorTrackingModeChange,
 	cursorSnapToClicks = true,
 	onCursorSnapToClicksChange,
+	videoPath,
+	videoDuration,
+	currentTime,
+	onImportMedia,
+	onSelectAudioPreset,
+	onSelectTitlePreset,
+	onSelectEffectPreset,
+	audioTrackName,
+	audioSettings,
+	onAudioSettingsChange,
+	onResetAudioSettings,
+	selectedAudioId,
+	projectAssets,
+	onImportAsset,
+	onDeleteAsset,
+	initialPanelMode,
 }: SettingsPanelProps) {
 	const t = useScopedT("settings");
-	const [activePanelMode, setActivePanelMode] = useState<SettingsPanelMode>("background");
+	const [activePanelMode, setActivePanelMode] = useState<SettingsPanelMode>(
+		selectedAudioId
+			? "music"
+			: initialPanelMode === "audio"
+				? "music"
+				: initialPanelMode || "media",
+	);
+
+	useEffect(() => {
+		if (selectedAudioId) {
+			setActivePanelMode("music");
+		}
+	}, [selectedAudioId]);
+
+	useEffect(() => {
+		if (initialPanelMode) {
+			setActivePanelMode(initialPanelMode === "audio" ? "music" : initialPanelMode);
+		}
+	}, [initialPanelMode]);
 	const sourceDimensions = formatSourceDimensions(videoElement, cropRegion);
 	// Resolved URLs are for DOM rendering only. We persist the canonical
 	// `/wallpapers/wallpaperN.jpg` form from WALLPAPER_PATHS, never the file:// URL.
@@ -963,6 +1026,9 @@ export function SettingsPanel({
 		icon: ComponentType<{ className?: string }>;
 		disabled?: boolean;
 	}> = [
+		{ id: "media", label: "Media Bin & Assets", shortLabel: "Media", icon: FolderOpen },
+		{ id: "music", label: "Music & Sound Effects", shortLabel: "Music", icon: Music },
+		{ id: "text", label: "Titles & Text", shortLabel: "Text", icon: Type },
 		{ id: "background", label: t("background.title"), shortLabel: "Canvas", icon: Palette },
 		{ id: "effects", label: t("effects.title"), shortLabel: "Effects", icon: SlidersHorizontal },
 		{
@@ -997,10 +1063,16 @@ export function SettingsPanel({
 			: selectedSpeedId
 				? t("speed.playbackSpeed")
 				: t("trim.deleteRegion")
-		: activePanelMode === "timeline"
-			? t("timeline.title")
-			: ([...panelModes, exportPanelMode].find((mode) => mode.id === activePanelMode)?.label ??
-				t("background.title"));
+		: activePanelMode === "media"
+			? "Media Bin & Assets"
+			: activePanelMode === "music" || activePanelMode === "audio"
+				? "Music & Audio Controls"
+				: activePanelMode === "text"
+					? "Titles & Text Styles"
+					: activePanelMode === "timeline"
+						? t("timeline.title")
+						: ([...panelModes, exportPanelMode].find((mode) => mode.id === activePanelMode)
+								?.label ?? t("background.title"));
 
 	const handleDeleteClick = () => {
 		if (selectedZoomId && onZoomDelete) {
@@ -1098,6 +1170,8 @@ export function SettingsPanel({
 							onAnnotationDuplicate ? () => onAnnotationDuplicate(selectedAnnotation.id) : undefined
 						}
 						onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
+						isLight={isLight}
+						activeAccent={activeAccent}
 					/>
 				</div>
 				<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} initialTab={aboutInitialTab} />
@@ -1115,6 +1189,8 @@ export function SettingsPanel({
 						onBlurDataChange={(blurData) => onBlurDataChange(selectedBlur.id, blurData)}
 						onBlurDataCommit={onBlurDataCommit}
 						onDelete={() => onBlurDelete(selectedBlur.id)}
+						isLight={isLight}
+						activeAccent={activeAccent}
 					/>
 				</div>
 				<AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} initialTab={aboutInitialTab} />
@@ -1173,22 +1249,22 @@ export function SettingsPanel({
 								style={
 									isActive
 										? {
-												backgroundColor: `${activeAccent.hex}22`,
-												borderColor: `${activeAccent.hex}44`,
-												color: isLight ? "#0f172a" : "#ffffff",
-												boxShadow: `0 0 14px ${activeAccent.hex}20`,
+												backgroundColor: activeAccent.hex,
+												borderColor: activeAccent.hex,
+												color: activeAccent.textHex,
+												boxShadow: `0 2px 10px ${activeAccent.hex}50`,
 											}
 										: undefined
 								}
 								className={cn(
 									"flex items-center justify-center transition-all duration-200 shrink-0 cursor-pointer select-none whitespace-nowrap rounded-xl border",
 									isActive
-										? "gap-1.5 px-2.5 py-1 text-xs font-bold border-current/30 shadow-xs"
-										: "w-7 h-7 p-0 border-transparent text-slate-400 hover:text-white hover:bg-white/[0.06]",
+										? "gap-1.5 px-3 py-1.5 text-xs font-bold border-transparent shadow-sm"
+										: "w-7 h-7 p-0 border-transparent text-slate-400 hover:text-white hover:bg-zinc-800",
 									mode.disabled
 										? "cursor-not-allowed opacity-30"
 										: isLight && !isActive
-											? "text-slate-600 hover:text-black hover:bg-white"
+											? "text-slate-600 hover:text-black hover:bg-zinc-200"
 											: undefined,
 								)}
 							>
@@ -1455,17 +1531,17 @@ export function SettingsPanel({
 													style={
 														isActive
 															? {
-																	backgroundColor: `${activeAccent.hex}22`,
-																	borderColor: `${activeAccent.hex}44`,
-																	color: isLight ? "#0f172a" : "#ffffff",
-																	boxShadow: `0 0 10px ${activeAccent.hex}20`,
+																	backgroundColor: activeAccent.hex,
+																	borderColor: activeAccent.hex,
+																	color: activeAccent.textHex,
+																	boxShadow: `0 2px 8px ${activeAccent.hex}40`,
 																}
 															: undefined
 													}
 													className={cn(
 														"h-6 w-full rounded-lg text-center text-[10px] font-bold capitalize transition-all cursor-pointer border",
 														isActive
-															? "shadow-2xs border-current/30"
+															? "shadow-2xs border-transparent"
 															: isLight
 																? "border-transparent text-slate-500 hover:text-slate-800"
 																: "border-transparent text-slate-400 hover:text-white",
@@ -1771,6 +1847,53 @@ export function SettingsPanel({
 
 				{!hasTimelineSelection && (
 					<Accordion type="multiple" value={[activePanelMode]} className="space-y-2">
+						{activePanelMode === "media" && (
+							<div className="space-y-3 pb-2">
+								<MediaCenterTab
+									videoPath={videoPath}
+									videoDuration={videoDuration}
+									currentTime={currentTime}
+									projectAssets={projectAssets}
+									onImportMedia={onImportMedia}
+									onImportAsset={onImportAsset}
+									onDeleteAsset={onDeleteAsset}
+									onSelectAudioPreset={onSelectAudioPreset}
+									onSelectEffectPreset={onSelectEffectPreset}
+									onAddVideoLayer={onAddVideoLayer}
+									onApplyWallpaper={(wp) => onWallpaperChange?.(wp.path)}
+									isLight={isLight}
+									activeAccent={activeAccent}
+								/>
+							</div>
+						)}
+						{(activePanelMode === "music" || activePanelMode === "audio") && (
+							<div className="space-y-3 pb-2">
+								<MusicCenterTab
+									audioTrackName={audioTrackName}
+									settings={audioSettings}
+									onSettingsChange={onAudioSettingsChange}
+									onResetAudioSettings={onResetAudioSettings}
+									onSelectAudioPreset={onSelectAudioPreset}
+									isLight={isLight}
+									activeAccent={activeAccent}
+								/>
+							</div>
+						)}
+						{activePanelMode === "text" && (
+							<div className="space-y-3 pb-2">
+								<TextCenterTab
+									currentTime={currentTime}
+									duration={videoDuration}
+									onSelectTitlePreset={onSelectTitlePreset}
+									selectedAnnotation={selectedAnnotation}
+									onAnnotationContentChange={onAnnotationContentChange}
+									onAnnotationStyleChange={onAnnotationStyleChange}
+									onAnnotationDelete={onAnnotationDelete}
+									isLight={isLight}
+									activeAccent={activeAccent}
+								/>
+							</div>
+						)}
 						{activePanelMode === "video-layers" && (
 							<AccordionItem value="video-layers" className="editor-panel-section px-3 border-none">
 								<VideoLayersSettingsPanel
@@ -1888,18 +2011,18 @@ export function SettingsPanel({
 														style={
 															webcamMaskShape === shape.value
 																? {
-																		backgroundColor: `${activeAccent.hex}22`,
-																		borderColor: `${activeAccent.hex}44`,
-																		color: isLight ? "#0f172a" : "#ffffff",
-																		boxShadow: `0 0 12px ${activeAccent.hex}20`,
+																		backgroundColor: activeAccent.hex,
+																		borderColor: activeAccent.hex,
+																		color: activeAccent.textHex,
+																		boxShadow: `0 2px 8px ${activeAccent.hex}40`,
 																	}
 																: undefined
 														}
 														className={cn(
 															"h-10 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer",
 															webcamMaskShape === shape.value
-																? "shadow-sm border-current/30 scale-[1.02]"
-																: "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400",
+																? "shadow-sm border-transparent scale-[1.02]"
+																: "bg-[#18181b] border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600 text-slate-400",
 														)}
 													>
 														<svg
@@ -1992,7 +2115,11 @@ export function SettingsPanel({
 										) : (
 											<SlidersHorizontal className="w-4 h-4" style={{ color: activeAccent.hex }} />
 										)}
-										<span className="text-xs font-medium">{t("effects.title")}</span>
+										<span className="text-xs font-medium">
+											{activePanelMode === "cursor"
+												? t("cursor.title") || "Cursor"
+												: t("effects.title")}
+										</span>
 									</div>
 								</AccordionTrigger>
 								<AccordionContent className="pb-3">
@@ -2598,6 +2725,35 @@ export function SettingsPanel({
 
 									{activePanelMode === "cursor" && (
 										<div className="space-y-3 mb-2">
+											{!showCursorSettings && (
+												<div
+													className={cn(
+														"p-3.5 rounded-2xl border flex items-start gap-3 shadow-xs mb-3",
+														isLight
+															? "bg-amber-50/90 border-amber-200/90 text-amber-900"
+															: "bg-amber-500/10 border-amber-500/20 text-amber-200",
+													)}
+												>
+													<div
+														className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border mt-0.5"
+														style={{
+															backgroundColor: "rgba(245, 158, 11, 0.15)",
+															borderColor: "rgba(245, 158, 11, 0.3)",
+														}}
+													>
+														<MousePointerClick className="w-4 h-4 text-amber-500" />
+													</div>
+													<div className="space-y-0.5 text-left">
+														<div className="text-xs font-bold tracking-tight">
+															Original Cursor Embedded
+														</div>
+														<div className="text-[11px] leading-relaxed opacity-90">
+															Original mouse cursor is embedded in video frames. You can toggle
+															overlay cursor below or customize click ripple, spotlight & tracking.
+														</div>
+													</div>
+												</div>
+											)}
 											{/* Toggle Row */}
 											<div
 												className={cn(
@@ -3026,9 +3182,7 @@ export function SettingsPanel({
 									<div
 										className={cn(
 											"flex items-center p-1 rounded-xl border mb-3 transition-all",
-											isLight
-												? "bg-slate-100/90 border-slate-200"
-												: "bg-white/[0.04] border-white/[0.08]",
+											isLight ? "bg-slate-100 border-slate-200" : "bg-[#18181b] border-zinc-700",
 										)}
 									>
 										{(["image", "color", "gradient"] as const).map((tabKey) => {
@@ -3043,20 +3197,20 @@ export function SettingsPanel({
 													style={
 														isActive
 															? {
-																	backgroundColor: `${activeAccent.hex}22`,
-																	borderColor: `${activeAccent.hex}50`,
-																	color: isLight ? "#0f172a" : "#ffffff",
-																	boxShadow: `0 0 12px ${activeAccent.hex}20`,
+																	backgroundColor: activeAccent.hex,
+																	borderColor: activeAccent.hex,
+																	color: activeAccent.textHex,
+																	boxShadow: `0 2px 8px ${activeAccent.hex}40`,
 																}
 															: undefined
 													}
 													className={cn(
 														"flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer capitalize border",
 														isActive
-															? "shadow-xs border-current/30"
+															? "shadow-sm border-transparent font-bold"
 															: isLight
-																? "border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60"
-																: "border-transparent text-slate-400 hover:text-white hover:bg-white/[0.04]",
+																? "border-transparent text-slate-600 hover:text-slate-900 hover:bg-white"
+																: "border-transparent text-slate-400 hover:text-white hover:bg-zinc-800",
 													)}
 												>
 													<TabIcon className="w-3.5 h-3.5" />
@@ -3417,14 +3571,19 @@ export function SettingsPanel({
 													Framing Composition
 												</span>
 												<span className="text-[10px] text-zinc-400 font-mono">
-													{autoZoomFraming === "rule-of-thirds" ? "Rule of Thirds" : "Centered"}
+													{autoZoomFraming === "predictive"
+														? "AI Predictive Lead"
+														: autoZoomFraming === "rule-of-thirds"
+															? "Rule of Thirds"
+															: "Centered"}
 												</span>
 											</div>
-											<div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl border bg-black/20 border-white/[0.08]">
+											<div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl border bg-black/20 border-white/[0.08]">
 												{(
 													[
-														{ id: "rule-of-thirds", label: "Rule of Thirds" },
-														{ id: "centered", label: "Center Target" },
+														{ id: "predictive", label: "Predictive" },
+														{ id: "rule-of-thirds", label: "Thirds" },
+														{ id: "centered", label: "Center" },
 													] as const
 												).map((rule) => {
 													const isActive = autoZoomFraming === rule.id;

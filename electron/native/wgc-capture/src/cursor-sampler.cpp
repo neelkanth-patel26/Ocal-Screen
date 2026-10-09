@@ -285,7 +285,7 @@ static std::string buildAssetJson(
         if (gBmp.GetLastStatus() == Gdiplus::Ok) {
             IStream* pStream = nullptr;
             if (SUCCEEDED(CreateStreamOnHGlobal(nullptr, TRUE, &pStream))) {
-                if (gBmp.Save(pStream, &pngClsid) == Gdiplus::Ok) {
+                if (gBmp.Save(pStream, &pngClsid, nullptr) == Gdiplus::Ok) {
                     ULARGE_INTEGER sz{};
                     LARGE_INTEGER  zero{};
                     pStream->Seek(zero, STREAM_SEEK_END, &sz);
@@ -344,13 +344,20 @@ static void runSamplingLoop(int intervalMs, HWND targetWindow, const CLSID& pngC
         CURSORINFO ci{};
         ci.cbSize = sizeof(ci);
         if (!GetCursorInfo(&ci)) {
-            char buf[160];
-            std::snprintf(buf, sizeof(buf),
-                "{\"type\":\"error\",\"timestampMs\":%" PRId64 ",\"message\":\"GetCursorInfo failed\"}",
-                nowMs());
-            writeJsonLine(buf);
-            std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
-            continue;
+            POINT pt{};
+            if (GetCursorPos(&pt)) {
+                ci.ptScreenPos = pt;
+                ci.flags = CURSOR_SHOWING;
+                ci.hCursor = GetCursor();
+            } else {
+                char buf[160];
+                std::snprintf(buf, sizeof(buf),
+                    "{\"type\":\"error\",\"timestampMs\":%" PRId64 ",\"message\":\"GetCursorInfo failed\"}",
+                    nowMs());
+                writeJsonLine(buf);
+                std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
+                continue;
+            }
         }
 
         const bool    visible   = (ci.flags & CURSOR_SHOWING) != 0;

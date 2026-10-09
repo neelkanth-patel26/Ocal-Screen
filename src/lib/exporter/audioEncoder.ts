@@ -1,11 +1,13 @@
 import { WebDemuxer } from "web-demuxer";
+import type { AudioSettingsState } from "@/components/video-editor/FilmoraAudioInspector";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
+import { getPresetAudioUrl } from "@/lib/audio/presetMusicGenerator";
 import type { ExportAudioMuxerCodec, VideoMuxer } from "./muxer";
+import { StreamingVideoDecoder } from "./streamingDecoder";
 
 const AUDIO_BITRATE = 128_000;
 const DECODE_BACKPRESSURE_LIMIT = 20;
 const MIN_SPEED_REGION_DELTA_MS = 0.0001;
-const SEEK_TIMEOUT_MS = 5_000;
 
 export interface ExportAudioCodec {
 	encoderCodec: string;
@@ -19,6 +21,8 @@ type ExportAudioCodecCandidate = Omit<ExportAudioCodec, "sampleRate" | "numberOf
 
 const EXPORT_AUDIO_CODECS: ExportAudioCodecCandidate[] = [
 	{ encoderCodec: "mp4a.40.2", muxerCodec: "aac", label: "AAC" },
+	{ encoderCodec: "mp4a.40.02", muxerCodec: "aac", label: "AAC" },
+	{ encoderCodec: "mp4a.40.5", muxerCodec: "aac", label: "AAC" },
 	{ encoderCodec: "opus", muxerCodec: "opus", label: "Opus" },
 ];
 
@@ -161,25 +165,40 @@ export class AudioProcessor {
 		sampleRate: number,
 		numberOfChannels: number,
 	): Promise<ExportAudioCodec | null> {
+		const sampleRateOptions = [sampleRate];
+		if (!sampleRateOptions.includes(48000)) sampleRateOptions.push(48000);
+		if (!sampleRateOptions.includes(44100)) sampleRateOptions.push(44100);
+
 		const channelOptions = [numberOfChannels];
 		if (numberOfChannels > 2) {
 			channelOptions.push(2);
 		}
-
+		if (!channelOptions.includes(2)) {
+			channelOptions.push(2);
+		}
 		if (!channelOptions.includes(1)) {
 			channelOptions.push(1);
 		}
 
 		for (const codec of EXPORT_AUDIO_CODECS) {
-			for (const channels of channelOptions) {
-				const support = await AudioEncoder.isConfigSupported({
-					codec: codec.encoderCodec,
-					sampleRate,
-					numberOfChannels: channels,
-					bitrate: AUDIO_BITRATE,
-				});
-				if (support.supported) {
-					return { ...codec, sampleRate, numberOfChannels: channels };
+			for (const sr of sampleRateOptions) {
+				// Opus in WebCodecs strictly requires 48000
+				if (codec.muxerCodec === "opus" && sr !== 48000) continue;
+
+				for (const channels of channelOptions) {
+					try {
+						const support = await AudioEncoder.isConfigSupported({
+							codec: codec.encoderCodec,
+							sampleRate: sr,
+							numberOfChannels: channels,
+							bitrate: AUDIO_BITRATE,
+						});
+						if (support.supported) {
+							return { ...codec, sampleRate: sr, numberOfChannels: channels };
+						}
+					} catch (_e) {
+						// Some browsers throw when testing unsupported codec strings
+					}
 				}
 			}
 		}
@@ -190,37 +209,48 @@ export class AudioProcessor {
 	static async selectSupportedExportCodecForSource(
 		demuxer: WebDemuxer,
 	): Promise<ExportAudioCodec | null> {
-		let audioConfig: AudioDecoderConfig;
+		let audioConfig: AudioDecoderConfig | null = null;
 		try {
 			audioConfig = await demuxer.getDecoderConfig("audio");
 		} catch {
-			return null;
+			audioConfig = null;
 		}
 
-		const codecCheck = await AudioDecoder.isConfigSupported(audioConfig);
-		if (!codecCheck.supported) {
-			console.warn("[AudioProcessor] Audio codec not supported:", audioConfig.codec);
-			return null;
+		if (audioConfig) {
+			try {
+				const codecCheck = await AudioDecoder.isConfigSupported(audioConfig);
+				if (codecCheck.supported) {
+					const candidate = await AudioProcessor.selectSupportedExportCodec(
+						audioConfig.sampleRate || 48000,
+						audioConfig.numberOfChannels || 2,
+					);
+					if (candidate) return candidate;
+				}
+			} catch {
+				/* ignore */
+			}
 		}
 
-		return AudioProcessor.selectSupportedExportCodec(
-			audioConfig.sampleRate || 48000,
-			audioConfig.numberOfChannels || 2,
-		);
+		// Fallback to standard 48000Hz stereo
+		return AudioProcessor.selectSupportedExportCodec(48000, 2);
 	}
 
 	/**
-	 * Two modes: no speed regions uses the fast WebCodecs trim-only pipeline; speed
-	 * regions use the pitch-preserving rendered timeline pipeline.
+	 * Two modes: no speed regions / background audio uses the fast WebCodecs trim-only pipeline;
+	 * speed regions or background audio use the offline rendered & mixed timeline pipeline.
 	 */
 	async process(
-		demuxer: WebDemuxer,
+		demuxer: WebDemuxer | null,
 		muxer: VideoMuxer,
 		videoUrl: string,
 		trimRegions: TrimRegion[] | undefined,
 		speedRegions: SpeedRegion[] | undefined,
 		validatedDurationSec: number,
 		exportCodec: ExportAudioCodec,
+		backgroundAudioUrl?: string,
+		audioSettings?: AudioSettingsState,
+		hasSourceAudio: boolean = true,
+		effectiveDurationSec?: number,
 	): Promise<void> {
 		const sortedTrims = trimRegions ? [...trimRegions].sort((a, b) => a.startMs - b.startMs) : [];
 		const sortedSpeedRegions = speedRegions
@@ -229,26 +259,32 @@ export class AudioProcessor {
 					.sort((a, b) => a.startMs - b.startMs)
 			: [];
 
-		// Speed edits need timeline playback to preserve pitch.
-		if (sortedSpeedRegions.length > 0) {
-			const renderedAudioBlob = await this.renderPitchPreservedTimelineAudio(
+		// Speed edits or background audio track mixing need timeline offline rendering & mixing.
+		if (sortedSpeedRegions.length > 0 || backgroundAudioUrl) {
+			await this.renderTimelineAudioOffline(
+				demuxer,
+				muxer,
 				videoUrl,
 				sortedTrims,
 				sortedSpeedRegions,
 				validatedDurationSec,
+				exportCodec,
+				backgroundAudioUrl,
+				audioSettings,
+				hasSourceAudio,
+				effectiveDurationSec,
 			);
-			if (!this.cancelled && renderedAudioBlob.size > 0) {
-				await this.muxRenderedAudioBlob(renderedAudioBlob, muxer, exportCodec);
-				return;
-			}
 			return;
 		}
 
-		// No speed edits: demux/decode/encode with trim timestamp remap. The +0.5s mirrors
-		// streamingDecoder.decodeAll's read window so both paths read the same distance past
-		// the validated duration boundary.
+		if (!demuxer) {
+			return;
+		}
+
+		// No speed edits and no background audio: demux/decode/encode with trim timestamp remap.
 		const readEndSec = validatedDurationSec + 0.5;
-		await this.processTrimOnlyAudio(demuxer, muxer, sortedTrims, readEndSec, exportCodec);
+		const cutOnlyTrims = sortedTrims.filter((t) => !t.keepBlankScreen);
+		await this.processTrimOnlyAudio(demuxer, muxer, cutOnlyTrims, readEndSec, exportCodec);
 	}
 
 	// Trim-only path, used for projects without speed regions.
@@ -401,338 +437,445 @@ export class AudioProcessor {
 		);
 	}
 
-	// Speed-aware path mirroring preview semantics (trim skipping + playbackRate). Relies on
-	// browser media playback to preserve pitch and avoid the chipmunk effect.
-	private async renderPitchPreservedTimelineAudio(
-		videoUrl: string,
-		trimRegions: TrimRegion[],
-		speedRegions: SpeedRegion[],
-		validatedDurationSec: number,
-	): Promise<Blob> {
-		const media = document.createElement("audio");
-		media.src = videoUrl;
-		media.preload = "auto";
+	private async loadAudioArrayBuffer(urlOrPath: string): Promise<ArrayBuffer> {
+		if (!urlOrPath) throw new Error("Empty audio URL or path");
 
-		const pitchMedia = media as HTMLMediaElement & {
-			preservesPitch?: boolean;
-			mozPreservesPitch?: boolean;
-			webkitPreservesPitch?: boolean;
-		};
-		pitchMedia.preservesPitch = true;
-		pitchMedia.mozPreservesPitch = true;
-		pitchMedia.webkitPreservesPitch = true;
-
-		await this.waitForLoadedMetadata(media);
-		if (this.cancelled) {
-			throw new Error("Export cancelled");
+		// If it's a preset ID without protocol, attempt synthesize via getPresetAudioUrl
+		if (
+			!urlOrPath.includes("://") &&
+			!urlOrPath.includes("/") &&
+			!urlOrPath.includes("\\") &&
+			!urlOrPath.includes(".")
+		) {
+			try {
+				const presetUrl = await getPresetAudioUrl(urlOrPath);
+				if (presetUrl) {
+					urlOrPath = presetUrl;
+				}
+			} catch {
+				/* continue */
+			}
 		}
 
-		const audioContext = new AudioContext();
-		const sourceNode = audioContext.createMediaElementSource(media);
-		const destinationNode = audioContext.createMediaStreamDestination();
-		sourceNode.connect(destinationNode);
+		// If it's a blob, data, or web URL, fetch directly (no IPC disk lookup needed)
+		if (
+			urlOrPath.startsWith("blob:") ||
+			urlOrPath.startsWith("data:") ||
+			urlOrPath.startsWith("http:") ||
+			urlOrPath.startsWith("https:")
+		) {
+			const res = await fetch(urlOrPath);
+			if (!res.ok) throw new Error(`Failed to fetch audio: ${res.status}`);
+			return await res.arrayBuffer();
+		}
 
-		let rafId: number | null = null;
-		let recorder: MediaRecorder | null = null;
-		let recordedBlobPromise: Promise<Blob> | null = null;
+		// Local file path or file:// URL
+		if (
+			typeof window !== "undefined" &&
+			(
+				window as unknown as {
+					electronAPI?: {
+						readBinaryFile?: (
+							p: string,
+						) => Promise<{ success: boolean; data?: Uint8Array | ArrayBuffer; error?: string }>;
+					};
+				}
+			).electronAPI?.readBinaryFile
+		) {
+			try {
+				const electron = (
+					window as unknown as {
+						electronAPI: {
+							readBinaryFile: (
+								p: string,
+							) => Promise<{ success: boolean; data?: Uint8Array | ArrayBuffer; error?: string }>;
+						};
+					}
+				).electronAPI;
+
+				let localPath = urlOrPath;
+				if (localPath.startsWith("file://")) {
+					try {
+						const parsed = new URL(localPath);
+						localPath = decodeURIComponent(parsed.pathname);
+						if (localPath.match(/^\/[a-zA-Z]:/)) {
+							localPath = localPath.slice(1);
+						}
+					} catch {
+						localPath = urlOrPath.replace(/^file:\/\/\/?/, "");
+					}
+				}
+				let res = await electron.readBinaryFile(localPath);
+				if (!res.success && localPath !== urlOrPath) {
+					res = await electron.readBinaryFile(urlOrPath);
+				}
+				if (res.success && res.data) {
+					const raw = res.data;
+					if (raw instanceof ArrayBuffer) {
+						return raw.slice(0);
+					}
+					if (ArrayBuffer.isView(raw)) {
+						const view = raw as ArrayBufferView;
+						const copy = new Uint8Array(view.byteLength);
+						copy.set(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
+						return copy.buffer;
+					}
+					if (typeof (raw as unknown as { byteLength?: number }).byteLength === "number") {
+						const rawBuf = (raw as unknown as { buffer?: ArrayBuffer }).buffer;
+						if (rawBuf instanceof ArrayBuffer) {
+							return rawBuf.slice(0);
+						}
+					}
+				}
+			} catch (e) {
+				console.warn("[AudioProcessor] readBinaryFile failed, falling back to fetch", e);
+			}
+		}
+
+		let fetchUrl = urlOrPath;
+		if (
+			!fetchUrl.startsWith("file://") &&
+			!fetchUrl.startsWith("http://") &&
+			!fetchUrl.startsWith("https://") &&
+			!fetchUrl.startsWith("blob:") &&
+			!fetchUrl.startsWith("data:")
+		) {
+			const normalized = fetchUrl.replace(/\\/g, "/");
+			fetchUrl = `file:///${normalized.replace(/^\/+/, "")}`;
+		}
 
 		try {
-			if (audioContext.state === "suspended") {
-				await audioContext.resume();
+			const safeFetchUrl = encodeURI(decodeURI(fetchUrl));
+			const res = await fetch(safeFetchUrl);
+			if (res.ok) {
+				return await res.arrayBuffer();
 			}
-
-			// Skip initial trim region(s) before recording so the first rAF frames don't
-			// capture trimmed audio. Loops to handle back-to-back/overlapping trims at t=0.
-			const effectiveEnd = validatedDurationSec;
-			let startPosition = 0;
-			for (let i = 0; i <= trimRegions.length; i++) {
-				const activeTrim = this.findActiveTrimRegion(startPosition * 1000, trimRegions);
-				if (!activeTrim) break;
-				startPosition = activeTrim.endMs / 1000;
-				if (startPosition >= effectiveEnd) break;
-			}
-
-			if (startPosition >= effectiveEnd) {
-				// Everything is trimmed; return a silent blob.
-				return new Blob([], { type: "audio/webm" });
-			}
-
-			await this.seekTo(media, startPosition);
-
-			// Set initial playback rate for the starting position.
-			const initialSpeedRegion = this.findActiveSpeedRegion(startPosition * 1000, speedRegions);
-			if (initialSpeedRegion) {
-				media.playbackRate = initialSpeedRegion.speed;
-			}
-
-			// Start recording only after seeking past trims.
-			const recording = this.startAudioRecording(destinationNode.stream);
-			recorder = recording.recorder;
-			recordedBlobPromise = recording.recordedBlobPromise;
-			await media.play();
-
-			await new Promise<void>((resolve, reject) => {
-				const cleanup = () => {
-					if (rafId !== null) {
-						cancelAnimationFrame(rafId);
-						rafId = null;
-					}
-					media.removeEventListener("error", onError);
-					media.removeEventListener("ended", onEnded);
-				};
-
-				const onError = () => {
-					cleanup();
-					reject(new Error("Failed while rendering speed-adjusted audio timeline"));
-				};
-
-				const onEnded = () => {
-					cleanup();
-					resolve();
-				};
-
-				const tick = () => {
-					if (this.cancelled) {
-						cleanup();
-						resolve();
-						return;
-					}
-
-					// Stop at validated duration; media.duration can be inflated by bad
-					// container metadata.
-					if (media.currentTime >= validatedDurationSec) {
-						media.pause();
-						cleanup();
-						resolve();
-						return;
-					}
-
-					const currentTimeMs = media.currentTime * 1000;
-					const activeTrimRegion = this.findActiveTrimRegion(currentTimeMs, trimRegions);
-
-					if (activeTrimRegion && !media.paused && !media.ended) {
-						const skipToTime = activeTrimRegion.endMs / 1000;
-						if (skipToTime >= media.duration || skipToTime >= validatedDurationSec) {
-							media.pause();
-							cleanup();
-							resolve();
-							return;
-						}
-						// Pause recording during the seek so we don't capture silence/noise.
-						media.pause();
-						if (recorder?.state === "recording") recorder.pause();
-						const onSeeked = () => {
-							clearTimeout(seekTimer);
-							if (this.cancelled) {
-								cleanup();
-								resolve();
-								return;
-							}
-							if (recorder?.state === "paused") recorder.resume();
-							media
-								.play()
-								.then(() => {
-									if (!this.cancelled) rafId = requestAnimationFrame(tick);
-								})
-								.catch((err) => {
-									cleanup();
-									reject(
-										new Error(
-											`Failed to resume playback after trim seek: ${err instanceof Error ? err.message : String(err)}`,
-										),
-									);
-								});
-						};
-						const seekTimer = window.setTimeout(() => {
-							media.removeEventListener("seeked", onSeeked);
-							cleanup();
-							reject(new Error("Audio seek timed out while skipping trim region"));
-						}, SEEK_TIMEOUT_MS);
-						media.addEventListener("seeked", onSeeked, { once: true });
-						media.currentTime = skipToTime;
-						return;
-					}
-
-					const activeSpeedRegion = this.findActiveSpeedRegion(currentTimeMs, speedRegions);
-					const playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
-					if (Math.abs(media.playbackRate - playbackRate) > 0.0001) {
-						media.playbackRate = playbackRate;
-					}
-
-					if (!media.paused && !media.ended) {
-						rafId = requestAnimationFrame(tick);
-					} else {
-						cleanup();
-						resolve();
-					}
-				};
-
-				media.addEventListener("error", onError, { once: true });
-				media.addEventListener("ended", onEnded, { once: true });
-				rafId = requestAnimationFrame(tick);
-			});
-		} finally {
-			if (rafId !== null) {
-				cancelAnimationFrame(rafId);
-			}
-			media.pause();
-			if (recorder && recorder.state !== "inactive") {
-				recorder.stop();
-			}
-			destinationNode.stream.getTracks().forEach((track) => track.stop());
-			sourceNode.disconnect();
-			destinationNode.disconnect();
-			await audioContext.close();
-			media.src = "";
-			media.load();
+		} catch (fetchErr) {
+			console.warn("[AudioProcessor] fetch fallback failed:", fetchErr);
 		}
 
-		if (!recordedBlobPromise) {
-			// Either an early return fired or startAudioRecording set this before playback
-			// resolved. Reaching here means that broke; fail loud rather than return silence.
-			throw new Error("Audio recorder finished without assigning recordedBlobPromise");
-		}
-		const recordedBlob = await recordedBlobPromise;
-		if (this.cancelled) {
-			throw new Error("Export cancelled");
-		}
-		return recordedBlob;
+		throw new Error(`Failed to fetch audio: ${urlOrPath}`);
 	}
 
-	// Demux the rendered speed-adjusted blob and feed its chunks into the MP4 muxer.
-	private async muxRenderedAudioBlob(
-		blob: Blob,
-		muxer: VideoMuxer,
-		exportCodec: ExportAudioCodec,
-	): Promise<void> {
-		if (this.cancelled) return;
+	private async decodeAudioBufferFromBytes(bytes: ArrayBuffer): Promise<AudioBuffer> {
+		const AudioCtxClass =
+			window.AudioContext ||
+			(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+		const OfflineAudioCtxClass =
+			window.OfflineAudioContext ||
+			(window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext })
+				.webkitOfflineAudioContext;
 
-		const file = new File([blob], "speed-audio.webm", { type: blob.type || "audio/webm" });
-		const wasmUrl = new URL("./wasm/web-demuxer.wasm", window.location.href).href;
-		const demuxer = new WebDemuxer({ wasmFilePath: wasmUrl });
+		let lastError: unknown = null;
+		if (AudioCtxClass) {
+			let ctx: AudioContext | null = null;
+			try {
+				ctx = new AudioCtxClass();
+				const copy = bytes.slice(0);
+				return await ctx.decodeAudioData(copy);
+			} catch (err) {
+				lastError = err;
+			} finally {
+				if (ctx && typeof ctx.close === "function") {
+					ctx.close().catch(() => {});
+				}
+			}
+		}
+
+		if (OfflineAudioCtxClass) {
+			try {
+				const offlineCtx = new OfflineAudioCtxClass(1, 1, 44100);
+				const copy = bytes.slice(0);
+				return await offlineCtx.decodeAudioData(copy);
+			} catch (err) {
+				lastError = err;
+			}
+		}
+
+		throw lastError || new Error("Failed to decode audio data: no compatible audio context");
+	}
+
+	private async decodeSourceAudioBufferFromDemuxer(
+		demuxer: WebDemuxer,
+		readEndSec?: number,
+	): Promise<AudioBuffer | null> {
+		let audioConfig: AudioDecoderConfig;
+		try {
+			audioConfig = await demuxer.getDecoderConfig("audio");
+		} catch {
+			return null;
+		}
+
+		const decodedFrames: AudioData[] = [];
+		const decoder = new AudioDecoder({
+			output: (frame) => decodedFrames.push(frame),
+			error: (err) => console.warn("[AudioProcessor] Demuxer decode error:", err),
+		});
+		decoder.configure(audioConfig);
+
+		const audioStream = readEndSec ? demuxer.read("audio", 0, readEndSec) : demuxer.read("audio");
+		const reader = audioStream.getReader();
 
 		try {
-			await demuxer.load(file);
-			await this.processTrimOnlyAudio(demuxer, muxer, [], undefined, exportCodec);
+			while (!this.cancelled) {
+				const { done, value: chunk } = await reader.read();
+				if (done || !chunk) break;
+				decoder.decode(chunk);
+				while (decoder.decodeQueueSize > DECODE_BACKPRESSURE_LIMIT && !this.cancelled) {
+					await new Promise((r) => setTimeout(r, 1));
+				}
+			}
 		} finally {
 			try {
-				demuxer.destroy();
+				await reader.cancel();
 			} catch {
 				/* ignore */
 			}
 		}
+
+		if (decoder.state === "configured") {
+			await decoder.flush();
+			decoder.close();
+		}
+
+		if (decodedFrames.length === 0) return null;
+
+		const sampleRate = audioConfig.sampleRate || 48000;
+		const channels = audioConfig.numberOfChannels || 2;
+		let totalFramesCount = 0;
+		for (const f of decodedFrames) totalFramesCount += f.numberOfFrames;
+
+		const offlineCtxClass =
+			window.OfflineAudioContext ||
+			(window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext })
+				.webkitOfflineAudioContext;
+		const ctx = new offlineCtxClass(channels, Math.max(1, totalFramesCount), sampleRate);
+		const audioBuffer = ctx.createBuffer(channels, Math.max(1, totalFramesCount), sampleRate);
+		const channelArrays = Array.from({ length: channels }, (_, c) => audioBuffer.getChannelData(c));
+
+		let frameOffset = 0;
+		for (const f of decodedFrames) {
+			for (let c = 0; c < channels; c++) {
+				const plane = new Float32Array(f.numberOfFrames);
+				f.copyTo(plane, { planeIndex: c });
+				channelArrays[c].set(plane, frameOffset);
+			}
+			frameOffset += f.numberOfFrames;
+			f.close();
+		}
+
+		return audioBuffer;
 	}
 
-	private startAudioRecording(stream: MediaStream): {
-		recorder: MediaRecorder;
-		recordedBlobPromise: Promise<Blob>;
-	} {
-		const mimeType = this.getSupportedAudioMimeType();
-		const options: MediaRecorderOptions = {
-			audioBitsPerSecond: AUDIO_BITRATE,
-			...(mimeType ? { mimeType } : {}),
-		};
+	private async renderTimelineAudioOffline(
+		demuxer: WebDemuxer | null,
+		muxer: VideoMuxer,
+		videoUrl: string,
+		trimRegions: TrimRegion[],
+		speedRegions: SpeedRegion[],
+		validatedDurationSec: number,
+		exportCodec: ExportAudioCodec,
+		backgroundAudioUrl?: string,
+		audioSettings?: AudioSettingsState,
+		hasSourceAudio: boolean = true,
+		effectiveDurationSec?: number,
+	): Promise<void> {
+		const targetDurationSec = effectiveDurationSec ?? validatedDurationSec;
+		if (targetDurationSec <= 0) return;
 
-		const recorder = new MediaRecorder(stream, options);
-		const chunks: Blob[] = [];
+		const sampleRate = exportCodec.sampleRate || 48000;
+		const totalFrames = Math.max(1, Math.ceil(targetDurationSec * sampleRate));
 
-		const recordedBlobPromise = new Promise<Blob>((resolve, reject) => {
-			recorder.ondataavailable = (event: BlobEvent) => {
-				if (event.data && event.data.size > 0) {
-					chunks.push(event.data);
-				}
-			};
-			recorder.onerror = () => {
-				reject(new Error("MediaRecorder failed while capturing speed-adjusted audio"));
-			};
-			recorder.onstop = () => {
-				const type = mimeType || chunks[0]?.type || "audio/webm";
-				resolve(new Blob(chunks, { type }));
-			};
-		});
+		const offlineCtxClass =
+			window.OfflineAudioContext ||
+			(window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext })
+				.webkitOfflineAudioContext;
+		if (!offlineCtxClass) {
+			console.warn("[AudioProcessor] OfflineAudioContext unavailable");
+			return;
+		}
 
-		recorder.start();
-		return { recorder, recordedBlobPromise };
-	}
+		const offlineCtx = new offlineCtxClass(2, totalFrames, sampleRate);
 
-	private getSupportedAudioMimeType(): string | undefined {
-		const candidates = ["audio/webm;codecs=opus", "audio/webm"];
-		for (const candidate of candidates) {
-			if (MediaRecorder.isTypeSupported(candidate)) {
-				return candidate;
+		// 1. Load Background Audio if provided
+		let bgAudioBuffer: AudioBuffer | null = null;
+		if (backgroundAudioUrl) {
+			try {
+				const bgBytes = await this.loadAudioArrayBuffer(backgroundAudioUrl);
+				bgAudioBuffer = await this.decodeAudioBufferFromBytes(bgBytes);
+				console.log(
+					`[AudioProcessor] Loaded background audio: ${bgAudioBuffer.duration.toFixed(1)}s, ${bgAudioBuffer.numberOfChannels}ch`,
+				);
+			} catch (err) {
+				console.warn("[AudioProcessor] Failed to decode background audio:", err);
 			}
 		}
-		return undefined;
-	}
 
-	private waitForLoadedMetadata(media: HTMLMediaElement): Promise<void> {
-		if (Number.isFinite(media.duration) && media.readyState >= HTMLMediaElement.HAVE_METADATA) {
-			return Promise.resolve();
+		// 2. Load Source Audio if present (prioritize fast demuxer stream, fallback to full buffer)
+		let sourceAudioBuffer: AudioBuffer | null = null;
+		if (hasSourceAudio) {
+			if (demuxer) {
+				try {
+					sourceAudioBuffer = await this.decodeSourceAudioBufferFromDemuxer(
+						demuxer,
+						validatedDurationSec + 0.5,
+					);
+					if (sourceAudioBuffer) {
+						console.log(
+							`[AudioProcessor] Decoded source audio via demuxer: ${sourceAudioBuffer.duration.toFixed(1)}s`,
+						);
+					}
+				} catch (err) {
+					console.warn(
+						"[AudioProcessor] Demuxer audio decoding failed, trying direct buffer:",
+						err,
+					);
+				}
+			}
+			if (!sourceAudioBuffer && videoUrl) {
+				try {
+					const srcBytes = await this.loadAudioArrayBuffer(videoUrl);
+					sourceAudioBuffer = await this.decodeAudioBufferFromBytes(srcBytes);
+					console.log(
+						`[AudioProcessor] Loaded source audio via direct decode: ${sourceAudioBuffer.duration.toFixed(1)}s`,
+					);
+				} catch (err) {
+					console.warn("[AudioProcessor] Direct source audio decode failed:", err);
+				}
+			}
 		}
 
-		return new Promise<void>((resolve, reject) => {
-			const onLoaded = () => {
-				cleanup();
-				resolve();
-			};
-			const onError = () => {
-				cleanup();
-				reject(new Error("Failed to load media metadata for speed-adjusted audio"));
-			};
-			const cleanup = () => {
-				media.removeEventListener("loadedmetadata", onLoaded);
-				media.removeEventListener("error", onError);
-			};
-
-			media.addEventListener("loadedmetadata", onLoaded);
-			media.addEventListener("error", onError, { once: true });
-		});
-	}
-
-	private seekTo(media: HTMLMediaElement, targetSec: number): Promise<void> {
-		if (Math.abs(media.currentTime - targetSec) < 0.0001) {
-			return Promise.resolve();
+		if (this.cancelled) return;
+		if (!bgAudioBuffer && !sourceAudioBuffer) {
+			console.warn("[AudioProcessor] Neither background nor source audio buffer could be decoded.");
+			return;
 		}
 
-		return new Promise<void>((resolve, reject) => {
-			const onSeeked = () => {
-				cleanup();
-				resolve();
-			};
-			const onError = () => {
-				cleanup();
-				reject(new Error("Failed to seek media for speed-adjusted audio"));
-			};
-			const cleanup = () => {
-				media.removeEventListener("seeked", onSeeked);
-				media.removeEventListener("error", onError);
-			};
+		// 3. Connect Background Audio
+		if (bgAudioBuffer) {
+			const bgSource = offlineCtx.createBufferSource();
+			bgSource.buffer = bgAudioBuffer;
+			bgSource.loop = true;
 
-			media.addEventListener("seeked", onSeeked, { once: true });
-			media.addEventListener("error", onError, { once: true });
-			media.currentTime = targetSec;
+			const bgGain = offlineCtx.createGain();
+			const baseDb = audioSettings?.volumeDb ?? 0;
+			let gain = Math.pow(10, baseDb / 20);
+			if (audioSettings?.autoNormalization) {
+				gain = Math.min(gain, 1.0);
+			}
+			const targetGain = Math.max(0, gain);
+
+			const fadeInSec = audioSettings?.fadeInSec ?? 0;
+			const fadeOutSec = audioSettings?.fadeOutSec ?? 0;
+			if (fadeInSec > 0) {
+				bgGain.gain.setValueAtTime(0, 0);
+				bgGain.gain.linearRampToValueAtTime(targetGain, Math.min(fadeInSec, targetDurationSec));
+			} else {
+				bgGain.gain.setValueAtTime(targetGain, 0);
+			}
+			if (fadeOutSec > 0 && targetDurationSec > fadeOutSec) {
+				const fadeStart = targetDurationSec - fadeOutSec;
+				bgGain.gain.setValueAtTime(targetGain, fadeStart);
+				bgGain.gain.linearRampToValueAtTime(0, targetDurationSec);
+			}
+
+			bgSource.connect(bgGain);
+			bgGain.connect(offlineCtx.destination);
+			bgSource.start(0);
+		}
+
+		// 4. Connect Source Audio with trim, speed, and blank gap muting
+		if (sourceAudioBuffer) {
+			const trimSegments = StreamingVideoDecoder.computeSegments(validatedDurationSec, trimRegions);
+			const speedSegments = StreamingVideoDecoder.splitBySpeed(trimSegments, speedRegions);
+			let timelineCursor = 0;
+
+			for (const seg of speedSegments) {
+				const segDuration = (seg.endSec - seg.startSec) / seg.speed;
+				if (segDuration <= 0.0001) continue;
+
+				// Check if this segment is inside a kept blank screen gap
+				const isKeptBlank = trimRegions?.some(
+					(t) =>
+						t.keepBlankScreen &&
+						seg.startSec * 1000 >= t.startMs - 5 &&
+						seg.endSec * 1000 <= t.endMs + 5,
+				);
+
+				if (!isKeptBlank) {
+					const segSource = offlineCtx.createBufferSource();
+					segSource.buffer = sourceAudioBuffer;
+					segSource.playbackRate.value = seg.speed;
+					segSource.connect(offlineCtx.destination);
+					segSource.start(timelineCursor, seg.startSec, seg.endSec - seg.startSec);
+				}
+
+				timelineCursor += segDuration;
+			}
+		}
+
+		// 5. Render Timeline Offline
+		const renderedBuffer = await offlineCtx.startRendering();
+		if (this.cancelled) return;
+
+		// 6. Encode into AudioEncoder
+		const encodedChunks: { chunk: EncodedAudioChunk; meta?: EncodedAudioChunkMetadata }[] = [];
+		const encoder = new AudioEncoder({
+			output: (chunk, meta) => encodedChunks.push({ chunk, meta }),
+			error: (e) => console.error("[AudioProcessor] Audio encode error:", e),
 		});
-	}
 
-	private findActiveTrimRegion(
-		currentTimeMs: number,
-		trimRegions: TrimRegion[],
-	): TrimRegion | null {
-		return (
-			trimRegions.find(
-				(region) => currentTimeMs >= region.startMs && currentTimeMs < region.endMs,
-			) || null
-		);
-	}
+		const encodeConfig: AudioEncoderConfig = {
+			codec: exportCodec.encoderCodec,
+			sampleRate,
+			numberOfChannels: 2,
+			bitrate: AUDIO_BITRATE,
+		};
 
-	private findActiveSpeedRegion(
-		currentTimeMs: number,
-		speedRegions: SpeedRegion[],
-	): SpeedRegion | null {
-		return (
-			speedRegions.find(
-				(region) => currentTimeMs >= region.startMs && currentTimeMs < region.endMs,
-			) || null
+		const support = await AudioEncoder.isConfigSupported(encodeConfig);
+		if (!support.supported) {
+			console.warn(`[AudioProcessor] ${exportCodec.label} encoding not supported`);
+			return;
+		}
+		encoder.configure(encodeConfig);
+
+		const frameSize = 1024;
+		const totalRenderedFrames = renderedBuffer.length;
+		const left = renderedBuffer.getChannelData(0);
+		const right = renderedBuffer.numberOfChannels > 1 ? renderedBuffer.getChannelData(1) : left;
+
+		for (let offset = 0; offset < totalRenderedFrames; offset += frameSize) {
+			if (this.cancelled) break;
+			const len = Math.min(frameSize, totalRenderedFrames - offset);
+			const planarData = new Float32Array(len * 2);
+			planarData.set(left.subarray(offset, offset + len), 0);
+			planarData.set(right.subarray(offset, offset + len), len);
+
+			const timestampUs = Math.round((offset / sampleRate) * 1_000_000);
+			const audioData = new AudioData({
+				format: "f32-planar",
+				sampleRate,
+				numberOfFrames: len,
+				numberOfChannels: 2,
+				timestamp: timestampUs,
+				data: planarData,
+			});
+			encoder.encode(audioData);
+			audioData.close();
+		}
+
+		if (encoder.state === "configured") {
+			await encoder.flush();
+			encoder.close();
+		}
+
+		for (const { chunk, meta } of encodedChunks) {
+			if (this.cancelled) break;
+			await muxer.addAudioChunk(chunk, meta);
+		}
+
+		console.log(
+			`[AudioProcessor] Offline timeline audio rendered (${targetDurationSec.toFixed(1)}s), encoded ${encodedChunks.length} chunks`,
 		);
 	}
 

@@ -61,6 +61,17 @@ const ALLOWED_IMPORT_VIDEO_EXTENSIONS = new Set([
 	".wmv",
 	".flv",
 	".ts",
+	".mp3",
+	".wav",
+	".m4a",
+	".aac",
+	".ogg",
+	".flac",
+	".png",
+	".jpg",
+	".jpeg",
+	".webp",
+	".gif",
 ]);
 const PREVIEW_AUDIO_DIR = path.join(app.getPath("userData"), "preview-audio");
 const nativeMacCaptureEvents = new EventEmitter();
@@ -2358,10 +2369,8 @@ export function registerIpcHandlers(
 
 	ipcMain.handle(
 		"set-recording-state",
-		async (_, recording: boolean, recordingId?: number, cursorCaptureMode?: CursorCaptureMode) => {
-			const normalizedCursorCaptureMode =
-				normalizeCursorCaptureMode(cursorCaptureMode) ?? "editable-overlay";
-			if (recording && normalizedCursorCaptureMode === "editable-overlay") {
+		async (_, recording: boolean, recordingId?: number, _cursorCaptureMode?: CursorCaptureMode) => {
+			if (recording) {
 				await startCursorRecording(recordingId);
 			} else {
 				await stopCursorRecording();
@@ -2490,8 +2499,41 @@ export function registerIpcHandlers(
 					defaultPath: RECORDINGS_DIR,
 					filters: [
 						{
+							name: "All Supported Media",
+							extensions: [
+								"webm",
+								"mp4",
+								"mov",
+								"avi",
+								"mkv",
+								"m4v",
+								"wmv",
+								"flv",
+								"ts",
+								"mp3",
+								"wav",
+								"m4a",
+								"aac",
+								"ogg",
+								"flac",
+								"png",
+								"jpg",
+								"jpeg",
+								"webp",
+								"gif",
+							],
+						},
+						{
 							name: mainT("dialogs", "fileDialogs.videoFiles"),
 							extensions: ["webm", "mp4", "mov", "avi", "mkv", "m4v", "wmv", "flv", "ts"],
+						},
+						{
+							name: "Audio Files",
+							extensions: ["mp3", "wav", "m4a", "aac", "ogg", "flac"],
+						},
+						{
+							name: "Image Files",
+							extensions: ["png", "jpg", "jpeg", "webp", "gif"],
 						},
 						{ name: mainT("dialogs", "fileDialogs.allFiles"), extensions: ["*"] },
 					],

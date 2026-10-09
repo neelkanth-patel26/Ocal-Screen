@@ -14,17 +14,6 @@ const CAPTION_POSITION = {
 
 const CAPTION_SIZE = { width: CAPTION_WIDTH, height: CAPTION_HEIGHT };
 
-const CAPTION_STYLE: AnnotationTextStyle = {
-	color: "#ffffff",
-	backgroundColor: "rgba(255, 255, 255, 0)",
-	fontSize: 24,
-	fontFamily: "Inter",
-	fontWeight: "normal",
-	fontStyle: "normal",
-	textDecoration: "none",
-	textAlign: "center",
-};
-
 /** Nudge caption starts earlier (seconds); Whisper onsets run slightly late. Do not offset ends too, that pulls lines off-screen early. */
 const AUTO_CAPTION_START_BIAS_SEC = 0;
 
@@ -268,6 +257,13 @@ function partitionPhraseCaptionSegments(
 	return groups;
 }
 
+export type CaptionStylePreset =
+	| "filmora-neon"
+	| "glass-pill"
+	| "karaoke-pop"
+	| "cinematic-outline";
+export type CaptionPositionPreset = "bottom" | "center" | "top";
+
 export interface CaptionSegmentLayoutOptions {
 	/** Lower bound on words per on-screen caption (default 2). */
 	minWordsPerCaption?: number;
@@ -278,6 +274,20 @@ export interface CaptionSegmentLayoutOptions {
 	 * `phrase`: merged phrase spans; use proportional line splitting inside each span.
 	 */
 	timestampGranularity?: "word" | "phrase";
+	stylePreset?: CaptionStylePreset;
+	positionPreset?: CaptionPositionPreset;
+}
+
+export function smartCleanCaptionText(raw: string): string {
+	if (!raw) return "";
+	let t = raw.trim();
+	// Remove conversational filler stutters like um, uh
+	t = t.replace(/\b(um|uh|er|ah|umm|uhh)\b/gi, "").trim();
+	// Capitalize first character of line
+	if (t.length > 0) {
+		t = t.charAt(0).toUpperCase() + t.slice(1);
+	}
+	return t.replace(/\s+/g, " ");
 }
 
 function computeCaptionLineIndexRanges(
@@ -561,6 +571,61 @@ export function captionSegmentsToAnnotationRegions(
 	const dedupedOut = dedupeAdjacentCaptionRepeats(grouped);
 	const finalized = finalizeCaptionSegmentsForPlayback(dedupedOut);
 
+	const stylePreset = layout?.stylePreset || "filmora-neon";
+	const posPreset = layout?.positionPreset || "bottom";
+
+	const chosenStyle: AnnotationTextStyle =
+		stylePreset === "filmora-neon"
+			? {
+					color: "#d4f933",
+					backgroundColor: "rgba(11, 12, 16, 0.88)",
+					fontSize: 26,
+					fontFamily: "Inter",
+					fontWeight: "bold",
+					fontStyle: "normal",
+					textDecoration: "none",
+					textAlign: "center",
+				}
+			: stylePreset === "karaoke-pop"
+				? {
+						color: "#facc15",
+						backgroundColor: "rgba(0, 0, 0, 0.85)",
+						fontSize: 26,
+						fontFamily: "Inter",
+						fontWeight: "bold",
+						fontStyle: "normal",
+						textDecoration: "none",
+						textAlign: "center",
+					}
+				: stylePreset === "cinematic-outline"
+					? {
+							color: "#ffffff",
+							backgroundColor: "rgba(0, 0, 0, 0.35)",
+							fontSize: 25,
+							fontFamily: "Inter",
+							fontWeight: "bold",
+							fontStyle: "normal",
+							textDecoration: "none",
+							textAlign: "center",
+						}
+					: {
+							color: "#ffffff",
+							backgroundColor: "rgba(17, 24, 39, 0.85)",
+							fontSize: 24,
+							fontFamily: "Inter",
+							fontWeight: "bold",
+							fontStyle: "normal",
+							textDecoration: "none",
+							textAlign: "center",
+						};
+
+	const chosenPosition =
+		posPreset === "top"
+			? { x: (100 - CAPTION_WIDTH) / 2, y: 8 }
+			: posPreset === "center"
+				? { x: (100 - CAPTION_WIDTH) / 2, y: 46 }
+				: { ...CAPTION_POSITION };
+
 	let nid = startNumericId;
 	let z = startZIndex;
 	const regions: AnnotationRegion[] = [];
@@ -573,11 +638,11 @@ export function captionSegmentsToAnnotationRegions(
 			startMs,
 			endMs,
 			type: "text",
-			content: seg.text,
+			content: smartCleanCaptionText(seg.text),
 			annotationSource: "auto-caption",
-			position: { ...CAPTION_POSITION },
+			position: { ...chosenPosition },
 			size: { ...CAPTION_SIZE },
-			style: { ...CAPTION_STYLE },
+			style: { ...chosenStyle },
 			zIndex: z++,
 		});
 	}

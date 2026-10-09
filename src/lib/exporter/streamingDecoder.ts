@@ -389,36 +389,58 @@ export class StreamingVideoDecoder {
 				}
 			},
 		});
-		const preferredDecoderConfig = shouldPreferSoftwareDecode
-			? {
+		// Build candidate configurations: GPU hardware acceleration first, then CPU software fallback
+		const candidateDecoderConfigs: VideoDecoderConfig[] = [];
+		if (!shouldPreferSoftwareDecode) {
+			candidateDecoderConfigs.push({
+				...decoderConfig,
+				hardwareAcceleration: "prefer-hardware",
+			});
+			if (/^avc1/i.test(codec) && decoderConfig.codec !== "avc1.640033") {
+				candidateDecoderConfigs.push({
 					...decoderConfig,
-					hardwareAcceleration: "prefer-software" as const,
-				}
-			: decoderConfig;
+					codec: "avc1.640033",
+					hardwareAcceleration: "prefer-hardware",
+				});
+			}
+		}
 
-		try {
-			const support = await VideoDecoder.isConfigSupported(preferredDecoderConfig);
-			console.log(
-				`[StreamingVideoDecoder] isConfigSupported for "${preferredDecoderConfig.codec}":`,
-				support.supported,
-			);
-			if (!support.supported) {
-				throw new Error(`Unsupported codec: ${preferredDecoderConfig.codec}`);
+		// CPU software fallback
+		candidateDecoderConfigs.push({
+			...decoderConfig,
+			hardwareAcceleration: "prefer-software",
+		});
+		if (/^avc1/i.test(codec) && decoderConfig.codec !== "avc1.640033") {
+			candidateDecoderConfigs.push({
+				...decoderConfig,
+				codec: "avc1.640033",
+				hardwareAcceleration: "prefer-software",
+			});
+		}
+
+		// Default fallback without hardwareAcceleration constraint
+		candidateDecoderConfigs.push(decoderConfig);
+
+		let configured = false;
+		let lastConfigError: Error | null = null;
+		for (const candidate of candidateDecoderConfigs) {
+			try {
+				const support = await VideoDecoder.isConfigSupported(candidate);
+				if (support.supported) {
+					this.decoder.configure(candidate);
+					console.log(
+						`[StreamingVideoDecoder] Configured decoder for "${candidate.codec}" with acceleration: ${candidate.hardwareAcceleration ?? "default"}`,
+					);
+					configured = true;
+					break;
+				}
+			} catch (err) {
+				lastConfigError = err instanceof Error ? err : new Error(String(err));
 			}
-			this.decoder.configure(preferredDecoderConfig);
-		} catch (error) {
-			if (shouldPreferSoftwareDecode) {
-				this.decoder.configure(decoderConfig);
-			} else if (/^avc1/i.test(codec)) {
-				const fallback = { ...decoderConfig, codec: "avc1.640033" };
-				console.warn(
-					`[StreamingVideoDecoder] codec "${codec}" unsupported, ` +
-						`falling back to "${fallback.codec}"`,
-				);
-				this.decoder.configure(fallback);
-			} else {
-				throw error;
-			}
+		}
+
+		if (!configured) {
+			throw lastConfigError ?? new Error(`Unsupported codec: ${decoderConfig.codec}`);
 		}
 
 		const getNextFrame = (): Promise<VideoFrame | null> => {
@@ -639,15 +661,16 @@ export class StreamingVideoDecoder {
 	 * Converts trim regions into the segments that should be kept.
 	 * Returns a single full-duration segment when no trim regions are present.
 	 */
-	private computeSegments(
+	static computeSegments(
 		totalDuration: number,
 		trimRegions?: TrimRegion[],
 	): Array<{ startSec: number; endSec: number }> {
-		if (!trimRegions || trimRegions.length === 0) {
+		const cutTrims = trimRegions?.filter((t) => !t.keepBlankScreen);
+		if (!cutTrims || cutTrims.length === 0) {
 			return [{ startSec: 0, endSec: totalDuration }];
 		}
 
-		const sorted = [...trimRegions].sort((a, b) => a.startMs - b.startMs);
+		const sorted = [...cutTrims].sort((a, b) => a.startMs - b.startMs);
 		const segments: Array<{ startSec: number; endSec: number }> = [];
 		let cursor = 0;
 
@@ -667,35 +690,18 @@ export class StreamingVideoDecoder {
 		return segments;
 	}
 
-	/**
-	 * Effective output duration (seconds) and total frame count for the given trim/speed
-	 * regions at the target frame rate. Requires loadMetadata() first.
-	 */
-	getExportMetrics(
-		targetFrameRate: number,
+	private computeSegments(
+		totalDuration: number,
 		trimRegions?: TrimRegion[],
-		speedRegions?: SpeedRegion[],
-	): { effectiveDuration: number; totalFrames: number } {
-		if (!this.metadata) throw new Error("Must call loadMetadata() first");
-		const trimSegments = this.computeSegments(this.metadata.duration, trimRegions);
-		const segments = this.splitBySpeed(trimSegments, speedRegions);
-		return {
-			effectiveDuration: segments.reduce(
-				(sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed,
-				0,
-			),
-			totalFrames: segments.reduce((sum, seg) => {
-				const segDur = seg.endSec - seg.startSec - EPSILON_SEC;
-				return sum + Math.max(0, Math.ceil((segDur / seg.speed) * targetFrameRate));
-			}, 0),
-		};
+	): Array<{ startSec: number; endSec: number }> {
+		return StreamingVideoDecoder.computeSegments(totalDuration, trimRegions);
 	}
 
 	/**
 	 * Splits keep-segments by overlapping speed regions, annotating each
 	 * sub-segment with its playback speed multiplier (defaults to 1×).
 	 */
-	private splitBySpeed(
+	static splitBySpeed(
 		segments: Array<{ startSec: number; endSec: number }>,
 		speedRegions?: SpeedRegion[],
 	): Array<{ startSec: number; endSec: number; speed: number }> {
@@ -725,6 +731,37 @@ export class StreamingVideoDecoder {
 				result.push({ startSec: cursor, endSec: segment.endSec, speed: 1 });
 		}
 		return result.filter((s) => s.endSec - s.startSec > 0.0001);
+	}
+
+	private splitBySpeed(
+		segments: Array<{ startSec: number; endSec: number }>,
+		speedRegions?: SpeedRegion[],
+	): Array<{ startSec: number; endSec: number; speed: number }> {
+		return StreamingVideoDecoder.splitBySpeed(segments, speedRegions);
+	}
+
+	/**
+	 * Effective output duration (seconds) and total frame count for the given trim/speed
+	 * regions at the target frame rate. Requires loadMetadata() first.
+	 */
+	getExportMetrics(
+		targetFrameRate: number,
+		trimRegions?: TrimRegion[],
+		speedRegions?: SpeedRegion[],
+	): { effectiveDuration: number; totalFrames: number } {
+		if (!this.metadata) throw new Error("Must call loadMetadata() first");
+		const trimSegments = this.computeSegments(this.metadata.duration, trimRegions);
+		const segments = this.splitBySpeed(trimSegments, speedRegions);
+		return {
+			effectiveDuration: segments.reduce(
+				(sum, seg) => sum + (seg.endSec - seg.startSec) / seg.speed,
+				0,
+			),
+			totalFrames: segments.reduce((sum, seg) => {
+				const segDur = seg.endSec - seg.startSec - EPSILON_SEC;
+				return sum + Math.max(0, Math.ceil((segDur / seg.speed) * targetFrameRate));
+			}, 0),
+		};
 	}
 
 	/** Returns the underlying WebDemuxer instance, or null if not yet loaded. */

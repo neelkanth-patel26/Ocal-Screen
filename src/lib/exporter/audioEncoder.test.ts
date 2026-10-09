@@ -70,3 +70,63 @@ describe("downmixPlanarChannelsForExport", () => {
 		expect(Array.from(stereo)).toEqual([0.25, -0.5, 0.25, -0.5]);
 	});
 });
+
+describe("AudioProcessor.loadAudioArrayBuffer", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("correctly preserves bytes when electron.readBinaryFile returns an ArrayBuffer", async () => {
+		const processor = new AudioProcessor();
+		const rawBytes = new Uint8Array([0x49, 0x44, 0x33, 0x03, 0x00, 0x00]); // ID3 header
+		const arrayBuf = rawBytes.buffer.slice(0);
+
+		vi.stubGlobal("window", {
+			electronAPI: {
+				readBinaryFile: vi.fn(async () => ({
+					success: true,
+					data: arrayBuf,
+				})),
+			},
+		});
+
+		const loaded = await (
+			processor as unknown as {
+				loadAudioArrayBuffer: (p: string) => Promise<ArrayBuffer>;
+			}
+		).loadAudioArrayBuffer("file:///C:/Audio/soundtrack.mp3");
+
+		const resultView = new Uint8Array(loaded);
+		expect(resultView.length).toBe(6);
+		expect(resultView[0]).toBe(0x49);
+		expect(resultView[1]).toBe(0x44);
+		expect(resultView[2]).toBe(0x33);
+	});
+
+	it("correctly preserves bytes when electron.readBinaryFile returns a Uint8Array", async () => {
+		const processor = new AudioProcessor();
+		const rawBytes = new Uint8Array([0x52, 0x49, 0x46, 0x46]); // RIFF header
+
+		vi.stubGlobal("window", {
+			electronAPI: {
+				readBinaryFile: vi.fn(async () => ({
+					success: true,
+					data: rawBytes,
+				})),
+			},
+		});
+
+		const loaded = await (
+			processor as unknown as {
+				loadAudioArrayBuffer: (p: string) => Promise<ArrayBuffer>;
+			}
+		).loadAudioArrayBuffer("file:///C:/Audio/track.wav");
+
+		const resultView = new Uint8Array(loaded);
+		expect(resultView.length).toBe(4);
+		expect(resultView[0]).toBe(0x52);
+		expect(resultView[1]).toBe(0x49);
+		expect(resultView[2]).toBe(0x46);
+		expect(resultView[3]).toBe(0x46);
+	});
+});

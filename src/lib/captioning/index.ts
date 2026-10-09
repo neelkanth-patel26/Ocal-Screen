@@ -1,4 +1,8 @@
-export type { CaptionSegmentLayoutOptions } from "./annotationsFromCaptions";
+export type {
+	CaptionPositionPreset,
+	CaptionSegmentLayoutOptions,
+	CaptionStylePreset,
+} from "./annotationsFromCaptions";
 export {
 	captionSegmentsToAnnotationRegions,
 	DEFAULT_AUTO_CAPTION_MIN_GAP_MS,

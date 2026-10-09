@@ -101,6 +101,12 @@ export interface ProjectEditorState {
 	cursorSpotlight: boolean;
 	cursorSpotlightRadius: number;
 	clickRipple: boolean;
+	clipColorMarks?: Record<string, string>;
+	backgroundAudioUrl?: string | null;
+	audioTrackName?: string | null;
+	audioSettings?: import("./FilmoraAudioInspector").AudioSettingsState;
+	mediaAssets?: import("./mediaAssetStore").MediaAsset[];
+	videoLayers?: import("./types").VideoLayerTrack[];
 }
 
 export interface EditorProjectData {
@@ -155,6 +161,36 @@ function encodePathSegments(pathname: string, keepWindowsDrive = false): string 
 }
 
 export function toFileUrl(filePath: string): string {
+	if (filePath.startsWith("file:///")) {
+		try {
+			return encodeURI(decodeURI(filePath));
+		} catch {
+			return filePath;
+		}
+	}
+	if (filePath.startsWith("file://")) {
+		const rest = filePath.slice(7);
+		if (rest.match(/^[a-zA-Z]:/)) {
+			try {
+				return encodeURI(decodeURI(`file:///${rest}`));
+			} catch {
+				return `file:///${rest}`;
+			}
+		}
+		try {
+			return encodeURI(decodeURI(filePath));
+		} catch {
+			return filePath;
+		}
+	}
+	if (filePath.startsWith("file:/")) {
+		const rest = filePath.replace(/^file:\/+/, "");
+		try {
+			return encodeURI(decodeURI(`file:///${rest}`));
+		} catch {
+			return `file:///${rest}`;
+		}
+	}
 	const normalized = filePath.replace(/\\/g, "/");
 	if (normalized.match(/^[a-zA-Z]:/)) {
 		return `file:///${encodePathSegments(normalized, true)}`;
@@ -527,6 +563,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		trimRegions: normalizedTrimRegions,
 		speedRegions: normalizedSpeedRegions,
 		annotationRegions: normalizedAnnotationRegions,
+		clipColorMarks:
+			editor.clipColorMarks && typeof editor.clipColorMarks === "object"
+				? editor.clipColorMarks
+				: {},
 		aspectRatio: normalizedAspectRatio,
 		webcamLayoutPreset: normalizedWebcamLayoutPreset,
 		webcamMaskShape:
@@ -566,6 +606,88 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			editor.gifSizePreset === "original"
 				? editor.gifSizePreset
 				: DEFAULT_GIF_SETTINGS.sizePreset,
+		backgroundAudioUrl:
+			typeof editor.backgroundAudioUrl === "string" ? editor.backgroundAudioUrl : null,
+		audioTrackName: typeof editor.audioTrackName === "string" ? editor.audioTrackName : null,
+		audioSettings:
+			editor.audioSettings && typeof editor.audioSettings === "object"
+				? { ...editor.audioSettings }
+				: undefined,
+		mediaAssets: Array.isArray(editor.mediaAssets)
+			? editor.mediaAssets
+					.filter((a): a is import("./mediaAssetStore").MediaAsset =>
+						Boolean(a && typeof a === "object" && typeof a.name === "string" && (a.path || a.url)),
+					)
+					.map((a) => ({
+						id:
+							typeof a.id === "string" && a.id.trim()
+								? a.id
+								: `asset-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+						name: a.name,
+						path: typeof a.path === "string" ? a.path : "",
+						url: typeof a.url === "string" ? a.url : "",
+						type: a.type === "audio" || a.type === "image" || a.type === "video" ? a.type : "video",
+						duration:
+							typeof a.duration === "number" && Number.isFinite(a.duration)
+								? a.duration
+								: undefined,
+						sizeFormatted: typeof a.sizeFormatted === "string" ? a.sizeFormatted : undefined,
+						addedAt:
+							typeof a.addedAt === "number" && Number.isFinite(a.addedAt) ? a.addedAt : Date.now(),
+						width: typeof a.width === "number" && Number.isFinite(a.width) ? a.width : undefined,
+						height:
+							typeof a.height === "number" && Number.isFinite(a.height) ? a.height : undefined,
+						isMainVideo: Boolean(a.isMainVideo),
+						isWebcam: Boolean(a.isWebcam),
+						isAudioTrack: Boolean(a.isAudioTrack),
+						isProjectAsset: Boolean(a.isProjectAsset),
+						sourceType: a.sourceType,
+					}))
+			: [],
+		videoLayers: Array.isArray(editor.videoLayers)
+			? editor.videoLayers
+					.filter((l): l is import("./types").VideoLayerTrack =>
+						Boolean(l && typeof l === "object" && typeof l.id === "string"),
+					)
+					.map((l) => ({
+						id: l.id,
+						name: typeof l.name === "string" ? l.name : "Video Layer",
+						type: l.type || "overlay-video",
+						src: typeof l.src === "string" ? l.src : undefined,
+						enabled: typeof l.enabled === "boolean" ? l.enabled : true,
+						opacity:
+							typeof l.opacity === "number" && Number.isFinite(l.opacity)
+								? clamp(l.opacity, 0, 1)
+								: 1,
+						x: typeof l.x === "number" && Number.isFinite(l.x) ? l.x : 0,
+						y: typeof l.y === "number" && Number.isFinite(l.y) ? l.y : 0,
+						width:
+							typeof l.width === "number" && Number.isFinite(l.width) ? clamp(l.width, 5, 100) : 35,
+						height:
+							typeof l.height === "number" && Number.isFinite(l.height)
+								? clamp(l.height, 5, 100)
+								: 35,
+						zIndex: typeof l.zIndex === "number" && Number.isFinite(l.zIndex) ? l.zIndex : 1,
+						maskShape: l.maskShape || "rectangle",
+						borderWidth:
+							typeof l.borderWidth === "number" && Number.isFinite(l.borderWidth)
+								? l.borderWidth
+								: 0,
+						borderColor: typeof l.borderColor === "string" ? l.borderColor : "#06b6d4",
+						shadowGlow: typeof l.shadowGlow === "boolean" ? l.shadowGlow : false,
+						volume:
+							typeof l.volume === "number" && Number.isFinite(l.volume) ? clamp(l.volume, 0, 2) : 1,
+						muted: typeof l.muted === "boolean" ? l.muted : false,
+						startMs:
+							typeof l.startMs === "number" && Number.isFinite(l.startMs)
+								? Math.max(0, l.startMs)
+								: undefined,
+						endMs:
+							typeof l.endMs === "number" && Number.isFinite(l.endMs)
+								? Math.max(0, l.endMs)
+								: undefined,
+					}))
+			: [],
 	};
 }
 

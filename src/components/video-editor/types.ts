@@ -225,6 +225,8 @@ export interface TrimRegion {
 	id: string;
 	startMs: number;
 	endMs: number;
+	source?: "manual" | "clip-cut";
+	keepBlankScreen?: boolean;
 }
 
 export type AnnotationType = "text" | "image" | "figure" | "blur";
@@ -445,7 +447,7 @@ function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
 }
 
-export type VideoLayerType = "main-screen" | "live-cam" | "overlay-video" | "b-roll";
+export type VideoLayerType = "main-screen" | "live-cam" | "overlay-video" | "b-roll" | "pip";
 export type VideoLayerMask = "rectangle" | "circle" | "square" | "rounded";
 
 export interface VideoLayerTrack {

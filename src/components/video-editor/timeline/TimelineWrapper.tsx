@@ -21,13 +21,14 @@ interface TimelineWrapperProps {
 	minItemDurationMs: number;
 	minVisibleRangeMs: number;
 	gridSizeMs?: number;
-	onItemSpanChange: (id: string, span: Span) => void;
+	onItemSpanChange: (id: string, span: Span, targetRowId?: string, verticalDelta?: number) => void;
 	// Hard overlap constraints (zoom/trim/speed), used by clampToNeighbours and as snap targets.
 	allRegionSpans?: { id: string; start: number; end: number }[];
 	// Snap targets only (annotation/blur); never push other items during overlap resolution.
 	softSnapSpans?: { id: string; start: number; end: number }[];
 	currentTimeMs?: number;
 	keyframeTimesMs?: number[];
+	sidebarWidth?: number;
 }
 
 interface SnapGuideHandle {
@@ -110,6 +111,7 @@ export default function TimelineWrapper({
 	softSnapSpans = [],
 	currentTimeMs,
 	keyframeTimesMs = [],
+	sidebarWidth = 190,
 }: TimelineWrapperProps) {
 	const totalMs = Math.max(0, Math.round(videoDuration * 1000));
 
@@ -379,9 +381,9 @@ export default function TimelineWrapper({
 
 	const onDragEnd = useCallback(
 		(event: DragEndEvent) => {
-			const activeRowId = event.over?.id as string;
+			const activeRowId = (event.over?.id as string) || undefined;
 			const updatedSpan = event.active.data.current.getSpanFromDragEvent?.(event);
-			if (!updatedSpan || !activeRowId) return;
+			if (!updatedSpan) return;
 
 			const activeItemId = event.active.id as string;
 			let clampedSpan = clampSpanToBounds(updatedSpan);
@@ -396,7 +398,7 @@ export default function TimelineWrapper({
 				}
 			}
 
-			onItemSpanChange(activeItemId, clampedSpan);
+			onItemSpanChange(activeItemId, clampedSpan, activeRowId, event.delta?.y);
 		},
 		[clampSpanToBounds, clampToNeighbours, hasOverlap, onItemSpanChange, snapSpanToTargets],
 	);
@@ -537,7 +539,7 @@ export default function TimelineWrapper({
 			onDragStart={onDragStart}
 			onDragMove={onDragMove}
 			onDragEnd={onDragEndWithTooltip}
-			sidebarWidth={108}
+			sidebarWidth={sidebarWidth}
 			autoScroll={{ enabled: false }}
 		>
 			<div className="relative">

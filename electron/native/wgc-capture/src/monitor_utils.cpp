@@ -1,7 +1,6 @@
 #include "monitor_utils.h"
 
 #include <algorithm>
-#include <cmath>
 #include <vector>
 
 namespace {

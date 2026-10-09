@@ -55,12 +55,19 @@ export interface FollowParams {
 	maxFactor: number;
 	rampDistance: number;
 	referenceMs: number;
+	deadzoneRadius?: number;
+	leadFactor?: number;
 }
 
 /**
  * Advance the auto-follow focus from `prev` toward target `raw` over `dtMs` of content time. The
  * distance-adaptive factor is reframed against `referenceMs` so convergence is content-time based and
- * matches between preview and export. Returns `prev` unchanged when paused so the camera holds still.
+ * matches between preview and export.
+ *
+ * Enhanced with:
+ * 1. Predictive velocity lead-ahead: smoothly pans ahead of the cursor trajectory so it stays comfortably framed.
+ * 2. Soft micro-deadzone: absorbs micro-jitters without hard snapping.
+ * 3. Smooth Hermite curve acceleration for cinematic tracking feel.
  */
 export function advanceFollowFocus(
 	prev: ZoomFocus,
@@ -75,9 +82,41 @@ export function advanceFollowFocus(
 		params.minFactor,
 		params.maxFactor,
 		params.rampDistance,
+		params.deadzoneRadius ?? 0.012,
 	);
 	const factor = timeCorrectedFollowFactor(base, dtMs, params.referenceMs);
-	return smoothCursorFocus(raw, prev, factor);
+
+	let target = raw;
+	const leadFactor = params.leadFactor ?? 0.35;
+	if (leadFactor > 0 && dtMs > 0 && dtMs < 200) {
+		const vx = (raw.cx - prev.cx) / dtMs;
+		const vy = (raw.cy - prev.cy) / dtMs;
+		const speed = Math.hypot(vx, vy);
+		// If moving deliberately, offset target smoothly ahead along movement vector
+		if (speed > 0.00012) {
+			const leadTimeMs = Math.min(95, dtMs * leadFactor * 4.5);
+			const maxLead = 0.075 * (leadFactor / 0.35);
+
+			// Edge cushioning: as cursor approaches screen boundary, gently taper lead
+			const edgeDistX = Math.min(raw.cx, 1 - raw.cx);
+			const edgeDistY = Math.min(raw.cy, 1 - raw.cy);
+			const cushionX = Math.min(1, Math.max(0, edgeDistX / 0.18));
+			const cushionY = Math.min(1, Math.max(0, edgeDistY / 0.18));
+
+			const rawLeadX = Math.max(-maxLead, Math.min(maxLead, vx * leadTimeMs));
+			const rawLeadY = Math.max(-maxLead, Math.min(maxLead, vy * leadTimeMs));
+
+			const leadX = rawLeadX * cushionX;
+			const leadY = rawLeadY * cushionY;
+
+			target = {
+				cx: Math.max(0.06, Math.min(0.94, raw.cx + leadX)),
+				cy: Math.max(0.06, Math.min(0.94, raw.cy + leadY)),
+			};
+		}
+	}
+
+	return smoothCursorFocus(target, prev, factor);
 }
 
 /**
@@ -96,8 +135,9 @@ export function timeCorrectedFollowFactor(
 }
 
 /**
- * Adaptive smoothing factor that scales with distance: far from target = faster (maxFactor), close =
- * slower (minFactor). Replaces a hard deadzone with a natural deceleration curve.
+ * Adaptive smoothing factor that scales with distance:
+ * Uses a soft micro-deadzone (< 0.012) to absorb micro-tremors and hand jitter,
+ * transitioning smoothly into dynamic acceleration via cubic easing for fast mouse gestures.
  */
 export function adaptiveSmoothFactor(
 	raw: ZoomFocus,
@@ -105,10 +145,22 @@ export function adaptiveSmoothFactor(
 	minFactor: number,
 	maxFactor: number,
 	rampDistance: number,
+	deadzoneRadius = 0.012,
 ): number {
 	const dx = raw.cx - prev.cx;
 	const dy = raw.cy - prev.cy;
-	const distance = Math.sqrt(dx * dx + dy * dy);
-	const t = Math.min(1, distance / rampDistance);
-	return minFactor + (maxFactor - minFactor) * t;
+	const distance = Math.hypot(dx, dy);
+
+	if (distance <= deadzoneRadius) {
+		// Inside soft deadzone: gentle quadratic damping so camera doesn't vibrate
+		const r = distance / deadzoneRadius;
+		return minFactor * (r * r * 0.4);
+	}
+
+	const activeDist = distance - deadzoneRadius;
+	const effectiveRamp = Math.max(0.001, rampDistance - deadzoneRadius);
+	const t = Math.min(1, activeDist / effectiveRamp);
+	// Smoothstep curve: 3t^2 - 2t^3 for cinematic, organic acceleration
+	const smoothT = t * t * (3 - 2 * t);
+	return minFactor + (maxFactor - minFactor) * smoothT;
 }

@@ -10,7 +10,7 @@ import type {
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
-import { AudioProcessor } from "./audioEncoder";
+import { AudioProcessor, type ExportAudioCodec } from "./audioEncoder";
 import { FrameRenderer } from "./frameRenderer";
 import { VideoMuxer } from "./muxer";
 import { StreamingVideoDecoder } from "./streamingDecoder";
@@ -23,6 +23,8 @@ const ENCODER_FLUSH_TIMEOUT_MS = 20_000;
 export interface VideoExporterConfig extends ExportConfig {
 	videoUrl: string;
 	webcamVideoUrl?: string;
+	backgroundAudioUrl?: string;
+	audioSettings?: import("@/components/video-editor/FilmoraAudioInspector").AudioSettingsState;
 	wallpaper: string;
 	zoomRegions: ZoomRegion[];
 	trimRegions?: TrimRegion[];
@@ -112,6 +114,7 @@ export function getSourceCopyFastPathBlockers(
 		);
 	}
 	if (config.webcamVideoUrl) blockers.push("webcam overlay is enabled");
+	if (config.backgroundAudioUrl) blockers.push("background audio is enabled");
 	if (hasActiveTimeRegions(config.trimRegions)) blockers.push("trim regions are present");
 	if (hasActiveSpeedRegions(config.speedRegions)) blockers.push("speed regions are present");
 	if (hasActiveTimeRegions(config.zoomRegions)) blockers.push("zoom regions are present");
@@ -162,8 +165,8 @@ export class VideoExporter {
 	private webcamDecoder: StreamingVideoDecoder | null = null;
 	private cancelled = false;
 	private encodeQueue = 0;
-	// Keep a smaller queue for software encoding so Windows does not balloon memory.
-	private readonly MAX_ENCODE_QUEUE = 120;
+	private readonly MAX_ENCODE_QUEUE = 60;
+	private configuredCodec: string | undefined;
 	private videoDescription: Uint8Array | undefined;
 	private videoColorSpace: VideoColorSpaceInit | undefined;
 	private muxingPromises: Promise<void>[] = [];
@@ -294,20 +297,33 @@ export class VideoExporter {
 			await this.initializeEncoder(encoderPreference);
 
 			const sourceDemuxer = streamingDecoder.getDemuxer();
-			const audioExportCodec =
-				videoInfo.hasAudio && sourceDemuxer
-					? await AudioProcessor.selectSupportedExportCodecForSource(sourceDemuxer)
-					: null;
-			if (videoInfo.hasAudio && !audioExportCodec) {
+			const hasSourceAudio = videoInfo.hasAudio && Boolean(sourceDemuxer);
+			let audioExportCodec: ExportAudioCodec | null = null;
+			if (hasSourceAudio && sourceDemuxer) {
+				audioExportCodec = await AudioProcessor.selectSupportedExportCodecForSource(sourceDemuxer);
+			}
+			if (!audioExportCodec && (hasSourceAudio || this.config.backgroundAudioUrl)) {
+				audioExportCodec = await AudioProcessor.selectSupportedExportCodec(48000, 2);
+			}
+			if (!audioExportCodec && (hasSourceAudio || this.config.backgroundAudioUrl)) {
+				audioExportCodec = await AudioProcessor.selectSupportedExportCodec(44100, 2);
+			}
+			if ((hasSourceAudio || this.config.backgroundAudioUrl) && !audioExportCodec) {
 				console.warn("[VideoExporter] No supported audio export codec, exporting video-only.");
 			}
 
 			const hasAudio = Boolean(audioExportCodec);
-			const muxer = new VideoMuxer(this.config, hasAudio, audioExportCodec?.muxerCodec);
+			const muxer = new VideoMuxer(
+				this.config,
+				hasAudio,
+				audioExportCodec?.muxerCodec,
+				audioExportCodec?.sampleRate ?? 48000,
+				audioExportCodec?.numberOfChannels ?? 2,
+			);
 			this.muxer = muxer;
 			await muxer.initialize();
 
-			const { totalFrames } = streamingDecoder.getExportMetrics(
+			const { totalFrames, effectiveDuration } = streamingDecoder.getExportMetrics(
 				this.config.frameRate,
 				this.config.trimRegions,
 				this.config.speedRegions,
@@ -383,6 +399,17 @@ export class VideoExporter {
 						await renderer.renderFrame(videoFrame, sourceTimestampUs, webcamFrame);
 
 						const canvas = renderer.getCanvas();
+						const isBlankGap = this.config.trimRegions?.some(
+							(t) =>
+								t.keepBlankScreen && sourceTimestampMs >= t.startMs && sourceTimestampMs < t.endMs,
+						);
+						if (isBlankGap) {
+							const ctx = canvas.getContext("2d");
+							if (ctx) {
+								ctx.fillStyle = "#000000";
+								ctx.fillRect(0, 0, canvas.width, canvas.height);
+							}
+						}
 
 						let exportFrame: VideoFrame;
 
@@ -421,7 +448,7 @@ export class VideoExporter {
 										: "The video encoder stopped responding during export.",
 								);
 							}
-							await new Promise((resolve) => setTimeout(resolve, 5));
+							await new Promise((resolve) => setTimeout(resolve, 1));
 						}
 
 						if (this.encoder && this.encoder.state === "configured") {
@@ -436,12 +463,14 @@ export class VideoExporter {
 						exportFrame.close();
 						frameIndex++;
 
-						this.reportProgress({
-							currentFrame: frameIndex,
-							totalFrames,
-							percentage: (frameIndex / totalFrames) * 100,
-							estimatedTimeRemaining: 0,
-						});
+						if (frameIndex % 5 === 0 || frameIndex >= totalFrames) {
+							this.reportProgress({
+								currentFrame: frameIndex,
+								totalFrames,
+								percentage: (frameIndex / totalFrames) * 100,
+								estimatedTimeRemaining: 0,
+							});
+						}
 					} finally {
 						videoFrame.close();
 						webcamFrame?.close();
@@ -489,23 +518,31 @@ export class VideoExporter {
 
 			if (hasAudio && audioExportCodec && !this.cancelled) {
 				const demuxer = streamingDecoder.getDemuxer();
-				if (demuxer) {
-					console.log("[VideoExporter] Processing audio track...");
-					this.audioProcessor = new AudioProcessor();
-					await this.audioProcessor.process(
-						demuxer,
-						muxer,
-						this.config.videoUrl,
-						this.config.trimRegions,
-						this.config.speedRegions,
-						videoInfo.duration,
-						audioExportCodec,
-					);
-				}
+				console.log("[VideoExporter] Processing audio track...");
+				this.audioProcessor = new AudioProcessor();
+				await this.audioProcessor.process(
+					demuxer,
+					muxer,
+					this.config.videoUrl,
+					this.config.trimRegions,
+					this.config.speedRegions,
+					videoInfo.duration,
+					audioExportCodec,
+					this.config.backgroundAudioUrl,
+					this.config.audioSettings,
+					hasSourceAudio,
+					effectiveDuration,
+				);
 			}
 
 			const blob = await muxer.finalize();
-			return { success: true, blob, warnings: warnings.length > 0 ? warnings : undefined };
+			const arrayBuffer = muxer.getBuffer() ?? undefined;
+			return {
+				success: true,
+				blob,
+				arrayBuffer,
+				warnings: warnings.length > 0 ? warnings : undefined,
+			};
 		} finally {
 			stopWebcamDecode = true;
 			webcamFrameQueue?.destroy();
@@ -557,7 +594,7 @@ export class VideoExporter {
 
 							const metadata: EncodedVideoChunkMetadata = {
 								decoderConfig: {
-									codec: this.config.codec || "avc1.640033",
+									codec: this.configuredCodec || this.config.codec || "avc1.640033",
 									codedWidth: this.config.width,
 									codedHeight: this.config.height,
 									description: this.videoDescription,
@@ -586,19 +623,39 @@ export class VideoExporter {
 			},
 		});
 
-		const encoderConfig: VideoEncoderConfig = {
-			codec: this.config.codec || "avc1.640033",
-			width: this.config.width,
-			height: this.config.height,
-			bitrate: this.config.bitrate,
-			framerate: this.config.frameRate,
-			latencyMode: "quality",
-			bitrateMode: "variable",
-			hardwareAcceleration,
-		};
+		const preferredCodec = this.config.codec || "avc1.640033";
+		const candidateCodecs = [preferredCodec];
+		if (/^avc1/i.test(preferredCodec)) {
+			if (preferredCodec !== "avc1.640033") candidateCodecs.push("avc1.640033");
+			if (preferredCodec !== "avc1.4d002a") candidateCodecs.push("avc1.4d002a");
+			if (preferredCodec !== "avc1.42001f") candidateCodecs.push("avc1.42001f");
+		}
 
-		const support = await VideoEncoder.isConfigSupported(encoderConfig);
-		if (!support.supported) {
+		let selectedConfig: VideoEncoderConfig | null = null;
+		for (const codec of candidateCodecs) {
+			const candidate: VideoEncoderConfig = {
+				codec,
+				width: this.config.width,
+				height: this.config.height,
+				bitrate: this.config.bitrate,
+				framerate: this.config.frameRate,
+				latencyMode: "quality",
+				bitrateMode: "variable",
+				hardwareAcceleration,
+			};
+
+			try {
+				const support = await VideoEncoder.isConfigSupported(candidate);
+				if (support.supported) {
+					selectedConfig = candidate;
+					break;
+				}
+			} catch {
+				// Continue to next profile candidate
+			}
+		}
+
+		if (!selectedConfig) {
 			throw new Error(
 				hardwareAcceleration === "prefer-hardware"
 					? "Hardware video encoding is not supported on this system."
@@ -606,10 +663,11 @@ export class VideoExporter {
 			);
 		}
 
+		this.configuredCodec = selectedConfig.codec;
 		console.log(
-			`[VideoExporter] Using ${hardwareAcceleration === "prefer-hardware" ? "hardware" : "software"} acceleration`,
+			`[VideoExporter] Using ${hardwareAcceleration === "prefer-hardware" ? "hardware (GPU)" : "software (CPU)"} acceleration (${selectedConfig.codec})`,
 		);
-		this.encoder.configure(encoderConfig);
+		this.encoder.configure(selectedConfig);
 	}
 
 	cancel(): void {
@@ -672,14 +730,12 @@ export class VideoExporter {
 		this.chunkCount = 0;
 		this.videoDescription = undefined;
 		this.videoColorSpace = undefined;
+		this.configuredCodec = undefined;
 		this.lastEncoderOutputAt = 0;
 		this.fatalEncoderError = null;
 	}
 
 	private getEncoderPreferences(): HardwareAcceleration[] {
-		if (typeof navigator !== "undefined" && /\bWindows\b/i.test(navigator.userAgent)) {
-			return ["prefer-software", "prefer-hardware"];
-		}
 		return ["prefer-hardware", "prefer-software"];
 	}
 

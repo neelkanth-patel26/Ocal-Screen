@@ -94,7 +94,7 @@ function getIcon(name: IconName, className?: string) {
 }
 
 const hudAuxIconBtnClasses =
-	"flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 text-white/60 hover:text-white hover:bg-white/10 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed";
+	"flex h-7 w-7 items-center justify-center rounded-full transition-all duration-150 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed";
 
 /** Launches the floating recording HUD and its recorder controls. */
 export function LaunchWindow() {
@@ -583,7 +583,7 @@ export function LaunchWindow() {
 	}, [isLanguageMenuOpen, setHudMouseEventsEnabled]);
 
 	const [selectedSource, setSelectedSource] = useState("Screen");
-	const [hasSelectedSource, setHasSelectedSource] = useState(false);
+	const [hasSelectedSource, setHasSelectedSource] = useState(true);
 	const [, setRecordPointerDownCount] = useState(0);
 
 	useEffect(() => {
@@ -595,7 +595,7 @@ export function LaunchWindow() {
 					setHasSelectedSource(true);
 				} else {
 					setSelectedSource("Screen");
-					setHasSelectedSource(false);
+					setHasSelectedSource(true);
 				}
 			}
 		};
@@ -1262,14 +1262,20 @@ export function LaunchWindow() {
 							styles.electronNoDrag,
 							recording
 								? paused
-									? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
-									: "bg-red-500/25 text-red-100 border border-red-500/60 shadow-[0_0_16px_rgba(239,68,68,0.3)] " +
-										styles.recGlowActive
+									? isLight
+										? "bg-amber-500 hover:bg-amber-600 text-white border border-amber-600 shadow-[0_2px_12px_rgba(245,158,11,0.35)]"
+										: "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+									: isLight
+										? "bg-red-600 hover:bg-red-700 text-white border border-red-700 shadow-[0_2px_12px_rgba(220,38,38,0.4)]"
+										: "bg-red-500/25 text-red-100 border border-red-500/60 shadow-[0_0_16px_rgba(239,68,68,0.3)] " +
+											styles.recGlowActive
 								: hasSelectedSource
 									? isLight
 										? "bg-red-600 hover:bg-red-700 text-white shadow-[0_2px_10px_rgba(220,38,38,0.35)] hover:shadow-[0_4px_14px_rgba(220,38,38,0.45)] border border-red-700/40"
 										: "bg-red-500/20 hover:bg-red-500/30 text-white border border-red-500/40 hover:border-red-500/60 shadow-[0_0_16px_rgba(239,68,68,0.25)] hover:shadow-[0_0_22px_rgba(239,68,68,0.4)]"
-									: "bg-white/5 text-zinc-500 border border-white/5 cursor-not-allowed",
+									: isLight
+										? "bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-300 shadow-2xs"
+										: "bg-white/10 hover:bg-white/15 text-zinc-100 border border-white/15",
 						)}
 						onClick={toggleRecording}
 						disabled={!hasSelectedSource && !recording}
@@ -1282,7 +1288,16 @@ export function LaunchWindow() {
 							)}
 						>
 							{recording ? (
-								getIcon("stop", paused ? "text-amber-300" : "text-red-300")
+								getIcon(
+									"stop",
+									paused
+										? isLight
+											? "text-white"
+											: "text-amber-300"
+										: isLight
+											? "text-white"
+											: "text-red-300",
+								)
 							) : (
 								<div className="flex items-center gap-1.5">
 									<div
@@ -1292,14 +1307,20 @@ export function LaunchWindow() {
 												? isLight
 													? "bg-white"
 													: "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"
-												: "bg-zinc-600",
+												: isLight
+													? "bg-zinc-500"
+													: "bg-zinc-400",
 										)}
 									/>
 									{trayLayout !== "vertical" && (
 										<span
 											className={cn(
 												"text-[11px] font-black tracking-wider uppercase",
-												isLight ? "text-white" : "text-zinc-100",
+												hasSelectedSource
+													? "text-white"
+													: isLight
+														? "text-zinc-800"
+														: "text-zinc-200",
 											)}
 										>
 											REC
@@ -1309,7 +1330,12 @@ export function LaunchWindow() {
 							)}
 							{recording && trayLayout !== "vertical" && (
 								<span className="inline-flex items-center min-w-[38px] pl-0.5">
-									<span className="text-xs font-mono font-bold tracking-tight tabular-nums text-red-200">
+									<span
+										className={cn(
+											"text-xs font-mono font-bold tracking-tight tabular-nums",
+											isLight ? "text-white" : "text-red-200",
+										)}
+									>
 										{formatTimePadded(elapsedSeconds)}
 									</span>
 								</span>
@@ -1330,22 +1356,46 @@ export function LaunchWindow() {
 								<Tooltip
 									content={paused ? t("tooltips.resumeRecording") : t("tooltips.pauseRecording")}
 								>
-									<button className={hudAuxIconBtnClasses} onClick={togglePaused}>
+									<button
+										className={cn(
+											hudAuxIconBtnClasses,
+											isLight
+												? "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200"
+												: "text-white/60 hover:text-white hover:bg-white/10",
+										)}
+										onClick={togglePaused}
+									>
 										{getIcon(
 											paused ? "resume" : "pause",
-											paused ? "text-amber-400" : "text-white/80",
+											paused ? "text-amber-500" : isLight ? "text-zinc-700" : "text-white/80",
 										)}
 									</button>
 								</Tooltip>
 							)}
 							<Tooltip content={t("tooltips.restartRecording")}>
-								<button className={hudAuxIconBtnClasses} onClick={restartRecording}>
-									{getIcon("restart", "text-white/80")}
+								<button
+									className={cn(
+										hudAuxIconBtnClasses,
+										isLight
+											? "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200"
+											: "text-white/60 hover:text-white hover:bg-white/10",
+									)}
+									onClick={restartRecording}
+								>
+									{getIcon("restart", isLight ? "text-zinc-700" : "text-white/80")}
 								</button>
 							</Tooltip>
 							<Tooltip content={t("tooltips.cancelRecording")}>
-								<button className={hudAuxIconBtnClasses} onClick={cancelRecording}>
-									{getIcon("cancel", "text-white/80")}
+								<button
+									className={cn(
+										hudAuxIconBtnClasses,
+										isLight
+											? "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200"
+											: "text-white/60 hover:text-white hover:bg-white/10",
+									)}
+									onClick={cancelRecording}
+								>
+									{getIcon("cancel", isLight ? "text-zinc-700" : "text-white/80")}
 								</button>
 							</Tooltip>
 						</div>
@@ -1371,13 +1421,17 @@ export function LaunchWindow() {
 					)}
 				>
 					{!recording && (
-						<Tooltip content={t("tooltips.openStudio")}>
+						<Tooltip content={t("tooltips.openStudio") || "Open Studio Pro"}>
 							<button
 								data-testid="launch-open-studio-button"
-								className={cn(iconBtnClasses, styles.electronNoDrag)}
+								className={cn(iconBtnClasses, styles.electronNoDrag, "relative group")}
 								onClick={() => window.electronAPI.switchToEditor()}
 							>
-								<Clapperboard size={18} />
+								<Clapperboard size={18} className="transition-transform group-hover:scale-110" />
+								<span
+									className="absolute top-1 right-1 w-2 h-2 rounded-full shadow-xs"
+									style={{ backgroundColor: activeAccent.hex }}
+								/>
 							</button>
 						</Tooltip>
 					)}
