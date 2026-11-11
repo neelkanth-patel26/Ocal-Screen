@@ -297,6 +297,12 @@ export interface AnnotationTextStyle {
 	textDecoration: "none" | "underline";
 	textAlign: "left" | "center" | "right";
 	textAnimation?: AnnotationTextAnimation;
+	borderRadius?: string;
+	padding?: string;
+	border?: string;
+	boxShadow?: string;
+	textShadow?: string;
+	letterSpacing?: string;
 }
 
 export interface AnnotationRegion {
@@ -318,8 +324,8 @@ export interface AnnotationRegion {
 }
 
 export const DEFAULT_ANNOTATION_POSITION: AnnotationPosition = {
-	x: 50,
-	y: 50,
+	x: 35,
+	y: 40,
 };
 
 export const DEFAULT_ANNOTATION_SIZE: AnnotationSize = {

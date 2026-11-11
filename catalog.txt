@@ -1,5 +1,5 @@
 ===============================================================================
-               OCAL SCREEN v3.0.00 STABLE - STUDIO FEATURE CATALOG
+               OCAL SCREEN v3.3.0 STABLE - STUDIO FEATURE CATALOG
 ===============================================================================
 Publisher: Gaming Network Studio Media Group & Ocal Software
 Website  : https://gamingnetworkstudio.vercel.app
@@ -7,52 +7,68 @@ Issues   : https://github.com/neelkanth-patel26/Ocal-Screen/issues
 Releases : https://github.com/neelkanth-patel26/Ocal-Screen/releases
 
 -------------------------------------------------------------------------------
-1. HIGHLIGHTS & WHAT'S NEW IN VERSION 3.0.00 STABLE
+1. HIGHLIGHTS & WHAT'S NEW IN VERSION 3.3.0 STABLE
 -------------------------------------------------------------------------------
 
-New Features
-2 ITEMS
+New Features & Typography Studio
+4 ITEMS
 
-. Solid Color Floating Recorder HUD
-Tactile squircle bar with 100% solid opaque dark and light themes,
-Lucide stroke iconography, and instant source selection.
+. Advanced Font Studio & Local Font File Importer
+Drag and drop or browse any local font file (.ttf, .otf, .woff, .woff2)
+directly into Ocal Screen. Features real-time dynamic @font-face registration,
+persistent custom font storage, and instant visual specimen previews.
 
-. Dynamic Theme Accent Engine
-All sliders, toggles, badges, tabs, and active borders synchronize
-dynamically with your selected studio accent color.
+. 1-Click Curated Google Fonts Library
+Built-in catalog of 20+ creator-favorite Google Fonts categorized by sans,
+serif, display, monospace, and handwriting styles with instant 1-click activation.
+
+. Custom Google Font URL & Family Name Installer
+Install any font from Google Fonts by family name or stylesheet URL with
+automatic font-face loading and typography specimen validation.
+
+. Redesigned Typography Combobox & Category Filter
+Upgraded font selectors with search query filtering, typography family badges,
+and instant "Install / Import Fonts" quick access.
+
+
+Title & Annotation Improvements
+3 ITEMS
+
+. 100% WYSIWYG Preset Synchronization
+Guaranteed visual parity between gallery preview thumbnails and video canvas
+annotations. Preset fonts, capsule border radii (9999px pills), padding, text
+shadows, and backdrops now render identically across editor and export.
+
+. Dynamic Live Preview Text Bar
+Interactive preview input bar in Titles & Text Styles allows typing once to see
+all 12 preset styles preview the exact custom text with live formatting before
+inserting.
+
+. Mathematical Center-Anchored Placement
+All newly inserted title presets, subtitles, and badges are automatically
+centered precisely on the video canvas (X: 35%, Y: 40% for 30x20 boxes)
+with centered flex alignment.
 
 
 Bug Fixes & Stability
-3 ITEMS
+2 ITEMS
 
-. Auto-Zoom Engine Stability
-Resolved race condition in zoom state calculation and improved
-typing and click cluster dwell detection.
+. Preset Text Insertion Name Collision
+Resolved bug where clicking "Insert" on title presets inserted the card's
+administrative name (e.g. "Social Handle Badge") instead of the rendered
+styled text (@sampletitle • follow).
 
-. Timeline & Progress Bar Scrubbing Lag
-Eliminated 150ms CSS animation delay on progress fill and thumb,
-achieving instantaneous coordinate seeking at 60 FPS.
-
-. HUD Control Targets Enlarged
-Expanded Media Hub and Tools capsules with comfortable 32x32px
-buttons and 18px stroke icons.
+. Canvas & Exporter Badge Border Radii
+Fixed issue where capsule pills and badges defaulted to sharp 4px corners
+in playback and video export; now fully honors rounded-full and custom radii.
 
 
-UI & Aesthetics Polish
-3 ITEMS
+UI Polish & Theme Enhancements
+1 ITEM
 
-. 16px Pro Studio Radius
-Replaced oversized bubble radii with a refined 16px studio dock
-grid across the inspector, timeline, and preview deck.
-
-. Dynamic Icon-Pill Tab Rail
-Eliminated text truncation in the inspector tab bar; active tab
-smoothly expands with icon and label while inactive tabs collapse
-into icons.
-
-. Gradient Background Removal
-Removed distracting ambient gradient fills and specular sheens in
-favor of sleek, clean solid obsidian tones.
+. Theme-Adaptive Style Cards
+Eliminated pitch-black thumbnail boxes in light mode in favor of clean slate
+surfaces and high-contrast, beautiful typography cards.
 
 
 -------------------------------------------------------------------------------

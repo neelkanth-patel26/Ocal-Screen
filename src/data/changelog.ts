@@ -22,9 +22,107 @@ export interface VersionRelease {
 
 export const CHANGELOG_DATA: VersionRelease[] = [
 	{
+		version: "3.3.0",
+		date: "November 2026",
+		isCurrent: true,
+		title: "v3.3.0 — Advanced Font Studio, WYSIWYG Typography & Centered Titles",
+		tagline:
+			"Import custom font files (.ttf, .otf, .woff, .woff2), 1-click curated Google Fonts library, 100% WYSIWYG synchronized title styling, and mathematical center-anchored video annotations.",
+		categories: [
+			{
+				name: "New Features & Typography Studio",
+				icon: "sparkles",
+				badgeColor: "emerald",
+				items: [
+					{
+						type: "feature",
+						title: "Font Studio & Local Font File Importer",
+						description:
+							"Drag and drop or browse any local font file (.ttf, .otf, .woff, .woff2) directly into Ocal Screen. Features real-time dynamic @font-face registration, persistent custom font storage, and instant visual specimen previews.",
+					},
+					{
+						type: "feature",
+						title: "1-Click Curated Google Fonts Library",
+						description:
+							"Built-in catalog of 20+ creator-favorite Google Fonts categorized by sans, serif, display, monospace, and handwriting styles with instant 1-click activation.",
+					},
+					{
+						type: "feature",
+						title: "Custom Google Font URL & Name Installer",
+						description:
+							"Install any font from Google Fonts by family name or stylesheet URL with automatic font-face loading and typography specimen validation.",
+					},
+					{
+						type: "feature",
+						title: "Redesigned Typography Combobox & Category Filter",
+						description:
+							"Upgraded font selectors with search query filtering, typography family badges, and instant 'Install / Import Fonts' quick access.",
+					},
+				],
+			},
+			{
+				name: "Title & Annotation Improvements",
+				icon: "zap",
+				badgeColor: "sky",
+				items: [
+					{
+						type: "improvement",
+						title: "100% WYSIWYG Preset Synchronization",
+						description:
+							"Guaranteed visual parity between gallery preview thumbnails and video canvas annotations. Preset fonts, capsule border radii (9999px pills), padding, text shadows, and backdrops now render identically across editor and export.",
+					},
+					{
+						type: "improvement",
+						title: "Dynamic Live Preview Text Bar",
+						description:
+							"Interactive preview input bar in Titles & Text Styles allows typing once to see all 12 preset styles preview the exact custom text with live formatting before inserting.",
+					},
+					{
+						type: "improvement",
+						title: "Mathematical Center-Anchored Placement",
+						description:
+							"All newly inserted title presets, subtitles, and badges are automatically centered precisely on the video canvas (X: 35%, Y: 40% for 30x20 boxes) with centered flex alignment.",
+					},
+				],
+			},
+			{
+				name: "Bug Fixes & Stability",
+				icon: "bug",
+				badgeColor: "rose",
+				items: [
+					{
+						type: "fix",
+						title: "Preset Text Insertion Name Collision",
+						description:
+							"Resolved bug where clicking 'Insert' on title presets inserted the card's administrative name (e.g., 'Social Handle Badge') instead of the rendered styled text (@sampletitle • follow).",
+					},
+					{
+						type: "fix",
+						title: "Canvas & Exporter Badge Border Radii",
+						description:
+							"Fixed issue where capsule pills and badges defaulted to sharp 4px corners in playback and video export; now fully honors rounded-full and custom radii.",
+					},
+				],
+			},
+			{
+				name: "UI Polish & Theme Enhancements",
+				icon: "palette",
+				badgeColor: "amber",
+				items: [
+					{
+						type: "ui",
+						title: "Theme-Adaptive Style Cards",
+						description:
+							"Eliminated pitch-black thumbnail boxes in light mode in favor of clean slate surfaces and high-contrast, beautiful typography cards.",
+					},
+				],
+			},
+		],
+	},
+	{
 		version: "3.2.0",
 		date: "October 2026",
-		isCurrent: true,
+		isCurrent: false,
 		title: "v3.2.0 — Complete Video Editor Rework & Recorder Overhaul",
 		tagline:
 			"Full multi-layer composition support, magnetic non-destructive trimming engine, synthesized audio soundtrack studio, and robust stability fixes across the screen recorder.",

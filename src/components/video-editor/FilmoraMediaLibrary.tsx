@@ -68,9 +68,19 @@ export interface TitlePreset {
 	color: string;
 	bg: string;
 	fontSize?: number;
+	fontFamily?: string;
 	fontWeight?: "normal" | "bold";
+	fontStyle?: "normal" | "italic";
+	textDecoration?: "none" | "underline";
+	textAlign?: "left" | "center" | "right";
 	textAnimation?: "none" | "fade" | "rise" | "pop" | "slide-left" | "typewriter" | "pulse";
 	category?: "titles" | "subtitles" | "badges";
+	borderRadius?: string;
+	padding?: string;
+	border?: string;
+	boxShadow?: string;
+	textShadow?: string;
+	letterSpacing?: string;
 }
 
 export interface EffectPreset {

@@ -27,13 +27,13 @@ describe("Changelog Data Integrity", () => {
 		}
 	});
 
-	it("contains current latest version 3.2.0 with new features and stability fixes", () => {
+	it("contains current latest version 3.3.0 with new features and stability fixes", () => {
 		const latest = CHANGELOG_DATA[0];
-		expect(latest.version.replace(/^v/i, "")).toBe("3.2.0");
+		expect(latest.version.replace(/^v/i, "")).toBe("3.3.0");
 		expect(latest.isCurrent).toBe(true);
 
 		const categoryNames = latest.categories.map((c) => c.name.toLowerCase());
-		expect(categoryNames.some((n) => n.includes("feature") || n.includes("editor"))).toBe(true);
+		expect(categoryNames.some((n) => n.includes("feature") || n.includes("typography"))).toBe(true);
 		expect(categoryNames.some((n) => n.includes("fix") || n.includes("stability"))).toBe(true);
 	});
 

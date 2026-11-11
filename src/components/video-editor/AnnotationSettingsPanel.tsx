@@ -14,7 +14,7 @@ import {
 	Underline,
 	Upload,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -30,12 +30,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useScopedT } from "@/contexts/I18nContext";
 import { normalizeTextAnimation, TEXT_ANIMATION_OPTIONS } from "@/lib/annotationTextAnimation";
-import { type CustomFont, getCustomFonts } from "@/lib/customFonts";
 import { ACCENT_COLOR_MAP, loadUserPreferences } from "@/lib/userPreferences";
 import { cn } from "@/lib/utils";
 import ColorPicker from "../ui/color-picker";
 import { AddCustomFontDialog } from "./AddCustomFontDialog";
 import { getArrowComponent } from "./ArrowSvgs";
+import { FontSelector } from "./FontSelector";
 import {
 	type AnnotationRegion,
 	type AnnotationType,
@@ -55,36 +55,6 @@ interface AnnotationSettingsPanelProps {
 	activeAccent?: { hex: string; textHex: string };
 }
 
-const FONT_FAMILIES: Array<
-	| { value: string; labelKey: string; name?: never }
-	| { value: string; labelKey?: never; name: string }
-> = [
-	{ value: "Inter", name: "Inter" },
-	{ value: "system-ui, -apple-system, sans-serif", labelKey: "classic" },
-	{ value: "Georgia, serif", labelKey: "editor" },
-	{ value: "Impact, Arial Black, sans-serif", labelKey: "strong" },
-	{ value: "Courier New, monospace", labelKey: "typewriter" },
-	{ value: "Brush Script MT, cursive", labelKey: "deco" },
-	{ value: "Arial, sans-serif", labelKey: "simple" },
-	{ value: "Verdana, sans-serif", labelKey: "modern" },
-	{ value: "Trebuchet MS, sans-serif", labelKey: "clean" },
-	{ value: '"Plus Jakarta Sans", sans-serif', name: "Plus Jakarta Sans" },
-	{ value: '"Space Grotesk", sans-serif', name: "Space Grotesk" },
-	{ value: '"DM Sans", sans-serif', name: "DM Sans" },
-	{ value: "Sora, sans-serif", name: "Sora" },
-	{ value: "Manrope, sans-serif", name: "Manrope" },
-	{ value: '"IBM Plex Sans", sans-serif', name: "IBM Plex Sans" },
-	{ value: '"Playfair Display", Georgia, serif', name: "Playfair Display" },
-	{ value: "Merriweather, Georgia, serif", name: "Merriweather" },
-	{ value: "Lora, Georgia, serif", name: "Lora" },
-	{ value: '"IBM Plex Mono", monospace', name: "IBM Plex Mono" },
-	{ value: '"Fira Code", monospace', name: "Fira Code" },
-	{ value: '"Bebas Neue", sans-serif', name: "Bebas Neue" },
-	{ value: "Oswald, sans-serif", name: "Oswald" },
-	{ value: "Caveat, cursive", name: "Caveat" },
-	{ value: '"Permanent Marker", cursive', name: "Permanent Marker" },
-];
-
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 80, 96, 128];
 
 export function AnnotationSettingsPanel({
@@ -100,23 +70,6 @@ export function AnnotationSettingsPanel({
 }: AnnotationSettingsPanelProps) {
 	const t = useScopedT("settings");
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
-	const fontStyleLabels: Record<string, string> = {
-		classic: t("fontStyles.classic"),
-		editor: t("fontStyles.editor"),
-		strong: t("fontStyles.strong"),
-		typewriter: t("fontStyles.typewriter"),
-		deco: t("fontStyles.deco"),
-		simple: t("fontStyles.simple"),
-		modern: t("fontStyles.modern"),
-		clean: t("fontStyles.clean"),
-	};
-	const getFontLabel = (font: (typeof FONT_FAMILIES)[number]) =>
-		font.labelKey ? fontStyleLabels[font.labelKey] : font.name;
-
-	useEffect(() => {
-		setCustomFonts(getCustomFonts());
-	}, []);
 
 	const colorPalette = [
 		"#FF0000", // Red
@@ -315,55 +268,11 @@ export function AnnotationSettingsPanel({
 									>
 										{t("annotation.fontStyle")}
 									</label>
-									<Select
+									<FontSelector
 										value={annotation.style.fontFamily}
 										onValueChange={(value) => onStyleChange({ fontFamily: value })}
-									>
-										<SelectTrigger
-											className={cn(
-												"w-full h-9 text-xs rounded-xl border transition-all cursor-pointer font-medium",
-												isLight
-													? "bg-white border-slate-200 text-slate-800 hover:border-slate-300 shadow-2xs"
-													: "bg-white/[0.04] border-white/10 text-slate-200 hover:bg-white/[0.08]",
-											)}
-										>
-											<SelectValue placeholder={t("annotation.selectStyle")} />
-										</SelectTrigger>
-										<SelectContent
-											className={cn(
-												"border max-h-[300px] rounded-xl shadow-xl",
-												isLight
-													? "bg-white border-slate-200 text-slate-800"
-													: "bg-[#141824] border-white/10 text-slate-200",
-											)}
-										>
-											{FONT_FAMILIES.map((font) => (
-												<SelectItem
-													key={font.value}
-													value={font.value}
-													style={{ fontFamily: font.value }}
-												>
-													{getFontLabel(font)}
-												</SelectItem>
-											))}
-											{customFonts.length > 0 && (
-												<>
-													<div className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-														{t("annotation.customFonts")}
-													</div>
-													{customFonts.map((font) => (
-														<SelectItem
-															key={font.id}
-															value={font.fontFamily}
-															style={{ fontFamily: font.fontFamily }}
-														>
-															{font.name}
-														</SelectItem>
-													))}
-												</>
-											)}
-										</SelectContent>
-									</Select>
+										isLight={isLight}
+									/>
 								</div>
 								<div>
 									<div className="flex items-center justify-between mb-1.5">
@@ -452,7 +361,6 @@ export function AnnotationSettingsPanel({
 								<AddCustomFontDialog
 									isLight={isLight}
 									onFontAdded={(font) => {
-										setCustomFonts(getCustomFonts());
 										onStyleChange({ fontFamily: font.fontFamily });
 									}}
 								/>

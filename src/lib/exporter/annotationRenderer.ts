@@ -347,9 +347,10 @@ function renderText(
 
 		if (style.backgroundColor && style.backgroundColor !== "transparent") {
 			const metrics = ctx.measureText(visibleLine);
-			const verticalPadding = scaledFontSize * 0.1;
-			const horizontalPadding = scaledFontSize * 0.2;
-			const borderRadius = 4 * scaleFactor;
+			const verticalPadding = scaledFontSize * 0.15;
+			const horizontalPadding = scaledFontSize * 0.35;
+			const parsedRadius = style.borderRadius ? parseInt(style.borderRadius, 10) : 4;
+			const borderRadius = (Number.isFinite(parsedRadius) ? parsedRadius : 4) * scaleFactor;
 
 			let bgX = startX - horizontalPadding;
 			const bgWidth = metrics.width + horizontalPadding * 2;
@@ -366,10 +367,36 @@ function renderText(
 			ctx.beginPath();
 			ctx.roundRect(bgX, bgY, bgWidth, bgHeight, borderRadius);
 			ctx.fill();
+
+			if (style.border) {
+				const borderColorMatch = style.border.match(/rgba?\([^)]+\)|#[0-9a-fA-F]+/);
+				if (borderColorMatch) {
+					ctx.strokeStyle = borderColorMatch[0];
+					ctx.lineWidth = Math.max(1, 1 * scaleFactor);
+					ctx.stroke();
+				}
+			}
+		}
+
+		if (style.textShadow) {
+			const shadowColorMatch = style.textShadow.match(/rgba?\([^)]+\)|#[0-9a-fA-F]+/);
+			if (shadowColorMatch) {
+				ctx.shadowColor = shadowColorMatch[0];
+				ctx.shadowBlur = 8 * scaleFactor;
+				ctx.shadowOffsetX = 0;
+				ctx.shadowOffsetY = 2 * scaleFactor;
+			}
 		}
 
 		ctx.fillStyle = style.color;
 		ctx.fillText(visibleLine, startX, currentY);
+
+		if (style.textShadow) {
+			ctx.shadowColor = "transparent";
+			ctx.shadowBlur = 0;
+			ctx.shadowOffsetX = 0;
+			ctx.shadowOffsetY = 0;
+		}
 
 		if (style.textDecoration === "underline") {
 			const metrics = ctx.measureText(visibleLine);

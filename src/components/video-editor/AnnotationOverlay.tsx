@@ -294,7 +294,7 @@ export function AnnotationOverlay({
 						: undefined;
 				return (
 					<div
-						className="w-full h-full flex items-center p-2 overflow-hidden"
+						className="w-full h-full flex items-center justify-center p-2 overflow-hidden"
 						style={{
 							justifyContent:
 								annotation.style.textAlign === "left"
@@ -307,6 +307,9 @@ export function AnnotationOverlay({
 					>
 						<span
 							style={{
+								display: "inline-flex",
+								alignItems: "center",
+								justifyContent: "center",
 								color: annotation.style.color,
 								backgroundColor: annotation.style.backgroundColor,
 								fontSize: `${annotation.style.fontSize}px`,
@@ -314,7 +317,21 @@ export function AnnotationOverlay({
 								fontWeight: annotation.style.fontWeight,
 								fontStyle: annotation.style.fontStyle,
 								textDecoration: annotation.style.textDecoration,
-								textAlign: annotation.style.textAlign,
+								textAlign: annotation.style.textAlign || "center",
+								letterSpacing: annotation.style.letterSpacing,
+								border: annotation.style.border,
+								boxShadow:
+									annotation.style.boxShadow ||
+									(annotation.annotationSource === "auto-caption" &&
+									annotation.style.backgroundColor &&
+									annotation.style.backgroundColor !== "transparent"
+										? "0 6px 20px rgba(0,0,0,0.45)"
+										: undefined),
+								textShadow:
+									annotation.style.textShadow ||
+									(annotation.annotationSource === "auto-caption"
+										? "0 2px 10px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.85)"
+										: undefined),
 								opacity: animationState.opacity,
 								transform: `translate(${animationState.translateX}px, ${animationState.translateY}px) scale(${animationState.scale})`,
 								transformOrigin: "center",
@@ -325,27 +342,38 @@ export function AnnotationOverlay({
 								boxDecorationBreak: "clone",
 								WebkitBoxDecorationBreak: "clone",
 								padding:
-									annotation.annotationSource === "auto-caption" ? "0.3em 0.85em" : "0.1em 0.2em",
-								borderRadius: annotation.annotationSource === "auto-caption" ? "9999px" : "4px",
+									annotation.style.padding ||
+									(annotation.annotationSource === "auto-caption"
+										? "0.3em 0.85em"
+										: annotation.style.backgroundColor &&
+												annotation.style.backgroundColor !== "transparent"
+											? "0.2em 0.6em"
+											: "0.1em 0.2em"),
+								borderRadius:
+									annotation.style.borderRadius ||
+									(annotation.annotationSource === "auto-caption"
+										? "9999px"
+										: annotation.style.backgroundColor &&
+												annotation.style.backgroundColor !== "transparent"
+											? "6px"
+											: "4px"),
 								lineHeight: "1.4",
 								WebkitTextStroke:
 									annotation.annotationSource === "auto-caption"
 										? "1.2px rgba(0,0,0,0.9)"
 										: undefined,
-								textShadow:
-									annotation.annotationSource === "auto-caption"
-										? "0 2px 10px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.85)"
-										: undefined,
-								boxShadow:
-									annotation.annotationSource === "auto-caption" &&
-									annotation.style.backgroundColor &&
-									annotation.style.backgroundColor !== "transparent"
-										? "0 6px 20px rgba(0,0,0,0.45)"
-										: undefined,
 								backdropFilter:
-									annotation.annotationSource === "auto-caption" ? "blur(8px)" : undefined,
+									annotation.annotationSource === "auto-caption" ||
+									(annotation.style.backgroundColor &&
+										annotation.style.backgroundColor.includes("rgba"))
+										? "blur(8px)"
+										: undefined,
 								WebkitBackdropFilter:
-									annotation.annotationSource === "auto-caption" ? "blur(8px)" : undefined,
+									annotation.annotationSource === "auto-caption" ||
+									(annotation.style.backgroundColor &&
+										annotation.style.backgroundColor.includes("rgba"))
+										? "blur(8px)"
+										: undefined,
 							}}
 						>
 							{annotation.content}

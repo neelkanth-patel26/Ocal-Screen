@@ -1465,21 +1465,36 @@ export default function VideoEditor() {
 			const spanEnd = Math.min(Math.round(duration * 1000), curMs + 3000);
 			const id = `annotation-${nextAnnotationIdRef.current++}`;
 			const zIndex = nextAnnotationZIndexRef.current++;
+			const contentToUse = preset?.text || text;
+			const width = DEFAULT_ANNOTATION_SIZE.width;
+			const height = DEFAULT_ANNOTATION_SIZE.height;
+			const posX = Math.round((100 - width) / 2);
+			const posY = Math.round((100 - height) / 2);
 			const newRegion: AnnotationRegion = {
 				id,
 				startMs: curMs,
 				endMs: spanEnd > curMs ? spanEnd : curMs + 3000,
 				type: "text",
-				content: text,
-				position: { ...DEFAULT_ANNOTATION_POSITION },
+				content: contentToUse,
+				position: { x: posX, y: posY },
 				size: { ...DEFAULT_ANNOTATION_SIZE },
 				style: {
 					...DEFAULT_ANNOTATION_STYLE,
 					...(preset?.color ? { color: preset.color } : {}),
 					...(preset?.bg ? { backgroundColor: preset.bg } : {}),
 					...(preset?.fontSize ? { fontSize: preset.fontSize } : {}),
+					...(preset?.fontFamily ? { fontFamily: preset.fontFamily } : {}),
 					...(preset?.fontWeight ? { fontWeight: preset.fontWeight } : {}),
+					...(preset?.fontStyle ? { fontStyle: preset.fontStyle } : {}),
+					...(preset?.textDecoration ? { textDecoration: preset.textDecoration } : {}),
+					...(preset?.textAlign ? { textAlign: preset.textAlign } : {}),
 					...(preset?.textAnimation ? { textAnimation: preset.textAnimation } : {}),
+					...(preset?.borderRadius ? { borderRadius: preset.borderRadius } : {}),
+					...(preset?.padding ? { padding: preset.padding } : {}),
+					...(preset?.border ? { border: preset.border } : {}),
+					...(preset?.boxShadow ? { boxShadow: preset.boxShadow } : {}),
+					...(preset?.textShadow ? { textShadow: preset.textShadow } : {}),
+					...(preset?.letterSpacing ? { letterSpacing: preset.letterSpacing } : {}),
 				},
 				zIndex,
 			};
@@ -1488,7 +1503,7 @@ export default function VideoEditor() {
 			}));
 			setSelectedAnnotationId(id);
 			setSelectedAudioId(null);
-			toast.success(`Added title: "${text}"`);
+			toast.success(`Added title: "${contentToUse}"`);
 		},
 		[currentTime, duration, pushState],
 	);
@@ -2926,6 +2941,8 @@ export default function VideoEditor() {
 			cursorSpotlight,
 			cursorSpotlightRadius,
 			clickRipple,
+			audioSettings,
+			backgroundAudioUrl,
 			t,
 		],
 	);
@@ -4062,7 +4079,10 @@ export default function VideoEditor() {
 												onDeleteAsset={handleDeleteProjectAsset}
 												onSelectAudioPreset={handleSelectAudioPreset}
 												onSelectTitlePreset={(titlePreset: TitlePreset) => {
-													handleAddAnnotationWithText(titlePreset.title, titlePreset);
+													handleAddAnnotationWithText(
+														titlePreset.text || titlePreset.title,
+														titlePreset,
+													);
 												}}
 												onSelectEffectPreset={(effectPreset: EffectPreset) => {
 													if (effectPreset.id === "blur") {
@@ -4581,7 +4601,10 @@ export default function VideoEditor() {
 												onDeleteAsset={handleDeleteProjectAsset}
 												onSelectAudioPreset={handleSelectAudioPreset}
 												onSelectTitlePreset={(titlePreset: TitlePreset) => {
-													handleAddAnnotationWithText(titlePreset.title, titlePreset);
+													handleAddAnnotationWithText(
+														titlePreset.text || titlePreset.title,
+														titlePreset,
+													);
 												}}
 												onSelectEffectPreset={(effectPreset: EffectPreset) => {
 													if (effectPreset.id === "blur") {
